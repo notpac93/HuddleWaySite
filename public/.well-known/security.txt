@@ -1,0 +1,6 @@
+Contact: mailto:support@huddleway.com
+Canonical: https://huddleway.com/.well-known/security.txt
+Policy: https://huddleway.com/privacy.html
+Hiring: https://huddleway.com/support.html
+Preferred-Languages: en
+Expires: 2027-05-20T00:00:00.000Z

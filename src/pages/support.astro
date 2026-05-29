@@ -1,0 +1,51 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const title = 'HuddleWay Support';
+const description = 'Support information for HuddleWay.';
+---
+
+<BaseLayout title={title} description={description} pageName="support">
+  <section class="legal-page">
+    <div class="legal-page__inner">
+      <p class="legal-page__eyebrow">Support</p>
+      <h1>HuddleWay Support</h1>
+      <p class="legal-page__updated">Last updated: May 20, 2026</p>
+      <p class="legal-page__lede">
+        For support, privacy questions, account issues, or App Review follow-up,
+        use the contact details below.
+      </p>
+
+      <div class="legal-card">
+        <h2>General Support</h2>
+        <p>
+          Email:
+          <a href="mailto:support@huddleway.com">support@huddleway.com</a>
+        </p>
+
+        <h2>Privacy And Deletion Requests</h2>
+        <p>
+          Send privacy and deletion questions to:
+          <a href="mailto:support@huddleway.com">support@huddleway.com</a>
+        </p>
+
+        <h2>Program-Specific Issues</h2>
+        <p>
+          If your question is about a specific sports program, event,
+          registration, or refund decision, contact that program operator first.
+          HuddleWay platform support may still help route the request when
+          needed.
+        </p>
+
+        <h2>Response Scope</h2>
+        <ul>
+          <li>Account-access issues</li>
+          <li>Platform support questions</li>
+          <li>Privacy-policy questions</li>
+          <li>Deletion-request follow-up</li>
+          <li>App Review support contact needs</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

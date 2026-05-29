@@ -111,11 +111,11 @@ const mockupAsset = (fileName: string, alt: string, fit: 'contain' | 'cover' = '
 
 export const siteMeta = {
   name: 'HuddleWay',
-  title: 'HuddleWay | Branded Family App for Sports Programs',
+  title: 'HuddleWay | A Clearer Digital Home for Sports Programs',
   description:
-    'HuddleWay gives sports programs a branded family app for schedules, registration, payments, and updates, plus built-in tools to manage pages, events, and program details.',
+    'HuddleWay helps sports programs organize schedules, registration, payments, and updates in one clearer digital home for families and operators.',
   footerBlurb:
-    'A real app your program can make its own, with built-in tools that help your team save time and keep families on one clear path.',
+    'A clearer digital home for your program, with one place to present key information and keep families on a more consistent path.',
   previewNoticeLabel: 'Product preview',
   previewNotice:
     'HuddleWay is still under development. App screens and mockups shown throughout this site reflect current builds and are subject to change.',
@@ -126,6 +126,12 @@ export const navigation: Link[] = [
   { label: 'Features', href: withBase('/features') },
   { label: 'Savings', href: withBase('/savings') },
   { label: 'Setup FAQ', href: withBase('/setup-faq') },
+];
+
+export const trustLinks: Link[] = [
+  { label: 'Support', href: withBase('/support') },
+  { label: 'Privacy', href: withBase('/privacy') },
+  { label: 'Terms', href: withBase('/terms') },
 ];
 
 export const primaryCta: CallToAction = {
@@ -152,17 +158,17 @@ export const homePage = {
   pageName: 'home',
   title: siteMeta.title,
   description:
-    'Branded family app for sports programs with schedules, signup, payments, updates, and built-in tools to manage the day-to-day work.',
+    'A clearer digital home for sports programs handling schedules, registration, payments, and updates in one place.',
   hero: {
-    eyebrow: 'Branded App For Sports Programs',
-    title: 'Your program. Your app.',
-    body: 'Schedules, signup, payments, and updates in one place.',
+    eyebrow: 'For Sports Program Operators',
+    title: 'Run your program with a clearer digital home.',
+    body: 'HuddleWay helps sports programs organize schedules, registration, payments, and updates in one place so families are not sent across multiple tools.',
   },
-  heroPill: 'Launch a branded family app',
+  heroPill: 'One place for the work your program already manages',
   quickChecks: [
-    'Your logo',
-    'One app',
-    'Clear updates',
+    'Schedules and updates together',
+    'A simpler family path',
+    'A stronger program presence',
   ],
   heroVisuals: [
     {
@@ -181,44 +187,44 @@ export const homePage = {
     },
   ] satisfies PreviewMockup[],
   results: {
-    title: 'What your program gets',
-    body: 'Less admin. Clearer steps. A stronger brand.',
+    title: 'One place for the work your program already manages',
+    body: 'HuddleWay helps operators present key program information more clearly and keep day-to-day coordination easier to follow.',
     cards: [
       {
-        value: 'One place',
-        title: 'Schedules and updates',
-        body: 'Families know where to look.',
+        value: 'Clearer operations',
+        title: 'A more consistent program workflow',
+        body: 'Bring the essential parts of program administration into a clearer experience for staff and families.',
         tone: 'brand',
       },
       {
-        value: 'Less chasing',
-        title: 'Registration and payments',
-        body: 'Fewer repeat questions.',
+        value: 'Simpler for families',
+        title: 'One clearer place to look',
+        body: 'Give families one place to check the information they need instead of piecing it together across separate channels.',
         tone: 'field',
       },
       {
-        value: 'Your brand',
-        title: 'Front and center',
-        body: 'Logo, colors, and name stay visible.',
+        value: 'Stronger presence',
+        title: 'A more polished program experience',
+        body: 'Present your program in a way that feels intentional from first visit to ongoing use.',
         tone: 'accent',
       },
     ] satisfies ResultCard[],
   },
   steps: {
-    title: 'From setup to live in 3 steps',
-    body: 'Upload your brand, add your program, invite families.',
+    title: 'A straightforward path from setup to launch',
+    body: 'HuddleWay is designed to move program operators from configuration to day-to-day use with a simpler rollout path.',
     items: [
       {
-        title: 'Set up your program',
-        body: 'Add your logo, details, and dates.',
+        title: 'Set up your program details',
+        body: 'Start with the core information your program needs families to see and follow.',
       },
       {
-        title: 'Invite families',
-        body: 'Share one app and one clear next step.',
+        title: 'Organize the experience',
+        body: 'Structure schedules, registration, payments, and updates so the program is easier to manage.',
       },
       {
-        title: 'Run the season',
-        body: 'Post schedules and updates.',
+        title: 'Share with families',
+        body: 'Roll out one program-facing experience that gives families a clearer place to stay informed.',
       },
     ] satisfies Step[],
   },
@@ -230,23 +236,23 @@ export const homePage = {
     asset: mockupAsset('Registration Page.png', 'Hand-held registration form screen inside the HuddleWay app.'),
   } satisfies PreviewMockup,
   showcase: {
-    title: 'See the app your families will actually use',
-    body: 'Families open your program app to check schedules, updates, and registration in one place.',
+    title: 'Built for programs that want a more organized family experience',
+    body: 'HuddleWay helps programs present information more clearly, reduce friction for families, and make routine admin work easier to maintain over time.',
     bullets: [
       {
-        title: 'Your logo and colors',
-        body: 'The experience looks like yours from the first tap.',
+        title: 'A clearer place to check schedules and program details',
+        body: 'Families have one stable place to return to for the information they need most.',
       },
       {
-        title: 'Families stay in your experience',
-        body: 'Your brand, your details, and the next step stay together from start to finish.',
+        title: 'A more consistent path for registration and payments',
+        body: 'The next step stays closer to the surrounding program context.',
       },
       {
-        title: 'Built-in tools do more of the work',
-        body: 'Your team keeps pages, events, and updates current in one place.',
+        title: 'A simpler way to stay aligned with updates',
+        body: 'Program changes are easier for families to follow when the experience is organized in one place.',
       },
     ] satisfies Card[],
-    note: 'A real app for families. Easier to run for your team.',
+    note: 'A clearer experience for families and a cleaner operating model for your team.',
     mockup: {
       label: 'Branded club app',
       theme: 'dark',
@@ -257,8 +263,8 @@ export const homePage = {
   },
   cta: {
     eyebrow: 'Start Setup',
-    title: 'Give your program a real app',
-    body: 'Make it your own, give families one place to go, and keep the day-to-day work easier for your team.',
+    title: 'Bring more clarity to how your program runs',
+    body: 'If your team is managing key program tasks across too many places today, HuddleWay gives you a cleaner starting point for bringing them together.',
   },
 };
 

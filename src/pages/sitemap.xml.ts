@@ -1,4 +1,4 @@
-const pages = ['/', '/features', '/savings', '/setup-faq'];
+const pages = ['/', '/features', '/savings', '/setup-faq', '/support', '/privacy', '/terms'];
 
 export const GET = ({ site }: { site?: URL }) => {
   const siteUrl = site ?? new URL('https://huddleway.com');

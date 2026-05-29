@@ -1,0 +1,125 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const title = 'HuddleWay Privacy Policy';
+const description =
+  'Privacy Policy for HuddleWay Hub and HuddleWay Admin.';
+---
+
+<BaseLayout title={title} description={description} pageName="privacy-policy">
+  <section class="legal-page">
+    <div class="legal-page__inner">
+      <p class="legal-page__eyebrow">Legal</p>
+      <h1>Privacy Policy</h1>
+      <p class="legal-page__updated">Last updated: May 20, 2026</p>
+      <p class="legal-page__lede">
+        This Privacy Policy applies to HuddleWay Hub, HuddleWay Admin, and the
+        related web links and backend services used to operate them.
+      </p>
+
+      <div class="legal-card">
+        <h2>What HuddleWay Is</h2>
+        <p>
+          HuddleWay provides tools for sports programs and similar organizations
+          to manage schedules, registration, payments, messaging, documents,
+          branding, and family-facing updates. HuddleWay Hub is the family and
+          participant-facing app. HuddleWay Admin is the operator-facing app.
+        </p>
+
+        <h2>Information We May Collect</h2>
+        <ul>
+          <li>Account information such as email address, account id, role, and tenant membership.</li>
+          <li>Participant and family information such as names, phone numbers, addresses, ages, grades, emergency contacts, and form responses.</li>
+          <li>Registration and payment records such as event selection, payment status, checkout metadata, and refund context.</li>
+          <li>User content such as messages, uploads, documents, logos, photos, event images, and other files shared through the service.</li>
+          <li>Device and app information such as push tokens, device platform, and app version.</li>
+          <li>Diagnostics and service logs such as crash diagnostics, security logs, rate-limit records, request ids, and server log data that can include IP-address level information.</li>
+          <li>Setup and link context such as QR join, invite, registration, and route handoff parameters.</li>
+          <li>Optional AI-import source text and extracted setup fields when an operator chooses to use onboarding AI import.</li>
+        </ul>
+
+        <h2>How We Use Information</h2>
+        <ul>
+          <li>To create and secure accounts.</li>
+          <li>To provide registration, scheduling, messaging, documents, and program-management workflows.</li>
+          <li>To process eligible payments for real-world or off-app services.</li>
+          <li>To send product messages, emails, and push notifications.</li>
+          <li>To troubleshoot issues, protect the service, and investigate abuse or fraud.</li>
+          <li>To support optional AI-assisted onboarding import when an operator requests it.</li>
+        </ul>
+
+        <h2>Tracking, Ads, And Sale Of Data</h2>
+        <ul>
+          <li>HuddleWay does not sell personal data.</li>
+          <li>HuddleWay does not show ads in the iOS apps.</li>
+          <li>HuddleWay does not use cross-app or cross-site tracking for this release.</li>
+          <li>HuddleWay does not use App Tracking Transparency for this release.</li>
+        </ul>
+
+        <h2>Who We Share Information With</h2>
+        <p>We may share information with service providers needed to operate HuddleWay, including:</p>
+        <ul>
+          <li>Firebase and Google Cloud for authentication, database, storage, messaging, and related infrastructure.</li>
+          <li>Stripe for eligible payment processing.</li>
+          <li>Email-delivery providers used for communications and account workflows.</li>
+          <li>OpenAI or Google AI only when an operator explicitly uses onboarding AI import.</li>
+          <li>Authorities or professional advisers when needed to enforce rights, respond to abuse, or comply with law.</li>
+        </ul>
+
+        <h2>Payments</h2>
+        <p>
+          If a tenant enables payments, HuddleWay stores payment and checkout
+          state needed for the workflow. Payment card handling is performed by
+          Stripe rather than stored directly in the app code. In iOS App Store
+          contexts, Stripe is intended only for real-world or off-app services.
+        </p>
+
+        <h2>Messages, Uploads, And Content</h2>
+        <p>
+          Operators and users may publish messages, upload documents, share
+          photos, submit registrations, and exchange other content through the
+          service. Operators are responsible for making sure they have the right
+          to upload or distribute the content they publish.
+        </p>
+
+        <h2>Diagnostics And Notifications</h2>
+        <p>
+          HuddleWay may store device tokens to send notifications if
+          notifications are enabled. HuddleWay may also process crash and
+          diagnostic information if crash reporting is enabled for a release.
+        </p>
+
+        <h2>Retention</h2>
+        <p>
+          HuddleWay keeps data for as long as needed to operate the service,
+          complete requested workflows, investigate abuse, satisfy accounting or
+          legal obligations, and support tenant operations. Some links and
+          temporary access records expire automatically. Other records may remain
+          until deleted by the tenant, processed through an approved deletion
+          workflow, or retained for safety, dispute, or legal reasons.
+        </p>
+
+        <h2>Account Deletion</h2>
+        <p>
+          Consumers may request account deletion from the Hub account screen.
+          Deletion requests may require manual fulfillment. Some records may be
+          retained where required for security, fraud prevention, payment,
+          dispute, or legal reasons.
+        </p>
+
+        <h2>Children And Youth Data</h2>
+        <p>
+          HuddleWay is not presented as a Kids Category app. Some tenants may
+          use it to manage youth participants, which can include participant and
+          guardian data entered for program operations.
+        </p>
+
+        <h2>Contact</h2>
+        <p>
+          For privacy questions, support issues, or deletion follow-up, contact:
+          <a href="mailto:support@huddleway.com">support@huddleway.com</a>
+        </p>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

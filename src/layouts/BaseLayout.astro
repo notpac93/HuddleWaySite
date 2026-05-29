@@ -1,6 +1,7 @@
 ---
+import { createHash } from 'node:crypto';
 import '../styles/global.css';
-import { navigation, primaryCta, siteMeta } from '../data/site';
+import { navigation, primaryCta, siteMeta, trustLinks } from '../data/site';
 
 interface Props {
   title: string;
@@ -59,6 +60,39 @@ const schemaItems: Record<string, unknown>[] = [
 if (structuredData) {
   schemaItems.push(...(Array.isArray(structuredData) ? structuredData : [structuredData]));
 }
+
+const escapeJsonLd = (value: string) =>
+  value
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+
+const schemaScripts = schemaItems.map((item) => {
+  const json = escapeJsonLd(JSON.stringify(item));
+  const hash = createHash('sha256').update(json).digest('base64');
+
+  return {
+    json,
+    hash: `'sha256-${hash}'`,
+  };
+});
+
+const cspDirectives = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "img-src 'self' data:",
+  "font-src 'self'",
+  "style-src 'self'",
+  `script-src 'self' ${schemaScripts.map((item) => item.hash).join(' ')}`,
+  "connect-src 'self'",
+  "frame-src 'none'",
+  "object-src 'none'",
+  "worker-src 'none'",
+  'upgrade-insecure-requests',
+].join('; ');
 ---
 
 <!doctype html>
@@ -66,6 +100,8 @@ if (structuredData) {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content={cspDirectives} />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="icon" href="/favicon.png" sizes="any" type="image/png" />
@@ -81,8 +117,8 @@ if (structuredData) {
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
-    {schemaItems.map((item) => (
-      <script is:inline type="application/ld+json" set:html={JSON.stringify(item)} />
+    {schemaScripts.map((item) => (
+      <script is:inline type="application/ld+json" set:html={item.json} />
     ))}
   </head>
   <body class={`page page--${pageName}`}>
@@ -142,8 +178,17 @@ if (structuredData) {
           </div>
 
           <div>
+            <h2 class="site-footer__heading">Support & Legal</h2>
+            <ul class="site-footer__list">
+              {trustLinks.map((item) => (
+                <li><a href={item.href}>{item.label}</a></li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
             <h2 class="site-footer__heading">Get Started</h2>
-            <p class="site-footer__note">Start with setup, then see how HuddleWay gives families one clear app and admins one simple system.</p>
+            <p class="site-footer__note">Start with setup, then see how HuddleWay gives families one clear app and your team fewer tools to manage.</p>
             <a class="button button--primary button--full" href={primaryCta.href}>{primaryCta.label}</a>
           </div>
         </div>

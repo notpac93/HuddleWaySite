@@ -220,6 +220,71 @@ h3 {
   background: rgba(17, 103, 242, 0.09);
 }
 
+.legal-page {
+  width: var(--content);
+  margin: 0 auto;
+  padding: 4.5rem 0 6rem;
+}
+
+.legal-page__inner {
+  max-width: 54rem;
+}
+
+.legal-page__eyebrow {
+  margin: 0 0 0.85rem;
+  color: var(--brand-deep);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.legal-page__updated {
+  margin: 1rem 0 0;
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+}
+
+.legal-page__lede {
+  margin: 1.2rem 0 0;
+  max-width: 42rem;
+  font-size: 1.08rem;
+}
+
+.legal-card {
+  margin-top: 2rem;
+  padding: 2rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-wash);
+  box-shadow: var(--shadow-card);
+}
+
+.legal-card h2 {
+  margin-top: 2rem;
+  font-size: clamp(1.4rem, 2.2vw, 2rem);
+}
+
+.legal-card h2:first-child {
+  margin-top: 0;
+}
+
+.legal-card p,
+.legal-card li {
+  font-size: 1rem;
+}
+
+.legal-card ul {
+  margin: 0.8rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.legal-card a {
+  color: var(--brand-deep);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
 .button {
   display: inline-flex;
   align-items: center;
