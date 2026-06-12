@@ -1,0 +1,23 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "6NU438S533.com.sportsweb.sportswebApp",
+        "paths": [
+          "/join",
+          "/register",
+          "/messages/verify",
+          "/account/activate"
+        ]
+      },
+      {
+        "appID": "6NU438S533.com.sportsweb.sportswebAdmin",
+        "paths": [
+          "/admin/login",
+          "/invite/*"
+        ]
+      }
+    ]
+  }
+}
