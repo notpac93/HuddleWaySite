@@ -17,35 +17,92 @@ const description = 'Support information for HuddleWay.';
       </p>
 
       <div class="legal-card">
-        <h2>General Support</h2>
-        <p>
-          Email:
-          <a href="mailto:support@huddleway.com">support@huddleway.com</a>
-        </p>
-
-        <h2>Privacy And Deletion Requests</h2>
-        <p>
-          Send privacy and deletion questions to:
-          <a href="mailto:support@huddleway.com">support@huddleway.com</a>
-        </p>
-
-        <h2>Program-Specific Issues</h2>
-        <p>
+        <h2>Submit a Support Request</h2>
+        <p style="margin-bottom: 1.5rem;">
           If your question is about a specific sports program, event,
           registration, or refund decision, contact that program operator first.
-          HuddleWay platform support may still help route the request when
-          needed.
+          For platform support, account issues, privacy questions, or App Review follow-up, fill out the form below.
         </p>
 
-        <h2>Response Scope</h2>
-        <ul>
-          <li>Account-access issues</li>
-          <li>Platform support questions</li>
-          <li>Privacy-policy questions</li>
-          <li>Deletion-request follow-up</li>
-          <li>App Review support contact needs</li>
-        </ul>
+        <!-- REPLACE 'YOUR_FORM_ID' WITH YOUR ACTUAL FORMSPREE ID -->
+        <form action="https://formspree.io/f/YOUR_FORM_ID" method="POST" class="support-form">
+          <div class="form-group">
+            <label for="name">Name</label>
+            <input type="text" id="name" name="name" required placeholder="Your Name" />
+          </div>
+
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required placeholder="your.email@example.com" />
+          </div>
+
+          <div class="form-group">
+            <label for="issue_type">Issue Type</label>
+            <select id="issue_type" name="issue_type" required>
+              <option value="">Select an issue type...</option>
+              <option value="Account Access">Account-access issues</option>
+              <option value="Platform Support">Platform support questions</option>
+              <option value="Privacy / Deletion">Privacy-policy or Deletion-request</option>
+              <option value="App Review">App Review support</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="message">Message</label>
+            <textarea id="message" name="message" rows="5" required placeholder="Describe your issue in detail..."></textarea>
+          </div>
+
+          <button type="submit" class="submit-btn">Submit Request</button>
+        </form>
       </div>
+
+      <style>
+        .support-form {
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+          margin-top: 1rem;
+        }
+        .form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+        .form-group label {
+          font-weight: 600;
+          font-size: 0.95rem;
+          color: #1f3b63;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+          padding: 0.75rem;
+          border: 1px solid #d9dee7;
+          border-radius: 6px;
+          font-family: inherit;
+          font-size: 1rem;
+          background: #fff;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+          outline: none;
+          border-color: #1f3b63;
+          box-shadow: 0 0 0 2px rgba(31, 59, 99, 0.1);
+        }
+        .submit-btn {
+          background-color: #1f3b63;
+          color: white;
+          border: none;
+          padding: 0.85rem 1.5rem;
+          font-size: 1rem;
+          font-weight: 600;
+          border-radius: 6px;
+          cursor: pointer;
+          align-self: flex-start;
+          transition: background-color 0.2s ease;
+        }
+        .submit-btn:hover {
+          background-color: #152945;
+        }
+      </style>
     </div>
   </section>
 </BaseLayout>
