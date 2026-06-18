@@ -176,14 +176,14 @@ export const homePage = {
       theme: 'light',
       tone: 'brand',
       tilt: 'none',
-      asset: mockupAsset('Onboarding old.png', 'Program selection screen on an angled phone render.'),
+      asset: mockupAsset('consumer/1.png', 'Program selection screen on an angled phone render.'),
     },
     {
       label: 'Program app',
       theme: 'dark',
       tone: 'accent',
       tilt: 'none',
-      asset: mockupAsset('Consumer App Hero Homepage.png', 'Branded HuddleWay landing screen with registration open.'),
+      asset: mockupAsset('consumer/2.png', 'Branded HuddleWay landing screen with registration open.'),
     },
   ] satisfies PreviewMockup[],
   results: {
@@ -233,7 +233,7 @@ export const homePage = {
     theme: 'dark',
     tone: 'accent',
     tilt: 'none',
-    asset: mockupAsset('Registration Page.png', 'Hand-held registration form screen inside the HuddleWay app.'),
+    asset: mockupAsset('consumer/3.png', 'Hand-held registration form screen inside the HuddleWay app.'),
   } satisfies PreviewMockup,
   showcase: {
     title: 'See the app your families will actually use',
@@ -258,7 +258,7 @@ export const homePage = {
       theme: 'dark',
       tone: 'field',
       tilt: 'none',
-      asset: mockupAsset('Why Choose Us Component.png', 'Family-facing HuddleWay home screen with featured program highlights.'),
+      asset: mockupAsset('consumer/4.png', 'Family-facing HuddleWay home screen with featured program highlights.'),
     } satisfies PreviewMockup,
   },
   cta: {
@@ -314,7 +314,7 @@ export const featuresPage = {
       theme: 'dark',
       tone: 'brand',
       tilt: 'none',
-      asset: mockupAsset('Consumer App Hero Homepage.png', 'Branded HuddleWay family app home screen.'),
+      asset: mockupAsset('consumer/2.png', 'Branded HuddleWay family app home screen.'),
     } satisfies PreviewMockup,
   },
   indexLinks: [
@@ -345,7 +345,7 @@ export const featuresPage = {
         theme: 'light',
         tone: 'brand',
         tilt: 'none',
-        asset: mockupAsset('Team Setup Page Huddleway.png', 'Program setup dashboard for team pages and labels.'),
+        asset: mockupAsset('admin/1.png', 'Program setup dashboard for team pages and labels.'),
       },
     },
     {
@@ -368,7 +368,7 @@ export const featuresPage = {
         theme: 'dark',
         tone: 'field',
         tilt: 'none',
-        asset: mockupAsset('Coaching Staff Component.png', 'Family-facing coaching staff and upcoming events screen.'),
+        asset: mockupAsset('consumer/5.png', 'Family-facing coaching staff and upcoming events screen.'),
       },
     },
     {
@@ -391,7 +391,7 @@ export const featuresPage = {
         theme: 'light',
         tone: 'accent',
         tilt: 'none',
-        asset: mockupAsset('Registration Page.png', 'Hand-held registration flow screen for player signup.'),
+        asset: mockupAsset('consumer/3.png', 'Hand-held registration flow screen for player signup.'),
       },
     },
     {
@@ -414,7 +414,7 @@ export const featuresPage = {
         theme: 'dark',
         tone: 'brand',
         tilt: 'none',
-        asset: mockupAsset('Example Registeree.png', 'Registrant detail sheet with message, email, and call actions.'),
+        asset: mockupAsset('consumer/6.png', 'Registrant detail sheet with message, email, and call actions.'),
       },
     },
     {
@@ -437,7 +437,7 @@ export const featuresPage = {
         theme: 'light',
         tone: 'brand',
         tilt: 'none',
-        asset: mockupAsset('Select Team Colors.png', 'Hand-held team color selection screen for brand customization.'),
+        asset: mockupAsset('admin/2.png', 'Hand-held team color selection screen for brand customization.'),
       },
     },
   ] satisfies FeatureSection[],
@@ -508,7 +508,7 @@ export const savingsPage = {
     theme: 'dark',
     tone: 'field',
     tilt: 'none',
-    asset: mockupAsset('Admin Staff management page.png', 'Angled admin staff management screen for team operations.'),
+    asset: mockupAsset('admin/3.png', 'Angled admin staff management screen for team operations.'),
   } satisfies PreviewMockup,
   spotlight: {
     eyebrow: 'See It In Practice',
@@ -521,7 +521,7 @@ export const savingsPage = {
       theme: 'dark',
       tone: 'field',
       tilt: 'none',
-      asset: mockupAsset('Staff Page Admin.png', 'Admin staff management screen for multi-team coordination.'),
+      asset: mockupAsset('admin/4.png', 'Admin staff management screen for multi-team coordination.'),
     } satisfies PreviewMockup,
   },
   timeBack: {
@@ -630,7 +630,7 @@ export const setupFaqPage = {
       theme: 'dark',
       tone: 'brand',
       tilt: 'none',
-      asset: mockupAsset('Select Team Colors.png', 'Hand-held team color editor showing branded app customization.'),
+      asset: mockupAsset('admin/2.png', 'Hand-held team color editor showing branded app customization.'),
     } satisfies PreviewMockup,
   },
   audiencesIntro: {
