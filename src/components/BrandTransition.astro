@@ -1,13 +1,9 @@
 ---
-const clientExample = {
-  logoSrc: '/client-example-logo-tile.png',
-  name: 'Program page',
-  sourceLabel: 'Base app',
-  targetLabel: 'Program page',
-  sourceTitle: 'HuddleWay',
-  targetTitle: 'HuddleWay',
-  targetBody: 'Select Basketball Theme',
-};
+const targetLogos = [
+  { src: '/fake-logo-1.png', dockLabel: 'Program page', dockTitle: 'Bright Minds', appLabel: 'Select Summer Camp' },
+  { src: '/fake-logo-2.png', dockLabel: 'Program page', dockTitle: 'Cyber Wolves', appLabel: 'Select Team Theme' },
+  { src: '/fake-logo-3.png', dockLabel: 'Program page', dockTitle: 'Velocity Track', appLabel: 'Select Club Theme' }
+];
 ---
 
 <section class="content-section brand-transition" aria-label="Branding transition example">
@@ -23,19 +19,23 @@ const clientExample = {
           <img src="/app-logo.png" alt="" />
         </span>
         <div>
-          <p class="brand-transition__dock-label">{clientExample.sourceLabel}</p>
-          <p class="brand-transition__dock-title">{clientExample.sourceTitle}</p>
+          <p class="brand-transition__dock-label">Base app</p>
+          <p class="brand-transition__dock-title">HuddleWay</p>
         </div>
       </div>
 
       <div class="brand-transition__dock brand-transition__dock--target">
-        <span class="brand-transition__dock-icon brand-transition__dock-icon--target brand-transition__dock-icon--image brand-transition__dock-icon--logo-tile">
-          <img src={clientExample.logoSrc} alt="" />
-        </span>
-        <div>
-          <p class="brand-transition__dock-label">{clientExample.targetLabel}</p>
-          <p class="brand-transition__dock-title">{clientExample.targetTitle}</p>
-        </div>
+        {targetLogos.map((logo, index) => (
+          <div class={`brand-transition__dock-content brand-transition__dock-content--${index + 1}`}>
+            <span class="brand-transition__dock-icon brand-transition__dock-icon--target brand-transition__dock-icon--image brand-transition__dock-icon--logo-tile">
+              <img src={logo.src} alt="" />
+            </span>
+            <div>
+              <p class="brand-transition__dock-label">{logo.dockLabel}</p>
+              <p class="brand-transition__dock-title">{logo.dockTitle}</p>
+            </div>
+          </div>
+        ))}
       </div>
 
       <div class="brand-transition__card-wrap">
@@ -51,15 +51,17 @@ const clientExample = {
             </div>
           </div>
 
-          <div class="brand-transition__face brand-transition__face--target">
-            <span class="brand-transition__app-icon brand-transition__app-icon--target brand-transition__app-icon--image brand-transition__app-icon--logo-tile">
-              <img src={clientExample.logoSrc} alt="" />
-            </span>
-            <div class="brand-transition__app-copy">
-              <p class="brand-transition__app-label">{clientExample.targetBody}</p>
-              <p class="brand-transition__app-title">HuddleWay</p>
+          {targetLogos.map((logo, index) => (
+            <div class={`brand-transition__face brand-transition__face--target brand-transition__face--target-${index + 1}`}>
+              <span class="brand-transition__app-icon brand-transition__app-icon--target brand-transition__app-icon--image brand-transition__app-icon--logo-tile">
+                <img src={logo.src} alt="" />
+              </span>
+              <div class="brand-transition__app-copy">
+                <p class="brand-transition__app-label">{logo.appLabel}</p>
+                <p class="brand-transition__app-title">HuddleWay</p>
+              </div>
             </div>
-          </div>
+          ))}
         </div>
       </div>
 
@@ -151,16 +153,17 @@ const clientExample = {
     z-index: 1;
     display: inline-flex;
     align-items: center;
-    gap: 0.65rem;
-    padding: 0.55rem 0.65rem;
     border: 1px solid rgba(23, 31, 46, 0.08);
     border-radius: 1rem;
     background: rgba(255, 255, 255, 0.9);
     box-shadow: 0 10px 24px rgba(23, 31, 46, 0.08);
     backdrop-filter: blur(14px);
+    overflow: hidden;
   }
 
   .brand-transition__dock--source {
+    padding: 0.55rem 0.65rem;
+    gap: 0.65rem;
     left: 0;
     transform: translateY(-52%) rotate(-5deg);
   }
@@ -168,6 +171,31 @@ const clientExample = {
   .brand-transition__dock--target {
     right: 0;
     transform: translateY(-48%) rotate(5deg);
+    position: absolute;
+    width: 10.5rem; /* Fixed width to contain absolute items */
+    height: 3.5rem;
+  }
+
+  .brand-transition__dock-content {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.55rem 0.65rem;
+    opacity: 0;
+  }
+
+  .brand-transition__dock-content--1 {
+    animation: dock-fade-1 22.8s infinite;
+  }
+
+  .brand-transition__dock-content--2 {
+    animation: dock-fade-2 22.8s infinite;
+  }
+
+  .brand-transition__dock-content--3 {
+    animation: dock-fade-3 22.8s infinite;
   }
 
   .brand-transition__dock-icon,
@@ -330,13 +358,24 @@ const clientExample = {
 
   .brand-transition__face--source {
     grid-template-columns: 2.8rem 1fr;
-    animation: brand-face-source 7.6s linear infinite;
+    animation: brand-face-source 22.8s infinite;
   }
 
   .brand-transition__face--target {
     opacity: 0;
     grid-template-columns: 2.8rem 1fr;
-    animation: brand-face-target 7.6s linear infinite;
+  }
+
+  .brand-transition__face--target-1 {
+    animation: brand-face-target-1 22.8s infinite;
+  }
+
+  .brand-transition__face--target-2 {
+    animation: brand-face-target-2 22.8s infinite;
+  }
+
+  .brand-transition__face--target-3 {
+    animation: brand-face-target-3 22.8s infinite;
   }
 
   .brand-transition__face--target .brand-transition__app-copy {
@@ -447,27 +486,45 @@ const clientExample = {
   }
 
   @keyframes brand-face-source {
-    0%,
-    40% {
-      opacity: 1;
-    }
-
-    52%,
-    100% {
-      opacity: 0;
-    }
+    0%, 13.33% { opacity: 1; }
+    17.33%, 33.33% { opacity: 0; }
+    33.34%, 46.66% { opacity: 1; }
+    50.66%, 66.66% { opacity: 0; }
+    66.67%, 80% { opacity: 1; }
+    84%, 100% { opacity: 0; }
   }
 
-  @keyframes brand-face-target {
-    0%,
-    46% {
-      opacity: 0;
-    }
+  @keyframes brand-face-target-1 {
+    0%, 15.33% { opacity: 0; }
+    19.33%, 33.33% { opacity: 1; }
+    33.34%, 100% { opacity: 0; }
+  }
 
-    58%,
-    100% {
-      opacity: 1;
-    }
+  @keyframes brand-face-target-2 {
+    0%, 48.66% { opacity: 0; }
+    52.66%, 66.66% { opacity: 1; }
+    66.67%, 100% { opacity: 0; }
+  }
+
+  @keyframes brand-face-target-3 {
+    0%, 82% { opacity: 0; }
+    86%, 100% { opacity: 1; }
+  }
+
+  @keyframes dock-fade-1 {
+    0%, 33.33% { opacity: 1; }
+    33.34%, 100% { opacity: 0; }
+  }
+
+  @keyframes dock-fade-2 {
+    0%, 33.33% { opacity: 0; }
+    33.34%, 66.66% { opacity: 1; }
+    66.67%, 100% { opacity: 0; }
+  }
+
+  @keyframes dock-fade-3 {
+    0%, 66.66% { opacity: 0; }
+    66.67%, 100% { opacity: 1; }
   }
 
   @keyframes brand-signal-pulse {

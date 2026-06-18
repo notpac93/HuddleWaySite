@@ -4,6 +4,7 @@ import CtaBanner from '../components/CtaBanner.astro';
 import CtaCluster from '../components/CtaCluster.astro';
 import PhoneMockup from '../components/PhoneMockup.astro';
 import SectionIntro from '../components/SectionIntro.astro';
+import BrandTransition1x1 from '../components/BrandTransition1x1.astro';
 import { featuresPage, featuresSecondaryCta, primaryCta } from '../data/site';
 
 const { hero, overview, showcase, indexLinks, sections, cta } = featuresPage;
@@ -11,12 +12,15 @@ const { hero, overview, showcase, indexLinks, sections, cta } = featuresPage;
 
 <BaseLayout title={featuresPage.title} description={featuresPage.description} pageName={featuresPage.pageName}>
   <section class="hero hero--inner">
-    <div class="hero__grid hero__grid--single">
-      <div class="hero__copy hero__copy--wide">
+    <div class="hero__grid">
+      <div class="hero__copy">
         <p class="hero__eyebrow">{hero.eyebrow}</p>
         <h1>{hero.title}</h1>
         <p class="hero__lede">{hero.body}</p>
         <CtaCluster primary={primaryCta} secondary={featuresSecondaryCta} />
+      </div>
+      <div class="hero__visual hero__visual--right" style="max-width: 480px; margin: 0 auto; width: 100%;">
+        <BrandTransition1x1 />
       </div>
     </div>
 
