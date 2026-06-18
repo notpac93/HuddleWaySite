@@ -97,7 +97,7 @@ const withBase = (path: string) => {
 
   const [pathname, hash = ''] = path.split('#');
   const normalizedPath = pathname.replace(/^\/+|\/+$/g, '');
-  const resolved = normalizedPath === '' ? 'index.html' : `${normalizedPath}.html`;
+  const resolved = normalizedPath === '' ? '/' : `/${normalizedPath}/`;
 
   return hash ? `${resolved}#${hash}` : resolved;
 };
