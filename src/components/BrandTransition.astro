@@ -5,8 +5,8 @@ const clientExample = {
   sourceLabel: 'Base app',
   targetLabel: 'Program page',
   sourceTitle: 'HuddleWay',
-  targetTitle: 'Select Basketball',
-  targetBody: 'Select Basketball',
+  targetTitle: 'HuddleWay',
+  targetBody: 'Select Basketball Theme',
 };
 ---
 
@@ -27,7 +27,7 @@ const clientExample = {
 
       <div class="brand-transition__dock brand-transition__dock--source">
         <span class="brand-transition__dock-icon brand-transition__dock-icon--source-tile">
-          <img src="/logo-mark.png" alt="" />
+          <img src="/app-logo.png" alt="" />
         </span>
         <div>
           <p class="brand-transition__dock-label">{clientExample.sourceLabel}</p>
@@ -50,11 +50,11 @@ const clientExample = {
         <div class="brand-transition__card">
           <div class="brand-transition__face brand-transition__face--source">
             <span class="brand-transition__app-icon brand-transition__app-icon--source-tile">
-              <img src="/logo-mark.png" alt="" />
+              <img src="/app-logo.png" alt="" />
             </span>
             <div class="brand-transition__app-copy">
-              <p class="brand-transition__app-label">HuddleWay</p>
-              <p class="brand-transition__app-title">Core app experience</p>
+              <p class="brand-transition__app-label">Default Theme</p>
+              <p class="brand-transition__app-title">HuddleWay</p>
             </div>
           </div>
 
@@ -63,8 +63,8 @@ const clientExample = {
               <img src={clientExample.logoSrc} alt="" />
             </span>
             <div class="brand-transition__app-copy">
-              <p class="brand-transition__app-label">{clientExample.name}</p>
-              <p class="brand-transition__app-title">{clientExample.targetBody}</p>
+              <p class="brand-transition__app-label">{clientExample.targetBody}</p>
+              <p class="brand-transition__app-title">HuddleWay</p>
             </div>
           </div>
         </div>
@@ -397,19 +397,16 @@ const clientExample = {
 
   @keyframes brand-card-travel {
     0%,
-    12% {
+    15% {
       transform: translate3d(0, -50%, 0);
     }
 
-    42% {
-      transform: translate3d(34vw, -56%, 0);
+    40%,
+    60% {
+      transform: translate3d(34vw, -54%, 0);
     }
 
-    58% {
-      transform: translate3d(34vw, -56%, 0);
-    }
-
-    88%,
+    85%,
     100% {
       transform: translate3d(calc(68vw - 100%), -48%, 0);
     }
@@ -539,19 +536,16 @@ const clientExample = {
 
     @keyframes brand-card-travel {
       0%,
-      12% {
+      15% {
         transform: translate3d(0, -50%, 0);
       }
 
-      42% {
-        transform: translate3d(28vw, -56%, 0);
+      40%,
+      60% {
+        transform: translate3d(28vw, -54%, 0);
       }
 
-      58% {
-        transform: translate3d(28vw, -56%, 0);
-      }
-
-      88%,
+      85%,
       100% {
         transform: translate3d(calc(56vw - 100%), -48%, 0);
       }
@@ -686,19 +680,16 @@ const clientExample = {
 
     @keyframes brand-card-travel {
       0%,
-      12% {
+      15% {
         transform: translate3d(0, 0, 0);
       }
 
-      42% {
+      40%,
+      60% {
         transform: translate3d(22vw, 0.4rem, 0);
       }
 
-      58% {
-        transform: translate3d(22vw, 0.4rem, 0);
-      }
-
-      88%,
+      85%,
       100% {
         transform: translate3d(calc(44vw - 100%), 0, 0);
       }

@@ -116,9 +116,7 @@ export const siteMeta = {
     'HuddleWay gives sports programs a branded family app for schedules, registration, payments, and updates, plus built-in tools to manage pages, events, and program details.',
   footerBlurb:
     'A real app your program can make its own, with built-in tools that help your team save time and keep families on one clear path.',
-  previewNoticeLabel: 'Product preview',
-  previewNotice:
-    'HuddleWay is still under development. App screens and mockups shown throughout this site reflect current builds and are subject to change.',
+
 };
 
 export const navigation: Link[] = [
