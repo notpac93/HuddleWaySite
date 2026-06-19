@@ -687,20 +687,24 @@ const clientExample = {
     @keyframes brand-card-travel {
       0%,
       12% {
+        left: 0.25rem;
         transform: translate3d(0, 0, 0);
       }
 
       42% {
-        transform: translate3d(22vw, 0.4rem, 0);
+        left: calc(50% - 5.4rem);
+        transform: translate3d(0, 0.4rem, 0);
       }
 
       58% {
-        transform: translate3d(22vw, 0.4rem, 0);
+        left: calc(50% - 5.4rem);
+        transform: translate3d(0, 0.4rem, 0);
       }
 
       88%,
       100% {
-        transform: translate3d(calc(44vw - 100%), 0, 0);
+        left: calc(100% - min(10.8rem, calc(100% - 1.8rem)) - 0.5rem);
+        transform: translate3d(0, 0, 0);
       }
     }
   }
