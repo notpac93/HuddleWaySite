@@ -1,0 +1,77 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const title = 'HuddleWay Account Deletion';
+const description =
+  'Request deletion of a HuddleWay Hub or HuddleWay Admin account without reinstalling or opening the app.';
+---
+
+<BaseLayout title={title} description={description} pageName="account-deletion">
+  <section class="legal-page">
+    <div class="legal-page__inner">
+      <p class="legal-page__eyebrow">HuddleWay Hub + HuddleWay Admin</p>
+      <h1>Account Deletion</h1>
+      <p class="legal-page__updated">Last updated: July 9, 2026</p>
+      <p class="legal-page__lede">
+        Use this page to request deletion of a HuddleWay Hub or HuddleWay Admin
+        account without needing to reinstall or open the app.
+      </p>
+
+      <div class="legal-card">
+        <h2>Request Deletion From The Web</h2>
+        <p>
+          Send an account deletion request to
+          <a href="mailto:support@huddleway.com?subject=HuddleWay%20Account%20Deletion%20Request">support@huddleway.com</a>.
+          Include the email address used for the account, whether you used
+          HuddleWay Hub or HuddleWay Admin, and the tenant or program name if
+          you know it.
+        </p>
+        <p>
+          HuddleWay support may ask for additional information to verify account
+          ownership before fulfilling the request.
+        </p>
+
+        <h2>Request Deletion In The App</h2>
+        <h3>HuddleWay Hub</h3>
+        <p>
+          Open your account screen and use the account deletion request option.
+          That request is submitted to HuddleWay for account deletion
+          processing.
+        </p>
+        <h3>HuddleWay Admin</h3>
+        <p>
+          Open App Settings and use the legal/support account deletion request
+          option when it is available for your admin account.
+        </p>
+
+        <h2>What May Be Deleted</h2>
+        <p>
+          Approved deletion requests may remove or de-identify account profile
+          information, contact information, device registrations, and other
+          account-linked personal data where deletion is technically and legally
+          available.
+        </p>
+
+        <h2>What May Be Retained</h2>
+        <p>
+          Some records may need to be retained for payment, accounting, fraud,
+          safety, dispute, security, audit, backup, or legal reasons. HuddleWay
+          may also retain records needed by a tenant operator to manage rosters,
+          registrations, events, messages, or compliance responsibilities.
+        </p>
+        <p>
+          A deletion request is not the same as canceling a payment, resolving a
+          team registration issue, or deleting tenant-owned operational records.
+          HuddleWay support will route those issues as needed.
+        </p>
+
+        <h2>Need Help?</h2>
+        <p>
+          For questions about privacy choices, deletion status, or account
+          access, contact
+          <a href="mailto:support@huddleway.com">support@huddleway.com</a>.
+        </p>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
