@@ -1,6 +1,6 @@
 # CRM Performance Qualification
 
-Status: OPS-002 source/local artifact gate green; external field acceptance pending
+Status: OPS-002 source/local artifact gate green; external synthetic-canary acceptance pending
 Owner: `jesse-jackson-performance`
 Date: 2026-07-26
 Canonical route: `/admin/`
@@ -72,7 +72,7 @@ on 2026-07-26 generated all ten pages with this current result:
 | Complete CRM JavaScript graph, raw | 1,149,997 B | 1,150,000 B | pass |
 | Named lazy top-level feature chunks | 14 | at least 12 | pass |
 
-No budget was relaxed. BLK-010 is closed. Production field performance,
+No budget was relaxed. BLK-010 is closed. Authenticated canary performance,
 hosting, and media-delivery evidence remain separate acceptance requirements
 under BLK-008.
 
@@ -159,7 +159,7 @@ dimension parsing, revision pinning, and protected-workflow token boundaries.
 No authorized remote fixture has been created or probed, so this local
 implementation does not yet satisfy the production media-delivery gate.
 
-## Authenticated field RUM implementation
+## Authenticated synthetic-canary RUM implementation
 
 The production artifact now contains a privacy-bounded collector for LCP, INP,
 and CLS. It is inactive unless the protected release build embeds the exact
@@ -177,8 +177,10 @@ and a SHA-256 random sample key with a checked-in 30-day TTL.
 The protected backend workflow and `collect:crm-rum-evidence` command produce
 only p75 aggregates and counts. They fail unless desktop and mobile each have
 at least 75 valid-App-Check samples spanning 24 hours and meet the same
-2,500 ms/200 ms/0.1 thresholds. The candidate is not deployed, so no field
-sample acceptance is claimed yet.
+2,500 ms/200 ms/0.1 thresholds. Because customer activity is unavailable
+before launch, the external acceptance document must label the measurements
+`authenticated-synthetic-canary` and set `customerActivityClaimed` to `false`.
+This evidence never claims customer or production field traffic.
 
 ## Local Core Web Vitals and responsive lab
 
@@ -245,7 +247,7 @@ manifest.
 
 1. **Field Core Web Vitals and hosting:** authenticated RUM collection and its
    fail-closed aggregate gate are implemented, but the undeployed candidate
-   has no production samples. Local output also cannot prove CDN compression,
+   has no production customer samples. Local output also cannot prove CDN compression,
    cache headers, edge latency, or authenticated route performance. The
    release owner must capture production/staging evidence for mobile and
    desktop after deployment configuration is fixed. The protected acceptance
@@ -264,4 +266,4 @@ CDN receipt contract are in `docs/CRM_CDN_REMEDIATION.md`.
 Authenticated seeded desktop/mobile navigation, all 14 lazy modules, safe
 failure paths, focus restoration, search result IDs, and zero overflow are now
 covered locally. They remain local qualification, not a substitute for the
-external field evidence above.
+external authenticated synthetic-canary evidence above.

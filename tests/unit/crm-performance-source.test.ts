@@ -98,7 +98,7 @@ describe('CRM performance source boundaries', () => {
     );
   });
 
-  it('collects authenticated field RUM without product or customer payloads', () => {
+  it('collects authenticated RUM without product or customer payloads', () => {
     const rum = source('src/lib/performance/crmRum.ts');
     const crmApp = source('src/components/crm/CrmApp.svelte');
     const environment = source('src/lib/config/publicEnvironment.ts');

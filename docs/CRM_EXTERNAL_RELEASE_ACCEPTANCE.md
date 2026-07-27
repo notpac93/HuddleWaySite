@@ -7,8 +7,8 @@ Target: `porkbun-huddleway-static`
 The deterministic CRM release manifest proves source, backend, environment,
 toolchain, and static-artifact provenance. It does not prove that a provider
 alert reached an operator, a real device passed App Check, a real
-non-production bucket restored, or authenticated field performance met its
-budget.
+non-production bucket restored, or authenticated synthetic-canary performance
+met its budget.
 
 `scripts/release/crm-external-evidence.mjs` closes that release-system gap. It
 accepts one private JSON evidence document, binds it to the exact website
@@ -65,7 +65,8 @@ Evidence must be no older than 26 hours and must contain:
 - one explicit owner/operator approval.
 
 The production project `sports-team-apps` is always rejected as a rehearsal
-target.
+target. The approved rehearsal target is `huddleway-dev`; conventionally named
+stage, UAT, QA, recovery, drill, and non-production projects remain eligible.
 
 ### Monitoring and operations
 
@@ -86,11 +87,15 @@ lookup and owner acknowledgement.
 
 Evidence must be no older than seven days, cover at least 24 hours of monitor
 telemetry, and include at least two successful supported-device runs for each
-of:
+approved release surface:
 
 - web with reCAPTCHA Enterprise;
-- Android with Play Integrity;
-- iOS with App Attest or the approved DeviceCheck fallback.
+- Android with Play Integrity.
+
+The current release surfaces are exactly `android` and `web`. iOS remains
+deferred and must not be implied by the acceptance receipt. A later iOS release
+requires its own supported-device App Attest or approved DeviceCheck evidence
+and a reviewed governance-contract change.
 
 The non-interactive caller inventory and correlated denial UX must be
 accepted. Monitor mode requires enforcement to remain disabled. Enforce mode
@@ -101,8 +106,12 @@ is valid only when enforcement is both explicitly approved and enabled.
 Evidence must be no older than seven days, use an authenticated HTTPS staging
 or production origin, and contain no customer payloads.
 
-The field window must cover at least 24 hours with at least 75 desktop and 75
-mobile samples. Both classes must meet:
+Because customer traffic is unavailable before launch, the performance
+evidence must explicitly identify itself as
+`authenticated-synthetic-canary`, set `customerActivityClaimed` to `false`,
+and use only the approved non-customer fixture identity. The observation
+window must cover at least 24 hours with at least 75 desktop and 75 mobile
+samples. Both classes must meet:
 
 - p75 LCP at or below 2,500 ms;
 - p75 INP at or below 200 ms;
@@ -173,10 +182,11 @@ cannot access or run the protected fixture collection job.
 ### Single-developer governance and deployment approval
 
 This repository is operated by one developer. The private evidence must state
-that governance mode is `single-developer`, identify the owner, require the
-automated acceptance workflow, and require a separate final production
-confirmation. These declarations make the reduced separation of duties
-explicit instead of inventing unavailable reviewers.
+that governance mode is `single-developer`, identify the owner, name the
+approved release surfaces as exactly `android` and `web`, require the automated
+acceptance workflow, and require a separate final production confirmation.
+These declarations make the reduced separation of duties explicit instead of
+inventing unavailable reviewers.
 
 Deployment approval requires:
 
@@ -208,8 +218,11 @@ redacted accepted receipt and before dispatching REL-008.
 5. Dispatch the acceptance workflow from the exact `website_ref`; the workflow
    rejects a different workflow-source commit so the attestation source digest
    cannot drift from the accepted source.
-6. Put the JSON in the protected environment secret and configure required
-   reviewers for the `crm-production-acceptance` GitHub environment.
+6. Put the JSON in the protected environment secret and keep
+   `crm-production-acceptance` environment protection enabled. A second human
+   reviewer is not invented for this single-developer project; the automated
+   validator and the owner's separate final production confirmation are the
+   required controls.
 7. Dispatch `.github/workflows/crm-production-acceptance.yml` with the exact
    website SHA, backend SHA, and evidence SHA-256.
 8. Confirm the workflow publishes only:

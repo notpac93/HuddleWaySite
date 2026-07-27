@@ -16,6 +16,9 @@ const SHA256 = /^[a-f0-9]{64}$/;
 const COMMIT_SHA = /^[a-f0-9]{40}$/;
 const PRODUCTION_PROJECT_ID = 'sports-team-apps';
 const ACCEPTED_TARGET = 'porkbun-huddleway-static';
+const APPROVED_NONPRODUCTION_RECOVERY_PROJECTS = Object.freeze([
+  'huddleway-dev',
+]);
 const REQUIRED_MONITORING_QUERIES = Object.freeze([
   'backup-freshness',
   'cross-tenant-denial-regression',
@@ -29,11 +32,14 @@ const REQUIRED_ALERT_RECEIPTS = Object.freeze([
   'webhook-failure-rate',
   'webhook-reconciliation-backlog',
 ]);
-const REQUIRED_APP_CHECK_CONSUMERS = Object.freeze([
+const APPROVED_RELEASE_SURFACES = Object.freeze([
   'android',
-  'ios',
   'web',
 ]);
+const REQUIRED_APP_CHECK_PROVIDERS = Object.freeze({
+  android: 'play-integrity',
+  web: 'recaptcha-enterprise',
+});
 const GOOD_CWV_LIMITS = Object.freeze({
   lcpMs: 2500,
   inpMs: 200,
@@ -259,7 +265,8 @@ function validateBackupRecovery(value, now) {
     'Recovery rehearsal must not target the production Firebase project.',
   );
   assert(
-    /(stage|staging|uat|qa|recovery|drill|nonprod)/i.test(targetProjectId),
+    APPROVED_NONPRODUCTION_RECOVERY_PROJECTS.includes(targetProjectId)
+      || /(stage|staging|uat|qa|recovery|drill|nonprod)/i.test(targetProjectId),
     'Recovery target must be an explicitly named non-production project.',
   );
 
@@ -417,7 +424,7 @@ function validateMonitoring(value, now) {
   };
 }
 
-function validateAppCheck(value, now) {
+function validateAppCheck(value, now, requiredConsumers) {
   assertExactKeys(
     value,
     [
@@ -486,6 +493,11 @@ function validateAppCheck(value, now) {
       `${label}.consumer`,
       /^[a-z][a-z0-9-]{1,63}$/,
     );
+    assert(
+      REQUIRED_APP_CHECK_PROVIDERS[consumer]
+        && entry.provider === REQUIRED_APP_CHECK_PROVIDERS[consumer],
+      `${label}.provider is not the approved provider for ${consumer}.`,
+    );
     consumers.push(consumer);
     return {
       consumer,
@@ -500,7 +512,7 @@ function validateAppCheck(value, now) {
   });
   assertExactStringSet(
     consumers,
-    REQUIRED_APP_CHECK_CONSUMERS,
+    requiredConsumers,
     'appCheck provider consumers',
   );
   return {
@@ -542,10 +554,12 @@ function validatePerformance(value, now) {
       'authenticated',
       'cdn',
       'completedAt',
+      'customerActivityClaimed',
       'edge',
       'evidenceId',
       'media',
       'noCustomerPayloads',
+      'observationMode',
       'rum',
       'targetOrigin',
     ],
@@ -553,6 +567,15 @@ function validatePerformance(value, now) {
   );
   assertBoolean(value.accepted, 'performance.accepted', true);
   assertBoolean(value.authenticated, 'performance.authenticated', true);
+  assert(
+    value.observationMode === 'authenticated-synthetic-canary',
+    'performance.observationMode must be authenticated-synthetic-canary.',
+  );
+  assertBoolean(
+    value.customerActivityClaimed,
+    'performance.customerActivityClaimed',
+    false,
+  );
   assertBoolean(
     value.noCustomerPayloads,
     'performance.noCustomerPayloads',
@@ -721,6 +744,8 @@ function validatePerformance(value, now) {
     evidenceId: assertString(value.evidenceId, 'performance.evidenceId'),
     completedAt: value.completedAt,
     targetOrigin: value.targetOrigin,
+    observationMode: value.observationMode,
+    customerActivityClaimed: false,
     rum,
     cdn,
     edge,
@@ -735,6 +760,7 @@ function validateReleaseGovernance(value) {
       'automatedValidationRequired',
       'mode',
       'ownerId',
+      'approvedSurfaces',
       'productionConfirmationRequired',
     ],
     'releaseGovernance',
@@ -753,9 +779,15 @@ function validateReleaseGovernance(value) {
     'releaseGovernance.productionConfirmationRequired',
     true,
   );
+  assertExactStringSet(
+    value.approvedSurfaces,
+    APPROVED_RELEASE_SURFACES,
+    'releaseGovernance.approvedSurfaces',
+  );
   return {
     mode: value.mode,
     ownerId: assertString(value.ownerId, 'releaseGovernance.ownerId'),
+    approvedSurfaces: [...value.approvedSurfaces].sort(),
     automatedValidationRequired: true,
     productionConfirmationRequired: true,
   };
@@ -845,14 +877,18 @@ function validateExternalReleaseEvidence(
   const binding = validateReleaseBinding(evidence.release, releaseManifest);
   const backupRecovery = validateBackupRecovery(evidence.backupRecovery, now);
   const monitoring = validateMonitoring(evidence.monitoring, now);
-  const appCheck = validateAppCheck(evidence.appCheck, now);
+  const releaseGovernance = validateReleaseGovernance(
+    evidence.releaseGovernance,
+  );
+  const appCheck = validateAppCheck(
+    evidence.appCheck,
+    now,
+    releaseGovernance.approvedSurfaces,
+  );
   const performance = validatePerformance(evidence.performance, now);
   const deploymentApproval = validateDeploymentApproval(
     evidence.deploymentApproval,
     now,
-  );
-  const releaseGovernance = validateReleaseGovernance(
-    evidence.releaseGovernance,
   );
   assert(
     deploymentApproval.approverIds.includes(releaseGovernance.ownerId),
@@ -1038,9 +1074,10 @@ async function main() {
 
 export {
   ACCEPTED_TARGET,
+  APPROVED_RELEASE_SURFACES,
   GOOD_CWV_LIMITS,
   REQUIRED_ALERT_RECEIPTS,
-  REQUIRED_APP_CHECK_CONSUMERS,
+  REQUIRED_APP_CHECK_PROVIDERS,
   REQUIRED_MONITORING_QUERIES,
   acceptanceDigest,
   validateExternalReleaseEvidence,

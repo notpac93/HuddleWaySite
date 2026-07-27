@@ -41,9 +41,12 @@ deployment begins.
 
 ## Protected dispatch
 
-Configure required reviewers for the `crm-production-deployment` GitHub
-environment. Dispatch `.github/workflows/crm-production-deploy.yml` from the
-exact accepted website commit with:
+Keep the `crm-production-deployment` GitHub environment protected. This is a
+single-developer repository, so the control is the exact automated acceptance
+receipt plus a separate explicit owner production confirmation rather than an
+invented second reviewer. Dispatch
+`.github/workflows/crm-production-deploy.yml` from the exact accepted website
+commit with:
 
 - `acceptance_run_id`;
 - `website_ref`;

@@ -52,7 +52,7 @@ function externalEvidence() {
       completedAt: timestamp(NOW - 60 * 60 * 1000),
       encryptedArtifactSha256: '5'.repeat(64),
       bundleSha256: '6'.repeat(64),
-      targetProjectId: 'huddleway-recovery-stage',
+      targetProjectId: 'huddleway-dev',
       firestore: {
         sourceDocuments: 41,
         restoredDocuments: 41,
@@ -114,12 +114,6 @@ function externalEvidence() {
           evidenceId: 'app-check-android-evidence',
           successfulRuns: 3,
         },
-        {
-          consumer: 'ios',
-          provider: 'app-attest',
-          evidenceId: 'app-check-ios-evidence',
-          successfulRuns: 3,
-        },
       ],
     },
     performance: {
@@ -129,6 +123,8 @@ function externalEvidence() {
       targetOrigin: 'https://stage.huddleway.com',
       authenticated: true,
       noCustomerPayloads: true,
+      observationMode: 'authenticated-synthetic-canary',
+      customerActivityClaimed: false,
       rum: {
         windowStartedAt: timestamp(NOW - 49 * 60 * 60 * 1000),
         windowEndedAt: timestamp(NOW - 60 * 60 * 1000),
@@ -168,6 +164,7 @@ function externalEvidence() {
     releaseGovernance: {
       mode: 'single-developer',
       ownerId: 'notpac93',
+      approvedSurfaces: ['android', 'web'],
       automatedValidationRequired: true,
       productionConfirmationRequired: true,
     },
@@ -207,7 +204,7 @@ describe('CRM external release evidence', () => {
       storageBytes: 2048,
     });
     expect(receipt.gates.appCheck.providers.map((entry: { consumer: string }) =>
-      entry.consumer).sort()).toEqual(['android', 'ios', 'web']);
+      entry.consumer).sort()).toEqual(['android', 'web']);
     expect(receipt.acceptanceSha256).toMatch(/^[a-f0-9]{64}$/);
     expect(() =>
       verifyAcceptanceReceipt(receipt, releaseManifest(), EVIDENCE_SHA))
@@ -277,14 +274,35 @@ describe('CRM external release evidence', () => {
       })).toThrow(/must contain exactly/i);
   });
 
-  it('requires web, Android, and iOS App Check monitor evidence', () => {
-    const missingIos = externalEvidence();
-    missingIos.appCheck.providers.pop();
+  it('requires the approved Android and web App Check providers only', () => {
+    const missingWeb = externalEvidence();
+    missingWeb.appCheck.providers.pop();
     expect(() =>
-      validateExternalReleaseEvidence(missingIos, releaseManifest(), {
+      validateExternalReleaseEvidence(missingWeb, releaseManifest(), {
         now: NOW,
         externalEvidenceSha256: EVIDENCE_SHA,
       })).toThrow(/must contain exactly/i);
+
+    const unexpectedIos = externalEvidence();
+    unexpectedIos.appCheck.providers.push({
+      consumer: 'ios',
+      provider: 'app-attest',
+      evidenceId: 'unapproved-ios-evidence',
+      successfulRuns: 3,
+    });
+    expect(() =>
+      validateExternalReleaseEvidence(unexpectedIos, releaseManifest(), {
+        now: NOW,
+        externalEvidenceSha256: EVIDENCE_SHA,
+      })).toThrow(/approved provider/i);
+
+    const wrongWebProvider = externalEvidence();
+    wrongWebProvider.appCheck.providers[1].provider = 'debug';
+    expect(() =>
+      validateExternalReleaseEvidence(wrongWebProvider, releaseManifest(), {
+        now: NOW,
+        externalEvidenceSha256: EVIDENCE_SHA,
+      })).toThrow(/approved provider/i);
 
     const unapprovedEnforcement = externalEvidence();
     unapprovedEnforcement.appCheck.mode = 'enforce';
@@ -297,7 +315,23 @@ describe('CRM external release evidence', () => {
       )).toThrow(/explicit approval/i);
   });
 
-  it('enforces authenticated field, edge, CDN, and media budgets', () => {
+  it('enforces honest synthetic-canary, edge, CDN, and media budgets', () => {
+    const customerClaim = externalEvidence();
+    customerClaim.performance.customerActivityClaimed = true;
+    expect(() =>
+      validateExternalReleaseEvidence(customerClaim, releaseManifest(), {
+        now: NOW,
+        externalEvidenceSha256: EVIDENCE_SHA,
+      })).toThrow(/must be false/i);
+
+    const mislabeledFieldTraffic = externalEvidence();
+    mislabeledFieldTraffic.performance.observationMode = 'field-rum';
+    expect(() =>
+      validateExternalReleaseEvidence(mislabeledFieldTraffic, releaseManifest(), {
+        now: NOW,
+        externalEvidenceSha256: EVIDENCE_SHA,
+      })).toThrow(/authenticated-synthetic-canary/i);
+
     const slow = externalEvidence();
     slow.performance.rum.mobile.lcpMs = 2501;
     expect(() =>
@@ -332,6 +366,14 @@ describe('CRM external release evidence', () => {
         now: NOW,
         externalEvidenceSha256: EVIDENCE_SHA,
       })).toThrow(/must be true/i);
+
+    const unexpectedSurface = externalEvidence();
+    unexpectedSurface.releaseGovernance.approvedSurfaces.push('ios');
+    expect(() =>
+      validateExternalReleaseEvidence(unexpectedSurface, releaseManifest(), {
+        now: NOW,
+        externalEvidenceSha256: EVIDENCE_SHA,
+      })).toThrow(/must contain exactly/i);
 
     const differentApprover = externalEvidence();
     differentApprover.deploymentApproval.approverIds = ['someone-else'];

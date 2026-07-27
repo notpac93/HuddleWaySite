@@ -216,9 +216,11 @@ protected, privately stored evidence document whose approved SHA-256 binds:
   receipt with explicit owner/operator approval;
 - provider saved queries, routed alert receipts, and support correlation
   lookup;
-- supported web, Android, and iOS App Check telemetry;
-- authenticated field Core Web Vitals, edge latency, CDN compression/cache,
-  and fixture-media derivative evidence;
+- supported web and Android App Check telemetry for the approved release
+  surfaces; iOS remains deferred until separate supported-device evidence;
+- authenticated synthetic-canary Core Web Vitals, edge latency, CDN
+  compression/cache, and fixture-media derivative evidence, explicitly
+  declaring that no customer activity is claimed;
 - an explicit single-developer governance record requiring automated
   validation and separate final production confirmation;
 - a single-owner, time-bounded deployment approval and accepted rollback
