@@ -16,3 +16,8 @@ node_modules/
 dist/
 .astro/
 
+test-results/
+playwright-report/
+coverage/
+.release/
+.release-input/

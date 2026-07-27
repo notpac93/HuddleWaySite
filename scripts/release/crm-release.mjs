@@ -25,6 +25,7 @@ const defaultManifestPath = join(
 
 const exactCanonicalInputs = [
   '.env.example',
+  '.gitignore',
   '.github/workflows/crm-media-evidence.yml',
   '.github/workflows/crm-production-acceptance.yml',
   '.github/workflows/crm-production-deploy.yml',

@@ -16,6 +16,7 @@ describe('CRM release input inventory', () => {
     const inputs = await canonicalInputs();
 
     expect(inputs).toEqual(expect.arrayContaining([
+      '.gitignore',
       '.github/workflows/crm-release-gate.yml',
       '.github/workflows/crm-media-evidence.yml',
       '.github/workflows/crm-production-acceptance.yml',
