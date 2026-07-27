@@ -1,0 +1,204 @@
+name: CRM fixture-media evidence
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/crm-media-evidence.yml
+      - package-lock.json
+      - package.json
+      - scripts/release/crm-media-evidence.mjs
+      - tests/unit/crm-media-evidence.test.ts
+  workflow_dispatch:
+    inputs:
+      website_ref:
+        description: Full reviewed HuddleWaySite commit SHA
+        required: true
+        type: string
+      backend_contract_ref:
+        description: Full reviewed HuddleWay backend commit SHA
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crm-fixture-media-evidence
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    name: Validate fixture-media evidence contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out evidence source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.website_ref || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Set up pinned Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - name: Set up pinned npm
+        run: npm install --global npm@11.5.2
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Validate the collector and its release inventory
+        run: |
+          node --check scripts/release/crm-media-evidence.mjs
+          npx vitest run --config vitest.config.ts \
+            tests/unit/crm-media-evidence.test.ts \
+            tests/unit/crm-release-input-inventory.test.ts
+
+  collect:
+    name: Collect redacted fixture-media evidence
+    if: github.event_name == 'workflow_dispatch'
+    needs: contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: crm-production-observation
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    env:
+      WEBSITE_COMMIT: ${{ inputs.website_ref }}
+      BACKEND_COMMIT: ${{ inputs.backend_contract_ref }}
+    steps:
+      - name: Require immutable reviewed revisions
+        run: |
+          if [[ ! "$WEBSITE_COMMIT" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "::error::website_ref must be a full reviewed commit SHA."
+            exit 1
+          fi
+          if [[ ! "$BACKEND_COMMIT" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "::error::backend_contract_ref must be a full reviewed commit SHA."
+            exit 1
+          fi
+          if [[ "${GITHUB_SHA,,}" != "${WEBSITE_COMMIT,,}" ]]; then
+            echo "::error::Dispatch this workflow from the exact reviewed website commit."
+            exit 1
+          fi
+
+      - name: Check out reviewed website source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.website_ref }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify website checkout
+        run: |
+          if [[ "$(git rev-parse HEAD)" != "${WEBSITE_COMMIT,,}" ]]; then
+            echo "::error::Website checkout does not match website_ref."
+            exit 1
+          fi
+
+      - name: Check out authoritative backend contract
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: notpac93/HuddleWay
+          ref: ${{ inputs.backend_contract_ref }}
+          path: .release-input/HuddleWay
+          fetch-depth: 1
+          persist-credentials: false
+          token: ${{ secrets.HUDDLEWAY_BACKEND_READ_TOKEN || github.token }}
+
+      - name: Verify backend checkout
+        run: |
+          if [[ "$(git -C .release-input/HuddleWay rev-parse HEAD)" != "${BACKEND_COMMIT,,}" ]]; then
+            echo "::error::Backend checkout does not match backend_contract_ref."
+            exit 1
+          fi
+
+      - name: Set up pinned Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Set up pinned npm
+        run: npm install --global npm@11.5.2
+
+      - name: Install locked website dependencies
+        run: npm ci
+
+      - name: Install and verify the exact backend media contract
+        run: |
+          npm ci --prefix .release-input/HuddleWay/functions
+          npm test --prefix .release-input/HuddleWay/functions
+
+      - name: Require protected fixture descriptor
+        env:
+          CRM_MEDIA_FIXTURE_JSON: ${{ secrets.CRM_MEDIA_FIXTURE_JSON }}
+        run: |
+          if [[ -z "$CRM_MEDIA_FIXTURE_JSON" ]]; then
+            echo "::error::Configure CRM_MEDIA_FIXTURE_JSON in crm-production-observation."
+            exit 1
+          fi
+
+      - name: Materialize private fixture descriptor
+        env:
+          CRM_MEDIA_FIXTURE_JSON: ${{ secrets.CRM_MEDIA_FIXTURE_JSON }}
+        run: |
+          umask 077
+          printf '%s' "$CRM_MEDIA_FIXTURE_JSON" \
+            > "$RUNNER_TEMP/crm-media-fixture.json"
+
+      - name: Probe real fixture bytes
+        run: |
+          npm run release:evidence:probe-media -- \
+            --input "$RUNNER_TEMP/crm-media-fixture.json" \
+            --out "$RUNNER_TEMP/crm-media-evidence.json" \
+            --website-commit "$WEBSITE_COMMIT" \
+            --backend-commit "$BACKEND_COMMIT"
+
+      - name: Remove token-bearing fixture descriptor
+        if: always()
+        run: rm -f "$RUNNER_TEMP/crm-media-fixture.json"
+
+      - name: Sign redacted evidence provenance
+        id: attest
+        if: success()
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
+        with:
+          subject-path: ${{ runner.temp }}/crm-media-evidence.json
+
+      - name: Retain attestation bundle
+        if: success()
+        env:
+          ATTESTATION_BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+        run: cp "$ATTESTATION_BUNDLE_PATH" "$RUNNER_TEMP/crm-media-evidence.attestation.json"
+
+      - name: Publish only redacted evidence
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: crm-media-evidence-${{ inputs.website_ref }}
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            ${{ runner.temp }}/crm-media-evidence.json
+            ${{ runner.temp }}/crm-media-evidence.attestation.json
+
+      - name: Write redacted evidence summary
+        if: always()
+        run: |
+          {
+            echo "## CRM fixture-media evidence"
+            echo
+            echo "- Website commit: \`${WEBSITE_COMMIT}\`"
+            echo "- Backend commit: \`${BACKEND_COMMIT}\`"
+            if [[ -f "$RUNNER_TEMP/crm-media-evidence.json" ]]; then
+              node -e "const e=require(process.argv[1]); console.log('- Evidence ID: \`'+e.evidenceId+'\`'); console.log('- Responsive widths: \`'+e.performanceMedia.responsiveWidths.join(', ')+'\`'); console.log('- Receipt SHA-256: \`'+e.receiptSha256+'\`')" "$RUNNER_TEMP/crm-media-evidence.json"
+              echo "- GitHub attestation: ${{ steps.attest.outputs.attestation-url }}"
+            else
+              echo "- Evidence: not produced; inspect the failed gate above"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

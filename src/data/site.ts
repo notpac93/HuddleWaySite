@@ -6,6 +6,23 @@ export type Link = {
 export type CallToAction = {
   label: string;
   href: string;
+  prompt?: 'app-store-choice';
+};
+
+export type AppStorePrompt = {
+  title: string;
+  body: string;
+  admin: {
+    label: string;
+    href: string;
+    note: string;
+  };
+  family: {
+    label: string;
+    href?: string;
+    note: string;
+  };
+  dismissLabel: string;
 };
 
 export type Card = {
@@ -59,6 +76,14 @@ export type PreviewMockup = {
   };
 };
 
+export type DeploymentAnimation = {
+  title: string;
+  body: string;
+  src: string;
+  label: string;
+  poster?: string;
+};
+
 export type FeatureSection = {
   id: string;
   title: string;
@@ -103,7 +128,7 @@ const withBase = (path: string) => {
 };
 
 const mockupAsset = (fileName: string, alt: string, fit: 'contain' | 'cover' = 'contain'): NonNullable<PreviewMockup['asset']> => ({
-  src: `/mockups/${encodeURIComponent(fileName)}`,
+  src: `/mockups/${fileName.split('/').map(encodeURIComponent).join('/')}`,
   alt,
   frame: 'none',
   fit,
@@ -111,11 +136,11 @@ const mockupAsset = (fileName: string, alt: string, fit: 'contain' | 'cover' = '
 
 export const siteMeta = {
   name: 'HuddleWay',
-  title: 'HuddleWay | Branded Family App for Sports Programs',
+  title: 'HuddleWay | Branded App for Youth Sports',
   description:
-    'HuddleWay gives sports programs a branded family app for schedules, registration, payments, and updates, plus built-in tools to manage pages, events, and program details.',
+    'HuddleWay gives youth sports programs a branded experience for supported registration, connected-account payments, schedules, and updates.',
   footerBlurb:
-    'A real app your program can make its own, with built-in tools that help your team save time and keep families on one clear path.',
+    'Built for youth sports programs that want branded, connected registration, payment, schedule, and update workflows.',
 
 };
 
@@ -133,8 +158,24 @@ export const trustLinks: Link[] = [
 ];
 
 export const primaryCta: CallToAction = {
-  label: 'Start Setup',
-  href: withBase('/setup-faq#setup-steps'),
+  label: 'Download App',
+  href: 'https://apps.apple.com/us/app/huddleway-admin/id6761773042',
+  prompt: 'app-store-choice',
+};
+
+export const appStorePrompt: AppStorePrompt = {
+  title: 'Choose your app',
+  body: 'Are you Administrator or Family?',
+  admin: {
+    label: 'Administrator',
+    href: 'https://apps.apple.com/us/app/huddleway-admin/id6761773042',
+    note: 'Open the HuddleWay Admin app in the App Store.',
+  },
+  family: {
+    label: 'Family',
+    note: 'Family App Store link coming soon.',
+  },
+  dismissLabel: 'Not now',
 };
 
 export const secondaryCta: CallToAction = {
@@ -156,17 +197,18 @@ export const homePage = {
   pageName: 'home',
   title: siteMeta.title,
   description:
-    'Branded family app for sports programs with schedules, signup, payments, updates, and built-in tools to manage the day-to-day work.',
+    'Branded program experience for supported registration, connected-account payments, schedules, and updates.',
   hero: {
-    eyebrow: 'Branded App For Sports Programs',
-    title: 'Your program. Your app.',
-    body: 'Schedules, signup, payments, and updates in one place.',
+    eyebrow: 'For Youth Sports Programs',
+    title: 'A branded app for youth sports programs.',
+    body: 'Bring supported registration, connected-account payments, schedules, and updates into a branded program experience.',
   },
-  heroPill: 'Launch a branded family app',
+  heroPill: 'Built around your program and its configured workflows.',
   quickChecks: [
-    'Your logo',
-    'One app',
-    'Clear updates',
+    'Youth sports',
+    'Free admin setup',
+    'Connected payments',
+    'Your brand',
   ],
   heroVisuals: [
     {
@@ -184,45 +226,57 @@ export const homePage = {
       asset: mockupAsset('consumer/2.png', 'Branded HuddleWay landing screen with registration open.'),
     },
   ] satisfies PreviewMockup[],
+  adminAnimations: {
+    eyebrow: 'HuddleWay Admin',
+    title: 'Explore the HuddleWay Admin experience.',
+    videos: [
+      {
+        title: 'HuddleWay Admin for iOS',
+        body: 'See the administrator experience for configuring schedules, registration, payments, and updates. Availability depends on the program and released app version.',
+        src: '/mockups/admin/huddleway-admin-new-ios-app.mp4',
+        label: 'HuddleWay Admin new iOS app deployment animation.',
+      },
+    ] satisfies DeploymentAnimation[],
+  },
   results: {
     title: 'What your program gets',
-    body: 'Less admin. Clearer steps. A stronger brand.',
+    body: 'Free administration. Connected payment records. Your program’s brand.',
     cards: [
       {
-        value: 'One place',
-        title: 'Schedules and updates',
-        body: 'Families know where to look.',
+        value: 'Built for',
+        title: 'Clubs, camps, leagues, and training businesses',
+        body: 'Use HuddleWay when your youth sports program needs one clear app for clients and families.',
         tone: 'brand',
       },
       {
-        value: 'Less chasing',
-        title: 'Registration and payments',
-        body: 'Fewer repeat questions.',
+        value: 'Payment model',
+        title: 'Connected-account processing',
+        body: 'Supported payment flows use the program’s connected Stripe account. Pricing, processor fees, payout timing, and availability depend on the program’s agreement and configuration.',
         tone: 'field',
       },
       {
-        value: 'Your brand',
-        title: 'Front and center',
-        body: 'Logo, colors, and name stay visible.',
+        value: 'Your logo',
+        title: 'Makes the app easier to trust',
+        body: 'Swap in your brand so people recognize your program.',
         tone: 'accent',
       },
     ] satisfies ResultCard[],
   },
   steps: {
-    title: 'From setup to live in 3 steps',
-    body: 'Upload your brand, add your program, invite families.',
+    title: 'What your team actually does',
+    body: 'Set the brand, set the payment and registration flow, then share one app.',
     items: [
       {
-        title: 'Set up your program',
-        body: 'Add your logo, details, and dates.',
+        title: 'Add your brand and program basics',
+        body: 'Upload your logo, colors, dates, fees, and locations.',
       },
       {
-        title: 'Invite families',
-        body: 'Share one app and one clear next step.',
+        title: 'Set registration, payments, and updates',
+        body: 'Decide what families need to pay, read, and do next.',
       },
       {
-        title: 'Run the season',
-        body: 'Post schedules and updates.',
+        title: 'Invite families and clients',
+        body: 'Once the program and app release are approved, share the supported registration, payment, schedule, and update paths.',
       },
     ] satisfies Step[],
   },
@@ -234,23 +288,23 @@ export const homePage = {
     asset: mockupAsset('consumer/3.png', 'Hand-held registration form screen inside the HuddleWay app.'),
   } satisfies PreviewMockup,
   showcase: {
-    title: 'See the app your families will actually use',
-    body: 'Families open your program app to check schedules, updates, and registration in one place.',
+    title: 'One app people can recognize and come back to',
+    body: 'Keep your program name, pricing, schedules, registration, and updates together so clients and families know where to look next.',
     bullets: [
       {
-        title: 'Your logo and colors',
-        body: 'The experience looks like yours from the first tap.',
+        title: 'Brand the app to your program',
+        body: 'Use your logo and colors so the experience looks familiar from the first tap.',
       },
       {
-        title: 'Families stay in your experience',
-        body: 'Your brand, your details, and the next step stay together from start to finish.',
+        title: 'Keep registration and payment close',
+        body: 'Put the next step where families already see the program details.',
       },
       {
-        title: 'Built-in tools do more of the work',
-        body: 'Your team keeps pages, events, and updates current in one place.',
+        title: 'Reach people in a cleaner place',
+        body: 'Post updates alongside configured schedules and offers in the family app.',
       },
     ] satisfies Card[],
-    note: 'A real app for families. Easier to run for your team.',
+    note: 'Branded for your program and built for repeat use.',
     mockup: {
       label: 'Branded club app',
       theme: 'dark',
@@ -260,97 +314,97 @@ export const homePage = {
     } satisfies PreviewMockup,
   },
   cta: {
-    eyebrow: 'Start Setup',
-    title: 'Give your program a real app',
-    body: 'Make it your own, give families one place to go, and keep the day-to-day work easier for your team.',
+    eyebrow: 'See The Fit',
+    title: 'Put your youth sports program in one clean app',
+    body: 'If your team wants branded registration, connected-account payments, and clearer family communication, start here.',
   },
 };
 
 export const featuresPage = {
   pageName: 'features',
-  title: 'Features | Family App and Program Tools | HuddleWay',
+  title: 'Features | Youth Sports Program App | HuddleWay',
   description:
-    'See the HuddleWay features that help sports programs manage pages, events, registration, payments, schedules, and updates in one place.',
+    'See how HuddleWay connects supported branding, registration, connected-account payment, schedule, and update workflows.',
   hero: {
-    eyebrow: 'Family App Features',
-    title: 'Family app features and team tools for sports programs.',
+    eyebrow: 'How HuddleWay Works',
+    title: 'What your youth sports program can run inside HuddleWay.',
     body:
-      'See how HuddleWay helps sports programs keep families in one branded app while managing pages, events, registration, payments, schedules, and updates in one place.',
+      'Use one branded app to present your program, take registrations and payments, post schedules, and share updates with clients and families.',
   },
   overview: {
-    title: 'What the HuddleWay family app covers',
-    body: 'The built-in tools that help sports programs run the day-to-day work while families get one clear place to go.',
+    title: 'What HuddleWay actually helps you do',
+    body: 'Answer the first practical questions fast: who it is for, what families can do, and what your team controls.',
     cards: [
       {
-        value: 'Your app',
-        title: 'Pages and program details',
-        body: 'Your app stays branded and easy to update.',
+        value: 'Built for',
+        title: 'Youth sports programs',
+        body: 'Clubs, camps, leagues, and training businesses that want one branded app.',
         tone: 'brand',
       },
       {
-        value: 'Built-in tools',
-        title: 'Events, registration, and payments',
-        body: 'Your team manages the day-to-day work in one place.',
+        value: 'Families can',
+        title: 'Register, pay, and stay updated',
+        body: 'Give people one branded starting point for schedules, eligible payment steps, updates, and next actions.',
         tone: 'field',
       },
       {
-        value: 'Families first',
-        title: 'Schedules, updates, and next steps',
-        body: 'Families find what they need in one clear app.',
+        value: 'Your team controls',
+        title: 'Brand, content, and workflow',
+        body: 'Update supported pages, events, fees, and announcements through the configured admin workflows.',
         tone: 'accent',
       },
     ] satisfies ResultCard[],
   },
   showcase: {
-    eyebrow: 'See The Experience',
-    title: 'One app that feels like your program.',
-    body: 'Families stay in your program experience, and your team keeps it up to date from one place.',
-    chips: ['Dates and fees', 'Register here', 'See updates'],
-    badges: ['Family view', 'Less confusion'],
+    eyebrow: 'Why Branding Matters',
+    title: 'Your clients should recognize your program immediately.',
+    body: 'HuddleWay changes the app branding to match your logo and colors so families know they are in the right place before they register or pay.',
+    chips: ['Your logo', 'Your colors', 'Your next step'],
+    badges: ['Recognizable', 'Built for families'],
     mockup: {
       label: 'Family app view',
       theme: 'dark',
       tone: 'brand',
       tilt: 'none',
-      asset: mockupAsset('consumer/2.png', 'Branded HuddleWay family app home screen.'),
+      asset: mockupAsset('consumer/1.png', 'Branded HuddleWay family app home screen.'),
     } satisfies PreviewMockup,
   },
   indexLinks: [
     { label: 'Setup', href: '#publishing' },
     { label: 'Events', href: '#schedules' },
-    { label: 'Registration', href: '#registration' },
+    { label: 'Payments', href: '#registration' },
     { label: 'Updates', href: '#communication' },
     { label: 'Brand', href: '#branding' },
   ] satisfies Link[],
   sections: [
     {
       id: 'publishing',
-      title: 'Pages and program details',
-      body: 'Keep dates, fees, locations, and core program pages together.',
-      benefit: 'Less time repeating the basics.',
+      title: 'Program pages and offer details',
+      body: 'Show what your program is, what it costs, where it happens, and what people should do next.',
+      benefit: 'Fewer basic questions before registration.',
       operatorTitle: 'Your team can',
       operatorItems: [
-        'Manage the season overview and key pages',
-        'Update core details once',
+        'Update dates, fees, age groups, and locations in one place',
+        'Publish the current configured offer from a supported admin flow',
       ],
       familyTitle: 'Families can',
       familyItems: [
-        'See dates and fees fast',
-        'Know the next step',
+        'See if the program fits',
+        'Know the next step before reaching out',
       ],
       mockup: {
         label: 'Program overview',
         theme: 'light',
         tone: 'brand',
         tilt: 'none',
-        asset: mockupAsset('admin/1.png', 'Program setup dashboard for team pages and labels.'),
+        asset: mockupAsset('consumer/2.png', 'Program details and registration showing dates and fees.'),
       },
     },
     {
       id: 'schedules',
       title: 'Events and schedules',
-      body: 'Keep time, location, and event changes easy to track.',
-      benefit: 'Less resending when plans change.',
+      body: 'Keep event times, locations, and changes in one place people can check fast.',
+      benefit: 'One configured place to publish the current schedule.',
       operatorTitle: 'Your team can',
       operatorItems: [
         'Post event dates and schedule changes',
@@ -366,64 +420,64 @@ export const featuresPage = {
         theme: 'dark',
         tone: 'field',
         tilt: 'none',
-        asset: mockupAsset('consumer/5.png', 'Family-facing coaching staff and upcoming events screen.'),
+        asset: mockupAsset('admin/2.png', 'Event management screen for updating schedules.'),
       },
     },
     {
       id: 'registration',
-      title: 'Signup and payment',
-      body: 'Keep the action step close to the details.',
-      benefit: 'A shorter path from review to action.',
+      title: 'Registration and connected-account payments',
+      body: 'Let families register and pay your program in a cleaner branded flow.',
+      benefit: 'A clearer supported path from registration to payment.',
       operatorTitle: 'Your team can',
       operatorItems: [
-        'Show the registration step clearly',
-        'Keep payment expectations close to signup',
+        'Set pricing and payment expectations clearly',
+        'Collect eligible program payments through the configured connected-account flow',
       ],
       familyTitle: 'Families can',
       familyItems: [
-        'Review what to do',
-        'Finish registration in a clearer flow',
+        'See what to pay and what happens next',
+        'Finish registration with less confusion',
       ],
       mockup: {
         label: 'Registration flow',
         theme: 'light',
         tone: 'accent',
         tilt: 'none',
-        asset: mockupAsset('consumer/3.png', 'Hand-held registration flow screen for player signup.'),
+        asset: mockupAsset('consumer/5.png', 'Payment and registration checkout screen.'),
       },
     },
     {
       id: 'communication',
-      title: 'Updates',
-      body: 'Share reminders where families already look.',
-      benefit: 'Less digging through old threads.',
+      title: 'Updates people will actually see',
+      body: 'Post supported reminders, changes, and next steps in the branded family app feed.',
+      benefit: 'One branded place for supported announcements and changes.',
       operatorTitle: 'Your team can',
       operatorItems: [
-        'Post program updates',
-        'Share reminders in context',
+        'Share reminders and changes in one branded place',
+        'Keep the current announcement visible in the configured app feed',
       ],
       familyTitle: 'Families can',
       familyItems: [
         'Find updates faster',
-        'Understand what changed',
+        'Understand what changed without digging through old messages',
       ],
       mockup: {
         label: 'Updates feed',
         theme: 'dark',
         tone: 'brand',
         tilt: 'none',
-        asset: mockupAsset('consumer/6.png', 'Registrant detail sheet with message, email, and call actions.'),
+        asset: mockupAsset('consumer/7.png', 'Program board showing latest updates and announcements.'),
       },
     },
     {
       id: 'branding',
       title: 'Your brand',
-      body: 'Keep your logo and colors front and center.',
-      benefit: 'A more polished family experience.',
+      body: 'Keep the app tied to your program identity so families and clients recognize the experience.',
+      benefit: 'A recognizable program presence.',
       operatorTitle: 'Your team can',
       operatorItems: [
         'Apply your logo and colors',
-        'Keep the experience visually connected',
+        'Keep the experience visually connected from first tap to payment',
       ],
       familyTitle: 'Families can',
       familyItems: [
@@ -435,20 +489,20 @@ export const featuresPage = {
         theme: 'light',
         tone: 'brand',
         tilt: 'none',
-        asset: mockupAsset('admin/2.png', 'Hand-held team color selection screen for brand customization.'),
+        asset: mockupAsset('admin/1.png', 'App menu prominently featuring the program logo and colors.'),
       },
     },
   ] satisfies FeatureSection[],
   proof: {
-    title: 'Built for the workflows sports programs repeat',
+    title: 'Built for the workflows youth programs repeat',
     body:
-      'No feature sprawl. Just the tools that help sports programs run a branded family app without extra systems in the way.',
+      'HuddleWay is for programs that need branded presentation, connected payment workflows, and simpler day-to-day communication.',
   },
   cta: {
-    eyebrow: 'Workflow Tour',
-    title: 'See the features behind your program app',
+    eyebrow: 'Feature Tour',
+    title: 'See how your program would run in HuddleWay',
     body:
-      'Explore pages, events, registration, payments, schedules, and updates in one place.',
+      'Walk through the brand, payment, schedule, and update workflow before you download.',
   },
 };
 
@@ -456,48 +510,48 @@ export const savingsPage = {
   pageName: 'savings',
   title: 'Savings | Fewer Tools for Sports Programs | HuddleWay',
   description:
-    'See how HuddleWay helps sports programs reduce tool sprawl, repeated work, and manual follow-up with one family app and built-in team tools.',
+    'See how HuddleWay can help youth sports programs connect supported registration, payment, schedule, and communication workflows in a branded experience.',
   hero: {
-    eyebrow: 'Sports Program Savings',
-    title: 'Spend less time juggling tools.',
+    eyebrow: 'Program Payments And Operations',
+    title: 'Keep the payment path and family path cleaner.',
     body:
-      'Sports programs save time when schedules, registration, payments, and updates stay in one branded app with built-in team tools.',
+      'HuddleWay connects supported program workflows and uses a configured Stripe connected account for eligible payment paths.',
   },
   snapshot: {
-    title: 'Less wasted time.',
-    body: 'Fewer tools to pay for. Less manual cleanup. Easier follow-through for your program.',
+    title: 'Payment terms should be clear before launch.',
+    body: 'Creating and administering a program is free. Platform pricing, processor fees, payout timing, refunds, disputes, and supported payment methods apply only to configured payment flows and depend on the approved agreement and Stripe configuration.',
   },
   comparison: {
-    title: 'Before. After.',
-    body: 'What teams stop repeating when the workflow stays together.',
+    title: 'What gets simpler when everything stays connected',
+    body: 'Compare scattered tools with one branded app for registration, payments, schedules, and updates.',
     beforeLabel: 'Without HuddleWay',
     beforeItems: [
       {
-        title: 'Updates copied everywhere',
-        body: 'The same change gets resent across threads.',
+        title: 'Families ask where to go',
+        body: 'Details, schedule, and payment live in different places.',
       },
       {
-        title: 'Payment status checked elsewhere',
-        body: 'What is paid lives in a separate step.',
+        title: 'Payment confirmation is separate',
+        body: 'Your team double-checks another system to see what is complete.',
       },
       {
-        title: 'Families bounce between systems',
-        body: 'The next step is harder to follow.',
+        title: 'Brand disappears mid-flow',
+        body: 'The next step looks disconnected from your program.',
       },
     ] satisfies CompareItem[],
     afterLabel: 'With HuddleWay',
     afterItems: [
       {
-        title: 'Post in one clearer place',
-        body: 'Families know where to check.',
+        title: 'One place to act',
+        body: 'People can review details, register, and start eligible payment steps from one branded program flow.',
       },
       {
-        title: 'Signup stays connected',
-        body: 'Registration and payment stay in the same system.',
+        title: 'Connected payment records',
+        body: 'Eligible payment flows use the program’s configured Stripe connected account and remain subject to the approved pricing and payout terms.',
       },
       {
-        title: 'Give families one path',
-        body: 'Brand, details, updates, and next steps stay together.',
+        title: 'Brand stays visible',
+        body: 'Logo, colors, and program context stay attached to the next step.',
       },
     ] satisfies CompareItem[],
   },
@@ -509,11 +563,11 @@ export const savingsPage = {
     asset: mockupAsset('admin/3.png', 'Angled admin staff management screen for team operations.'),
   } satisfies PreviewMockup,
   spotlight: {
-    eyebrow: 'See It In Practice',
-    title: 'Built to lighten the load.',
-    body: 'One app to manage. Less cleanup for your team. A clearer experience for families.',
-    chips: ['One place to post', 'Less cleanup later', 'Reports easier to pull'],
-    badges: ['Team tools', 'Family path'],
+    eyebrow: 'Why It Sticks',
+    title: 'A familiar place for people to return to.',
+    body: 'When clients and families can register, start eligible payment steps, and check updates in one recognizable app, your team can reduce repeated handoffs.',
+    chips: ['Connected pay', 'Branded app', 'Clear updates'],
+    badges: ['Your program', 'One path'],
     mockup: {
       label: 'Team view',
       theme: 'dark',
@@ -523,13 +577,13 @@ export const savingsPage = {
     } satisfies PreviewMockup,
   },
   timeBack: {
-    title: 'Time back.',
-    body: 'Common jobs that stop stealing time, including upkeep after launch.',
+    title: 'Where time comes back',
+    body: 'Use HuddleWay to centralize supported admin workflows while keeping the payment flow explicit.',
     cards: [
       {
         title: 'Announcements',
         before: 'Same update, several channels.',
-        after: 'One clearer place to post it.',
+        after: 'Post once to the configured in-app announcements feed.',
         tag: 'Less repeat posting',
         tone: 'brand',
         icon: 'announce',
@@ -543,17 +597,17 @@ export const savingsPage = {
         icon: 'schedule',
       },
       {
-        title: 'Family questions',
-        before: 'The same basic questions keep coming.',
-        after: 'Families have a clearer place to look.',
-        tag: 'Fewer repeat questions',
+        title: 'Payment questions',
+        before: 'People ask what to pay and where to do it.',
+        after: 'Pricing and next steps stay in the same flow.',
+        tag: 'Less payment confusion',
         tone: 'accent',
         icon: 'family',
       },
       {
         title: 'Registration follow-up',
         before: 'Interest, forms, and payment split apart.',
-        after: 'The path to signup stays tighter.',
+        after: 'Registration and payment stay closer together.',
         tag: 'Fewer handoffs',
         tone: 'brand',
         icon: 'registration',
@@ -561,10 +615,10 @@ export const savingsPage = {
     ] satisfies SavingsCard[],
   },
   consolidation: {
-    title: 'Fewer tools.',
+    title: 'One stack instead of several handoffs.',
     body:
-      'The real value is fewer extra tools to pay for and fewer places to double-check.',
-    leftTitle: 'Teams often juggle',
+      'The value is simpler upkeep, stronger brand recognition, and a configured connected-account payment path.',
+    leftTitle: 'Teams often patch together',
     leftItems: [
       {
         title: 'Messages',
@@ -572,7 +626,7 @@ export const savingsPage = {
       },
       {
         title: 'Payments',
-        body: 'Another step to confirm what is complete.',
+        body: 'Another place to confirm what is complete.',
       },
       {
         title: 'Schedules',
@@ -583,22 +637,22 @@ export const savingsPage = {
         body: 'Another handoff before a family finishes the next step.',
       },
     ] satisfies ToolItem[],
-    rightTitle: 'HuddleWay brings together',
+    rightTitle: 'HuddleWay keeps together',
     rightItems: [
-      'Program details, branded pages, and events',
+      'Program pages, branding, and offer details',
       'Registration and payment flow',
-      'Schedules and updates',
-      'A simpler rhythm for upkeep and reporting',
-      'One clearer family app',
+      'Schedules, updates, and reminders',
+      'A client and family app people recognize',
+      'A simpler admin rhythm',
     ],
     note:
-      'Review your current stack before turning this into an exact savings number.',
+      'Payment availability, fees, and payout timing depend on the approved agreement and connected-account configuration.',
   },
   cta: {
     eyebrow: 'Simplify The Workflow',
-    title: 'See where your program can save time.',
+    title: 'See if the workflow is worth simplifying',
     body:
-      'Start with the workflow that creates the most rework in schedules, registration, payments, or updates.',
+      'Start with the area that creates the most confusion: registration, payments, schedules, or updates.',
   },
 };
 
@@ -606,22 +660,22 @@ export const setupFaqPage = {
   pageName: 'setup-faq',
   title: 'Setup FAQ | Launch Your Program App | HuddleWay',
   description:
-    'Setup FAQ for sports programs that want to launch a branded family app and keep schedules, registration, payments, and updates easy to manage.',
+    'Setup FAQ for youth sports programs considering branded registration, connected-account payments, schedules, and updates.',
   hero: {
     eyebrow: 'Setup FAQ',
-    title: 'Make it yours. Keep it simple.',
+    title: 'Know if HuddleWay fits your youth sports program.',
     body:
-      'Get clear on fit, rollout, and how your team will manage the app before launch.',
+      'HuddleWay is for clubs, camps, leagues, and training businesses that want a branded app families can use for registration, payments, schedules, and updates.',
   },
   example: {
-    eyebrow: 'Illustrative Brand View',
-    title: 'See how your program can look inside HuddleWay.',
+    eyebrow: 'Family View',
+    title: 'What families should understand at first glance.',
     body:
-      'The goal is simple: families should see your brand, your program details, and the next step in one clear app on the phone.',
+      'They should recognize your brand, understand the offer, and know where to register or pay.',
     bullets: [
       'Your logo and colors stay visible',
-      'Program details and next steps stay together',
-      'The family view is easier to follow at a glance',
+      'Dates, fees, and locations are easy to scan',
+      'The next step is clear in the same app',
     ],
     mockup: {
       label: 'Illustrative club app',
@@ -632,81 +686,81 @@ export const setupFaqPage = {
     } satisfies PreviewMockup,
   },
   audiencesIntro: {
-    title: 'Built for program leaders',
-    body: 'Clubs, camps, and leagues that want one clear family app and built-in tools for day-to-day work.',
+    title: 'Who HuddleWay is built for',
+    body: 'Youth sports programs and training businesses that want cleaner communication, connected payment workflows, and a more recognizable app.',
   },
   audiences: [
     {
       title: 'Club Directors',
-      body: 'For leaders who want one system to manage pages, events, registration, payments, and family updates.',
+      body: 'Run registration, payments, schedules, and updates inside one branded program app.',
     },
     {
       title: 'Camp Leaders',
-      body: 'For programs that need one app families can use for schedules, updates, and registration.',
+      body: 'Keep seasonal offers, dates, and parent updates in one branded place designed for families.',
     },
     {
       title: 'League Leaders',
-      body: 'For organizations that need a more consistent structure across teams, divisions, events, and family-facing information.',
+      body: 'Create a more consistent family-facing path across teams, divisions, events, and registrations.',
     },
   ] satisfies Card[],
   setupSteps: [
     {
       title: 'Create your program account',
-      body: 'Start with the core name, sport, and program details you need to get moving.',
+      body: 'Add the core name, sport, and business details you want families to see.',
     },
     {
-      title: 'Add your brand and program details',
-      body: 'Upload the logo, shape the presentation, and organize the dates, fees, and locations families need first.',
+      title: 'Add your logo, colors, dates, fees, and locations',
+      body: 'Set the branded presentation and the information people need before they act.',
     },
     {
-      title: 'Set the family flow',
-      body: 'Prepare the schedules, registration, payment expectations, and update paths families will use most often.',
+      title: 'Set registration, payment, and update flow',
+      body: 'Decide what families can register for, how they pay, and where they check changes.',
     },
     {
-      title: 'Review before launch',
-      body: 'Review the live experience carefully so the public-facing path feels clear before you share it.',
+      title: 'Review the family preview',
+      body: 'Make sure the branded app feels clear before you invite people in.',
     },
   ] satisfies Step[],
   experience: {
-    title: 'The app should feel clear for families and easy for your team to run',
+    title: 'What your team does and what families get',
     body:
-      'A strong rollout gives families one clear place to go and gives your team one simpler way to manage it.',
+      'The operator work is simple: brand the app, set the flow, and review it. The family benefit is one cleaner place to use.',
     operator: {
       title: 'As the program team',
       bullets: [
         'Keep pages, events, schedules, and updates organized in one place',
-        'Set the registration and payment path more clearly before launch',
-        'Run the day-to-day workflow without needing a deeply technical setup process',
-        'Review the public-facing experience before sharing it with families',
+        'Set the registration and payment path clearly before launch',
+        'Run the workflow without needing a deeply technical setup process',
+        'Review the family-facing experience before sharing it',
       ],
     },
     family: {
       title: 'As the family',
       bullets: [
-        'Find the program and understand the basics quickly',
-        'See schedules, updates, and next steps in one place on the phone',
-        'Follow a more consistent path for registration and payment expectations',
+        'Recognize the program immediately',
+        'See schedules, updates, pricing, and next steps in one place',
+        'Start registration and eligible payment steps from one configured flow',
       ],
     },
   },
   trust: {
-    title: 'Trust comes from clear steps and controlled access',
+    title: 'The practical questions people ask next',
     body:
-      'Keep the trust language factual: clear next steps, secure activation, controlled access, and a connected registration and payment path.',
+      'Admin setup is free. If the program will collect payments, confirm processor fees, payout timing, supported payment methods, and program configuration before inviting families.',
     cards: [
       {
-        title: 'Clear next steps',
-        body: 'Families should know where to register, how to review payment expectations, and where to check for updates.',
+        title: 'Connected-account payments',
+        body: 'Supported program payment flows use the configured Stripe connected account.',
         tone: 'brand',
       },
       {
-        title: 'Controlled team access',
-        body: 'Role-based controls help the right people manage the program.',
+        title: 'Brand people recognize',
+        body: 'Logo, colors, and program context stay attached to the next step.',
         tone: 'field',
       },
       {
         title: 'Ready before launch',
-        body: 'Before rollout, check the live details carefully so the family app is ready to share.',
+        body: 'Check the family preview before you share it so the configured path is clear.',
         tone: 'accent',
       },
     ] satisfies Card[],
@@ -715,42 +769,42 @@ export const setupFaqPage = {
     {
       question: 'Is HuddleWay a fit for my type of program?',
       answer:
-        'HuddleWay is built for programs that want a real app for families and built-in tools to manage the day-to-day work.',
+        'HuddleWay is built for youth sports programs, including clubs, camps, leagues, and training businesses that want one branded app for registration, payments, schedules, and updates.',
     },
     {
-      question: 'How should I think about setup?',
+      question: 'What does my team have to do before launch?',
       answer:
-        'Think about setup as a rollout plan: create the program account, add your brand and details, set the family flow, and review the live experience before launch.',
+        'Create a free administrator account, add your logo and program details, set the registration flow, then review what families will see before you share it. Connecting Stripe is optional and only needed if the program chooses to collect payments.',
     },
     {
       question: 'What should families expect?',
-      answer: 'Families should expect one app where they can review program information, understand the next step, and check for schedules and updates.',
+      answer: 'Families should expect one branded app where they can review the program, see schedules and updates, understand the next step, and use the configured connected-account payment flow when needed.',
     },
     {
-      question: 'What should I review before launch?',
+      question: 'How do payments work?',
       answer:
-        'Review the branding, program details, pages, schedules, registration step, payment expectations, and update paths so the experience feels clear before you share it.',
+        'Creating and administering a program is free. Supported participant-payment flows use the program’s configured Stripe connected account; platform and processor fees, payout timing, refunds, disputes, and available payment methods must be confirmed in the approved program agreement before launch.',
     },
     {
       question: 'Can I use HuddleWay across multiple teams or divisions?',
       answer:
-        'HuddleWay is designed for programs that need a more consistent structure across teams, divisions, events, and family information. Plan the exact setup around how your organization is organized today.',
+        'HuddleWay supports tenant-scoped teams, seasons, events, registrations, and roster assignments. Confirm any division hierarchy, household management, or cross-team reporting requirement during setup because those are not represented as universal standalone records in the current release contract.',
     },
     {
-      question: 'How should I think about the payment step?',
+      question: 'What should I review before launch?',
       answer:
-        'Treat the payment step as part of the overall family flow. Keep expectations clear, review the experience carefully, and make sure families understand what happens next.',
+        'Review the branding, dates, fees, registration step, payment expectations, schedules, and update path so the experience feels clear before you share it.',
     },
     {
       question: 'Do I need to be tech-savvy to use HuddleWay?',
       answer:
-        'No. HuddleWay is meant to feel straightforward for everyday program teams. The goal is a clear setup, a clear family path, and less manual upkeep once the program is live.',
+        'The free guided setup covers program identity, branding, teams, and navigation. Stripe setup is optional for programs that collect payments. Launch also requires the applicable identity, app-release, and operational checks, so some programs may need assisted setup.',
     },
   ] satisfies FaqItem[],
   cta: {
-    eyebrow: 'Rollout Planning',
-    title: 'Launch with a plan that feels clear before launch',
+    eyebrow: 'Check The Fit',
+    title: 'Plan the launch before you invite families',
     body:
-      'Use the setup page to plan a clear family app and a simpler day-to-day workflow before launch.',
+      'Use the setup page to decide how your brand, payments, schedules, and updates should look in HuddleWay.',
   },
 };

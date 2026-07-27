@@ -72,8 +72,9 @@ h3 {
 
 h1,
 h2 {
-  font-family: 'Fraunces', serif;
+  font-family: 'Sora Variable', 'Roboto', system-ui, -apple-system, sans-serif;
   font-weight: 700;
+  letter-spacing: -0.03em;
 }
 
 h1 {
@@ -325,6 +326,89 @@ h3 {
   gap: 0.9rem;
 }
 
+.app-store-dialog {
+  width: min(28rem, calc(100vw - 2rem));
+  padding: 0;
+  border: 0;
+  border-radius: 1.75rem;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-store-dialog::backdrop {
+  background: rgba(11, 20, 37, 0.56);
+  backdrop-filter: blur(8px);
+}
+
+.app-store-dialog__panel {
+  position: relative;
+  padding: 2rem;
+  border: 1px solid rgba(21, 37, 64, 0.12);
+  border-radius: 1.75rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(239, 245, 255, 0.98));
+  box-shadow: 0 30px 80px rgba(23, 31, 46, 0.22);
+}
+
+.app-store-dialog__close,
+.app-store-dialog__dismiss {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.app-store-dialog__close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: inline-grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  background: rgba(17, 103, 242, 0.08);
+  font-size: 1.4rem;
+}
+
+.app-store-dialog__body,
+.app-store-dialog__note {
+  margin: 0;
+}
+
+.app-store-dialog__body {
+  margin-top: 0.9rem;
+  max-width: 28ch;
+  font-size: 1rem;
+}
+
+.app-store-dialog__actions {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 1.5rem;
+}
+
+.app-store-dialog__note {
+  font-size: 0.92rem;
+}
+
+.app-store-dialog__button-disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.app-store-dialog__dismiss {
+  display: inline-flex;
+  margin-top: 1.25rem;
+  padding: 0;
+  font-weight: 700;
+}
+
+.app-store-dialog__dismiss:hover,
+.app-store-dialog__close:hover {
+  color: var(--ink);
+}
+
 .hero {
   padding: 4.5rem 0 2rem;
 }
@@ -429,6 +513,7 @@ h3 {
 .page--home .section-intro h2,
 .page--home .result-card h3,
 .page--home .process-card h3,
+.page--home .admin-animation-card h3,
 .page--home .showcase-list__title,
 .page--home .cta-banner h2 {
   font-family: 'Sora Variable', sans-serif;
@@ -594,6 +679,46 @@ h3 {
 .showcase-layout {
   display: grid;
   gap: 1.5rem;
+}
+
+.admin-animation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 22rem));
+  justify-content: center;
+  gap: clamp(1.2rem, 3vw, 2rem);
+}
+
+.admin-animation-card {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+}
+
+.admin-animation-card__media {
+  aspect-ratio: 9 / 16;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: var(--radius-lg);
+  background: #07101f;
+  box-shadow: var(--shadow-hero);
+}
+
+.admin-animation-card__video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.admin-animation-card__copy {
+  display: grid;
+  gap: 0.45rem;
+  text-align: center;
+}
+
+.admin-animation-card__copy p {
+  margin: 0;
+  font-size: 0.98rem;
 }
 
 .process-showcase {
@@ -1024,6 +1149,11 @@ h3 {
   padding: 5rem 0;
 }
 
+.content-section--admin-animations {
+  padding-top: clamp(3rem, 5vw, 4.5rem);
+  padding-bottom: clamp(2.8rem, 5vw, 4rem);
+}
+
 .content-section--tint,
 .content-section--contrast {
   position: relative;
@@ -1370,13 +1500,13 @@ h3 {
 
 .feature-block__lead {
   display: grid;
-  gap: 1.25rem;
-  align-self: stretch;
+  gap: 2.5rem;
+  align-self: center;
 }
 
 .feature-block__visual {
   display: grid;
-  justify-items: start;
+  justify-items: center;
   min-height: 0;
   padding: 0.2rem 0 0;
   padding-inline: clamp(0.35rem, 0.8vw, 0.9rem);
@@ -2148,8 +2278,8 @@ h3 {
     grid-row: 2;
     grid-column: 1;
     justify-self: center;
-    z-index: 1;
-    transform: translate(-10%, 15px) scale(0.9);
+    z-index: 3;
+    transform: translate(-10%, -15px);
   }
 
   .hero__device--right {
@@ -2157,8 +2287,8 @@ h3 {
     grid-row: 2;
     grid-column: 1;
     justify-self: center;
-    z-index: 3;
-    transform: translate(10%, -15px);
+    z-index: 1;
+    transform: translate(10%, 15px) scale(0.9);
   }
 
   .process-card::after {
@@ -2413,6 +2543,10 @@ h3 {
 
   .page--home .result-grid {
     gap: 1rem;
+  }
+
+  .admin-animation-grid {
+    grid-template-columns: minmax(0, 18rem);
   }
 
 

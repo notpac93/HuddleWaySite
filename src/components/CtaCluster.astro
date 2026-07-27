@@ -1,12 +1,9 @@
 ---
-type Link = {
-  label: string;
-  href: string;
-};
+import type { CallToAction } from '../data/site';
 
 interface Props {
-  primary: Link;
-  secondary?: Link;
+  primary: CallToAction;
+  secondary?: CallToAction;
   className?: string;
 }
 
@@ -14,6 +11,10 @@ const { primary, secondary, className = '' } = Astro.props;
 ---
 
 <div class={`cta-cluster ${className}`.trim()}>
-  <a class="button button--primary" href={primary.href}>{primary.label}</a>
+  {primary.prompt === 'app-store-choice' ? (
+    <a class="button button--primary" href={primary.href} data-app-store-choice="true" aria-haspopup="dialog">{primary.label}</a>
+  ) : (
+    <a class="button button--primary" href={primary.href}>{primary.label}</a>
+  )}
   {secondary && <a class="button button--secondary" href={secondary.href}>{secondary.label}</a>}
 </div>

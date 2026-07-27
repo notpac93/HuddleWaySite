@@ -1,0 +1,504 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import {
+    collection,
+    getDocs,
+    limit,
+    orderBy,
+    query,
+    where,
+  } from 'firebase/firestore';
+  import { db } from '../../lib/firebase';
+  import { tenantIdStore } from '../../lib/authStore';
+  import { backendClient } from '../../lib/api/backendClient';
+  import {
+    BackendApiError,
+    createIdempotencyKey,
+  } from '../../lib/api/BackendApi';
+  import StatusButton from './ui/StatusButton.svelte';
+  import { modalFocus } from '../../lib/ui/modalFocus';
+
+  type WallMessage = {
+    id: string;
+    authorName: string | null;
+    subject: string | null;
+    body: string;
+    teamId: string | null;
+    createdAt: Date | null;
+  };
+
+  const MESSAGE_LOAD_LIMIT = 100;
+  const SUBJECT_MAX_LENGTH = 200;
+  const BODY_MAX_LENGTH = 4_000;
+  const audiencePreviewAvailable = false;
+
+  let messages: WallMessage[] = [];
+  let isAdding = false;
+  let isLoading = true;
+  let loadError = '';
+  let loadRequestId = '';
+  let isTruncated = false;
+  let activeTenantId = '';
+  let searchQuery = '';
+
+  let subject = '';
+  let body = '';
+  let teamId = 'program';
+  let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
+  let operationMessage = '';
+  let operationRequestId = '';
+  let recallingMessageId = '';
+  let postIdempotencyKey = createIdempotencyKey('message-batch');
+  let postMessageId = `message_${globalThis.crypto.randomUUID()}`;
+  let postPayloadSignature = '';
+  const recallIdempotencyKeys = new Map<string, string>();
+  const recallIdempotencyReasons = new Map<string, string>();
+  let tenantGeneration = 0;
+  let recallTarget: WallMessage | null = null;
+  let recallAuditReason = '';
+
+  $: normalizedSearch = searchQuery.trim().toLocaleLowerCase();
+  $: visibleMessages = normalizedSearch
+    ? messages.filter((message) =>
+        [
+          message.authorName,
+          message.subject,
+          message.body,
+          audienceLabel(message.teamId),
+        ].some((value) => value?.toLocaleLowerCase().includes(normalizedSearch)))
+    : messages;
+  $: postIsValid =
+    teamId === 'program'
+    && body.trim().length > 0
+    && body.trim().length <= BODY_MAX_LENGTH
+    && subject.trim().length <= SUBJECT_MAX_LENGTH;
+  $: canPublish = postIsValid && audiencePreviewAvailable;
+  $: {
+    const signature = JSON.stringify({
+      subject: subject.trim(),
+      body: body.trim(),
+      teamId,
+    });
+    if (signature !== postPayloadSignature && submitState !== 'loading') {
+      postPayloadSignature = signature;
+      postIdempotencyKey = createIdempotencyKey('message-batch');
+      postMessageId = `message_${globalThis.crypto.randomUUID()}`;
+      if (submitState === 'error') submitState = 'idle';
+    }
+  }
+
+  onMount(() => {
+    const unsubscribe = tenantIdStore.subscribe((tenantId) => {
+      tenantGeneration += 1;
+      activeTenantId = tenantId || '';
+      isAdding = false;
+      searchQuery = '';
+      messages = [];
+      isTruncated = false;
+      resetComposer();
+      operationMessage = '';
+      operationRequestId = '';
+      recallTarget = null;
+      if (tenantId) {
+        void fetchMessages(tenantId);
+      } else {
+        isLoading = false;
+        loadError = '';
+        loadRequestId = '';
+      }
+    });
+    return unsubscribe;
+  });
+
+  function requestIdFrom(error: unknown) {
+    return error instanceof BackendApiError ? error.requestId || '' : '';
+  }
+
+  function resetComposer() {
+    subject = '';
+    body = '';
+    teamId = 'program';
+    submitState = 'idle';
+  }
+
+  function audienceLabel(messageTeamId: string | null) {
+    return messageTeamId && messageTeamId !== 'program'
+      ? 'Public organization post · legacy team restriction not enforced'
+      : 'Public organization post';
+  }
+
+  async function fetchMessages(tenantId: string) {
+    isLoading = true;
+    loadError = '';
+    loadRequestId = '';
+    try {
+      const snapshot = await getDocs(query(
+        collection(db, 'board_messages'),
+        where('tenantId', '==', tenantId),
+        where('isDeleted', '==', false),
+        orderBy('createdAt', 'desc'),
+        limit(MESSAGE_LOAD_LIMIT + 1),
+      ));
+      if (tenantId !== activeTenantId) return;
+
+      isTruncated = snapshot.docs.length > MESSAGE_LOAD_LIMIT;
+      messages = snapshot.docs
+        .slice(0, MESSAGE_LOAD_LIMIT)
+        .map((messageDoc) => {
+          const data = messageDoc.data();
+          return {
+            id: messageDoc.id,
+            authorName:
+              typeof data.authorName === 'string' && data.authorName.trim()
+                ? data.authorName.trim()
+                : null,
+            subject:
+              typeof data.subject === 'string' && data.subject.trim()
+                ? data.subject.trim()
+                : null,
+            body: typeof data.body === 'string' ? data.body : '',
+            teamId:
+              typeof data.teamId === 'string' && data.teamId
+                ? data.teamId
+                : null,
+            createdAt: data.createdAt?.toDate?.() || null,
+          };
+        })
+        .sort((a, b) => {
+          const dateOrder =
+            (b.createdAt?.getTime() ?? Number.NEGATIVE_INFINITY)
+            - (a.createdAt?.getTime() ?? Number.NEGATIVE_INFINITY);
+          return dateOrder || a.id.localeCompare(b.id);
+        });
+    } catch (error) {
+      console.error('Wall announcements could not be loaded.');
+      if (tenantId !== activeTenantId) return;
+      loadError = error instanceof BackendApiError && error.status === 403
+        ? 'You do not have permission to view Wall announcements.'
+        : 'Wall announcements could not be loaded. Check your connection and try again.';
+      loadRequestId = requestIdFrom(error);
+    } finally {
+      if (tenantId === activeTenantId) isLoading = false;
+    }
+  }
+
+  async function handleAddMessage() {
+    if (submitState === 'loading' || !canPublish) return;
+    const tenantId = $tenantIdStore;
+    const generation = tenantGeneration;
+    if (!tenantId) {
+      submitState = 'error';
+      operationMessage = 'Select an organization before posting.';
+      return;
+    }
+
+    submitState = 'loading';
+    operationMessage = '';
+    operationRequestId = '';
+    try {
+      const result = await backendClient.sendMessageBatch(
+        tenantId,
+        [{
+          id: postMessageId,
+          tenantId,
+          teamId,
+          // The backend derives the authoritative actor from the verified token.
+          authorName: '',
+          subject: subject.trim(),
+          body: body.trim(),
+          isSecret: false,
+        }],
+        postIdempotencyKey,
+      );
+      if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
+      await fetchMessages(tenantId);
+      if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
+      submitState = 'success';
+      operationMessage = result.publicCount === 1
+        ? 'Announcement published.'
+        : 'Announcement accepted by the delivery service.';
+      isAdding = false;
+      subject = '';
+      body = '';
+      teamId = 'program';
+    } catch (error) {
+      if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
+      submitState = 'error';
+      operationMessage = error instanceof BackendApiError
+        ? 'The announcement could not be published.'
+        : 'The announcement could not be published. Check your connection and try again.';
+      operationRequestId = requestIdFrom(error);
+    }
+  }
+
+  function requestRecall(message: WallMessage) {
+    if (recallingMessageId) return;
+    recallTarget = message;
+    recallAuditReason = recallIdempotencyReasons.get(message.id) || '';
+  }
+
+  function closeRecallDialog() {
+    if (recallingMessageId) return;
+    recallTarget = null;
+    recallAuditReason = '';
+  }
+
+  async function handleRecallMessage() {
+    if (recallingMessageId) return;
+    const id = recallTarget?.id;
+    const auditReason = recallAuditReason.trim();
+    if (!id || auditReason.length < 3) return;
+
+    const tenantId = $tenantIdStore;
+    const generation = tenantGeneration;
+    if (!tenantId) {
+      operationMessage = 'Select an organization before recalling a post.';
+      return;
+    }
+    recallingMessageId = id;
+    operationMessage = '';
+    operationRequestId = '';
+    if (recallIdempotencyReasons.get(id) !== auditReason) {
+      recallIdempotencyKeys.set(
+        id,
+        createIdempotencyKey(`message-recall-${id}`),
+      );
+      recallIdempotencyReasons.set(id, auditReason);
+    }
+    const idempotencyKey = recallIdempotencyKeys.get(id)
+      || createIdempotencyKey(`message-recall-${id}`);
+    recallIdempotencyKeys.set(id, idempotencyKey);
+    try {
+      await backendClient.recallMessage(
+        tenantId,
+        id,
+        auditReason,
+        idempotencyKey,
+      );
+      if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
+      await fetchMessages(tenantId);
+      if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
+      recallIdempotencyKeys.delete(id);
+      recallIdempotencyReasons.delete(id);
+      operationMessage = 'Announcement recalled.';
+      recallTarget = null;
+      recallAuditReason = '';
+    } catch (error) {
+      if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
+      operationMessage = 'The announcement could not be recalled.';
+      operationRequestId = requestIdFrom(error);
+    } finally {
+      if (generation === tenantGeneration && tenantId === $tenantIdStore) {
+        recallingMessageId = '';
+      }
+    }
+  }
+</script>
+
+{#if recallTarget}
+  <div class="crm-ui-modal-root" role="dialog" aria-modal="true" aria-labelledby="recall-announcement-title">
+    <div class="flex min-h-full items-center justify-center p-4">
+      <button
+        type="button"
+        class="fixed inset-0 z-0 h-full w-full bg-slate-950/70"
+        aria-label="Close recall confirmation"
+        tabindex="-1"
+        disabled={Boolean(recallingMessageId)}
+        on:click={closeRecallDialog}
+      ></button>
+      <div
+        class="relative z-10 w-full max-w-md rounded-xl bg-white p-6 shadow-xl"
+        tabindex="-1"
+        use:modalFocus={{ onEscape: closeRecallDialog, initialFocusSelector: '[data-recall-cancel]' }}
+      >
+        <h3 id="recall-announcement-title" class="text-lg font-semibold text-gray-900">Recall announcement?</h3>
+        <p class="mt-2 text-sm text-gray-600">
+          Recall “{recallTarget.subject || 'Untitled announcement'}” from {audienceLabel(recallTarget.teamId)}. The Wall post will no longer be available to that audience.
+        </p>
+        <label class="mt-4 block">
+          <span class="text-sm font-medium text-gray-800">Internal recall reason</span>
+          <textarea
+            bind:value={recallAuditReason}
+            minlength="3"
+            maxlength="500"
+            rows="3"
+            disabled={Boolean(recallingMessageId)}
+            placeholder="Why is this announcement being recalled?"
+            class="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm disabled:opacity-50"
+          ></textarea>
+        </label>
+        <div class="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            data-recall-cancel
+            disabled={Boolean(recallingMessageId)}
+            class="rounded-md border border-gray-300 px-4 py-2 text-sm disabled:opacity-50"
+            on:click={closeRecallDialog}
+          >Cancel</button>
+          <button
+            type="button"
+            disabled={Boolean(recallingMessageId) || recallAuditReason.trim().length < 3}
+            class="crm-ui-danger-button"
+            on:click={handleRecallMessage}
+          >{recallingMessageId ? 'Recalling…' : 'Recall announcement'}</button>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<div class="flex h-full flex-col space-y-6 overflow-y-auto p-4 sm:p-6">
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h2 class="text-xl font-bold text-gray-900">Wall announcements</h2>
+      <p class="text-sm text-gray-500">Review public organization announcements on the app Wall.</p>
+    </div>
+    <button
+      type="button"
+      class="rounded-md bg-[#00a4bd] px-4 py-2 text-sm font-medium text-white hover:bg-[#008194]"
+      on:click={() => { resetComposer(); isAdding = true; }}
+    >
+      New announcement
+    </button>
+  </div>
+
+  {#if operationMessage}
+    <div
+      class="rounded-md border px-4 py-3 text-sm {submitState === 'error' ? 'border-red-200 bg-red-50 text-red-800' : 'border-gray-200 bg-gray-50 text-gray-700'}"
+      role={submitState === 'error' ? 'alert' : 'status'}
+    >
+      <p>{operationMessage}</p>
+      {#if operationRequestId}<p class="mt-1 text-xs">Support request: {operationRequestId}</p>{/if}
+    </div>
+  {/if}
+
+  {#if isAdding}
+    <section class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-6" aria-labelledby="new-announcement-heading">
+      <h3 id="new-announcement-heading" class="mb-4 text-lg font-bold">Create announcement</h3>
+      <div class="space-y-4">
+        <p class="crm-ui-notice-card" role="status">
+          Publishing is disabled in this release because the server cannot yet preview and validate the exact public organization audience. Team-targeted announcements are not supported by the current authorization rules.
+        </p>
+        <div>
+          <p class="crm-ui-label">Audience</p>
+          <p class="mt-1 rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+            Public to the entire organization. Team restrictions are not available.
+          </p>
+        </div>
+        <div>
+          <label for="announcement-subject" class="crm-ui-label">Subject (optional)</label>
+          <input
+            id="announcement-subject"
+            type="text"
+            bind:value={subject}
+            maxlength={SUBJECT_MAX_LENGTH}
+            class="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-[#00a4bd] focus:ring-[#00a4bd] sm:text-sm"
+            aria-describedby="announcement-subject-help"
+          />
+          <p id="announcement-subject-help" class="crm-ui-hint">{subject.length}/{SUBJECT_MAX_LENGTH} characters</p>
+        </div>
+        <div>
+          <label for="announcement-body" class="crm-ui-label">Message</label>
+          <textarea
+            id="announcement-body"
+            bind:value={body}
+            rows="5"
+            maxlength={BODY_MAX_LENGTH}
+            class="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-[#00a4bd] focus:ring-[#00a4bd] sm:text-sm"
+            aria-describedby="announcement-body-help"
+          ></textarea>
+          <p id="announcement-body-help" class="crm-ui-hint">{body.length}/{BODY_MAX_LENGTH} characters</p>
+        </div>
+        <div class="flex flex-wrap justify-end gap-3">
+          <button
+            type="button"
+            class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            disabled={submitState === 'loading'}
+            on:click={() => { isAdding = false; resetComposer(); }}
+          >
+            Cancel
+          </button>
+          <StatusButton
+            type="button"
+            state={submitState}
+            on:click={handleAddMessage}
+            disabled={!canPublish || submitState === 'loading'}
+            idleText="Publish announcement"
+            loadingText="Publishing…"
+            successText="Published"
+            class="rounded-md bg-[#00a4bd] px-4 py-2 text-sm font-medium text-white hover:bg-[#008194] disabled:opacity-50"
+          />
+        </div>
+      </div>
+    </section>
+  {/if}
+
+  <section class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" aria-labelledby="wall-announcements-heading">
+    <div class="border-b border-gray-200 p-4">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h3 id="wall-announcements-heading" class="font-semibold text-gray-900">Published announcements</h3>
+          <p class="crm-ui-hint">
+            Showing up to {MESSAGE_LOAD_LIMIT} records, sorted by available timestamp.
+          </p>
+        </div>
+        <div>
+          <label for="announcement-search" class="block text-xs font-medium text-gray-600">Search loaded announcements</label>
+          <input
+            id="announcement-search"
+            type="search"
+            bind:value={searchQuery}
+            class="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm sm:w-72"
+          />
+        </div>
+      </div>
+      {#if isTruncated}
+        <p class="crm-ui-notice-spaced" role="status">
+          More than {MESSAGE_LOAD_LIMIT} announcements exist. Search and counts apply only to the loaded records.
+        </p>
+      {/if}
+    </div>
+
+    {#if isLoading}
+      <div class="p-8 text-center text-gray-500" role="status">Loading announcements…</div>
+    {:else if loadError}
+      <div class="p-8 text-center" role="alert">
+        <p class="text-sm text-red-700">{loadError}</p>
+        {#if loadRequestId}<p class="mt-1 text-xs text-red-700">Support request: {loadRequestId}</p>{/if}
+        <button type="button" class="mt-4 rounded-md border border-gray-300 px-3 py-2 text-sm" on:click={() => activeTenantId && fetchMessages(activeTenantId)}>Try again</button>
+      </div>
+    {:else if messages.length === 0}
+      <div class="p-8 text-center text-gray-500">No Wall announcements have been published.</div>
+    {:else if visibleMessages.length === 0}
+      <div class="p-8 text-center text-gray-500">No loaded announcements match “{searchQuery}”.</div>
+    {:else}
+      <ul class="divide-y divide-gray-200">
+        {#each visibleMessages as message (message.id)}
+          <li class="flex flex-col gap-4 p-4 hover:bg-gray-50 sm:flex-row sm:items-start sm:justify-between">
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-bold text-gray-900">{message.authorName || 'Actor unavailable'}</span>
+                <span class="crm-ui-hint-xs">• {message.createdAt ? message.createdAt.toLocaleString() : 'Timestamp unavailable'}</span>
+                <span class="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-800">
+                  {audienceLabel(message.teamId)}
+                </span>
+              </div>
+              {#if message.subject}
+                <p class="mt-1 text-sm font-medium text-gray-900">{message.subject}</p>
+              {/if}
+              <p class="mt-1 whitespace-pre-wrap break-words text-sm text-gray-600">{message.body || 'Message unavailable'}</p>
+            </div>
+            <button
+              type="button"
+              class="shrink-0 text-left text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50"
+              on:click={() => requestRecall(message)}
+              disabled={Boolean(recallingMessageId)}
+            >
+              {recallingMessageId === message.id ? 'Recalling…' : 'Recall'}
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
+</div>

@@ -1,0 +1,1419 @@
+import { describe, expect, it, vi } from 'vitest';
+import {
+  BackendApi,
+  BackendApiError,
+} from '../../src/lib/api/BackendApi';
+
+function response(
+  status: number,
+  body: Record<string, unknown>,
+  headers: Record<string, string> = {},
+) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...headers },
+  });
+}
+
+function validDirectInvoice() {
+  return {
+    id: 'invoice-1',
+    invoiceNumber: 'HW-2026-0001',
+    title: 'Registration',
+    memo: null,
+    status: 'open',
+    agingBucket: 'not_due',
+    recipientUid: null,
+    recipientName: 'Parent One',
+    recipientEmail: 'parent@example.test',
+    lineItems: [
+      {
+        id: 'line-1',
+        description: 'Program fee',
+        quantity: 1,
+        unitAmountCents: 12_500,
+        amountCents: 12_500,
+      },
+    ],
+    currency: 'USD',
+    subtotalCents: 12_500,
+    discountCents: 0,
+    taxRateBps: 0,
+    taxCents: 0,
+    totalCents: 12_500,
+    amountPaidCents: 0,
+    amountRefundedCents: 0,
+    amountDueCents: 12_500,
+    dueAt: null,
+    issuedAt: null,
+    paidAt: null,
+    voidedAt: null,
+    createdAt: '2026-07-26T00:00:00.000Z',
+    updatedAt: '2026-07-26T00:00:00.000Z',
+    hostedInvoiceUrl: null,
+    invoicePdfUrl: null,
+    stripeInvoiceId: null,
+    reminderCount: 0,
+    manualPaymentCount: 0,
+    refundCount: 0,
+    lastPaymentAt: null,
+    lastRefundAt: null,
+    issueError: null,
+  };
+}
+
+function validAppConfiguration() {
+  return {
+    name: 'Fixture Athletics',
+    primaryColor: '#112233',
+    secondaryColor: '#223344',
+    tertiaryColor: '#ffffff',
+    logoUrl: 'https://cdn.example.test/logo.png',
+    navigationTabs: [{
+      key: 'home',
+      pageId: 'home_page',
+      route: '/',
+      label: 'Home',
+      enabled: true,
+    }],
+  };
+}
+
+describe('BackendApi', () => {
+  it('uses bearer auth, tenant query scope, and one forced-token retry', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(401, { error: 'expired' }))
+      .mockResolvedValueOnce(
+        response(200, {
+          tenantId: 'fixture-tenant',
+          scope: 'tenant',
+          payments: [],
+          invoices: [],
+        }),
+      );
+    const getIdToken = vi
+      .fn()
+      .mockResolvedValueOnce('token-old')
+      .mockResolvedValueOnce('token-new');
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken,
+      createRequestId: () => 'request-1',
+    });
+
+    await expect(api.billingHistory('fixture-tenant', 25)).resolves.toMatchObject({
+      tenantId: 'fixture-tenant',
+      scope: 'tenant',
+    });
+    expect(getIdToken.mock.calls).toEqual([[false], [true]]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [url, request] = fetchMock.mock.calls[1];
+    expect(String(url)).toContain('tenantId=fixture-tenant');
+    expect(String(url)).toContain('limit=25');
+    expect(request.headers.Authorization).toBe('Bearer token-new');
+    expect(request.headers['X-Request-Id']).toBe('request-1');
+  });
+
+  it('keeps the same idempotency key across an authorization retry', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(403, { error: 'refresh required' }))
+      .mockResolvedValueOnce(
+        response(200, {
+          invoice: validDirectInvoice(),
+          requestId: 'invoice-create-request',
+        }),
+      );
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+      createRequestId: () => 'request-2',
+    });
+
+    await api.createDirectInvoice(
+      {
+        tenantId: 'fixture-tenant',
+        recipientEmail: 'payer@example.test',
+        title: 'Registration',
+        auditReason: 'Create the approved registration invoice.',
+        dueDays: 30,
+        lineItems: [
+          {
+            description: 'Program fee',
+            quantity: 1,
+            unitAmountCents: 12500,
+          },
+        ],
+      },
+      'invoice:fixture-operation',
+    );
+
+    for (const call of fetchMock.mock.calls) {
+      expect(call[1].headers['Idempotency-Key']).toBe(
+        'invoice:fixture-operation',
+      );
+      expect(JSON.parse(call[1].body)).toMatchObject({
+        tenantId: 'fixture-tenant',
+        idempotencyKey: 'invoice:fixture-operation',
+        auditReason: 'Create the approved registration invoice.',
+      });
+    }
+  });
+
+  it('sends mandatory operator reasons and stable idempotency on financial mutations', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        response(200, {
+          invoice: validDirectInvoice(),
+          requestId: 'invoice-action-request',
+        }),
+      )
+      .mockResolvedValueOnce(
+        response(200, {
+          invoice: validDirectInvoice(),
+          requestId: 'manual-payment-request',
+        }),
+      )
+      .mockResolvedValueOnce(
+        response(200, {
+          success: true,
+          transactionId: 'transaction-1',
+          refund: { id: 'refund-1' },
+          requestId: 'request-refund',
+        }),
+      );
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+      createRequestId: () => 'request-finance',
+    });
+
+    await api.directInvoiceAction(
+      'fixture-tenant',
+      'invoice-1',
+      'remind',
+      'remind:stable',
+      'Family asked for another copy.',
+    );
+    await api.recordManualPayment({
+      tenantId: 'fixture-tenant',
+      invoiceId: 'invoice-1',
+      amountCents: 12_500,
+      method: 'check',
+      reference: 'check-1042',
+      note: 'Check received by the program director.',
+      auditReason: 'Check received by the program director.',
+      receivedAt: '2026-07-26T12:00:00.000Z',
+      idempotencyKey: 'manual:stable',
+    });
+    await api.refundTransaction({
+      tenantId: 'fixture-tenant',
+      transactionId: 'transaction-1',
+      amountCents: 2_500,
+      reason: 'requested_by_customer',
+      note: 'Guardian requested the approved partial refund.',
+      idempotencyKey: 'refund:stable',
+    });
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      tenantId: 'fixture-tenant',
+      idempotencyKey: 'remind:stable',
+      auditReason: 'Family asked for another copy.',
+    });
+    expect(fetchMock.mock.calls[0][1].headers['Idempotency-Key']).toBe(
+      'remind:stable',
+    );
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
+      tenantId: 'fixture-tenant',
+      amountCents: 12_500,
+      reference: 'check-1042',
+      auditReason: 'Check received by the program director.',
+      idempotencyKey: 'manual:stable',
+    });
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toMatchObject({
+      tenantId: 'fixture-tenant',
+      transactionId: 'transaction-1',
+      amountCents: 2_500,
+      reason: 'requested_by_customer',
+      note: 'Guardian requested the approved partial refund.',
+    });
+  });
+
+  it('sends and refreshes App Check with the authenticated retry', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(403, { error: 'refresh required' }))
+      .mockResolvedValueOnce(
+        response(200, {
+          tenantId: 'fixture-tenant',
+          scope: 'tenant',
+          payments: [],
+          invoices: [],
+        }),
+      );
+    const getAppCheckToken = vi
+      .fn()
+      .mockResolvedValueOnce('app-check-old')
+      .mockResolvedValueOnce('app-check-new');
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'id-token',
+      getAppCheckToken,
+      requireAppCheck: true,
+    });
+
+    await api.billingHistory('fixture-tenant');
+
+    expect(getAppCheckToken.mock.calls).toEqual([[false], [true]]);
+    expect(fetchMock.mock.calls[0][1].headers['X-Firebase-AppCheck']).toBe(
+      'app-check-old',
+    );
+    expect(fetchMock.mock.calls[1][1].headers['X-Firebase-AppCheck']).toBe(
+      'app-check-new',
+    );
+  });
+
+  it('fails closed before fetch when required App Check is unavailable', async () => {
+    const fetchMock = vi.fn();
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'id-token',
+      getAppCheckToken: async () => '',
+      requireAppCheck: true,
+    });
+
+    await expect(api.billingHistory('fixture-tenant')).rejects.toThrow(
+      'App Check verification is required.',
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('reads roster and redacted audit projections through tenant-scoped routes', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        response(200, {
+          tenantId: 'fixture-tenant',
+          teamId: 'team-1',
+          players: [
+            {
+              id: 'registration-1',
+              name: 'Jordan Player',
+              teamIds: ['team-1'],
+            },
+          ],
+          truncated: {
+            registrations: false,
+            memberships: false,
+            teams: false,
+          },
+          requestId: 'roster-request',
+        }),
+      )
+      .mockResolvedValueOnce(
+        response(200, {
+          events: [
+            {
+              id: 'audit-1',
+              action: 'refund',
+              actorLabel: 'owner',
+            },
+          ],
+          truncated: false,
+          hasMore: false,
+          nextCursor: null,
+          limit: 25,
+          requestId: 'audit-request',
+        }),
+      );
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+    });
+
+    await expect(api.rosterPlayers('fixture-tenant', 'team-1')).resolves.toHaveLength(1);
+    await expect(api.auditEvents('fixture-tenant', 25)).resolves.toHaveLength(1);
+
+    expect(String(fetchMock.mock.calls[0][0])).toContain(
+      '/admin/roster/players?tenantId=fixture-tenant&teamId=team-1',
+    );
+    expect(String(fetchMock.mock.calls[1][0])).toContain(
+      '/admin/crm/audit-events?tenantId=fixture-tenant&limit=25',
+    );
+  });
+
+  it('previews and commits one atomic multi-team roster transfer', async () => {
+    const preview = {
+      destinationTeamId: 'team-2',
+      registrationIds: ['registration-1', 'registration-2'],
+      rows: [
+        {
+          registrationId: 'registration-1',
+          label: 'Jordan Player',
+          beforeTeamIds: ['team-1'],
+          afterTeamIds: ['team-2'],
+          addTeamIds: ['team-2'],
+          removeTeamIds: ['team-1'],
+          noOp: false,
+        },
+      ],
+      changes: [
+        {
+          registrationId: 'registration-1',
+          membershipId: 'membership-1',
+          teamId: 'team-1',
+          action: 'remove' as const,
+        },
+      ],
+      changeSetHash: 'a'.repeat(64),
+      affectedTeamIds: ['team-1', 'team-2'],
+      addCount: 1,
+      removeCount: 2,
+      noOpCount: 0,
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        response(200, {
+          tenantId: 'fixture-tenant',
+          preview,
+          requestId: 'transfer-preview-request',
+        }),
+      )
+      .mockResolvedValueOnce(
+        response(200, {
+          success: true,
+          idempotentReplay: false,
+          tenantId: 'fixture-tenant',
+          operationId: 'roster_transfer_one',
+          auditEventId: 'audit-one',
+          preview,
+          requestId: 'transfer-commit-request',
+        }),
+      );
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+      getAppCheckToken: async () => 'app-check-token',
+    });
+
+    const reviewed = await api.previewRosterTransfer(
+      'fixture-tenant',
+      ['registration-1', 'registration-2'],
+      'team-2',
+    );
+    await api.commitRosterTransfer(
+      'fixture-tenant',
+      reviewed,
+      'Move selected players to the Gold Team.',
+      'roster-transfer:stable',
+    );
+
+    expect(String(fetchMock.mock.calls[0][0])).toContain(
+      '/admin/roster/transfers/preview',
+    );
+    expect(
+      JSON.parse(String(fetchMock.mock.calls[0][1]?.body)),
+    ).toEqual({
+      tenantId: 'fixture-tenant',
+      registrationIds: ['registration-1', 'registration-2'],
+      destinationTeamId: 'team-2',
+    });
+    expect(String(fetchMock.mock.calls[1][0])).toContain(
+      '/admin/roster/transfers/commit',
+    );
+    expect(fetchMock.mock.calls[1][1]?.headers).toMatchObject({
+      'Idempotency-Key': 'roster-transfer:stable',
+      'X-Idempotency-Key': 'roster-transfer:stable',
+      'X-Firebase-AppCheck': 'app-check-token',
+    });
+    expect(
+      JSON.parse(String(fetchMock.mock.calls[1][1]?.body)),
+    ).toEqual({
+      tenantId: 'fixture-tenant',
+      registrationIds: preview.registrationIds,
+      destinationTeamId: 'team-2',
+      changeSetHash: preview.changeSetHash,
+      auditReason: 'Move selected players to the Gold Team.',
+    });
+  });
+
+  it('validates and commits a tenant-scoped team roster preview', async () => {
+    const preview = {
+      teamId: 'team-1',
+      changes: [
+        { registrationId: 'registration-1', action: 'add' as const },
+      ],
+      rows: [{ registrationId: 'registration-1', noOp: false }],
+      changeSetHash: 'b'.repeat(64),
+      addCount: 1,
+      removeCount: 0,
+      noOpCount: 0,
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(200, {
+        tenantId: 'fixture-tenant',
+        preview,
+        requestId: 'roster-preview-request',
+      }))
+      .mockResolvedValueOnce(response(200, {
+        success: true,
+        tenantId: 'fixture-tenant',
+        operationId: 'roster-operation-1',
+        preview,
+        requestId: 'roster-commit-request',
+      }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+      getAppCheckToken: async () => 'app-check-token',
+    });
+
+    const reviewed = await api.previewRosterChanges(
+      'fixture-tenant',
+      'team-1',
+      preview.changes,
+    );
+    await expect(
+      api.commitRosterChanges(
+        'fixture-tenant',
+        'team-1',
+        reviewed,
+        'roster-team:stable',
+      ),
+    ).resolves.toMatchObject({
+      success: true,
+      tenantId: 'fixture-tenant',
+      operationId: 'roster-operation-1',
+    });
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      tenantId: 'fixture-tenant',
+      changes: preview.changes,
+    });
+    expect(fetchMock.mock.calls[1][1].headers).toMatchObject({
+      'Idempotency-Key': 'roster-team:stable',
+      'X-Idempotency-Key': 'roster-team:stable',
+      'X-Firebase-AppCheck': 'app-check-token',
+    });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
+      tenantId: 'fixture-tenant',
+      changes: preview.changes,
+      changeSetHash: preview.changeSetHash,
+    });
+  });
+
+  it.each([
+    [
+      'a different tenant',
+      {
+        tenantId: 'other-tenant',
+        preview: {
+          teamId: 'team-1',
+          changes: [],
+          rows: [],
+          changeSetHash: 'b'.repeat(64),
+          addCount: 0,
+          removeCount: 0,
+          noOpCount: 0,
+        },
+        requestId: 'wrong-tenant-request',
+      },
+    ],
+    [
+      'an invalid roster preview',
+      {
+        tenantId: 'fixture-tenant',
+        preview: {
+          teamId: 'team-1',
+          changes: [],
+          rows: [],
+          changeSetHash: 'not-a-review-hash',
+          addCount: 0,
+          removeCount: 0,
+          noOpCount: 0,
+        },
+        requestId: 'invalid-preview-request',
+      },
+    ],
+  ])('rejects team roster success for %s', async (_label, payload) => {
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: async () => response(200, payload),
+      getIdToken: async () => 'token',
+    });
+
+    await expect(
+      api.previewRosterChanges('fixture-tenant', 'team-1', [
+        { registrationId: 'registration-1', action: 'add' },
+      ]),
+    ).rejects.toMatchObject({
+      status: 502,
+      code: 'invalid_backend_response',
+      requestId: payload.requestId,
+    });
+  });
+
+  it('previews, lists, closes, and reopens tenant-scoped financial periods', async () => {
+    const preview = {
+      startDate: '2026-01-01',
+      endDate: '2026-02-01',
+      collections: {
+        transactions: { count: 2, totalCents: 25_000, truncated: false },
+      },
+      truncated: false,
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        response(200, {
+          tenantId: 'fixture-tenant',
+          preview,
+          requestId: 'preview-request',
+        }),
+      )
+      .mockResolvedValueOnce(
+        response(200, {
+          tenantId: 'fixture-tenant',
+          periods: [],
+          truncated: false,
+          limit: 100,
+          requestId: 'list-request',
+        }),
+      )
+      .mockResolvedValueOnce(
+        response(201, {
+          success: true,
+          idempotentReplay: false,
+          periodId: 'period-1',
+          status: 'closed',
+          preview,
+          requestId: 'close-request',
+        }),
+      )
+      .mockResolvedValueOnce(
+        response(200, {
+          success: true,
+          idempotentReplay: false,
+          periodId: 'period-1',
+          status: 'reopened',
+          requestId: 'reopen-request',
+        }),
+      );
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+    });
+    const period = {
+      label: 'January 2026',
+      startDate: '2026-01-01',
+      endDate: '2026-02-01',
+    };
+
+    await api.previewFinancialPeriod('fixture-tenant', period);
+    await api.financialPeriods('fixture-tenant', 100);
+    await api.closeFinancialPeriod(
+      'fixture-tenant',
+      period,
+      'Month-end review is complete.',
+      'period-close:stable',
+    );
+    await api.reopenFinancialPeriod(
+      'fixture-tenant',
+      'period-1',
+      'A correction is required.',
+      'period-reopen:stable',
+    );
+
+    expect(String(fetchMock.mock.calls[0][0])).toContain(
+      '/admin/financial-periods/preview',
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      tenantId: 'fixture-tenant',
+      period,
+    });
+    expect(String(fetchMock.mock.calls[1][0])).toContain(
+      '/admin/financial-periods?tenantId=fixture-tenant&limit=100',
+    );
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({
+      tenantId: 'fixture-tenant',
+      period,
+      auditReason: 'Month-end review is complete.',
+      idempotencyKey: 'period-close:stable',
+    });
+    expect(fetchMock.mock.calls[2][1].headers['Idempotency-Key']).toBe(
+      'period-close:stable',
+    );
+    expect(String(fetchMock.mock.calls[3][0])).toContain(
+      '/admin/financial-periods/period-1/reopen',
+    );
+    expect(JSON.parse(fetchMock.mock.calls[3][1].body)).toEqual({
+      tenantId: 'fixture-tenant',
+      auditReason: 'A correction is required.',
+      idempotencyKey: 'period-reopen:stable',
+    });
+  });
+
+  it('recalls a message with an explicit reason and one stable idempotency key', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(403, { error: 'refresh required' }))
+      .mockResolvedValueOnce(
+        response(200, {
+          success: true,
+          idempotentReplay: true,
+          messageId: 'message-1',
+          requestId: 'recall-request',
+        }),
+      );
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+      getAppCheckToken: async () => 'app-check-token',
+    });
+
+    await expect(
+      api.recallMessage(
+        'fixture-tenant',
+        'message-1',
+        'Incorrect event details were published.',
+        'message-recall:stable',
+      ),
+    ).resolves.toMatchObject({
+      idempotentReplay: true,
+      messageId: 'message-1',
+      requestId: 'recall-request',
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    for (const call of fetchMock.mock.calls) {
+      expect(String(call[0])).toContain('/admin/messages/message-1/recall');
+      expect(call[1].headers).toMatchObject({
+        'Idempotency-Key': 'message-recall:stable',
+        'X-Idempotency-Key': 'message-recall:stable',
+        'X-Firebase-AppCheck': 'app-check-token',
+      });
+      expect(JSON.parse(call[1].body)).toEqual({
+        tenantId: 'fixture-tenant',
+        auditReason: 'Incorrect event details were published.',
+        idempotencyKey: 'message-recall:stable',
+      });
+    }
+  });
+
+  it('validates app-configuration read and publish envelopes', async () => {
+    const configuration = validAppConfiguration();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(200, {
+        tenantId: 'fixture-tenant',
+        mode: 'update',
+        versionToken: 'version-before',
+        configuration,
+        requestId: 'configuration-read',
+      }))
+      .mockResolvedValueOnce(response(200, {
+        success: true,
+        operationId: 'configuration-operation',
+        idempotentReplay: false,
+        id: 'fixture-tenant',
+        mode: 'update',
+        versionToken: 'version-after',
+        configuration,
+        requestId: 'configuration-publish',
+      }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+    });
+
+    await expect(
+      api.appConfiguration('fixture-tenant'),
+    ).resolves.toMatchObject({
+      tenantId: 'fixture-tenant',
+      versionToken: 'version-before',
+    });
+    await expect(
+      api.publishAppConfiguration(
+        'fixture-tenant',
+        {
+          ...configuration,
+          mode: 'update',
+          expectedVersionToken: 'version-before',
+        },
+        'Publish reviewed app configuration.',
+        'app-configuration:stable',
+      ),
+    ).resolves.toMatchObject({
+      id: 'fixture-tenant',
+      versionToken: 'version-after',
+    });
+    expect(fetchMock.mock.calls[1][1].headers['Idempotency-Key']).toBe(
+      'app-configuration:stable',
+    );
+  });
+
+  it.each([
+    {
+      tenantId: 'other-tenant',
+      mode: 'update',
+      versionToken: 'version-1',
+      configuration: validAppConfiguration(),
+      requestId: 'wrong-config-tenant',
+    },
+    {
+      tenantId: 'fixture-tenant',
+      mode: 'update',
+      versionToken: 'version-1',
+      configuration: {
+        ...validAppConfiguration(),
+        navigationTabs: [{
+          key: 'unsafe',
+          pageId: 'unsafe_page',
+          route: '//external.example.test',
+          label: 'Unsafe',
+          enabled: true,
+        }],
+      },
+      requestId: 'invalid-config-route',
+    },
+  ])('rejects malformed app-configuration readback', async (payload) => {
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: async () => response(200, payload),
+      getIdToken: async () => 'token',
+    });
+    await expect(
+      api.appConfiguration('fixture-tenant'),
+    ).rejects.toMatchObject({
+      status: 502,
+      code: 'invalid_backend_response',
+      requestId: payload.requestId,
+    });
+  });
+
+  it('validates staff directory and lifecycle response identity', async () => {
+    const staffDirectory = {
+      tenantId: 'fixture-tenant',
+      staff: [{
+        membershipId: 'membership-1',
+        uid: 'staff-1',
+        role: 'editor',
+        status: 'active',
+        active: true,
+        displayName: 'Staff One',
+        email: 'staff@example.test',
+        emailVerified: true,
+        joinedAt: null,
+        updatedAt: null,
+      }],
+      pendingInvites: [{
+        id: 'invite-1',
+        email: 'invite@example.test',
+        role: 'viewer',
+        status: 'pending',
+        displayName: null,
+        createdAt: null,
+        expiresAt: null,
+      }],
+      truncated: { staff: false, pendingInvites: false },
+      requestId: 'staff-directory',
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(200, staffDirectory))
+      .mockResolvedValueOnce(response(200, {
+        success: true,
+        idempotentReplay: false,
+        membershipId: 'membership-1',
+        uid: 'staff-1',
+        role: 'viewer',
+        status: 'active',
+        requestId: 'staff-update',
+      }))
+      .mockResolvedValueOnce(response(200, {
+        success: true,
+        idempotentReplay: false,
+        inviteId: 'invite-1',
+        status: 'revoked',
+        requestId: 'invite-revoke',
+      }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+    });
+
+    await api.adminStaffDirectory('fixture-tenant', 100);
+    await api.updateStaffMembership({
+      tenantId: 'fixture-tenant',
+      membershipId: 'membership-1',
+      role: 'viewer',
+      status: 'active',
+      auditReason: 'Change approved access.',
+      idempotencyKey: 'staff-update:stable',
+    });
+    await api.revokeAdminInvite({
+      tenantId: 'fixture-tenant',
+      inviteId: 'invite-1',
+      auditReason: 'Invitation is no longer required.',
+      idempotencyKey: 'invite-revoke:stable',
+    });
+    expect(fetchMock.mock.calls[1][1].headers['Idempotency-Key']).toBe(
+      'staff-update:stable',
+    );
+    expect(fetchMock.mock.calls[2][1].headers['Idempotency-Key']).toBe(
+      'invite-revoke:stable',
+    );
+  });
+
+  it('rejects inconsistent staff directory lifecycle state', async () => {
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: async () => response(200, {
+        tenantId: 'fixture-tenant',
+        staff: [{
+          membershipId: 'membership-1',
+          uid: 'staff-1',
+          role: 'editor',
+          status: 'inactive',
+          active: true,
+          emailVerified: true,
+        }],
+        pendingInvites: [],
+        truncated: { staff: false, pendingInvites: false },
+        requestId: 'invalid-staff-directory',
+      }),
+      getIdToken: async () => 'token',
+    });
+    await expect(
+      api.adminStaffDirectory('fixture-tenant', 100),
+    ).rejects.toMatchObject({
+      status: 502,
+      code: 'invalid_backend_response',
+      requestId: 'invalid-staff-directory',
+    });
+  });
+
+  it('bootstraps onboarding with stable authorization retry and a strict tenant response', async () => {
+    const result = {
+      tenantId: 'fixture-athletics',
+      programName: 'Fixture Athletics',
+      readiness: {
+        state: 'needs_action',
+        launchReady: false,
+        blockers: ['Connect a payment account before enabling payments.'],
+        checks: { paymentAccount: false },
+      },
+      seeded: {
+        teams: ['tigers'],
+        primaryEvents: 0,
+        pages: 4,
+        contentBlocks: 8,
+        domains: 0,
+        brandingDoc: true,
+        runtimeConfigDoc: true,
+      },
+      idempotentReplay: true,
+      requestId: 'bootstrap-request',
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(403, { error: 'refresh required' }))
+      .mockResolvedValueOnce(response(200, result));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+      getAppCheckToken: async () => 'app-check-token',
+    });
+    const body = {
+      tenantId: 'fixture-athletics',
+      programName: 'Fixture Athletics',
+      runtimeConfig: {
+        teams: [{ teamId: 'tigers', name: 'Tigers' }],
+      },
+    };
+
+    await expect(
+      api.bootstrapOrganization(body, 'bootstrap:stable'),
+    ).resolves.toEqual(result);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    for (const call of fetchMock.mock.calls) {
+      expect(String(call[0])).toContain('/admin/onboarding/bootstrap');
+      expect(call[1].headers).toMatchObject({
+        'Idempotency-Key': 'bootstrap:stable',
+        'X-Idempotency-Key': 'bootstrap:stable',
+        'X-Firebase-AppCheck': 'app-check-token',
+      });
+      expect(JSON.parse(call[1].body)).toEqual({
+        ...body,
+        operationKey: 'bootstrap:stable',
+      });
+    }
+  });
+
+  it('fails closed when onboarding success lacks readiness evidence', async () => {
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: async () => response(200, {
+        tenantId: 'fixture-athletics',
+        programName: 'Fixture Athletics',
+        readiness: {
+          state: 'ready',
+          blockers: [],
+          checks: {},
+        },
+        seeded: { teams: ['tigers'] },
+        idempotentReplay: false,
+        requestId: 'bootstrap-invalid-response',
+      }),
+      getIdToken: async () => 'token',
+    });
+
+    await expect(
+      api.bootstrapOrganization(
+        {
+          tenantId: 'fixture-athletics',
+          programName: 'Fixture Athletics',
+        },
+        'bootstrap:stable',
+      ),
+    ).rejects.toMatchObject({
+      status: 502,
+      code: 'invalid_backend_response',
+      requestId: 'bootstrap-invalid-response',
+    });
+  });
+
+  it.each([
+    ['an empty body', ''],
+    ['malformed JSON', '{not-json'],
+    ['an array payload', '[]'],
+    ['a primitive payload', '"ok"'],
+    ['an empty object', '{}'],
+  ])('rejects %s on a successful typed response', async (_label, body) => {
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: async () =>
+        new Response(body, {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      getIdToken: async () => 'token',
+    });
+
+    await expect(api.billingHistory('fixture-tenant')).rejects.toMatchObject({
+      status: 502,
+      code: 'invalid_backend_response',
+    });
+  });
+
+  it('rejects a successful mutation envelope that lacks operation evidence', async () => {
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: async () =>
+        response(200, {
+          success: true,
+          id: 'team-1',
+          idempotentReplay: false,
+          requestId: 'request-without-operation',
+        }),
+      getIdToken: async () => 'token',
+    });
+
+    await expect(
+      api.createTeam(
+        'fixture-tenant',
+        { name: 'Tigers', description: '' },
+        'Create the approved team.',
+        'team-create:stable',
+      ),
+    ).rejects.toMatchObject({
+      status: 502,
+      code: 'invalid_backend_response',
+      requestId: 'request-without-operation',
+    });
+  });
+
+  it('sends the exact event route contracts and validates their action evidence', async () => {
+    const mutationBase = {
+      success: true,
+      idempotentReplay: false,
+      operationId: 'event-operation',
+      requestId: 'event-request',
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(201, {
+        ...mutationBase,
+        id: 'series-1',
+        eventIds: ['series-1'],
+        publicationSyncStatus: 'not_required',
+      }))
+      .mockResolvedValueOnce(response(201, {
+        ...mutationBase,
+        id: 'series-1',
+        eventIds: ['event-2'],
+      }))
+      .mockResolvedValueOnce(response(200, {
+        ...mutationBase,
+        id: 'series-1',
+        updatedCount: 1,
+        publicationSyncStatus: 'succeeded',
+      }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+    });
+    const occurrence = {
+      dateKey: '2030-08-03',
+      startTime: '16:00',
+      endTime: '17:30',
+      startAt: '2030-08-03T23:00:00.000Z',
+      endAt: '2030-08-04T00:30:00.000Z',
+      timeZone: 'America/Los_Angeles',
+    };
+
+    await api.createEventSeries(
+      'fixture-tenant',
+      {
+        teamId: 'team-1',
+        title: 'Opening practice',
+        type: 'Practice',
+        occurrences: [occurrence],
+        location: 'Field One',
+        notes: '',
+        seasonId: null,
+        registrationFormId: null,
+        publishMode: 'draft',
+      },
+      'Create the reviewed event draft.',
+      'event-create:stable',
+    );
+    await api.duplicateEvent(
+      'fixture-tenant',
+      'series-1',
+      [occurrence],
+      'Add the reviewed date.',
+      'event-duplicate:stable',
+    );
+    await api.updateEvent(
+      'fixture-tenant',
+      'series-1',
+      { lifecycleStatus: 'published' },
+      'Publish the reviewed event.',
+      'event-update:stable',
+    );
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      tenantId: 'fixture-tenant',
+      action: 'event.create_series',
+      data: {
+        teamId: 'team-1',
+        title: 'Opening practice',
+        type: 'Practice',
+        occurrences: [occurrence],
+        location: 'Field One',
+        notes: '',
+        seasonId: null,
+        registrationFormId: null,
+        publishMode: 'draft',
+      },
+      auditReason: 'Create the reviewed event draft.',
+      idempotencyKey: 'event-create:stable',
+    });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
+      action: 'event.duplicate',
+      resourceId: 'series-1',
+      data: { occurrences: [occurrence] },
+    });
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toMatchObject({
+      action: 'event.update',
+      resourceId: 'series-1',
+      data: { lifecycleStatus: 'published' },
+    });
+  });
+
+  it.each([
+    [
+      'create without occurrence identifiers',
+      (api: BackendApi) => api.createEventSeries(
+        'fixture-tenant',
+        {
+          teamId: 'team-1',
+          title: 'Practice',
+          type: 'Practice',
+          occurrences: [],
+          location: '',
+          notes: '',
+          seasonId: null,
+          registrationFormId: null,
+          publishMode: 'draft',
+        },
+        'Create the draft.',
+        'event-create:stable',
+      ),
+      {
+        id: 'series-1',
+        publicationSyncStatus: 'not_required',
+      },
+    ],
+    [
+      'duplicate without created identifiers',
+      (api: BackendApi) => api.duplicateEvent(
+        'fixture-tenant',
+        'event-1',
+        [],
+        'Add the date.',
+        'event-duplicate:stable',
+      ),
+      { id: 'series-1', eventIds: [] },
+    ],
+    [
+      'update without an affected count',
+      (api: BackendApi) => api.updateEvent(
+        'fixture-tenant',
+        'event-1',
+        { title: 'Changed' },
+        'Update the title.',
+        'event-update:stable',
+      ),
+      {
+        id: 'event-1',
+        publicationSyncStatus: 'not_required',
+      },
+    ],
+  ])('rejects event mutation success for %s', async (_label, request, evidence) => {
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: async () => response(200, {
+        success: true,
+        idempotentReplay: false,
+        operationId: 'event-operation',
+        requestId: 'event-invalid-response',
+        ...evidence,
+      }),
+      getIdToken: async () => 'token',
+    });
+
+    await expect(request(api)).rejects.toMatchObject({
+      status: 502,
+      code: 'invalid_backend_response',
+      requestId: 'event-invalid-response',
+    });
+  });
+
+  it.each([
+    [
+      'a wrong-tenant overview',
+      (api: BackendApi) => api.financialOverview('fixture-tenant'),
+      {
+        tenantId: 'other-tenant',
+        transactions: [],
+        refunds: [],
+        invoices: [],
+        deposits: [],
+        truncated: {
+          transactions: false,
+          refunds: false,
+          invoices: false,
+          deposits: false,
+        },
+        requestId: 'overview-wrong-tenant',
+      },
+    ],
+    [
+      'non-boolean overview truncation',
+      (api: BackendApi) => api.financialOverview('fixture-tenant'),
+      {
+        tenantId: 'fixture-tenant',
+        transactions: [],
+        refunds: [],
+        invoices: [],
+        deposits: [],
+        truncated: {
+          transactions: 'no',
+          refunds: false,
+          invoices: false,
+          deposits: false,
+        },
+        requestId: 'overview-invalid-truncation',
+      },
+    ],
+    [
+      'an incomplete direct-invoice record',
+      (api: BackendApi) => api.directInvoicePage('fixture-tenant'),
+      {
+        tenantId: 'fixture-tenant',
+        status: null,
+        invoices: [{ id: 'invoice-1' }],
+        truncated: false,
+        hasMore: false,
+        nextCursor: null,
+        limit: 100,
+        requestId: 'invoice-invalid-record',
+      },
+    ],
+    [
+      'a wrong-invoice ledger',
+      (api: BackendApi) =>
+        api.directInvoiceLedger('fixture-tenant', 'invoice-1'),
+      {
+        tenantId: 'fixture-tenant',
+        invoice: { ...validDirectInvoice(), id: 'invoice-2' },
+        events: [],
+        payments: [],
+        refunds: [],
+        truncated: { events: false, payments: false, refunds: false },
+        limits: { events: 500, payments: 100, refunds: 100 },
+        requestId: 'ledger-wrong-invoice',
+      },
+    ],
+  ])('fails closed for %s', async (_label, request, payload) => {
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: async () => response(200, payload),
+      getIdToken: async () => 'token',
+    });
+
+    await expect(request(api)).rejects.toMatchObject({
+      status: 502,
+      code: 'invalid_backend_response',
+      requestId: payload.requestId,
+    });
+  });
+
+  it('validates the audited export envelope and sends the exact selection with one key', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      response(200, {
+        success: true,
+        tenantId: 'fixture-tenant',
+        exportId: 'export-1',
+        resourceId: 'invoices',
+        rowCount: 1,
+        visibleColumnIds: ['invoiceNumber'],
+        checksum: 'a'.repeat(64),
+        expiresAt: '2026-07-27T12:00:00.000Z',
+        csvBase64: btoa('invoiceNumber\nHW-2026-0001\n'),
+        idempotentReplay: false,
+        requestId: 'export-request',
+      }),
+    );
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+    });
+    const exportRequest = {
+      tenantId: 'fixture-tenant',
+      resourceId: 'invoices',
+      visibleColumnIds: ['invoiceNumber'],
+      selection: { scope: 'explicit' as const, ids: ['invoice-1'] },
+      filter: { op: 'and', children: [] },
+      sort: [{ columnId: 'createdAt', direction: 'desc' }],
+      locale: 'en-US',
+      timeZone: 'UTC',
+    };
+
+    await expect(
+      api.createCrmExport(exportRequest, 'export:stable'),
+    ).resolves.toMatchObject({
+      tenantId: 'fixture-tenant',
+      exportId: 'export-1',
+      rowCount: 1,
+    });
+    expect(fetchMock.mock.calls[0][1].headers).toMatchObject({
+      'Idempotency-Key': 'export:stable',
+      'X-Idempotency-Key': 'export:stable',
+    });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual(
+      exportRequest,
+    );
+  });
+
+  it('rejects an export success for the wrong resource contract', async () => {
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: async () =>
+        response(200, {
+          tenantId: 'fixture-tenant',
+          exportId: 'export-1',
+          resourceId: 'registrations',
+          rowCount: 1,
+          visibleColumnIds: ['invoiceNumber'],
+          checksum: 'a'.repeat(64),
+          expiresAt: '2026-07-27T12:00:00.000Z',
+          csvBase64: btoa('invoiceNumber\nHW-2026-0001\n'),
+          idempotentReplay: false,
+          requestId: 'export-wrong-resource',
+        }),
+      getIdToken: async () => 'token',
+    });
+
+    await expect(
+      api.createCrmExport(
+        {
+          tenantId: 'fixture-tenant',
+          resourceId: 'invoices',
+          visibleColumnIds: ['invoiceNumber'],
+          selection: { scope: 'explicit', ids: ['invoice-1'] },
+          filter: {},
+          sort: [],
+          locale: 'en-US',
+          timeZone: 'UTC',
+        },
+        'export:stable',
+      ),
+    ).rejects.toMatchObject({
+      status: 502,
+      code: 'invalid_backend_response',
+      requestId: 'export-wrong-resource',
+    });
+  });
+
+  it('returns safe status, code, and request correlation on failure', async () => {
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: async () =>
+        response(
+          409,
+          {
+            error: 'Invoice is already paid.',
+            code: 'invalid_invoice_transition',
+          },
+          { 'x-request-id': 'server-request-9' },
+        ),
+      getIdToken: async () => 'token',
+    });
+
+    const expectedError = {
+      status: 409,
+      code: 'invalid_invoice_transition',
+      requestId: 'server-request-9',
+      message: 'Invoice is already paid.',
+    } satisfies Partial<BackendApiError>;
+
+    await expect(api.directInvoiceAction(
+      'fixture-tenant',
+      'invoice-1',
+      'void',
+    )).rejects.toMatchObject(expectedError);
+  });
+});

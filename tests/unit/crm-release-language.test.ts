@@ -1,0 +1,76 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, relative } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+const crmRoot = join(process.cwd(), 'src/components/crm');
+
+function components(directory = crmRoot): string[] {
+  return readdirSync(directory, { withFileTypes: true })
+    .flatMap((entry) => {
+      const file = join(directory, entry.name);
+      return entry.isDirectory()
+        ? components(file)
+        : file.endsWith('.svelte')
+          ? [file]
+          : [];
+    })
+    .sort();
+}
+
+describe('CRM release language contract', () => {
+  it('reviews the entire 40-component release tree', () => {
+    expect(components().map((file) => relative(crmRoot, file))).toHaveLength(40);
+  });
+
+  it('rejects simulated, placeholder, and raw exception language', () => {
+    const forbidden = [
+      /coming soon/i,
+      /functionality would/i,
+      /simulate api/i,
+      /mock (?:record|data|payment|metric)/i,
+      /dummy (?:record|data|payment|metric)/i,
+      /\{\s*(?:error|err|exception)\.message\s*\}/i,
+      /window\.(?:alert|confirm)\s*\(/i,
+    ];
+    const failures = components().flatMap((file) => {
+      const text = readFileSync(file, 'utf8');
+      return forbidden
+        .filter((pattern) => pattern.test(text))
+        .map((pattern) => `${relative(crmRoot, file)}: ${pattern}`);
+    });
+    expect(failures).toEqual([]);
+  });
+
+  it('keeps the free-admin and optional-payment boundary consistent', () => {
+    const login = readFileSync(join(crmRoot, 'Login.svelte'), 'utf8');
+    const setup = readFileSync(join(crmRoot, 'SetupWorkflow.svelte'), 'utf8');
+    const app = readFileSync(join(crmRoot, 'CrmApp.svelte'), 'utf8');
+    const marketing = readFileSync(
+      join(process.cwd(), 'src/data/site.ts'),
+      'utf8',
+    );
+
+    expect(login).toContain('Creating and administering a program is free.');
+    expect(login).toContain('Create free admin account');
+    expect(setup).toContain(
+      'Program creation and administration are free. No payment method is required.',
+    );
+    expect(setup).toContain('Skip payment setup');
+    expect(app).toContain('<SetupWorkflow />');
+    expect(marketing).toContain('Creating and administering a program is free.');
+
+    for (const text of [login, setup, app, marketing]) {
+      expect(text).not.toMatch(
+        /(?:activation payment|activation entitlement|\$\s*99|admin subscription required)/i,
+      );
+    }
+  });
+
+  it('states excluded financial capabilities instead of teasing them', () => {
+    const financials = readFileSync(join(crmRoot, 'Financials.svelte'), 'utf8');
+    expect(financials).toContain(
+      'Configurable installment schedules, autopay plans, scholarships, credits, and financial-aid adjustments are not shipped.',
+    );
+    expect(financials).not.toMatch(/set up installments|add scholarship|apply credit/i);
+  });
+});

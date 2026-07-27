@@ -2,6 +2,12 @@
   "extends": "astro/tsconfigs/strict",
   "compilerOptions": {
     "baseUrl": ".",
-    "ignoreDeprecations": "6.0"
-  }
+    "ignoreDeprecations": "5.0"
+  },
+  "exclude": [
+    ".tmp",
+    "dist",
+    "node_modules",
+    "public/app"
+  ]
 }

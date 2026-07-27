@@ -1,7 +1,7 @@
 ---
 import { createHash } from 'node:crypto';
 import '../styles/global.css';
-import { navigation, primaryCta, siteMeta, trustLinks } from '../data/site';
+import { appStorePrompt, navigation, primaryCta, siteMeta, trustLinks } from '../data/site';
 
 interface Props {
   title: string;
@@ -85,7 +85,7 @@ const cspDirectives = [
   "form-action 'self'",
   "img-src 'self' data:",
   "font-src 'self'",
-  "style-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
   `script-src 'self' ${schemaScripts.map((item) => item.hash).join(' ')}`,
   "connect-src 'self'",
   "frame-src 'none'",
@@ -143,13 +143,55 @@ const cspDirectives = [
             })}
           </nav>
 
-          <a class="button button--primary site-header__cta" href={primaryCta.href}>{primaryCta.label}</a>
+          {primaryCta.prompt === 'app-store-choice' ? (
+            <a class="button button--primary site-header__cta" href={primaryCta.href} data-app-store-choice="true" aria-haspopup="dialog">{primaryCta.label}</a>
+          ) : (
+            <a class="button button--primary site-header__cta" href={primaryCta.href}>{primaryCta.label}</a>
+          )}
         </div>
       </header>
 
       <main id="main">
         <slot />
       </main>
+
+      <dialog class="app-store-dialog" data-app-store-dialog aria-labelledby="app-store-dialog-title">
+        <div class="app-store-dialog__panel">
+          <button class="app-store-dialog__close" type="button" data-app-store-dialog-close aria-label="Close download chooser">
+            <span aria-hidden="true">×</span>
+          </button>
+          <p class="section-intro__eyebrow">Download HuddleWay</p>
+          <h2 id="app-store-dialog-title">{appStorePrompt.title}</h2>
+          <p class="app-store-dialog__body">{appStorePrompt.body}</p>
+
+          <div class="app-store-dialog__actions">
+            <a class="button button--primary button--full" href={appStorePrompt.admin.href} target="_blank" rel="noreferrer">
+              {appStorePrompt.admin.label}
+            </a>
+            <p class="app-store-dialog__note">{appStorePrompt.admin.note}</p>
+
+            {appStorePrompt.family.href ? (
+              <>
+                <a class="button button--secondary button--full" href={appStorePrompt.family.href} target="_blank" rel="noreferrer">
+                  {appStorePrompt.family.label}
+                </a>
+                <p class="app-store-dialog__note">{appStorePrompt.family.note}</p>
+              </>
+            ) : (
+              <>
+                <button class="button button--secondary button--full app-store-dialog__button-disabled" type="button" disabled>
+                  {appStorePrompt.family.label}
+                </button>
+                <p class="app-store-dialog__note">{appStorePrompt.family.note}</p>
+              </>
+            )}
+          </div>
+
+          <button class="app-store-dialog__dismiss" type="button" data-app-store-dialog-close>
+            {appStorePrompt.dismissLabel}
+          </button>
+        </div>
+      </dialog>
 
       <footer class="site-footer">
         <div class="site-footer__grid">
@@ -181,11 +223,16 @@ const cspDirectives = [
 
           <div>
             <h2 class="site-footer__heading">Get Started</h2>
-            <p class="site-footer__note">Start with setup, then see how HuddleWay gives families one clear app and your team fewer tools to manage.</p>
-            <a class="button button--primary button--full" href={primaryCta.href}>{primaryCta.label}</a>
+            <p class="site-footer__note">Choose Administrator or Family, then head to the App Store download that fits your role.</p>
+            {primaryCta.prompt === 'app-store-choice' ? (
+              <a class="button button--primary button--full" href={primaryCta.href} data-app-store-choice="true" aria-haspopup="dialog">{primaryCta.label}</a>
+            ) : (
+              <a class="button button--primary button--full" href={primaryCta.href}>{primaryCta.label}</a>
+            )}
           </div>
         </div>
       </footer>
     </div>
+    <script is:inline src="/scripts/app-store-choice.js"></script>
   </body>
 </html>

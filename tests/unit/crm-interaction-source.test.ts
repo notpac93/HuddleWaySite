@@ -1,0 +1,92 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+const crmRoot = join(process.cwd(), 'src/components/crm');
+const crmStyles = readFileSync(
+  join(process.cwd(), 'src/styles/crm.css'),
+  'utf8',
+);
+
+function source(relativePath: string) {
+  return readFileSync(join(crmRoot, relativePath), 'utf8');
+}
+
+describe('CRM interaction hardening source evidence', () => {
+  it('uses truthful media search and subscription error states', () => {
+    const media = source('MediaManager.svelte');
+
+    expect(media).not.toMatch(/\balert\s*\(/);
+    expect(media).toContain('Media name unavailable');
+    expect(media).toContain('Category unavailable');
+    expect(media).toContain('Search media files');
+    expect(media).toContain("mediaLoadState = 'error'");
+    expect(media).toContain('role="alert"');
+  });
+
+  it('names module toggles and exposes their current pressed state', () => {
+    const studio = source('MyAppStudio.svelte');
+
+    expect(studio).toContain("`${tab.enabled ? 'Disable' : 'Enable'} ${tab.label} module`");
+    expect(studio).toContain('aria-pressed={tab.enabled}');
+  });
+
+  it('keeps every CRM modal panel above its backdrop', () => {
+    const modalComponents = [
+      'CrmShell.svelte',
+      'GlobalSearch.svelte',
+      'InviteStaffModal.svelte',
+      'events/CreateEventForm.svelte',
+      'events/DuplicateEventModal.svelte',
+      'events/EditEventModal.svelte',
+      'events/EventRegistrantsModal.svelte',
+      'registration/CreateRegistrationForm.svelte',
+      'seasons/CreateSeasonModal.svelte',
+      'seasons/EditSeasonModal.svelte',
+      'seasons/LinkEventModal.svelte',
+      'teams/CreateTeamForm.svelte',
+    ];
+
+    const failures = modalComponents.filter((component) => {
+      const componentSource = source(component);
+      const hasBackdrop = componentSource.match(
+        /<button[^>]*class="(?:crm-ui-backdrop|fixed inset-0 z-0 [^"]*bg-gray-500)/,
+      );
+      return !hasBackdrop
+        || !componentSource.match(
+          /class="(?:crm-ui-modal-panel-lg|crm-ui-event-(?:create|duplicate|edit)-panel|crm-ui-shell-(?:mobile-drawer|logout-panel)|relative z-10 [^"]*bg-white)/,
+        );
+    });
+
+    expect(failures).toEqual([]);
+    expect(crmStyles).toMatch(
+      /\.crm-ui-backdrop\s*\{\s*@apply fixed inset-0 z-0 [^}]*bg-gray-500\/75/,
+    );
+    expect(crmStyles).toMatch(
+      /\.crm-ui-modal-panel-lg\s*\{\s*@apply relative z-10 [^}]*bg-white/,
+    );
+    for (const modal of ['create', 'duplicate', 'edit']) {
+      expect(crmStyles).toMatch(
+        new RegExp(`\\.crm-ui-event-${modal}-panel\\s*\\{\\s*@apply relative z-10 [^}]*bg-white`),
+      );
+    }
+    for (const panel of ['mobile-drawer', 'logout-panel']) {
+      expect(crmStyles).toMatch(
+        new RegExp(`\\.crm-ui-shell-${panel}\\s*\\{\\s*@apply relative z-10 `),
+      );
+    }
+    for (const component of modalComponents) {
+      expect(source(component)).toContain('use:modalFocus');
+    }
+  });
+
+  it('uses real result buttons and preserves the selected search result ID', () => {
+    const search = source('GlobalSearch.svelte');
+    const shell = source('CrmShell.svelte');
+
+    expect(search.match(/<button type="button" class="flex w-full/g)).toHaveLength(3);
+    expect(search).not.toMatch(/<li[^>]+on:click/);
+    expect(shell).toContain('export let activeResultId: string | null = null;');
+    expect(shell).toContain('activeResultId = event.detail.id;');
+  });
+});

@@ -1,0 +1,29 @@
+{
+  "route": "/admin/",
+  "assetBudgets": {
+    "maxRouteHtmlRawBytes": 8192,
+    "maxInitialJsRawBytes": 700000,
+    "maxInitialJsGzipBytes": 215000,
+    "maxInitialJsBrotliBytes": 180000,
+    "maxInitialCssGzipBytes": 20000,
+    "maxInitialNetworkRequests": 22,
+    "maxDashboardAdditionalJsGzipBytes": 12000,
+    "maxLargestJsChunkRawBytes": 250000,
+    "maxTotalCrmJsRawBytes": 1150000,
+    "maxCrmFaviconRawBytes": 8192,
+    "minLazyCrmFeatureChunks": 12
+  },
+  "runtimeBudgets": {
+    "maxAuthenticatedDashboardFirestoreListeners": 4,
+    "maxDashboardCollectionListeners": 3,
+    "maxAuthenticatedDashboardBackendRequests": 1,
+    "maxFinancialProjectionRecordsPerCollection": 500,
+    "maxVisibleRosterRefreshesPerMinute": 1,
+    "maxHiddenRosterRefreshesPerMinute": 0
+  },
+  "coreWebVitals": {
+    "maxLcpMilliseconds": 2500,
+    "maxInpMilliseconds": 200,
+    "maxCls": 0.1
+  }
+}

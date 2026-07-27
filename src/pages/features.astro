@@ -71,34 +71,35 @@ const { hero, overview, showcase, indexLinks, sections, cta } = featuresPage;
         <article id={section.id} class={`feature-block ${index % 2 === 1 ? 'feature-block--reverse' : ''}`}>
           <div class="feature-block__lead">
             <SectionIntro eyebrow="Simple Workflow" title={section.title} body={section.body} />
-            <div class="feature-block__visual">
-              <PhoneMockup {...section.mockup} />
+
+            <div class="surface-card surface-card--feature-detail">
+              <p class="surface-card__eyebrow">Primary benefit</p>
+              <h2>{section.benefit}</h2>
+
+              <div class="feature-detail-grid">
+                <div>
+                  <p class="feature-detail__label">{section.operatorTitle}</p>
+                  <ul class="surface-list">
+                    {section.operatorItems.map((item) => (
+                      <li>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="feature-detail__label">{section.familyTitle}</p>
+                  <ul class="surface-list">
+                    {section.familyItems.map((item) => (
+                      <li>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div class="surface-card surface-card--feature-detail">
-            <p class="surface-card__eyebrow">Primary benefit</p>
-            <h2>{section.benefit}</h2>
-
-            <div class="feature-detail-grid">
-              <div>
-                <p class="feature-detail__label">{section.operatorTitle}</p>
-                <ul class="surface-list">
-                  {section.operatorItems.map((item) => (
-                    <li>{item}</li>
-                  ))}
-                </ul>
-              </div>
-
-              <div>
-                <p class="feature-detail__label">{section.familyTitle}</p>
-                <ul class="surface-list">
-                  {section.familyItems.map((item) => (
-                    <li>{item}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+          <div class="feature-block__visual">
+            <PhoneMockup {...section.mockup} />
           </div>
         </article>
       ))}

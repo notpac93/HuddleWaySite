@@ -3,15 +3,10 @@ import path from 'node:path';
 import process from 'node:process';
 
 const distDir = process.argv[2] ? path.resolve(process.argv[2]) : path.resolve('dist');
-const htmlPages = ['index.html', 'support.html', 'privacy.html', 'terms.html'];
+const requiredPages = ['index', 'features', 'savings', 'setup-faq', 'support', 'privacy', 'terms'];
+const htmlPages = ['index', 'support', 'privacy', 'terms'];
+const privateHtmlPages = ['admin/index', 'admin/setup/index'];
 const requiredFiles = [
-  'index.html',
-  'features.html',
-  'savings.html',
-  'setup-faq.html',
-  'support.html',
-  'privacy.html',
-  'terms.html',
   '.well-known/security.txt',
   'robots.txt',
   'sitemap.xml',
@@ -38,6 +33,38 @@ const htmlChecks = [
 
 let failures = 0;
 
+const pageCandidates = (page) => {
+  if (page === 'index') {
+    return ['index.html'];
+  }
+
+  return [`${page}.html`, `${page}/index.html`];
+};
+
+const readFirstExisting = async (relativePaths) => {
+  for (const relativePath of relativePaths) {
+    try {
+      return {
+        relativePath,
+        html: await readFile(path.join(distDir, relativePath), 'utf8'),
+      };
+    } catch {
+      // Try the next supported static route shape.
+    }
+  }
+
+  return null;
+};
+
+for (const page of requiredPages) {
+  const result = await readFirstExisting(pageCandidates(page));
+
+  if (!result) {
+    failures += 1;
+    console.error(`FAIL missing built page: ${page}`);
+  }
+}
+
 for (const relativePath of requiredFiles) {
   const filePath = path.join(distDir, relativePath);
 
@@ -50,13 +77,36 @@ for (const relativePath of requiredFiles) {
 }
 
 for (const page of htmlPages) {
-  const html = await readFile(path.join(distDir, page), 'utf8');
+  const result = await readFirstExisting(pageCandidates(page));
+
+  if (!result) {
+    continue;
+  }
 
   for (const check of htmlChecks) {
-    if (!check.matcher.test(html)) {
+    if (!check.matcher.test(result.html)) {
       failures += 1;
-      console.error(`FAIL ${page} missing ${check.label}`);
+      console.error(`FAIL ${result.relativePath} missing ${check.label}`);
     }
+  }
+}
+
+for (const page of privateHtmlPages) {
+  const result = await readFirstExisting(pageCandidates(page));
+  if (!result) {
+    failures += 1;
+    console.error(`FAIL missing built private page: ${page}`);
+    continue;
+  }
+  for (const check of htmlChecks.slice(0, 2)) {
+    if (!check.matcher.test(result.html)) {
+      failures += 1;
+      console.error(`FAIL ${result.relativePath} missing ${check.label}`);
+    }
+  }
+  if (!/<meta[^>]+name=["']robots["'][^>]+content=["']noindex,\s*nofollow["']/i.test(result.html)) {
+    failures += 1;
+    console.error(`FAIL ${result.relativePath} missing private robots policy`);
   }
 }
 
