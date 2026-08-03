@@ -1,8 +1,10 @@
 import { defineConfig, devices } from '@playwright/test';
+import { resolve } from 'node:path';
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:4337';
 const parsedBaseURL = new URL(baseURL);
 const loopbackHosts = new Set(['127.0.0.1', 'localhost', '::1']);
+const backendRoot = process.env.HUDDLEWAY_BACKEND_ROOT ?? resolve(process.cwd(), '../../HuddleWay');
 
 if (!loopbackHosts.has(parsedBaseURL.hostname)) {
   throw new Error(
@@ -60,7 +62,7 @@ export default defineConfig({
     {
       command:
         'npx firebase emulators:start --only auth --project demo-huddleway-crm',
-      cwd: '/Users/kennygrimblejr./HuddleWay',
+      cwd: backendRoot,
       url:
         'http://127.0.0.1:9099/emulator/v1/projects/demo-huddleway-crm/config',
       reuseExistingServer: true,
@@ -69,7 +71,7 @@ export default defineConfig({
     {
       command:
         'npx firebase emulators:start --only firestore --project demo-huddleway-crm',
-      cwd: '/Users/kennygrimblejr./HuddleWay',
+      cwd: backendRoot,
       url: 'http://127.0.0.1:8080/',
       reuseExistingServer: true,
       timeout: 120_000,
