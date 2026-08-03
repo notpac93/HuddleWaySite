@@ -160,10 +160,18 @@ export function resolveCrmAppPreviewUrl(environment: PublicEnvironment) {
 export function resolveFirebaseEnvironment(
   environment: PublicEnvironment,
 ): ResolvedFirebaseEnvironment {
-  const fallback = environment.PROD
-    ? productionFirebase
-    : developmentFirebase;
-  const fallbackMeasurementId = environment.PROD
+  // Astro's static builds set PROD=true for both Dev and Production artifacts.
+  // Prefer the explicitly selected Firebase project so a Dev artifact never
+  // inherits Production credentials merely because it was built statically.
+  const explicitProjectId = normalized(environment.PUBLIC_FIREBASE_PROJECT_ID);
+  const fallback = explicitProjectId === developmentFirebase.projectId
+    ? developmentFirebase
+    : explicitProjectId === productionFirebase.projectId
+      ? productionFirebase
+      : environment.PROD
+        ? productionFirebase
+        : developmentFirebase;
+  const fallbackMeasurementId = fallback === productionFirebase
     ? productionFirebase.measurementId
     : undefined;
   const config = {

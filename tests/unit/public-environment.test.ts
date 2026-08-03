@@ -67,13 +67,21 @@ describe('public environment contract', () => {
   });
 
   it('allows the Development Firebase project to run without browser App Check', () => {
-    expect(
-      resolveFirebaseEnvironment({
-        PROD: true,
-        PUBLIC_FIREBASE_PROJECT_ID: 'huddleway-dev',
-        PUBLIC_FIREBASE_APP_CHECK_ENABLED: 'false',
-      }).appCheck,
-    ).toEqual({
+    const developmentEnvironment = resolveFirebaseEnvironment({
+      PROD: true,
+      PUBLIC_FIREBASE_PROJECT_ID: 'huddleway-dev',
+      PUBLIC_FIREBASE_APP_CHECK_ENABLED: 'false',
+    });
+
+    expect(developmentEnvironment.config).toMatchObject({
+      apiKey: 'AIzaSyDVZSVTxyiRh2TUIIE6ACmOLgdOPqB3TvA',
+      appId: '1:630775109089:web:117ca765cab994f2ee2ea0',
+      messagingSenderId: '630775109089',
+      projectId: 'huddleway-dev',
+      authDomain: 'huddleway-dev.firebaseapp.com',
+      storageBucket: 'huddleway-dev.firebasestorage.app',
+    });
+    expect(developmentEnvironment.appCheck).toEqual({
       enabled: false,
       provider: 'recaptcha-enterprise',
       siteKey: null,
