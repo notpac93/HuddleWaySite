@@ -113,6 +113,14 @@ async function seedVerifiedOwner(projectName: string) {
         },
       },
     }),
+    writeDocument('tenant_memberships', `${tenantId}_${uid}`, {
+      tenantId: { stringValue: tenantId },
+      uid: { stringValue: uid },
+      role: { stringValue: 'owner' },
+      active: { booleanValue: true },
+      status: { stringValue: 'active' },
+      schemaVersion: { stringValue: 'tenant_membership_v1' },
+    }),
     writeDocument('tenants', tenantId, {
       name: { stringValue: 'Fixture Athletics' },
       tenantId: { stringValue: tenantId },
