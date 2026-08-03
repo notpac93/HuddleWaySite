@@ -1,0 +1,22 @@
+{
+  "hosting": {
+    "site": "huddleway-crm-observe",
+    "public": "dist",
+    "ignore": [
+      "firebase.crm-observe.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-store, max-age=0" }
+        ]
+      }
+    ],
+    "rewrites": [
+      { "source": "/admin/**", "destination": "/admin/index.html" }
+    ]
+  }
+}

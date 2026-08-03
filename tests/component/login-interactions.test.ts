@@ -51,6 +51,7 @@ describe('Login safe interaction states', () => {
     expect(
       screen.getByRole('button', { name: 'Create free admin account' }),
     ).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Change password' })).toBeNull();
     await fillLogin();
     await fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
 
@@ -136,4 +137,5 @@ describe('Login safe interaction states', () => {
       'The reset request could not be completed. Try again later.',
     );
   });
+
 });

@@ -551,6 +551,20 @@ export interface CrmOperationalPage {
   requestId: string;
 }
 
+export interface RosterParticipantImportRow {
+  rowNumber: number;
+  formData: Record<string, string>;
+}
+
+export interface RosterParticipantImportResult {
+  tenantId: string;
+  batchId: string;
+  savedCount: number;
+  registrationIds: string[];
+  idempotentReplay: boolean;
+  requestId: string;
+}
+
 export interface RosterPlayerRecord {
   id: string;
   name: string;
@@ -1144,6 +1158,36 @@ export class BackendApi {
       invalidBackendResponse(
         payload as unknown as Record<string, unknown>,
       );
+    }
+    return payload;
+  }
+
+  async importRosterParticipants(
+    tenantId: string,
+    rows: RosterParticipantImportRow[],
+    batchId = createIdempotencyKey('crm-roster-participant-import'),
+  ): Promise<RosterParticipantImportResult> {
+    const payload = await this.send<RosterParticipantImportResult>(
+      '/admin/roster/participants/import',
+      {
+        method: 'POST',
+        body: { tenantId, rows, batchId },
+        idempotencyKey: batchId,
+      },
+    );
+    assertTenantEnvelope(payload as unknown as Record<string, unknown>, tenantId);
+    if (
+      typeof payload.batchId !== 'string'
+      || !payload.batchId
+      || !Number.isSafeInteger(payload.savedCount)
+      || payload.savedCount < 1
+      || !Array.isArray(payload.registrationIds)
+      || payload.registrationIds.length !== payload.savedCount
+      || payload.registrationIds.some((id) => typeof id !== 'string' || !id.trim())
+      || typeof payload.idempotentReplay !== 'boolean'
+      || !String(payload.requestId || '').trim()
+    ) {
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
   }
@@ -2248,7 +2292,6 @@ export class BackendApi {
   recallMessage(
     tenantId: string,
     messageId: string,
-    auditReason: string,
     idempotencyKey: string,
   ) {
     return this.send<{
@@ -2260,7 +2303,7 @@ export class BackendApi {
       `/admin/messages/${encodeURIComponent(messageId)}/recall`,
       {
         method: 'POST',
-        body: { tenantId, auditReason, idempotencyKey },
+        body: { tenantId, idempotencyKey },
         idempotencyKey,
       },
     );
@@ -2399,7 +2442,6 @@ export class BackendApi {
   commitRosterTransfer(
     tenantId: string,
     preview: RosterTransferPreview,
-    auditReason: string,
     idempotencyKey: string,
   ) {
     return this.send<{
@@ -2417,7 +2459,6 @@ export class BackendApi {
         registrationIds: preview.registrationIds,
         destinationTeamId: preview.destinationTeamId,
         changeSetHash: preview.changeSetHash,
-        auditReason,
       },
       idempotencyKey,
     });
@@ -2427,7 +2468,6 @@ export class BackendApi {
     tenantId: string,
     seasonId: string,
     registrationIds: string[],
-    auditReason: string,
     idempotencyKey: string,
   ) {
     return this.send<{
@@ -2446,7 +2486,6 @@ export class BackendApi {
       body: {
         tenantId,
         registrationIds,
-        auditReason,
       },
       idempotencyKey,
     });

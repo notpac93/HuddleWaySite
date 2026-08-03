@@ -1,6 +1,13 @@
 import { db } from '../firebase';
 import { type User } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+} from 'firebase/firestore';
 
 export type TenantRole = 'owner' | 'editor' | 'viewer' | 'platform_admin';
 
@@ -129,18 +136,47 @@ export function parseTenantAccess(
   );
 }
 
+export function parseCanonicalTenantAccess(
+  records: Array<{ data: () => Record<string, unknown> }>,
+): TenantAccess[] {
+  const access = new Map<string, TenantRole>();
+  for (const record of records) {
+    const data = record.data();
+    if (
+      data.active !== true
+      || String(data.status || '').trim().toLowerCase() !== 'active'
+    ) continue;
+    const tenantId = String(data.tenantId || '').trim();
+    const role = normalizedRole(data.role);
+    if (!tenantId || !role) continue;
+    const current = access.get(tenantId);
+    if (!current || rolePriority(role) > rolePriority(current)) {
+      access.set(tenantId, role);
+    }
+  }
+  return Array.from(access, ([tenantId, role]) => ({ tenantId, role })).sort(
+    (left, right) => left.tenantId.localeCompare(right.tenantId),
+  );
+}
+
 export class AuthService {
   static async fetchAuthorization(user: User): Promise<CrmAuthorization> {
-    const [userDocSnap, tokenResult] = await Promise.all([
+    const [userDocSnap, tokenResult, canonicalMemberships] = await Promise.all([
       getDoc(doc(db, 'users', user.uid)),
       user.getIdTokenResult(),
+      getDocs(query(
+        collection(db, 'tenant_memberships'),
+        where('uid', '==', user.uid),
+      )),
     ]);
     const data = userDocSnap.exists() ? userDocSnap.data() : {};
     const claims = tokenResult.claims as Record<string, unknown>;
     const tenantOperationsRole = resolveTenantOperationsRole(claims, data);
     const isPlatformAdmin = tenantOperationsRole === 'platform_admin';
     return {
-      tenantAccess: parseTenantAccess(data, isPlatformAdmin),
+      tenantAccess: isPlatformAdmin
+        ? parseTenantAccess(data, true)
+        : parseCanonicalTenantAccess(canonicalMemberships.docs),
       canViewTenantOperations: tenantOperationsRole !== null,
       tenantOperationsRole,
     };

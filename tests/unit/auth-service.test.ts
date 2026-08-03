@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  parseCanonicalTenantAccess,
   parseTenantAccess,
   resolveTenantOperationsRole,
 } from '../../src/lib/services/AuthService';
@@ -45,6 +46,21 @@ describe('tenant access parsing', () => {
     ).toEqual([
       { tenantId: 'alpha', role: 'platform_admin' },
       { tenantId: 'bravo', role: 'platform_admin' },
+    ]);
+  });
+});
+
+describe('canonical tenant membership parsing', () => {
+  it('returns only active owner/editor/viewer memberships and keeps the highest role', () => {
+    const records = [
+      { data: () => ({ tenantId: 'tenant-a', role: 'viewer', active: true, status: 'active' }) },
+      { data: () => ({ tenantId: 'tenant-a', role: 'owner', active: true, status: 'active' }) },
+      { data: () => ({ tenantId: 'tenant-b', role: 'editor', active: false, status: 'active' }) },
+      { data: () => ({ tenantId: 'tenant-c', role: 'consumer', active: true, status: 'active' }) },
+    ];
+
+    expect(parseCanonicalTenantAccess(records)).toEqual([
+      { tenantId: 'tenant-a', role: 'owner' },
     ]);
   });
 });

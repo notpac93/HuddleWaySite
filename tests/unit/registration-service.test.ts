@@ -167,4 +167,5 @@ describe('RegistrationService authenticated backend projections', () => {
       RegistrationService.fetchEventsForFormPage('tenant-a', 'form-a'),
     ).rejects.toBe(permissionError);
   });
+
 });

@@ -16,7 +16,10 @@
   let isLoading = false;
   let view: 'login' | 'signup' | 'reset' = 'login';
 
-  function safeAuthError(operation: 'login' | 'signup' | 'reset', error: unknown) {
+  function safeAuthError(
+    operation: 'login' | 'signup' | 'reset',
+    error: unknown,
+  ) {
     const code = String((error as { code?: unknown })?.code || '');
     if (code.includes('too-many-requests')) {
       return 'Too many attempts. Wait a few minutes before trying again.';
@@ -130,9 +133,11 @@
                 Password
               </label>
               <div class="text-sm">
-                <button type="button" class="font-medium text-[#00a4bd] hover:text-[#008194]" on:click={() => { view = 'reset'; errorMessage = ''; successMessage = ''; }}>
-                  Forgot your password?
-                </button>
+                <div class="flex flex-wrap justify-end gap-x-3 gap-y-1">
+                  <button type="button" class="font-medium text-[#00a4bd] hover:text-[#008194]" on:click={() => { view = 'reset'; errorMessage = ''; successMessage = ''; }}>
+                    Forgot your password?
+                  </button>
+                </div>
               </div>
             </div>
             <div class="mt-1">

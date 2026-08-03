@@ -8,8 +8,8 @@ const nativeControls = new Set(['button', 'a', 'input', 'select', 'textarea']);
 
 const reviewedControlCounts: Record<string, number> = {
   'ActivityManager.svelte': 3,
-  'CommunicationsManager.svelte': 12,
-  'CrmApp.svelte': 2,
+  'CommunicationsManager.svelte': 11,
+  'CrmApp.svelte': 1,
   'CrmBreadcrumbs.svelte': 1,
   'CrmShell.svelte': 14,
   'DataTable.svelte': 9,
@@ -23,7 +23,7 @@ const reviewedControlCounts: Record<string, number> = {
   'Login.svelte': 13,
   'MediaManager.svelte': 2,
   'MyAppStudio.svelte': 10,
-  'SettingsManager.svelte': 2,
+  'SettingsManager.svelte': 6,
   'SetupWorkflow.svelte': 11,
   'StaffManager.svelte': 14,
   'TeamsManager.svelte': 7,
@@ -39,8 +39,9 @@ const reviewedControlCounts: Record<string, number> = {
   'registration/RegistrationDetail.svelte': 10,
   'registration/RegistrationManager.svelte': 7,
   'roster/ImportCsv.svelte': 2,
-  'roster/PlayerTable.svelte': 5,
-  'roster/RosterManager.svelte': 3,
+  'roster/PlayerTable.svelte': 4,
+  'roster/RosterManager.svelte': 5,
+  'roster/RosterParticipantEntry.svelte': 9,
   'roster/TeamTable.svelte': 5,
   'seasons/CreateSeasonModal.svelte': 6,
   'seasons/EditSeasonModal.svelte': 8,
@@ -116,7 +117,7 @@ describe('exhaustive CRM control inventory', () => {
     );
 
     expect(actual).toEqual(reviewedControlCounts);
-    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(382);
+    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(394);
   });
 
   it('keeps every inventoried CRM component reachable from a production entry point', () => {

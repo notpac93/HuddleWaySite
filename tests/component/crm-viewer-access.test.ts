@@ -142,20 +142,19 @@ describe('CrmApp authentication, role, module, and tenant boundaries', () => {
     ).toBeVisible();
   });
 
-  it('routes verified administrators without a tenant into free setup', async () => {
+  it('does not expose self-service setup when a verified administrator has no tenant', async () => {
     role.set(null);
     tenants.set(null);
     render(TestedCrmApp);
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Set up your organization',
+        name: 'Organization setup is managed by HuddleWay',
       }),
     ).toBeVisible();
     expect(
-      screen.getByText(/Program creation and administration are free/i),
+      screen.getByText(/setup is currently being completed by the HuddleWay team/i),
     ).toBeVisible();
-    expect(screen.getByText(/no payment method is required/i)).toBeVisible();
   });
 
   it('blocks setup until email verification and surfaces membership errors', async () => {

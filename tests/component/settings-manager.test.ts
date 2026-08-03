@@ -5,10 +5,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const authMocks = vi.hoisted(() => ({
   updateProfile: vi.fn(),
+  updatePassword: vi.fn(),
+  signOut: vi.fn(),
+  reauthenticate: vi.fn(),
+  verifyBeforeUpdateEmail: vi.fn(),
+  emailCredential: vi.fn((email: string, password: string) => ({ email, password })),
 }));
 
 vi.mock('firebase/auth', () => ({
   updateProfile: authMocks.updateProfile,
+  updatePassword: authMocks.updatePassword,
+  signOut: authMocks.signOut,
+  reauthenticateWithCredential: authMocks.reauthenticate,
+  verifyBeforeUpdateEmail: authMocks.verifyBeforeUpdateEmail,
+  EmailAuthProvider: { credential: authMocks.emailCredential },
 }));
 
 vi.mock('../../src/lib/authStore', async () => {
@@ -17,6 +27,8 @@ vi.mock('../../src/lib/authStore', async () => {
     userStore: writable(null),
   };
 });
+
+vi.mock('../../src/lib/firebase', () => ({ auth: { name: 'test-auth' } }));
 
 import { userStore } from '../../src/lib/authStore';
 import SettingsManager from '../../src/components/crm/SettingsManager.svelte';
@@ -31,6 +43,11 @@ const users = userStore as Writable<{
 describe('SettingsManager profile persistence', () => {
   beforeEach(() => {
     authMocks.updateProfile.mockReset();
+    authMocks.updatePassword.mockReset();
+    authMocks.signOut.mockReset();
+    authMocks.reauthenticate.mockReset();
+    authMocks.verifyBeforeUpdateEmail.mockReset();
+    authMocks.emailCredential.mockClear();
     vi.spyOn(console, 'error').mockImplementation(() => {});
     users.set({
       uid: 'owner-a',
@@ -43,7 +60,7 @@ describe('SettingsManager profile persistence', () => {
     vi.restoreAllMocks();
   });
 
-  it('normalizes a valid name, persists it once, and keeps email read-only', async () => {
+  it('normalizes a valid name and persists it once', async () => {
     let resolveUpdate!: () => void;
     authMocks.updateProfile.mockReturnValue(
       new Promise<void>((resolve) => {
@@ -54,7 +71,7 @@ describe('SettingsManager profile persistence', () => {
 
     const name = screen.getByLabelText('Display name');
     const email = screen.getByLabelText('Email address');
-    expect(email).toBeDisabled();
+    expect(email).not.toBeDisabled();
     expect(email).toHaveValue('owner@example.test');
 
     await fireEvent.input(name, { target: { value: '  Updated Owner  ' } });
@@ -73,6 +90,53 @@ describe('SettingsManager profile persistence', () => {
       expect(screen.getByRole('button', { name: 'Saved' })).toBeVisible(),
     );
     expect(name).toHaveValue('Updated Owner');
+  });
+
+  it('reauthenticates and sends verification before changing the email', async () => {
+    authMocks.reauthenticate.mockResolvedValue(undefined);
+    authMocks.verifyBeforeUpdateEmail.mockResolvedValue(undefined);
+    authMocks.updateProfile.mockResolvedValue(undefined);
+    render(TestedSettingsManager);
+
+    await fireEvent.input(screen.getByLabelText('Email address'), {
+      target: { value: 'new-owner@example.test' },
+    });
+    await fireEvent.input(screen.getByLabelText('Current password', {
+      selector: '#settings-current-password',
+    }), {
+      target: { value: 'old-password' },
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Saved' })).toBeVisible(),
+    );
+    expect(authMocks.emailCredential).toHaveBeenCalledWith(
+      'owner@example.test',
+      'old-password',
+    );
+    expect(authMocks.reauthenticate).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: 'owner-a' }),
+      { email: 'owner@example.test', password: 'old-password' },
+    );
+    expect(authMocks.verifyBeforeUpdateEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: 'owner-a' }),
+      'new-owner@example.test',
+    );
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Verification is waiting for new-owner@example.test',
+    );
+  });
+
+  it('requires the current password for an email change', async () => {
+    render(TestedSettingsManager);
+    await fireEvent.input(screen.getByLabelText('Email address'), {
+      target: { value: 'new-owner@example.test' },
+    });
+
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled();
+    expect(authMocks.reauthenticate).not.toHaveBeenCalled();
+    expect(authMocks.verifyBeforeUpdateEmail).not.toHaveBeenCalled();
   });
 
   it('blocks invalid names before a write and maps recent-login errors safely', async () => {
@@ -112,5 +176,58 @@ describe('SettingsManager profile persistence', () => {
         'second@example.test',
       );
     });
+  });
+
+  it('reauthenticates, changes the password, and signs the user out', async () => {
+    authMocks.reauthenticate.mockResolvedValue(undefined);
+    authMocks.updatePassword.mockResolvedValue(undefined);
+    authMocks.signOut.mockResolvedValue(undefined);
+    render(TestedSettingsManager);
+
+    await fireEvent.input(screen.getByLabelText('Current password'), {
+      target: { value: 'old-password' },
+    });
+    await fireEvent.input(screen.getByLabelText('New password'), {
+      target: { value: 'new-password-123' },
+    });
+    await fireEvent.input(screen.getByLabelText('Confirm new password'), {
+      target: { value: 'new-password-123' },
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Change Password' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Password changed successfully. You have been signed out.',
+      ),
+    );
+    expect(authMocks.emailCredential).toHaveBeenCalledWith(
+      'owner@example.test',
+      'old-password',
+    );
+    expect(authMocks.reauthenticate).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: 'owner-a' }),
+      { email: 'owner@example.test', password: 'old-password' },
+    );
+    expect(authMocks.updatePassword).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: 'owner-a' }),
+      'new-password-123',
+    );
+    expect(authMocks.signOut).toHaveBeenCalledWith({ name: 'test-auth' });
+  });
+
+  it('blocks a mismatched new password before contacting Firebase', async () => {
+    render(TestedSettingsManager);
+    await fireEvent.input(screen.getByLabelText('Current password'), {
+      target: { value: 'old-password' },
+    });
+    await fireEvent.input(screen.getByLabelText('New password'), {
+      target: { value: 'new-password-123' },
+    });
+    await fireEvent.input(screen.getByLabelText('Confirm new password'), {
+      target: { value: 'different-password' },
+    });
+    expect(screen.getByRole('button', { name: 'Change Password' })).toBeDisabled();
+    expect(authMocks.reauthenticate).not.toHaveBeenCalled();
+    expect(authMocks.updatePassword).not.toHaveBeenCalled();
   });
 });

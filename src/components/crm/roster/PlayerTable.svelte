@@ -27,7 +27,6 @@
   let selectedPlayerIds = [];
   let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
   let bulkSelectedTeam = '';
-  let bulkAuditReason = '';
   let operationMessage = '';
   let dataTable: DataTable;
   let bulkOperationSignature = '';
@@ -46,7 +45,6 @@
       tenantId: $tenantIdStore,
       selectedPlayerIds: [...selectedPlayerIds].sort(),
       bulkSelectedTeam,
-      auditReason: bulkAuditReason.trim(),
     });
     if (signature !== bulkOperationSignature) {
       const changedWhileLoading = submitState === 'loading';
@@ -76,7 +74,6 @@
       !bulkSelectedTeam
       || !$tenantIdStore
       || selectedPlayerIds.length === 0
-      || bulkAuditReason.trim().length < 3
       || submitState === 'loading'
     ) return;
     const tenantId = $tenantIdStore;
@@ -94,7 +91,6 @@
       registrationIds,
       destinationSeasonId,
       destinationTeamId,
-      auditReason: bulkAuditReason.trim(),
     });
     const assertCurrentScope = () => {
       const currentSignature = JSON.stringify({
@@ -107,7 +103,6 @@
           bulkSelectedTeam.startsWith('season:')
             ? null
             : bulkSelectedTeam === 'unassign' ? null : bulkSelectedTeam,
-        auditReason: bulkAuditReason.trim(),
       });
       if (
         generation !== operationGeneration
@@ -136,7 +131,6 @@
           tenantId,
           destinationSeasonId,
           registrationIds,
-          bulkAuditReason.trim(),
           bulkOperationKey,
         );
         assertCurrentScope();
@@ -153,7 +147,6 @@
         const result = await backendClient.commitRosterTransfer(
           tenantId,
           preview,
-          bulkAuditReason.trim(),
           bulkOperationKey,
         );
         assertCurrentScope();
@@ -168,7 +161,6 @@
       dataTable?.clearSelection();
       selectedPlayerIds = [];
       bulkSelectedTeam = '';
-      bulkAuditReason = '';
       bulkOperationKey = '';
       setTimeout(() => {
         if (submitState === 'success') submitState = 'idle';
@@ -287,23 +279,11 @@
           </optgroup>
           </select>
         </label>
-        <label>
-          <span class="sr-only">Roster transfer audit reason</span>
-          <input
-            type="text"
-            bind:value={bulkAuditReason}
-            minlength="3"
-            maxlength="500"
-            disabled={submitState === 'loading'}
-            placeholder="Reason for transfer"
-            class="w-44 rounded-md border border-gray-300 px-2 py-1 text-sm disabled:opacity-50"
-          />
-        </label>
         <StatusButton
           type="button"
           state={submitState}
           on:click={handleBulkAssign}
-          disabled={submitState === 'loading' || !bulkSelectedTeam || bulkAuditReason.trim().length < 3}
+          disabled={submitState === 'loading' || !bulkSelectedTeam}
           idleText="Apply"
           loadingText="Updating..."
           successText="Updated!"

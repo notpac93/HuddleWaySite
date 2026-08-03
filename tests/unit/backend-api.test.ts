@@ -80,6 +80,42 @@ function validAppConfiguration() {
 }
 
 describe('BackendApi', () => {
+  it('imports roster participants through the tenant-scoped idempotent route', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(response(201, {
+      tenantId: 'fixture-tenant',
+      batchId: 'batch-1',
+      savedCount: 1,
+      registrationIds: ['registration-1'],
+      idempotentReplay: false,
+      requestId: 'import-request',
+    }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+      createRequestId: () => 'browser-request',
+    });
+    const rows = [{ rowNumber: 2, formData: {
+      player_name: 'Jordan Player',
+      parent_email: 'parent@example.test',
+    } }];
+
+    await expect(api.importRosterParticipants(
+      'fixture-tenant',
+      rows,
+      'batch-1',
+    )).resolves.toMatchObject({ savedCount: 1 });
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      'https://api.example.test/admin/roster/participants/import',
+    );
+    expect(fetchMock.mock.calls[0][1].headers['Idempotency-Key']).toBe('batch-1');
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      tenantId: 'fixture-tenant',
+      rows,
+      batchId: 'batch-1',
+    });
+  });
+
   it('uploads image files through a protected reservation and verified completion', async () => {
     const reservationId = `image_upload_${'a'.repeat(40)}`;
     const storagePath = `private/fixture-tenant/media/events/${reservationId}.png`;
@@ -542,7 +578,6 @@ describe('BackendApi', () => {
     await api.commitRosterTransfer(
       'fixture-tenant',
       reviewed,
-      'Move selected players to the Gold Team.',
       'roster-transfer:stable',
     );
 
@@ -571,7 +606,6 @@ describe('BackendApi', () => {
       registrationIds: preview.registrationIds,
       destinationTeamId: 'team-2',
       changeSetHash: preview.changeSetHash,
-      auditReason: 'Move selected players to the Gold Team.',
     });
   });
 
@@ -601,7 +635,6 @@ describe('BackendApi', () => {
       'fixture-tenant',
       'season/fall',
       ['registration-1'],
-      'Connect reviewed player to the fall season.',
       'season-assignment:stable',
     );
 
@@ -616,7 +649,6 @@ describe('BackendApi', () => {
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
       tenantId: 'fixture-tenant',
       registrationIds: ['registration-1'],
-      auditReason: 'Connect reviewed player to the fall season.',
     });
   });
 
@@ -839,7 +871,7 @@ describe('BackendApi', () => {
     });
   });
 
-  it('recalls a message with an explicit reason and one stable idempotency key', async () => {
+  it('recalls a message with one stable idempotency key', async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(response(403, { error: 'refresh required' }))
@@ -862,7 +894,6 @@ describe('BackendApi', () => {
       api.recallMessage(
         'fixture-tenant',
         'message-1',
-        'Incorrect event details were published.',
         'message-recall:stable',
       ),
     ).resolves.toMatchObject({
@@ -881,7 +912,6 @@ describe('BackendApi', () => {
       });
       expect(JSON.parse(call[1].body)).toEqual({
         tenantId: 'fixture-tenant',
-        auditReason: 'Incorrect event details were published.',
         idempotencyKey: 'message-recall:stable',
       });
     }

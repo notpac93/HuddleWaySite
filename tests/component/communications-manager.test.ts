@@ -119,7 +119,7 @@ describe('CommunicationsManager recall boundary', () => {
     expect(screen.getAllByText('Practice starts at six.')).toHaveLength(1);
   });
 
-  it('requires a reason, submits one delete, and refreshes the visible message', async () => {
+  it('deletes an announcement and refreshes the visible message', async () => {
     mocks.getDocs
       .mockResolvedValueOnce(messageSnapshot())
       .mockResolvedValueOnce(emptySnapshot());
@@ -141,21 +141,15 @@ describe('CommunicationsManager recall boundary', () => {
     const submit = screen.getByRole('button', {
       name: 'Delete announcement',
     });
-    expect(submit).toBeDisabled();
-    await fireEvent.input(
-      screen.getByLabelText('Reason for deletion'),
-      { target: { value: 'Incorrect practice time was posted.' } },
-    );
     expect(submit).toBeEnabled();
     await fireEvent.click(submit);
     await fireEvent.click(submit);
 
     expect(backendClient.recallMessage).toHaveBeenCalledTimes(1);
-    const [tenantId, messageId, reason, operationKey] =
+    const [tenantId, messageId, operationKey] =
       vi.mocked(backendClient.recallMessage).mock.calls[0];
     expect(tenantId).toBe('tenant-a');
     expect(messageId).toBe('message-1');
-    expect(reason).toBe('Incorrect practice time was posted.');
     expect(operationKey).toMatch(/^message-recall-message-1:/);
     expect(
       within(dialog).getByRole('button', { name: 'Deleting…' }),
@@ -177,7 +171,7 @@ describe('CommunicationsManager recall boundary', () => {
     });
   });
 
-  it('keeps the same reason and key for a correlated retry', async () => {
+  it('keeps the same key for a correlated retry', async () => {
     mocks.getDocs
       .mockResolvedValueOnce(messageSnapshot())
       .mockResolvedValueOnce(emptySnapshot());
@@ -200,10 +194,6 @@ describe('CommunicationsManager recall boundary', () => {
     expect(await screen.findByText('Practice update')).toBeVisible();
 
     await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
-    await fireEvent.input(
-      screen.getByLabelText('Reason for deletion'),
-      { target: { value: 'Duplicate announcement was posted.' } },
-    );
     await fireEvent.click(
       screen.getByRole('button', { name: 'Delete announcement' }),
     );
@@ -222,7 +212,6 @@ describe('CommunicationsManager recall boundary', () => {
     });
     const secondCall = vi.mocked(backendClient.recallMessage).mock.calls[1];
     expect(secondCall[2]).toBe(firstCall[2]);
-    expect(secondCall[3]).toBe(firstCall[3]);
   });
 
   it('keeps unsupported publication disabled and labels its exact boundary', async () => {

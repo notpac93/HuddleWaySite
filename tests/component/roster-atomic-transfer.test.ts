@@ -102,10 +102,6 @@ async function prepareTransfer() {
     screen.getByLabelText('Bulk roster action'),
     { target: { value: 'team-2' } },
   );
-  await fireEvent.input(
-    screen.getByLabelText('Roster transfer audit reason'),
-    { target: { value: 'Move after age-group review.' } },
-  );
 }
 
 describe('PlayerTable atomic roster transfer', () => {
@@ -146,7 +142,6 @@ describe('PlayerTable atomic roster transfer', () => {
     expect(backendMocks.commitRosterTransfer).toHaveBeenCalledWith(
       'tenant-a',
       transferPreview,
-      'Move after age-group review.',
       expect.stringContaining('roster-atomic-transfer:'),
     );
     expect(backendMocks.previewRosterChanges).not.toHaveBeenCalled();
@@ -183,10 +178,6 @@ describe('PlayerTable atomic roster transfer', () => {
     await fireEvent.change(action, {
       target: { value: 'season:season-fall' },
     });
-    await fireEvent.input(
-      screen.getByLabelText('Roster transfer audit reason'),
-      { target: { value: 'Connect to the fall season.' } },
-    );
     await fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
 
     await waitFor(() => {
@@ -196,7 +187,6 @@ describe('PlayerTable atomic roster transfer', () => {
       'tenant-a',
       'season-fall',
       ['registration-1'],
-      'Connect to the fall season.',
       expect.stringContaining('season-participant-assignment:'),
     );
     expect(backendMocks.previewRosterTransfer).not.toHaveBeenCalled();
@@ -263,8 +253,8 @@ describe('PlayerTable atomic roster transfer', () => {
     );
     expect(backendMocks.commitRosterTransfer).toHaveBeenCalledTimes(2);
     expect(
-      backendMocks.commitRosterTransfer.mock.calls[1][3],
-    ).toBe(backendMocks.commitRosterTransfer.mock.calls[0][3]);
+      backendMocks.commitRosterTransfer.mock.calls[1][2],
+    ).toBe(backendMocks.commitRosterTransfer.mock.calls[0][2]);
   });
 
   it('locks reviewed fields during commit and omits rows without stable IDs', async () => {
@@ -292,17 +282,10 @@ describe('PlayerTable atomic roster transfer', () => {
     );
     await fireEvent.click(screen.getAllByLabelText('Select Kai Reed')[0]);
     const teamSelect = screen.getByLabelText('Bulk roster action');
-    const reasonInput = screen.getByLabelText(
-      'Roster transfer audit reason',
-    );
     await fireEvent.change(teamSelect, { target: { value: 'team-2' } });
-    await fireEvent.input(reasonInput, {
-      target: { value: 'Move after age-group review.' },
-    });
     await fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
 
     expect(teamSelect).toBeDisabled();
-    expect(reasonInput).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Updating...' })).toBeDisabled();
 
     pendingCommit.resolve({

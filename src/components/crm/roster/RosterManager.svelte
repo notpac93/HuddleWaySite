@@ -10,6 +10,7 @@
   import PlayerTable from './PlayerTable.svelte';
   import TeamTable from './TeamTable.svelte';
   import ImportCsv from './ImportCsv.svelte';
+  import RosterParticipantEntry from './RosterParticipantEntry.svelte';
 
   export let activeTeam: string | { id?: unknown } | null = null;
   export let setActiveTeam = () => {};
@@ -29,6 +30,8 @@
   };
 
   let activeTab = 'Players'; // 'Players', 'Teams', 'Import'
+  let entryMode: 'manual' | 'csv' | null = null;
+  let entrySuccess = '';
 
   $: if (activeResultId) activeTab = 'Players';
   $: activeTeamId =
@@ -92,6 +95,13 @@
     subscribePlayers();
   }
 
+  function handleEntrySuccess(event) {
+    const savedCount = Number(event.detail?.savedCount || 0);
+    entrySuccess = `${savedCount} ${savedCount === 1 ? 'person was' : 'people were'} added to the program.`;
+    entryMode = null;
+    refreshPlayers();
+  }
+
   $: {
     $tenantIdStore;
     activeTeam;
@@ -104,13 +114,29 @@
   });
 </script>
 
+{#if entryMode}
+  <RosterParticipantEntry
+    tenantId={$tenantIdStore || ''}
+    teams={$teamsStore}
+    seasons={$seasonsStore}
+    initialMode={entryMode}
+    on:success={handleEntrySuccess}
+    on:cancel={() => entryMode = null}
+  />
+{/if}
+
 <div class="h-full flex flex-col p-6 space-y-6 overflow-y-auto bg-white">
   <div class="flex justify-between items-center">
     <div>
       <h2 class="crm-ui-page-title">Rosters & Teams</h2>
-      <p class="text-sm text-gray-500">Manage teams and reviewed player assignments.</p>
+      <p class="text-sm text-gray-500">Manage program members, teams, seasons, and reviewed player assignments.</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <button type="button" class="rounded border border-[#1855c5] px-4 py-2 text-sm font-semibold text-[#1855c5] hover:bg-blue-50" on:click={() => { entrySuccess = ''; entryMode = 'manual'; }}>Add person</button>
+      <button type="button" class="rounded bg-[#1855c5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1546a3]" on:click={() => { entrySuccess = ''; entryMode = 'csv'; }}>Import people CSV</button>
     </div>
   </div>
+  {#if entrySuccess}<p class="rounded border border-green-200 bg-green-50 p-3 text-sm text-green-800" role="status">{entrySuccess}</p>{/if}
 
   <!-- Tabs -->
   <div class="border-b border-gray-200">

@@ -50,10 +50,8 @@
   let postMessageId = `message_${globalThis.crypto.randomUUID()}`;
   let postPayloadSignature = '';
   const recallIdempotencyKeys = new Map<string, string>();
-  const recallIdempotencyReasons = new Map<string, string>();
   let tenantGeneration = 0;
   let recallTarget: WallMessage | null = null;
-  let recallAuditReason = '';
 
   $: normalizedSearch = searchQuery.trim().toLocaleLowerCase();
   $: visibleMessages = normalizedSearch
@@ -248,20 +246,17 @@
   function requestRecall(message: WallMessage) {
     if (recallingMessageId) return;
     recallTarget = message;
-    recallAuditReason = recallIdempotencyReasons.get(message.id) || '';
   }
 
   function closeRecallDialog() {
     if (recallingMessageId) return;
     recallTarget = null;
-    recallAuditReason = '';
   }
 
   async function handleRecallMessage() {
     if (recallingMessageId) return;
     const id = recallTarget?.id;
-    const auditReason = recallAuditReason.trim();
-    if (!id || auditReason.length < 3) return;
+    if (!id) return;
 
     const tenantId = $tenantIdStore;
     const generation = tenantGeneration;
@@ -272,13 +267,6 @@
     recallingMessageId = id;
     operationMessage = '';
     operationRequestId = '';
-    if (recallIdempotencyReasons.get(id) !== auditReason) {
-      recallIdempotencyKeys.set(
-        id,
-        createIdempotencyKey(`message-recall-${id}`),
-      );
-      recallIdempotencyReasons.set(id, auditReason);
-    }
     const idempotencyKey = recallIdempotencyKeys.get(id)
       || createIdempotencyKey(`message-recall-${id}`);
     recallIdempotencyKeys.set(id, idempotencyKey);
@@ -286,17 +274,14 @@
       await backendClient.recallMessage(
         tenantId,
         id,
-        auditReason,
         idempotencyKey,
       );
       if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
       await fetchMessages(tenantId);
       if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
       recallIdempotencyKeys.delete(id);
-      recallIdempotencyReasons.delete(id);
       operationMessage = 'Announcement deleted.';
       recallTarget = null;
-      recallAuditReason = '';
     } catch (error) {
       if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
       operationMessage = 'The announcement could not be deleted.';
@@ -329,18 +314,6 @@
         <p class="mt-2 text-sm text-gray-600">
           Delete “{recallTarget.subject || 'Untitled announcement'}” from {audienceLabel(recallTarget.teamId)}. The Wall post will no longer be available to that audience.
         </p>
-        <label class="mt-4 block">
-          <span class="text-sm font-medium text-gray-800">Reason for deletion</span>
-          <textarea
-            bind:value={recallAuditReason}
-            minlength="3"
-            maxlength="500"
-            rows="3"
-            disabled={Boolean(recallingMessageId)}
-            placeholder="Why is this announcement being deleted?"
-            class="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm disabled:opacity-50"
-          ></textarea>
-        </label>
         <div class="mt-6 flex justify-end gap-3">
           <button
             type="button"
@@ -351,7 +324,7 @@
           >Cancel</button>
           <button
             type="button"
-            disabled={Boolean(recallingMessageId) || recallAuditReason.trim().length < 3}
+            disabled={Boolean(recallingMessageId)}
             class="crm-ui-danger-button"
             on:click={handleRecallMessage}
           >{recallingMessageId ? 'Deleting…' : 'Delete announcement'}</button>

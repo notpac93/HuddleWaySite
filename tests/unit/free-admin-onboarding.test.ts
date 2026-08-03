@@ -19,14 +19,13 @@ describe('free administrator onboarding contract', () => {
     expect(login).not.toMatch(/activation entitlement|activation contact|\$99/i);
   });
 
-  it('routes verified administrators with no tenant into setup', () => {
+  it('holds verified administrators without a tenant for managed setup', () => {
     const app = source('CrmApp.svelte');
 
     expect(app).toContain('$userStore.emailVerified');
-    expect(app).toContain("import('./SetupWorkflow.svelte')");
-    expect(app).toContain('this={setupComponent}');
-    expect(app).toContain('Setup could not be loaded');
-    expect(app).toContain('Program setup is free.');
+    expect(app).toContain('Organization setup is managed by HuddleWay');
+    expect(app).toContain('setup is currently being completed by the HuddleWay team');
+    expect(app).not.toContain("import('./SetupWorkflow.svelte')");
     expect(app).not.toMatch(/activation entitlement|activation contact/i);
   });
 

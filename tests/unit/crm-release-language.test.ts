@@ -18,8 +18,8 @@ function components(directory = crmRoot): string[] {
 }
 
 describe('CRM release language contract', () => {
-  it('reviews the entire 43-component release tree', () => {
-    expect(components().map((file) => relative(crmRoot, file))).toHaveLength(43);
+  it('reviews the entire 44-component release tree', () => {
+    expect(components().map((file) => relative(crmRoot, file))).toHaveLength(44);
   });
 
   it('rejects simulated, placeholder, and raw exception language', () => {
@@ -56,8 +56,8 @@ describe('CRM release language contract', () => {
       'Program creation and administration are free. No payment method is required.',
     );
     expect(setup).toContain('Skip payment setup');
-    expect(app).toContain("import('./SetupWorkflow.svelte')");
-    expect(app).toContain('Setup could not be loaded');
+    expect(app).toContain('Organization setup is managed by HuddleWay');
+    expect(app).not.toContain("import('./SetupWorkflow.svelte')");
     expect(marketing).toContain('Creating and administering a program is free.');
 
     for (const text of [login, setup, app, marketing]) {

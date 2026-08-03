@@ -23,9 +23,6 @@
   let loadedTab = '';
   let moduleLoadError = '';
   let moduleLoadSequence = 0;
-  let setupComponent: Component<any> | null = null;
-  let setupLoadState: 'idle' | 'loading' | 'ready' | 'error' = 'idle';
-  let setupLoadSequence = 0;
   let isTenantSwitching = false;
   let rumStarted = false;
 
@@ -72,28 +69,6 @@
       moduleLoadError =
         `The ${tab} module could not be loaded. Check your connection and try again.`;
     }
-  }
-
-  async function loadSetupWorkflow() {
-    if (setupLoadState === 'loading' || setupLoadState === 'ready') return;
-    setupLoadState = 'loading';
-    const sequence = ++setupLoadSequence;
-    try {
-      const module = await import('./SetupWorkflow.svelte');
-      if (sequence !== setupLoadSequence) return;
-      setupComponent = module.default;
-      setupLoadState = 'ready';
-    } catch {
-      if (sequence !== setupLoadSequence) return;
-      console.error('Could not load the organization setup workflow.');
-      setupComponent = null;
-      setupLoadState = 'error';
-    }
-  }
-
-  function retrySetupWorkflow() {
-    setupLoadState = 'idle';
-    void loadSetupWorkflow();
   }
 
   function retryActiveTab() {
@@ -212,16 +187,6 @@
         : '',
     }));
   }
-  $: if (
-    !$isAuthLoading
-    && $userStore?.emailVerified
-    && (!$tenantIdStore || !$activeTenantRole)
-    && !$canViewTenantOperationsStore
-    && setupLoadState === 'idle'
-  ) {
-    void loadSetupWorkflow();
-  }
-
   function setActiveTeam(team) {
     activeResultId = null;
     activeTeam = team;
@@ -277,30 +242,14 @@
   && !$canViewTenantOperationsStore
 )}
   {#if $userStore.emailVerified}
-    {#if setupComponent && setupLoadState === 'ready'}
-      <svelte:component this={setupComponent} />
-    {:else if setupLoadState === 'error'}
-      <div class="min-h-screen flex items-center justify-center bg-gray-50 p-6" role="alert">
-        <div class="max-w-lg rounded-lg border border-red-200 bg-white p-8 shadow">
-          <h1 class="text-xl font-semibold text-gray-900">Setup could not be loaded</h1>
-          <p class="mt-2 text-sm text-red-700">
-            Check your connection and try again. No organization changes were made.
-          </p>
-          <button
-            type="button"
-            class="mt-4 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-            on:click={retrySetupWorkflow}
-          >
-            Try again
-          </button>
-        </div>
+    <div class="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+      <div class="max-w-lg rounded-lg border border-gray-200 bg-white p-8 shadow">
+        <h1 class="text-xl font-semibold text-gray-900">Organization setup is managed by HuddleWay</h1>
+        <p class="mt-2 text-sm text-gray-600">
+          Your verified account is ready for an organization, but setup is currently being completed by the HuddleWay team.
+        </p>
       </div>
-    {:else}
-      <div class="min-h-screen flex items-center justify-center bg-gray-50" role="status">
-        <span class="sr-only">Loading organization setup</span>
-        <div class="h-10 w-10 animate-spin rounded-full border-2 border-gray-200 border-b-indigo-600"></div>
-      </div>
-    {/if}
+    </div>
   {:else}
     <div class="min-h-screen flex items-center justify-center bg-gray-50 p-6">
       <div class="max-w-lg rounded-lg border border-gray-200 bg-white p-8 shadow">
