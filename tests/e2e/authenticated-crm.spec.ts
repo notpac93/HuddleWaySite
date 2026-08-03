@@ -284,6 +284,35 @@ async function mockAuthenticatedBackend(page: Page, tenantId: string) {
       }),
     });
   });
+
+  await page.route('**/admin/crm/app-configuration**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        tenantId,
+        mode: 'initialize',
+        configuration: null,
+        versionToken: 'e2e-config-version',
+        requestId: 'e2e-config',
+      }),
+    });
+  });
+
+  await page.route('**/admin/crm/audit-events**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        events: [],
+        truncated: false,
+        hasMore: false,
+        nextCursor: null,
+        limit: 50,
+        requestId: 'e2e-audit',
+      }),
+    });
+  });
 }
 
 async function openCrmTab(page: Page, tab: string, mobile: boolean) {
