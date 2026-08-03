@@ -42,7 +42,7 @@ jobs:
       HUDDLEWAY_BACKEND_CONTRACT_REF: ${{ inputs.backend_contract_ref || vars.HUDDLEWAY_BACKEND_CONTRACT_REF }}
       HUDDLEWAY_CONSUMER_RELEASE_ID: ${{ inputs.consumer_release_id || vars.HUDDLEWAY_CONSUMER_RELEASE_ID }}
       HUDDLEWAY_CONSUMER_ARTIFACT_SHA256: ${{ inputs.consumer_artifact_sha256 || vars.HUDDLEWAY_CONSUMER_ARTIFACT_SHA256 }}
-      HUDDLEWAY_CONSUMER_OWNER: huddleway-app-release
+      HUDDLEWAY_CONSUMER_OWNER: ${{ inputs.consumer_release_id && 'huddleway-app-release' || vars.HUDDLEWAY_CONSUMER_OWNER || '' }}
       HUDDLEWAY_CONSUMER_ROLLBACK_RELEASE_ID: ${{ inputs.consumer_rollback_release_id || vars.HUDDLEWAY_CONSUMER_ROLLBACK_RELEASE_ID }}
       HUDDLEWAY_RELEASE_BACKEND_URL: https://api.huddleway.com
       HUDDLEWAY_RELEASE_FIREBASE_PROJECT_ID: sports-team-apps
