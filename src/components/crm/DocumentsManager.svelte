@@ -205,9 +205,6 @@
       <h2 class="text-xl font-bold text-gray-900">Documents & Resources</h2>
       <p class="text-sm text-gray-500">Review securely stored resources available to your organization.</p>
     </div>
-    <p class="max-w-md rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-      Uploads are unavailable until the audited tenant Storage workflow is enabled.
-    </p>
   </div>
 
   {#if operationMessage}
@@ -228,10 +225,10 @@
   <section class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" aria-labelledby="document-list-title">
     <div class="border-b border-gray-200 p-4">
       <h3 id="document-list-title" class="font-semibold text-gray-900">Available documents</h3>
-      <p class="crm-ui-hint">Showing up to {DOCUMENT_LIMIT} server-authorized records.</p>
+      <p class="crm-ui-hint">{documents.length} available</p>
       {#if truncated}
         <p class="crm-ui-notice-spaced" role="status">
-          More documents exist. This view is not a complete library.
+          More documents are available.
         </p>
       {/if}
     </div>

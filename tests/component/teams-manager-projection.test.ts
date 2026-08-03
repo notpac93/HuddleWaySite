@@ -19,6 +19,7 @@ vi.mock('../../src/lib/api/backendClient', () => ({
   backendClient: {
     createTeam: vi.fn(),
     updateTeam: vi.fn(),
+    deleteTeam: vi.fn(),
   },
 }));
 
@@ -27,7 +28,7 @@ vi.mock('../../src/lib/services/DataStore', async () => {
   return {
     teamsStore: writable([]),
     teamsProjectionScope: writable({
-      limit: 500,
+      limit: null,
       truncated: false,
       loading: false,
       error: '',
@@ -41,11 +42,12 @@ import {
   teamsStore,
 } from '../../src/lib/services/DataStore';
 import TeamsManager from '../../src/components/crm/TeamsManager.svelte';
+import { backendClient } from '../../src/lib/api/backendClient';
 
 const TestedTeamsManager = TeamsManager as unknown as Component;
 const teams = teamsStore as Writable<Array<Record<string, unknown>>>;
 const scope = teamsProjectionScope as Writable<{
-  limit: number;
+  limit: number | null;
   truncated: boolean;
   loading: boolean;
   error: string;
@@ -53,20 +55,21 @@ const scope = teamsProjectionScope as Writable<{
 }>;
 
 const healthyScope = {
-  limit: 500,
+  limit: null,
   truncated: false,
   loading: false,
   error: '',
   permissionDenied: false,
 };
 
-describe('TeamsManager bounded projection states', () => {
+describe('TeamsManager complete projection states', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     teams.set([]);
     scope.set({ ...healthyScope });
   });
 
-  it('renders loading, safe failure, truncation, empty, and create-modal states', async () => {
+  it('renders loading, safe failure, empty, and create-modal states', async () => {
     scope.set({ ...healthyScope, loading: true });
     render(TestedTeamsManager);
     expect(screen.getByRole('status')).toHaveTextContent('Loading teams');
@@ -80,13 +83,8 @@ describe('TeamsManager bounded projection states', () => {
       'You do not have permission to view teams.',
     );
 
-    scope.set({ ...healthyScope, truncated: true });
-    expect(
-      await screen.findByText(
-        'Showing the first 500 teams by record ID. More teams exist.',
-      ),
-    ).toBeVisible();
-    expect(screen.getByText('No teams')).toBeVisible();
+    scope.set({ ...healthyScope });
+    expect(await screen.findByText('No teams')).toBeVisible();
 
     await fireEvent.click(
       screen.getAllByRole('button', { name: 'Create Team' })[1],
@@ -147,6 +145,39 @@ describe('TeamsManager bounded projection states', () => {
     ]);
     await waitFor(() => {
       expect(onTargetConsumed).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('requires confirmation and deletes a team through the protected backend', async () => {
+    vi.mocked(backendClient.deleteTeam).mockResolvedValue({
+      success: true,
+      id: 'team-1',
+      deleted: true,
+      idempotentReplay: false,
+      operationId: 'delete-operation',
+      requestId: 'delete-request',
+    });
+    teams.set([
+      { id: 'team-1', name: 'Falcons', description: '12U program' },
+    ]);
+    render(TestedTeamsManager);
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Delete Falcons' }));
+    expect(
+      screen.getByRole('dialog', { name: 'Delete Falcons?' }),
+    ).toBeVisible();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Delete Team' }));
+    await waitFor(() => {
+      expect(backendClient.deleteTeam).toHaveBeenCalledWith(
+        'tenant-a',
+        'team-1',
+        'Delete Falcons and archive its linked team content.',
+        expect.stringMatching(/^team-delete:/),
+      );
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Delete Falcons?' })).toBeNull();
     });
   });
 });

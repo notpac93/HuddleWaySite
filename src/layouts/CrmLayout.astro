@@ -3,6 +3,7 @@ import '../styles/crm.css';
 import {
   publicEnvironment,
   resolveBackendUrl,
+  resolveCrmAppPreviewUrl,
 } from '../lib/config/publicEnvironment';
 
 interface Props {
@@ -19,6 +20,7 @@ const firebaseAuthDomain =
 const firebaseAuthOrigin = new URL(
   `https://${firebaseAuthDomain}`,
 ).origin;
+const appPreviewOrigin = resolveCrmAppPreviewUrl(publicEnvironment);
 const developmentConnectSources = import.meta.env.DEV
   ? [
       'http://localhost:*',
@@ -55,6 +57,7 @@ const cspDirectives = [
   [
     "frame-src 'self'",
     firebaseAuthOrigin,
+    ...(appPreviewOrigin ? [appPreviewOrigin] : []),
     'https://www.google.com/recaptcha/',
   ].join(' '),
   "worker-src 'self' blob:",

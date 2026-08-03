@@ -5,6 +5,14 @@
   import { BackendApiError, createIdempotencyKey } from '../../../lib/api/BackendApi';
   import StatusButton from '../ui/StatusButton.svelte';
   import { modalFocus } from '../../../lib/ui/modalFocus';
+  import {
+    legacyFlagsFromSections,
+    nextBuilderId,
+    registrationSectionsFromForm,
+    validateRegistrationSections,
+    type RegistrationFieldType,
+    type RegistrationFormSection,
+  } from '../../../lib/registration/registrationFormBuilder';
 
   const dispatch = createEventDispatcher();
 
@@ -14,26 +22,15 @@
   let title = form ? form.title || form.name : '';
   let description = form ? form.description || '' : '';
 
-  // Step 2: Information to Collect
-  let collectParentNames = form?.fields?.collectParentNames ?? true;
-  let collectParentPhone = form?.fields?.collectParentPhone ?? true;
-  let collectParentEmail = form?.fields?.collectParentEmail ?? true;
-  let collectEmergencyContacts = form?.fields?.collectEmergencyContacts ?? false;
-
-  let collectDob = form?.fields?.collectDob ?? true;
-  let collectGender = form?.fields?.collectGender ?? false;
-  let collectShirtSize = form?.fields?.collectShirtSize ?? false;
-  let collectMedicalInfo = form?.fields?.collectMedicalInfo ?? false;
-  let collectExperience = form?.fields?.collectExperience ?? false;
-
-  let collectCoachRequest = form?.fields?.collectCoachRequest ?? false;
-  let collectVolunteer = form?.fields?.collectVolunteer ?? false;
+  let sections: RegistrationFormSection[] = registrationSectionsFromForm(form);
 
   let currentStep = 1;
   let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
   let errorMessage = '';
   let successMessage = '';
-  let auditReason = '';
+  const auditReason = form?.id
+    ? 'Registration form updated from CRM.'
+    : 'Registration form created from CRM.';
   let idempotencyKey = createIdempotencyKey(
     form?.id ? 'registration-form-update' : 'registration-form-create',
   );
@@ -54,17 +51,7 @@
       formId: form?.id || '',
       title: title.trim(),
       description: description.trim(),
-      collectParentNames,
-      collectParentPhone,
-      collectParentEmail,
-      collectEmergencyContacts,
-      collectDob,
-      collectGender,
-      collectShirtSize,
-      collectMedicalInfo,
-      collectExperience,
-      collectCoachRequest,
-      collectVolunteer,
+      sections,
       existingStatus,
       auditReason: auditReason.trim(),
     });
@@ -74,18 +61,7 @@
     $tenantIdStore;
     title;
     description;
-    collectParentNames;
-    collectParentPhone;
-    collectParentEmail;
-    collectEmergencyContacts;
-    collectDob;
-    collectGender;
-    collectShirtSize;
-    collectMedicalInfo;
-    collectExperience;
-    collectCoachRequest;
-    collectVolunteer;
-    auditReason;
+    sections;
     const signature = buildPayloadSignature();
     if (signature !== payloadSignature && submitState !== 'loading') {
       payloadSignature = signature;
@@ -122,14 +98,111 @@
     }
   }
 
+  function touchSections() {
+    sections = [...sections];
+  }
+
+  function addSection() {
+    const sectionId = nextBuilderId('section', sections);
+    const fieldId = nextBuilderId('field', sections);
+    sections = [...sections, {
+      id: sectionId,
+      title: `Step ${sections.length + 1}`,
+      description: '',
+      isActive: true,
+      fields: [{
+        id: fieldId,
+        type: 'text',
+        label: 'New Question',
+        required: false,
+        placeholder: null,
+        options: null,
+        isActive: true,
+      }],
+    }];
+  }
+
+  function removeSection(index: number) {
+    if (sections[index]?.fields.some((entry) => entry.id === 'player_name')) return;
+    sections = sections.filter((_, entryIndex) => entryIndex !== index);
+  }
+
+  function moveSection(index: number, direction: -1 | 1) {
+    const destination = index + direction;
+    if (destination < 0 || destination >= sections.length) return;
+    const next = [...sections];
+    [next[index], next[destination]] = [next[destination], next[index]];
+    sections = next;
+  }
+
+  function addField(sectionIndex: number) {
+    const id = nextBuilderId('field', sections);
+    const next = [...sections];
+    next[sectionIndex] = {
+      ...next[sectionIndex],
+      fields: [...next[sectionIndex].fields, {
+        id,
+        type: 'text',
+        label: 'New Question',
+        required: false,
+        placeholder: null,
+        options: null,
+        isActive: true,
+      }],
+    };
+    sections = next;
+  }
+
+  function removeField(sectionIndex: number, fieldIndex: number) {
+    const target = sections[sectionIndex]?.fields[fieldIndex];
+    if (!target || target.id === 'player_name') return;
+    const next = [...sections];
+    next[sectionIndex] = {
+      ...next[sectionIndex],
+      fields: next[sectionIndex].fields.filter((_, index) => index !== fieldIndex),
+    };
+    sections = next;
+  }
+
+  function moveField(sectionIndex: number, fieldIndex: number, direction: -1 | 1) {
+    const fields = [...sections[sectionIndex].fields];
+    const destination = fieldIndex + direction;
+    if (destination < 0 || destination >= fields.length) return;
+    [fields[fieldIndex], fields[destination]] = [fields[destination], fields[fieldIndex]];
+    const next = [...sections];
+    next[sectionIndex] = { ...next[sectionIndex], fields };
+    sections = next;
+  }
+
+  function changeFieldType(sectionIndex: number, fieldIndex: number, type: RegistrationFieldType) {
+    const field = sections[sectionIndex].fields[fieldIndex];
+    field.type = type;
+    field.options = type === 'dropdown'
+      ? field.options?.length ? field.options : ['Option 1', 'Option 2']
+      : null;
+    touchSections();
+  }
+
+  function changeOptions(sectionIndex: number, fieldIndex: number, value: string) {
+    sections[sectionIndex].fields[fieldIndex].options = value
+      .split('\n')
+      .map((option) => option.trim())
+      .filter(Boolean);
+    touchSections();
+  }
+
   async function handleSubmit() {
     if (
       submitState === 'loading'
       || submitState === 'success'
       || !title.trim()
-      || auditReason.trim().length < 3
       || !existingStatus
     ) return;
+    const builderError = validateRegistrationSections(sections);
+    if (builderError) {
+      errorMessage = builderError;
+      return;
+    }
     const tenantId = $tenantIdStore;
     if (!tenantId) {
       errorMessage = 'Select an organization before saving a registration form.';
@@ -152,19 +225,8 @@
       const data = {
         title: title.trim(),
         description: description.trim(),
-        fields: {
-          collectParentNames,
-          collectParentPhone,
-          collectParentEmail,
-          collectEmergencyContacts,
-          collectDob,
-          collectGender,
-          collectShirtSize,
-          collectMedicalInfo,
-          collectExperience,
-          collectCoachRequest,
-          collectVolunteer
-        },
+        fields: legacyFlagsFromSections(sections),
+        sections,
         status: existingStatus,
       };
 
@@ -190,7 +252,7 @@
         ) return;
         successMessage = 'Saved successfully!';
         submitState = 'success';
-        dispatch('success', { id: response.id, title: data.title });
+        dispatch('success', { id: response.id, ...data });
         return;
       }
       if (
@@ -200,7 +262,7 @@
       ) return;
       successMessage = 'Saved successfully!';
       submitState = 'success';
-      dispatch('success');
+      dispatch('success', { id: form.id, ...data });
     } catch (e) {
       if (
         generation !== operationGeneration
@@ -270,7 +332,7 @@
           {/if}
 
           <div class="crm-ui-notice" role="status">
-            These fields configure the CRM registration-form record. Consumer checkout linkage is not verified in this release, so saving is not confirmation that parents will see these options.
+            Saved changes apply to future registrations. Existing participant submissions are preserved.
           </div>
           {#if form && !existingStatus}
             <div class="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">
@@ -288,11 +350,6 @@
             </div>
           {/if}
 
-          <div class="mb-4">
-            <label for="registration-form-audit-reason" class="crm-ui-label">Reason for change *</label>
-            <input id="registration-form-audit-reason" type="text" bind:value={auditReason} minlength="3" maxlength="500" required class="crm-ui-field" placeholder="Why is this form being created or changed?">
-          </div>
-
           {#if currentStep === 1}
             <div class="space-y-4">
               <div>
@@ -306,73 +363,94 @@
               </div>
             </div>
           {:else if currentStep === 2}
-            <div class="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
-              <p class="text-sm text-gray-500">Configure what information parents must provide when registering.</p>
-
-              <!-- Player Information Section -->
-              <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <h4 class="text-sm font-bold text-gray-900 mb-3 border-b border-gray-200 pb-2">Player Information</h4>
-                <div class="crm-ui-grid-two">
-                  <label class="crm-ui-start">
-                    <input type="checkbox" bind:checked={collectDob} class="crm-ui-checkbox">
-                    <span class="crm-ui-checkbox-label">Date of Birth<span class="block text-xs font-normal text-gray-500">Required for division placement</span></span>
-                  </label>
-                  <label class="crm-ui-start">
-                    <input type="checkbox" bind:checked={collectGender} class="crm-ui-checkbox">
-                    <span class="crm-ui-checkbox-label">Gender</span>
-                  </label>
-                  <label class="crm-ui-start">
-                    <input type="checkbox" bind:checked={collectShirtSize} class="crm-ui-checkbox">
-                    <span class="crm-ui-checkbox-label">Shirt / Uniform Size</span>
-                  </label>
-                  <label class="crm-ui-start">
-                    <input type="checkbox" bind:checked={collectMedicalInfo} class="crm-ui-checkbox">
-                    <span class="crm-ui-checkbox-label">Medical & Allergies</span>
-                  </label>
-                  <label class="crm-ui-start">
-                    <input type="checkbox" bind:checked={collectExperience} class="crm-ui-checkbox">
-                    <span class="crm-ui-checkbox-label">Experience Level</span>
-                  </label>
-                </div>
+            <div class="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+              <div class="flex items-center justify-between gap-3">
+                <p class="text-sm text-gray-500">Each step appears in this order for future registrations.</p>
+                <button type="button" class="crm-ui-registration-secondary whitespace-nowrap" on:click={addSection}>Add Step</button>
               </div>
 
-              <!-- Parent Information Section -->
-              <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <h4 class="text-sm font-bold text-gray-900 mb-3 border-b border-gray-200 pb-2">Parent / Guardian Information</h4>
-                <div class="crm-ui-grid-two">
-                  <label class="crm-ui-start">
-                    <input type="checkbox" bind:checked={collectParentNames} class="crm-ui-checkbox">
-                    <span class="crm-ui-checkbox-label">Guardian Names</span>
-                  </label>
-                  <label class="crm-ui-start">
-                    <input type="checkbox" bind:checked={collectParentPhone} class="crm-ui-checkbox">
-                    <span class="crm-ui-checkbox-label">Phone Numbers</span>
-                  </label>
-                  <label class="crm-ui-start">
-                    <input type="checkbox" bind:checked={collectParentEmail} class="crm-ui-checkbox">
-                    <span class="crm-ui-checkbox-label">Email Addresses<span class="block text-xs font-normal text-gray-500">Links child to account</span></span>
-                  </label>
-                  <label class="crm-ui-start">
-                    <input type="checkbox" bind:checked={collectEmergencyContacts} class="crm-ui-checkbox">
-                    <span class="crm-ui-checkbox-label">Emergency Contacts</span>
-                  </label>
-                </div>
-              </div>
+              {#each sections as section, sectionIndex (section.id)}
+                <section class="rounded-lg border border-gray-200 bg-gray-50 p-4" aria-label={`Registration step ${sectionIndex + 1}`}>
+                  <div class="mb-4 flex items-start gap-3">
+                    <span class="mt-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#1855c5] text-sm font-bold text-white">{sectionIndex + 1}</span>
+                    <div class="min-w-0 flex-1 space-y-2">
+                      <label>
+                        <span class="sr-only">Step {sectionIndex + 1} name</span>
+                        <input class="crm-ui-input-teal-wide font-semibold" bind:value={section.title} on:input={touchSections} maxlength="120" placeholder="Step name">
+                      </label>
+                      <label>
+                        <span class="sr-only">Step {sectionIndex + 1} description</span>
+                        <input class="crm-ui-input-teal-wide" bind:value={section.description} on:input={touchSections} maxlength="500" placeholder="Optional instructions">
+                      </label>
+                    </div>
+                    <div class="flex gap-1">
+                      <button type="button" class="crm-ui-registration-secondary" aria-label={`Move ${section.title} up`} disabled={sectionIndex === 0} on:click={() => moveSection(sectionIndex, -1)}>↑</button>
+                      <button type="button" class="crm-ui-registration-secondary" aria-label={`Move ${section.title} down`} disabled={sectionIndex === sections.length - 1} on:click={() => moveSection(sectionIndex, 1)}>↓</button>
+                      <button
+                        type="button"
+                        class="crm-ui-registration-secondary text-red-700"
+                        aria-label={`Remove ${section.title}`}
+                        title={section.fields.some((entry) => entry.id === 'player_name') ? 'The step containing Player Name is required.' : undefined}
+                        disabled={section.fields.some((entry) => entry.id === 'player_name')}
+                        on:click={() => removeSection(sectionIndex)}
+                      >Remove</button>
+                    </div>
+                  </div>
 
-              <!-- Additional Details Section -->
-              <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <h4 class="text-sm font-bold text-gray-900 mb-3 border-b border-gray-200 pb-2">Additional Options</h4>
-                <div class="crm-ui-grid-two">
-                  <label class="crm-ui-start">
-                    <input type="checkbox" bind:checked={collectCoachRequest} class="crm-ui-checkbox">
-                    <span class="crm-ui-checkbox-label">Coach / Teammate Request</span>
-                  </label>
-                  <label class="crm-ui-start">
-                    <input type="checkbox" bind:checked={collectVolunteer} class="crm-ui-checkbox">
-                    <span class="crm-ui-checkbox-label">Volunteer Opportunities<span class="block text-xs font-normal text-gray-500">Coach, Team Mom, etc.</span></span>
-                  </label>
-                </div>
-              </div>
+                  <div class="space-y-3">
+                    {#each section.fields as formField, fieldIndex (formField.id)}
+                      <div class="rounded-md border border-gray-200 bg-white p-3">
+                        <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_9rem_auto]">
+                          <label>
+                            <span class="crm-ui-label">Question</span>
+                            <input class="crm-ui-input-teal-wide" bind:value={formField.label} on:input={touchSections} maxlength="120">
+                          </label>
+                          <label>
+                            <span class="crm-ui-label">Type</span>
+                            <select class="crm-ui-input-teal-wide" value={formField.type} on:change={(event) => changeFieldType(sectionIndex, fieldIndex, event.currentTarget.value as RegistrationFieldType)}>
+                              <option value="text">Text</option>
+                              <option value="email">Email</option>
+                              <option value="phone">Phone</option>
+                              <option value="date">Date</option>
+                              <option value="dropdown">Dropdown</option>
+                              <option value="yes_no">Yes / No</option>
+                            </select>
+                          </label>
+                          <div class="flex items-end gap-1">
+                            <button type="button" class="crm-ui-registration-secondary" aria-label={`Move ${formField.label} up`} disabled={fieldIndex === 0} on:click={() => moveField(sectionIndex, fieldIndex, -1)}>↑</button>
+                            <button type="button" class="crm-ui-registration-secondary" aria-label={`Move ${formField.label} down`} disabled={fieldIndex === section.fields.length - 1} on:click={() => moveField(sectionIndex, fieldIndex, 1)}>↓</button>
+                            <button
+                              type="button"
+                              class="crm-ui-registration-secondary text-red-700"
+                              aria-label={`Remove ${formField.label}`}
+                              title={formField.id === 'player_name' ? 'Player Name is required for roster records.' : undefined}
+                              disabled={formField.id === 'player_name'}
+                              on:click={() => removeField(sectionIndex, fieldIndex)}
+                            >Remove</button>
+                          </div>
+                        </div>
+                        <div class="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+                          <label>
+                            <span class="crm-ui-label">Placeholder</span>
+                            <input class="crm-ui-input-teal-wide" value={formField.placeholder || ''} on:input={(event) => { formField.placeholder = event.currentTarget.value || null; touchSections(); }} maxlength="200" placeholder="Optional helper text">
+                          </label>
+                          <label class="flex items-end gap-2 pb-2 text-sm font-medium text-gray-700">
+                            <input type="checkbox" class="crm-ui-checkbox" bind:checked={formField.required} on:change={touchSections} disabled={formField.id === 'player_name'}>
+                            Required
+                          </label>
+                        </div>
+                        {#if formField.type === 'dropdown'}
+                          <label class="mt-3 block">
+                            <span class="crm-ui-label">Options — one per line</span>
+                            <textarea class="crm-ui-input-teal-wide" rows="3" value={(formField.options || []).join('\n')} on:input={(event) => changeOptions(sectionIndex, fieldIndex, event.currentTarget.value)}></textarea>
+                          </label>
+                        {/if}
+                      </div>
+                    {/each}
+                    <button type="button" class="crm-ui-registration-secondary" on:click={() => addField(sectionIndex)}>Add Question</button>
+                  </div>
+                </section>
+              {/each}
             </div>
           {/if}
         </div>
@@ -387,7 +465,7 @@
               <StatusButton
                 type="submit"
                 state={submitState}
-                disabled={!existingStatus || auditReason.trim().length < 3 || submitState === 'loading'}
+                disabled={!existingStatus || submitState === 'loading'}
                 idleText="Save Form"
                 loadingText="Saving..."
                 successText="Saved!"

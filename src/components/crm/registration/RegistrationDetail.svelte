@@ -10,16 +10,17 @@
   export let error = '';
   export let participantsTruncated = false;
   export let eventsTruncated = false;
-  export let limit = 500;
+  export let participantCount: number | null = null;
+  export let eventCount: number | null = null;
 
   const dispatch = createEventDispatcher();
 
-  $: {
-    $transactionsStore;
-    $invoicesStore;
-    $refundsStore;
-    $eventsStore;
-  }
+  $: financialProjection = [
+    $transactionsStore,
+    $invoicesStore,
+    $refundsStore,
+    $eventsStore,
+  ];
 
   function goBack() {
     dispatch('back');
@@ -30,18 +31,18 @@
   }
 
   // A form can be linked to several events; form IDs are not event IDs.
-  $: financials = selectedForm
-    ? DataStore.getRegistrationFormFinancials(selectedForm.id)
-    : {
-        totalCollected: 0,
-        totalFees: 0,
-        totalRefunds: 0,
-        totalBalance: 0,
-        totalsAvailable: false,
-        currency: null,
-        financialRecordCount: 0,
-        scopeReason: 'No registration form selected.',
-      };
+  $: financials = (financialProjection, selectedForm
+      ? DataStore.getRegistrationFormFinancials(selectedForm.id)
+      : {
+          totalCollected: 0,
+          totalFees: 0,
+          totalRefunds: 0,
+          totalBalance: 0,
+          totalsAvailable: false,
+          currency: null,
+          financialRecordCount: 0,
+          scopeReason: 'No registration form selected.',
+        });
 
   function formatMoney(minorUnits: unknown, currency: string) {
     const amount = Number(minorUnits);
@@ -50,6 +51,7 @@
   }
 
   function formatScopedMoney(value: unknown) {
+    if (financials.scopeReason === 'Financial projection is loading.') return 'Loading…';
     if (financials.financialRecordCount === 0) return 'No records';
     if (!financials.totalsAvailable || !financials.currency) return 'Unavailable';
     return formatMoney(value, financials.currency);
@@ -192,17 +194,12 @@
   </div>
   <button
     type="button"
-    on:click={() => dispatch('edit', selectedForm)}
+    on:click={() => dispatch('edit')}
     class="bg-[#f0f4fa] text-[#1855c5] border border-blue-100 px-4 py-1.5 rounded text-sm font-semibold hover:bg-[#e4ebf6] flex items-center transition-colors"
   >
-    <svg class="w-3.5 h-3.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-    Edit
+    <svg class="w-3.5 h-3.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 11l6-6 4 4-6 6H9v-4z"></path></svg>
+    Edit Registration Form
   </button>
-</div>
-
-<!-- Status badges under title -->
-<div class="flex items-center space-x-3 mb-6 mt-2 ml-10">
-  <span class="bg-[#1855c5] text-white px-3 py-1 rounded text-sm font-semibold">{selectedForm.status}</span>
 </div>
 
 {#if error}
@@ -220,11 +217,12 @@
 {/if}
 {#if participantsTruncated || eventsTruncated}
   <div class="crm-ui-notice" role="status">
-    This detail is incomplete:
-    {participantsTruncated ? `more than ${limit} participants exist` : ''}
-    {participantsTruncated && eventsTruncated ? ' and ' : ''}
-    {eventsTruncated ? `more than ${limit} connected events exist` : ''}.
-    Exports, counts, and participant payment labels apply only to the loaded scope.
+    {#if participantsTruncated}
+      Showing {participants.length}{participantCount !== null ? ` of ${participantCount}` : ''} loaded participant{participants.length === 1 ? '' : 's'}.
+    {/if}
+    {#if eventsTruncated}
+      Showing {connectedEvents.length}{eventCount !== null ? ` of ${eventCount}` : ''} connected event{connectedEvents.length === 1 ? '' : 's'}.
+    {/if}
   </div>
 {/if}
 
@@ -238,22 +236,22 @@
   <!-- Participants Card -->
   <div class="border border-gray-200 rounded p-4 shadow-sm bg-white">
     <h3 class="text-base text-gray-600 mb-4">Participants</h3>
-    <div class="grid grid-cols-4 gap-2 text-center">
-      <div>
-        <p class="crm-ui-meta">Total</p>
-        <p class="crm-ui-title">{participants.length}{participantsTruncated ? '+' : ''}</p>
+    <div class="grid grid-cols-4 gap-2 text-center items-stretch">
+      <div class="flex min-w-0 flex-col">
+        <p class="crm-ui-meta flex min-h-10 items-end justify-center">Total</p>
+        <p class="crm-ui-title whitespace-nowrap">{participantCount ?? participants.length}</p>
       </div>
-      <div>
-        <p class="crm-ui-meta">Paid</p>
-        <p class="crm-ui-title">{enrichedParticipants.filter(p => p.financialStatus === 'Paid').length}</p>
+      <div class="flex min-w-0 flex-col">
+        <p class="crm-ui-meta flex min-h-10 items-end justify-center">Paid</p>
+        <p class="crm-ui-title whitespace-nowrap">{participantsTruncated ? '—' : enrichedParticipants.filter(p => p.financialStatus === 'Paid').length}</p>
       </div>
-      <div>
-        <p class="crm-ui-meta">Open Balance</p>
-        <p class="crm-ui-title">{enrichedParticipants.filter(p => p.financialStatus === 'Open Balance').length}</p>
+      <div class="flex min-w-0 flex-col">
+        <p class="crm-ui-meta flex min-h-10 items-end justify-center">Open Balance</p>
+        <p class="crm-ui-title whitespace-nowrap">{participantsTruncated ? '—' : enrichedParticipants.filter(p => p.financialStatus === 'Open Balance').length}</p>
       </div>
-      <div>
-        <p class="crm-ui-meta">Waitlisted</p>
-        <p class="crm-ui-title">{enrichedParticipants.filter(p => p.status === 'Waitlisted').length}</p>
+      <div class="flex min-w-0 flex-col">
+        <p class="crm-ui-meta flex min-h-10 items-end justify-center">Waitlisted</p>
+        <p class="crm-ui-title whitespace-nowrap">{participantsTruncated ? '—' : enrichedParticipants.filter(p => p.status === 'Waitlisted').length}</p>
       </div>
     </div>
   </div>
@@ -261,22 +259,22 @@
   <!-- Payments Card -->
   <div class="border border-gray-200 rounded p-4 shadow-sm bg-white">
     <h3 class="text-base text-gray-600 mb-4">Payments</h3>
-    <div class="grid grid-cols-4 gap-2 text-center">
-      <div>
-        <p class="crm-ui-meta">Processing Fees</p>
-        <p class="crm-ui-title">{formatScopedMoney(financials.totalFees)}</p>
+    <div class="grid grid-cols-4 gap-2 text-center items-stretch">
+      <div class="flex min-w-0 flex-col">
+        <p class="crm-ui-meta flex min-h-10 items-end justify-center">Processing Fees</p>
+        <p class="crm-ui-title whitespace-nowrap">{formatScopedMoney(financials.totalFees)}</p>
       </div>
-      <div>
-        <p class="crm-ui-meta">Collected</p>
-        <p class="crm-ui-title">{formatScopedMoney(financials.totalCollected)}</p>
+      <div class="flex min-w-0 flex-col">
+        <p class="crm-ui-meta flex min-h-10 items-end justify-center">Collected</p>
+        <p class="crm-ui-title whitespace-nowrap">{formatScopedMoney(financials.totalCollected)}</p>
       </div>
-      <div>
-        <p class="crm-ui-meta">Refunds</p>
-        <p class="crm-ui-title">{formatScopedMoney(financials.totalRefunds)}</p>
+      <div class="flex min-w-0 flex-col">
+        <p class="crm-ui-meta flex min-h-10 items-end justify-center">Refunds</p>
+        <p class="crm-ui-title whitespace-nowrap">{formatScopedMoney(financials.totalRefunds)}</p>
       </div>
-      <div>
-        <p class="crm-ui-meta">Balance</p>
-        <p class="crm-ui-title">{formatScopedMoney(financials.totalBalance)}</p>
+      <div class="flex min-w-0 flex-col">
+        <p class="crm-ui-meta flex min-h-10 items-end justify-center">Balance</p>
+        <p class="crm-ui-title whitespace-nowrap">{formatScopedMoney(financials.totalBalance)}</p>
       </div>
     </div>
   </div>
@@ -335,7 +333,7 @@
       type="search"
       bind:value={searchQuery}
       class="block w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#1855c5] shadow-sm"
-      placeholder="Search by participant name or registration ID"
+      placeholder="Search by participant name or email"
       />
     </label>
   </div>
@@ -364,7 +362,6 @@
         <th scope="col" class="px-4 py-3 text-left">
           <input type="checkbox" aria-label="Select all participants on this page" checked={pageSelected} disabled={isLoadingParticipants || pageParticipantIds.length === 0} on:change={toggleSelectAll} class="rounded border-gray-300 text-[#1855c5] focus:ring-[#1855c5] disabled:cursor-not-allowed disabled:opacity-50">
         </th>
-        <th scope="col" class="crm-ui-th-blue">Registration ID</th>
         <th scope="col" class="crm-ui-th-blue">Registration Status</th>
         <th scope="col" class="crm-ui-th-blue">Date &uarr;</th>
         <th scope="col" class="crm-ui-th-blue">Participant</th>
@@ -374,10 +371,10 @@
     </thead>
     <tbody class="bg-white divide-y divide-gray-100">
       {#if isLoadingParticipants}
-        <tr><td colspan="7" class="px-4 py-8 text-center text-gray-500 text-sm">Loading participants...</td></tr>
+        <tr><td colspan="6" class="px-4 py-8 text-center text-gray-500 text-sm">Loading participants...</td></tr>
       {:else if paginatedParticipants.length === 0}
         <tr>
-          <td colspan="7" class="px-4 py-16 text-center text-gray-400 text-sm">
+          <td colspan="6" class="px-4 py-16 text-center text-gray-400 text-sm">
             <p class="mb-4">No data found</p>
           </td>
         </tr>
@@ -387,7 +384,6 @@
             <td class="px-4 py-3 whitespace-nowrap">
               <input type="checkbox" aria-label={`Select ${p.participantName || p.id || 'unavailable participant'}`} checked={Boolean(p.id) && selectedParticipants.has(p.id)} disabled={!p.id} on:change={() => p.id && toggleSelect(p.id)} class="crm-ui-participant-checkbox">
             </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-[#0f2142] font-semibold">{p.id ? String(p.id).substring(0, 8).toUpperCase() : 'Unavailable'}</td>
             <td class="crm-ui-td">{p.status || 'Unsupported status'}</td>
             <td class="crm-ui-td">{formatRegistrationDate(p.date)}</td>
             <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-[#1855c5]">{p.participantName || 'Participant name unavailable'}</td>

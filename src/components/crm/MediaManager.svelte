@@ -126,10 +126,7 @@
   <div class="flex justify-between items-center bg-white p-6 rounded-lg shadow-sm border border-gray-200">
     <div>
       <h2 class="crm-ui-page-title">Media Library</h2>
-      <p class="text-sm text-gray-500 mt-1">Review loaded program image records. This view does not assert approval or app availability.</p>
-    </div>
-    <div class="max-w-sm rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-      Uploads are unavailable in this release until the audited upload workflow is available.
+      <p class="text-sm text-gray-500 mt-1">Review program image records.</p>
     </div>
   </div>
 

@@ -6,6 +6,8 @@
   import { RegistrationService } from '../../../lib/services/RegistrationService';
   import CreateRegistrationForm from '../registration/CreateRegistrationForm.svelte';
   import StatusButton from '../ui/StatusButton.svelte';
+  import ImageFilePicker from '../ui/ImageFilePicker.svelte';
+  import { validateImageFile } from '../../../lib/media/imageUpload';
   import { modalFocus } from '../../../lib/ui/modalFocus';
 
   export let activeTeam: any = null;
@@ -17,17 +19,18 @@
   let startDate = '';
   let endDate = '';
   let status = 'active';
+  let imageFile: File | null = null;
+  let imageValidationMessage = '';
   let registrationForms: any[] = [];
   let selectedFormId = '';
   let showCreateForm = false;
   let registrationFormsLoading = false;
   let registrationFormsError = '';
-  let registrationFormsTruncated = false;
   let loadedRegistrationTenant = '';
   let unsubscribeRegistrationForms = () => {};
   let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
   let errorMessage = '';
-  let auditReason = '';
+  const auditReason = 'Season created from CRM.';
   let operationKey = createIdempotencyKey('season-create');
   let payloadSignature = '';
   let operationGeneration = 0;
@@ -39,7 +42,6 @@
     registrationForms = [];
     selectedFormId = '';
     registrationFormsError = '';
-    registrationFormsTruncated = false;
     registrationFormsLoading = Boolean(loadedRegistrationTenant);
     if (loadedRegistrationTenant) {
       const subscribedTenant = loadedRegistrationTenant;
@@ -61,10 +63,6 @@
           console.error('Registration forms could not be loaded.');
           registrationFormsLoading = false;
           registrationFormsError = 'Registration forms could not be loaded.';
-        },
-        (scope) => {
-          if (loadedRegistrationTenant !== subscribedTenant) return;
-          registrationFormsTruncated = scope.truncated;
         },
       );
     }
@@ -93,6 +91,9 @@
       startDate,
       endDate,
       status,
+      imageFile: imageFile
+        ? { name: imageFile.name, type: imageFile.type, size: imageFile.size }
+        : null,
       registrationFormId: selectedFormId || null,
       auditReason: auditReason.trim(),
     });
@@ -105,8 +106,8 @@
     startDate;
     endDate;
     status;
+    imageFile;
     selectedFormId;
-    auditReason;
     const signature = buildPayloadSignature();
     if (signature !== payloadSignature && submitState !== 'loading') {
       payloadSignature = signature;
@@ -128,7 +129,6 @@
       submitState === 'loading'
       || submitState === 'success'
       || !name.trim()
-      || auditReason.trim().length < 3
     ) return;
     const tenantId = $tenantIdStore;
     if (!tenantId) {
@@ -145,6 +145,15 @@
     }
     if (!supportedStatuses.includes(status)) {
       errorMessage = 'Select a supported season status.';
+      return;
+    }
+    imageValidationMessage = validateImageFile(imageFile);
+    if (imageValidationMessage) {
+      return;
+    }
+    if (imageFile) {
+      errorMessage =
+        'Season banner upload is temporarily unavailable while publication privacy is being finalized. Remove the image to save the season safely.';
       return;
     }
     const generation = ++operationGeneration;
@@ -230,6 +239,14 @@
                 <input id="season-create-name" type="text" bind:value={name} maxlength="160" class="crm-ui-input-indigo" placeholder="e.g. Fall 2026 Season">
               </div>
 
+              <ImageFilePicker
+                inputId="season-create-image"
+                label="Season Banner (Optional)"
+                bind:selectedFile={imageFile}
+                bind:validationMessage={imageValidationMessage}
+                disabled={submitState === 'loading'}
+              />
+
               <div class="crm-ui-grid-two">
                 <div>
                   <label for="season-create-start" class="crm-ui-label">Start Date</label>
@@ -256,15 +273,9 @@
                   <p class="mt-2 text-xs text-gray-600" role="status">Loading registration forms…</p>
                 {:else if registrationFormsError}
                   <p class="mt-2 text-xs text-red-700" role="alert">{registrationFormsError}</p>
-                {:else if registrationFormsTruncated}
-                  <p class="mt-2 text-xs text-amber-700" role="status">Only the first 500 registration forms are available.</p>
                 {/if}
               </div>
 
-              <div class="mt-4">
-                <label for="season-create-audit-reason" class="crm-ui-label">Reason for change *</label>
-                <input id="season-create-audit-reason" type="text" bind:value={auditReason} minlength="3" maxlength="500" required class="crm-ui-field" placeholder="Why is this season being created?">
-              </div>
             </fieldset>
 
             {#if errorMessage}
@@ -279,7 +290,7 @@
           type="button"
           state={submitState}
           on:click={handleCreate}
-          disabled={!name.trim() || !startDate || !endDate || endDate < startDate || auditReason.trim().length < 3 || submitState === 'loading'}
+          disabled={!name.trim() || !startDate || !endDate || endDate < startDate || submitState === 'loading'}
           idleText="Create Season"
           loadingText="Creating..."
           successText="Created!"

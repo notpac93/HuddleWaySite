@@ -12,6 +12,8 @@
   import RecurrenceSelector from './RecurrenceSelector.svelte';
   import CreateRegistrationForm from '../registration/CreateRegistrationForm.svelte';
   import StatusButton from '../ui/StatusButton.svelte';
+  import ImageFilePicker from '../ui/ImageFilePicker.svelte';
+  import { validateImageFile } from '../../../lib/media/imageUpload';
   import { modalFocus } from '../../../lib/ui/modalFocus';
 
   const dispatch = createEventDispatcher();
@@ -40,7 +42,6 @@
   let selectedFormId = '';
   let showCreateForm = false;
   let registrationFormsError = '';
-  let registrationFormsTruncated = false;
   let loadedRegistrationTenant = '';
   let unsubscribeRegistrationForms = () => {};
 
@@ -50,7 +51,6 @@
     unsubscribeRegistrationForms = () => {};
     registrationForms = [];
     registrationFormsError = '';
-    registrationFormsTruncated = false;
     selectedFormId = '';
     if (loadedRegistrationTenant) {
       const subscribedTenant = loadedRegistrationTenant;
@@ -64,10 +64,6 @@
           if (loadedRegistrationTenant !== subscribedTenant) return;
           console.error('Registration forms could not be loaded.');
           registrationFormsError = 'Registration forms could not be loaded.';
-        },
-        (scope) => {
-          if (loadedRegistrationTenant !== subscribedTenant) return;
-          registrationFormsTruncated = scope.truncated;
         },
       );
     }
@@ -135,14 +131,17 @@
 
   let location = '';
   let notes = '';
+  let imageFile: File | null = null;
+  let imageValidationMessage = '';
 
   // Publishing State
   const publishMode = 'draft' as const;
 
   let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
   let errorMessage = '';
-  let auditReason = '';
+  const auditReason = 'Event drafts created from CRM.';
   let idempotencyKey = createIdempotencyKey('event-series-create');
+  let imageUploadKey = createIdempotencyKey('event-cover-upload');
   let payloadSignature = '';
   let currentPayloadSignature = '';
   let operationGeneration = 0;
@@ -156,6 +155,9 @@
     timeSlots,
     location: location.trim(),
     notes: notes.trim(),
+    imageFile: imageFile
+      ? { name: imageFile.name, type: imageFile.type, size: imageFile.size }
+      : null,
     seasonId,
     selectedFormId,
     auditReason: auditReason.trim(),
@@ -165,6 +167,7 @@
     if (signature !== payloadSignature && submitState !== 'loading') {
       payloadSignature = signature;
       idempotencyKey = createIdempotencyKey('event-series-create');
+      imageUploadKey = createIdempotencyKey('event-cover-upload');
       if (submitState === 'error') submitState = 'idle';
       errorMessage = '';
     } else if (signature !== payloadSignature) {
@@ -211,6 +214,10 @@
     if (currentStep === 1) {
       if (!title.trim()) {
         errorMessage = 'Please provide an event title.';
+        return;
+      }
+      imageValidationMessage = validateImageFile(imageFile);
+      if (imageValidationMessage) {
         return;
       }
       currentStep++;
@@ -281,11 +288,6 @@
       currentStep = 2;
       return;
     }
-    if (auditReason.trim().length < 3) {
-      errorMessage = 'Provide a reason for creating these event records.';
-      return;
-    }
-
     const generation = ++operationGeneration;
     const submittedSignature = currentPayloadSignature;
     if (submittedSignature !== payloadSignature) {
@@ -300,7 +302,20 @@
       const flatOccurrences = selectedDateKeys.flatMap(dateKey =>
         timeSlots.map(slot => occurrenceInput(dateKey, slot.startTime, slot.endTime))
       );
-      await backendClient.createEventSeries(
+      const uploadedImage = imageFile
+        ? await backendClient.uploadImageAsset(
+          tenantId,
+          imageFile,
+          'event-cover',
+          imageUploadKey,
+        )
+        : null;
+      if (
+        generation !== operationGeneration
+        || $tenantIdStore !== tenantId
+        || payloadSignature !== submittedSignature
+      ) return;
+      const createdEvent = await backendClient.createEventSeries(
         tenantId,
         {
           teamId: selectedTeamId,
@@ -309,6 +324,7 @@
           occurrences: flatOccurrences,
           location: location.trim(),
           notes: notes.trim(),
+          imageReservationId: uploadedImage?.reservationId || null,
           seasonId: seasonId || null,
           registrationFormId: selectedFormId || null,
           publishMode,
@@ -316,6 +332,16 @@
         auditReason.trim(),
         operationKey,
       );
+      if (uploadedImage) {
+        await backendClient.publishImageAsset(
+          tenantId,
+          uploadedImage.reservationId,
+          'event',
+          createdEvent.eventIds,
+          'Bind the verified event cover to the created event series.',
+          `${imageUploadKey}:publish`,
+        );
+      }
       if (
         generation !== operationGeneration
         || $tenantIdStore !== tenantId
@@ -434,10 +460,13 @@
                 </div>
               </div>
 
-              <div class="rounded-md border border-amber-200 bg-amber-50 p-3">
-                <p class="text-sm font-medium text-amber-900">Cover image uploads are unavailable in this release.</p>
-                <p class="mt-1 text-xs text-amber-800">New events use the default event placeholder until the audited upload workflow is available.</p>
-              </div>
+              <ImageFilePicker
+                inputId="event-create-image"
+                label="Cover Image (Optional)"
+                bind:selectedFile={imageFile}
+                bind:validationMessage={imageValidationMessage}
+                disabled={submitState === 'loading'}
+              />
             </div>
           {:else if currentStep === 2}
             <h3 class="crm-ui-modal-title" id="modal-title">
@@ -549,11 +578,6 @@
             </div>
 
             <div class="mt-4 border-t border-gray-100 pt-4">
-              <label for="event-audit-reason" class="crm-ui-label">Reason for change *</label>
-              <input id="event-audit-reason" type="text" bind:value={auditReason} minlength="3" maxlength="500" required class="crm-ui-field" placeholder="Why are these event records being created?">
-            </div>
-
-            <div class="mt-4 border-t border-gray-100 pt-4">
               <label for="notes" class="crm-ui-label">Additional Notes (Optional)</label>
               <div class="mt-1">
                 <textarea id="notes" name="notes" rows="2" bind:value={notes} maxlength="5000" class="crm-ui-input-teal-compact" placeholder="Any extra information for the team..."></textarea>
@@ -572,8 +596,6 @@
               </select>
               {#if registrationFormsError}
                 <p class="mt-2 text-xs text-red-700" role="alert">{registrationFormsError}</p>
-              {:else if registrationFormsTruncated}
-                <p class="mt-2 text-xs text-amber-700">Only the first 500 registration forms are available.</p>
               {/if}
 
               {#if selectedFormId && selectedFormId !== 'CREATE_NEW'}
@@ -601,7 +623,7 @@
             type="button"
             state={submitState}
             on:click={handleSave}
-            disabled={auditReason.trim().length < 3 || submitState === 'loading'}
+            disabled={submitState === 'loading'}
             idleText="Save event drafts"
             loadingText="Processing..."
             successText="Success!"

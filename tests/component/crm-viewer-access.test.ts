@@ -12,6 +12,7 @@ vi.mock('../../src/lib/firebase', () => ({
   appCheck: null,
   auth: {},
   db: {},
+  firebaseEnvironment: { config: { projectId: 'huddleway-dev' } },
 }));
 
 vi.mock('../../src/lib/authStore', async () => {
@@ -20,8 +21,10 @@ vi.mock('../../src/lib/authStore', async () => {
     activeTenantRole: writable('viewer'),
     authErrorStore: writable(null),
     availableTenants: writable(['tenant-viewer']),
+    canViewTenantOperationsStore: writable(false),
     isAuthLoading: writable(false),
     tenantIdStore: writable('tenant-viewer'),
+    tenantOperationsRoleStore: writable(null),
     userStore: writable({ uid: 'viewer-user' }),
   };
 });
@@ -36,6 +39,13 @@ vi.mock('../../src/lib/services/DataStore', async () => {
     permissionDenied: false,
   };
   return {
+    dashboardOperationalCountScope: writable({
+      loading: false,
+      registrations: 0,
+      teams: 0,
+      events: 0,
+      error: '',
+    }),
     eventsStore: writable([]),
     eventsProjectionScope: writable({ ...healthyScope }),
     financialProjectionScope: writable({
@@ -65,8 +75,10 @@ import {
   activeTenantRole,
   authErrorStore,
   availableTenants,
+  canViewTenantOperationsStore,
   isAuthLoading,
   tenantIdStore,
+  tenantOperationsRoleStore,
   userStore,
 } from '../../src/lib/authStore';
 import CrmApp from '../../src/components/crm/CrmApp.svelte';
@@ -76,6 +88,10 @@ const role = activeTenantRole as Writable<string | null>;
 const authError = authErrorStore as Writable<string | null>;
 const tenants = tenantIdStore as Writable<string | null>;
 const tenantChoices = availableTenants as Writable<string[]>;
+const canViewTenantOperations =
+  canViewTenantOperationsStore as Writable<boolean>;
+const tenantOperationsRole =
+  tenantOperationsRoleStore as Writable<string | null>;
 const user = userStore as Writable<any>;
 const authLoading = isAuthLoading as Writable<boolean>;
 
@@ -84,6 +100,8 @@ describe('CrmApp authentication, role, module, and tenant boundaries', () => {
     role.set('viewer');
     authError.set(null);
     tenantChoices.set(['tenant-viewer']);
+    canViewTenantOperations.set(false);
+    tenantOperationsRole.set(null);
     tenants.set('tenant-viewer');
     user.set({
       uid: 'viewer-user',

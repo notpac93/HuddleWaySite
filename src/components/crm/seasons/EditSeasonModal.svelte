@@ -4,6 +4,8 @@
   import { backendClient } from '../../../lib/api/backendClient';
   import { BackendApiError, createIdempotencyKey } from '../../../lib/api/BackendApi';
   import StatusButton from '../ui/StatusButton.svelte';
+  import ImageFilePicker from '../ui/ImageFilePicker.svelte';
+  import { validateImageFile } from '../../../lib/media/imageUpload';
   import { modalFocus } from '../../../lib/ui/modalFocus';
 
   export let season: any = null;
@@ -18,6 +20,8 @@
     ? String(season.status).trim().toLowerCase()
     : '';
   let imageUrl = season ? season.imageUrl || '' : '';
+  let imageFile: File | null = null;
+  let imageValidationMessage = '';
   let description = season ? season.description || '' : '';
 
   let startDate = season && season.startDate ? new Date(season.startDate.toMillis ? season.startDate.toMillis() : season.startDate).toISOString().slice(0, 10) : '';
@@ -25,7 +29,7 @@
 
   let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
   let errorMessage = '';
-  let auditReason = '';
+  const auditReason = 'Season updated from CRM.';
   let operationKey = createIdempotencyKey('season-update');
   let payloadSignature = '';
   let operationGeneration = 0;
@@ -37,6 +41,9 @@
       name: name.trim(),
       status,
       imageUrl: imageUrl.trim(),
+      imageFile: imageFile
+        ? { name: imageFile.name, type: imageFile.type, size: imageFile.size }
+        : null,
       description: description.trim(),
       startDate,
       endDate,
@@ -50,10 +57,10 @@
     name;
     status;
     imageUrl;
+    imageFile;
     description;
     startDate;
     endDate;
-    auditReason;
     const signature = buildPayloadSignature();
     if (signature !== payloadSignature && submitState !== 'loading') {
       payloadSignature = signature;
@@ -70,21 +77,11 @@
     }
   }
 
-  function hasValidImageUrl() {
-    if (!imageUrl.trim()) return true;
-    try {
-      return new URL(imageUrl.trim()).protocol === 'https:';
-    } catch {
-      return false;
-    }
-  }
-
   async function handleSave() {
     if (
       submitState === 'loading'
       || submitState === 'success'
       || !name.trim()
-      || auditReason.trim().length < 3
     ) return;
     const seasonId = String(season?.id || '').trim();
     if (!seasonId) {
@@ -105,8 +102,13 @@
       errorMessage = 'Season end date cannot be before its start date.';
       return;
     }
-    if (!hasValidImageUrl()) {
-      errorMessage = 'Season image URL must be a valid HTTPS address.';
+    imageValidationMessage = validateImageFile(imageFile);
+    if (imageValidationMessage) {
+      return;
+    }
+    if (imageFile) {
+      errorMessage =
+        'Season banner upload is temporarily unavailable while publication privacy is being finalized. Remove the image to save other season changes safely.';
       return;
     }
     const generation = ++operationGeneration;
@@ -124,7 +126,6 @@
       await backendClient.updateSeason(tenantId, seasonId, {
         name: name.trim(),
         status,
-        imageUrl: imageUrl.trim(),
         description: description.trim(),
         startDate: startDate || null,
         endDate: endDate || null,
@@ -180,38 +181,15 @@
       </div>
 
       <fieldset disabled={submitState === 'loading'} class="m-0 mt-4 min-w-0 space-y-4 border-0 p-0">
-        <!-- Image Banner -->
-        <div>
-          <label for="season-edit-image" class="block text-xs font-semibold uppercase tracking-wider text-gray-700 mb-1.5">Season Banner Graphic</label>
-          <div class="flex items-center space-x-4">
-            <div class="w-24 h-20 rounded-lg overflow-hidden border border-gray-300 bg-slate-900 shrink-0">
-              {#if imageUrl}
-                <img
-                  src={imageUrl}
-                  alt="Season Banner"
-                  width="640"
-                  height="288"
-                  decoding="async"
-                  class="crm-ui-cover"
-                />
-              {:else}
-                <div class="w-full h-full flex items-center justify-center text-xs text-gray-400">No Image</div>
-              {/if}
-            </div>
-            <div class="flex-1 space-y-2">
-              <p class="crm-ui-notice-sm">File uploads are unavailable in this release. Retain the current image or use an approved HTTPS image URL.</p>
-              <input
-                id="season-edit-image"
-                type="url"
-                bind:value={imageUrl}
-                maxlength="2000"
-                autocomplete="url"
-                placeholder="Or paste image URL..."
-                class="w-full text-xs border border-gray-300 rounded px-2.5 py-1.5 focus:ring-[#1855c5] focus:border-[#1855c5]"
-              />
-            </div>
-          </div>
-        </div>
+        <ImageFilePicker
+          inputId="season-edit-image"
+          label="Season Banner Graphic"
+          currentUrl={imageUrl}
+          previewAlt="Season banner"
+          bind:selectedFile={imageFile}
+          bind:validationMessage={imageValidationMessage}
+          disabled={submitState === 'loading'}
+        />
 
         <!-- Name -->
         <div>
@@ -242,11 +220,6 @@
           </select>
         </div>
 
-        <div>
-          <label for="season-edit-audit-reason" class="crm-ui-label-caps">Reason for change *</label>
-          <input id="season-edit-audit-reason" type="text" bind:value={auditReason} minlength="3" maxlength="500" required class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" placeholder="Why is this season being changed?">
-        </div>
-
         {#if errorMessage}
           <p class="rounded-md bg-red-50 p-3 text-sm text-red-700" role="alert">{errorMessage}</p>
         {/if}
@@ -266,7 +239,7 @@
           type="button"
           state={submitState}
           on:click={handleSave}
-          disabled={!name.trim() || !status || (startDate && endDate && endDate < startDate) || auditReason.trim().length < 3 || submitState === 'loading'}
+          disabled={!name.trim() || !status || (startDate && endDate && endDate < startDate) || submitState === 'loading'}
           idleText="Save Changes"
           loadingText="Saving..."
           successText="Saved!"

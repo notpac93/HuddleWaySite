@@ -14,6 +14,7 @@ export interface PublicEnvironment {
   PUBLIC_FIREBASE_APP_CHECK_ENABLED?: string;
   PUBLIC_FIREBASE_APP_CHECK_SITE_KEY?: string;
   PUBLIC_WEBSITE_COMMIT?: string;
+  PUBLIC_APP_PREVIEW_URL?: string;
   PUBLIC_FIREBASE_USE_EMULATORS?: string;
   PUBLIC_FIREBASE_AUTH_EMULATOR_URL?: string;
   PUBLIC_FIRESTORE_EMULATOR_HOST?: string;
@@ -121,6 +122,41 @@ export function resolveWebsiteCommit(environment: PublicEnvironment) {
   return /^[a-f0-9]{40}$/.test(commit) ? commit : null;
 }
 
+export function resolveCrmAppPreviewUrl(environment: PublicEnvironment) {
+  const projectId =
+    normalized(environment.PUBLIC_FIREBASE_PROJECT_ID)
+    || (environment.PROD
+      ? productionFirebase.projectId
+      : developmentFirebase.projectId);
+  const explicit = normalized(environment.PUBLIC_APP_PREVIEW_URL);
+  const raw = explicit || (
+    projectId === developmentFirebase.projectId
+      ? 'https://huddleway-app-preview-canary.web.app'
+      : ''
+  );
+  if (!raw) return null;
+
+  const parsed = new URL(raw);
+  if (
+    parsed.protocol !== 'https:'
+    || parsed.username
+    || parsed.password
+    || parsed.search
+    || parsed.hash
+  ) {
+    throw new Error(
+      'PUBLIC_APP_PREVIEW_URL must be a credential-free HTTPS origin.',
+    );
+  }
+  if (
+    projectId === productionFirebase.projectId
+    && parsed.hostname === 'huddleway-app-preview-canary.web.app'
+  ) {
+    throw new Error('Production CRM cannot embed the Dev app preview.');
+  }
+  return parsed.origin;
+}
+
 export function resolveFirebaseEnvironment(
   environment: PublicEnvironment,
 ): ResolvedFirebaseEnvironment {
@@ -155,10 +191,12 @@ export function resolveFirebaseEnvironment(
   const appCheckSiteKey = normalized(
     environment.PUBLIC_FIREBASE_APP_CHECK_SITE_KEY,
   );
-  const appCheckExplicitlyEnabled = booleanValue(
+  const appCheckSetting = normalized(
     environment.PUBLIC_FIREBASE_APP_CHECK_ENABLED,
   );
-  const appCheckEnabled = appCheckExplicitlyEnabled || Boolean(appCheckSiteKey);
+  const appCheckEnabled = appCheckSetting
+    ? booleanValue(appCheckSetting)
+    : Boolean(appCheckSiteKey);
   const authUrl =
     normalized(environment.PUBLIC_FIREBASE_AUTH_EMULATOR_URL)
     || 'http://127.0.0.1:9099';
@@ -187,7 +225,10 @@ export function resolveFirebaseEnvironment(
       'PUBLIC_FIREBASE_APP_CHECK_SITE_KEY is required when App Check is enabled.',
     );
   }
-  if (environment.PROD && !appCheckEnabled) {
+  // Astro's static build sets PROD=true even for a Development-targeted
+  // release build. Use the resolved Firebase project to enforce the
+  // production-only App Check requirement instead of the build mode alone.
+  if (config.projectId === productionFirebase.projectId && !appCheckEnabled) {
     throw new Error(
       'Production CRM builds require Firebase App Check configuration.',
     );

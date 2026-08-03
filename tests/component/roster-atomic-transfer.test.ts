@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const backendMocks = vi.hoisted(() => ({
   previewRosterTransfer: vi.fn(),
   commitRosterTransfer: vi.fn(),
+  assignSeasonParticipants: vi.fn(),
   previewRosterChanges: vi.fn(),
   commitRosterChanges: vi.fn(),
 }));
@@ -111,6 +112,7 @@ describe('PlayerTable atomic roster transfer', () => {
   beforeEach(() => {
     backendMocks.previewRosterTransfer.mockReset();
     backendMocks.commitRosterTransfer.mockReset();
+    backendMocks.assignSeasonParticipants.mockReset();
     backendMocks.previewRosterChanges.mockReset();
     backendMocks.commitRosterChanges.mockReset();
     (tenantIdStore as Writable<string>).set('tenant-a');
@@ -154,6 +156,54 @@ describe('PlayerTable atomic roster transfer', () => {
         'Roster transfer complete: 1 added, 1 removed, and 0 unchanged.',
       ),
     ).toBeVisible();
+  });
+
+  it('offers seasons globally and connects selected registrations to a season', async () => {
+    backendMocks.assignSeasonParticipants.mockResolvedValue({
+      success: true,
+      idempotentReplay: false,
+      tenantId: 'tenant-a',
+      seasonId: 'season-fall',
+      registrationIds: ['registration-1'],
+      assignedCount: 1,
+      alreadyAssignedCount: 0,
+      operationId: 'operation-season-1',
+      auditEventId: 'audit-season-1',
+      requestId: 'request-season-1',
+    });
+    render(TestedPlayerTable, {
+      players,
+      allTeams: teams,
+      allSeasons: [{ id: 'season-fall', name: 'Fall 2026' }],
+    });
+    await fireEvent.click(screen.getAllByLabelText('Select Kai Reed')[0]);
+    const action = screen.getByLabelText('Bulk roster action');
+    expect(action).toHaveTextContent('Fall 2026');
+    expect(action.querySelector('optgroup[label="Assign to Season"]')).not.toBeNull();
+    await fireEvent.change(action, {
+      target: { value: 'season:season-fall' },
+    });
+    await fireEvent.input(
+      screen.getByLabelText('Roster transfer audit reason'),
+      { target: { value: 'Connect to the fall season.' } },
+    );
+    await fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+    await waitFor(() => {
+      expect(backendMocks.assignSeasonParticipants).toHaveBeenCalledTimes(1);
+    });
+    expect(backendMocks.assignSeasonParticipants).toHaveBeenCalledWith(
+      'tenant-a',
+      'season-fall',
+      ['registration-1'],
+      'Connect to the fall season.',
+      expect.stringContaining('season-participant-assignment:'),
+    );
+    expect(backendMocks.previewRosterTransfer).not.toHaveBeenCalled();
+    expect(backendMocks.commitRosterTransfer).not.toHaveBeenCalled();
+    expect(await screen.findByText(
+      'Season assignment complete: 1 assigned and 0 already connected.',
+    )).toBeVisible();
   });
 
   it('does not commit a preview that resolves after the tenant changes', async () => {

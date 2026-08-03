@@ -71,12 +71,12 @@ describe('financial period manager', () => {
       target: { value: '2026-02-01' },
     });
     await fireEvent.click(
-      screen.getByRole('button', { name: 'Preview affected records' }),
+      screen.getByRole('button', { name: 'Preview' }),
     );
 
     expect(await screen.findByText('Preview complete')).toBeInTheDocument();
     const closeButton = screen.getByRole('button', {
-      name: 'Close financial period',
+      name: 'Close',
     });
     expect(closeButton).toBeDisabled();
 
@@ -139,14 +139,14 @@ describe('financial period manager', () => {
       target: { value: '2026-02-01' },
     });
     await fireEvent.click(
-      screen.getByRole('button', { name: 'Preview affected records' }),
+      screen.getByRole('button', { name: 'Preview' }),
     );
 
     expect(
       await screen.findByText('Preview incomplete — closing is blocked'),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'Close financial period' }),
+      screen.queryByRole('button', { name: 'Close' }),
     ).toBeNull();
     expect(backendMocks.closeFinancialPeriod).not.toHaveBeenCalled();
   });
@@ -190,10 +190,10 @@ describe('financial period manager', () => {
     });
 
     await fireEvent.click(
-      await screen.findByRole('button', { name: 'Review reopen' }),
+      await screen.findByRole('button', { name: 'Review' }),
     );
     const reopenButton = screen.getByRole('button', {
-      name: 'Reopen financial period',
+      name: 'Reopen',
     });
     expect(reopenButton).toBeDisabled();
     await fireEvent.input(screen.getByLabelText('Audit reason'), {

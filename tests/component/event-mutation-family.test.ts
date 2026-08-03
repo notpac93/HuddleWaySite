@@ -13,6 +13,8 @@ const backendMocks = vi.hoisted(() => ({
   createEventSeries: vi.fn(),
   duplicateEvent: vi.fn(),
   updateEvent: vi.fn(),
+  uploadImageAsset: vi.fn(),
+  publishImageAsset: vi.fn(),
 }));
 
 vi.mock('../../src/lib/api/backendClient', () => ({
@@ -64,17 +66,15 @@ vi.mock('../../src/lib/services/DataStore', async () => {
 });
 
 vi.mock('../../src/lib/services/RegistrationService', () => ({
-  RegistrationService: {
-    subscribeToForms: vi.fn((
-      _tenantId: string,
-      onForms: (forms: unknown[]) => void,
-      _onError: (error: unknown) => void,
-      onScope: (scope: { truncated: boolean; limit: number }) => void,
-    ) => {
-      onForms([]);
-      onScope({ truncated: false, limit: 500 });
-      return () => {};
-    }),
+    RegistrationService: {
+      subscribeToForms: vi.fn((
+        _tenantId: string,
+        onForms: (forms: unknown[]) => void,
+        _onError: (error: unknown) => void,
+      ) => {
+        onForms([]);
+        return () => {};
+      }),
   },
 }));
 
@@ -156,6 +156,10 @@ describe('event mutation family', () => {
   });
 
   it('creates drafts with the exact backend contract and no rejected publishAt field', async () => {
+    backendMocks.uploadImageAsset.mockResolvedValue({
+      reservationId: `image_upload_${'a'.repeat(40)}`,
+    });
+    backendMocks.publishImageAsset.mockResolvedValue({ status: 'draft' });
     backendMocks.createEventSeries.mockResolvedValue({
       success: true,
       id: 'series-2',
@@ -166,11 +170,14 @@ describe('event mutation family', () => {
     await fireEvent.input(screen.getByLabelText('Event Title'), {
       target: { value: '  Summer practice  ' },
     });
-    await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    await fireEvent.input(screen.getByLabelText('Reason for change *'), {
-      target: { value: 'Create the approved summer schedule.' },
+    const coverFile = new File(['image-bytes'], 'summer-practice.png', {
+      type: 'image/png',
     });
+    await fireEvent.change(screen.getByLabelText('Cover Image (Optional)'), {
+      target: { files: [coverFile] },
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     await fireEvent.click(
       screen.getByRole('button', { name: 'Save event drafts' }),
     );
@@ -186,11 +193,26 @@ describe('event mutation family', () => {
       title: 'Summer practice',
       type: 'Practice',
       publishMode: 'draft',
+      imageReservationId: `image_upload_${'a'.repeat(40)}`,
     });
     expect(data.occurrences).toHaveLength(1);
     expect(data).not.toHaveProperty('publishAt');
-    expect(reason).toBe('Create the approved summer schedule.');
+    expect(reason).toBe('Event drafts created from CRM.');
     expect(operationKey).toContain('event-series-create:');
+    expect(backendMocks.uploadImageAsset).toHaveBeenCalledWith(
+      'tenant-a',
+      coverFile,
+      'event-cover',
+      expect.stringContaining('event-cover-upload:'),
+    );
+    expect(backendMocks.publishImageAsset).toHaveBeenCalledWith(
+      'tenant-a',
+      `image_upload_${'a'.repeat(40)}`,
+      'event',
+      ['event-2'],
+      'Bind the verified event cover to the created event series.',
+      expect.stringMatching(/^event-cover-upload:.*:publish$/),
+    );
   });
 
   it('locks create controls and invalidates the response when tenant scope changes', async () => {
@@ -203,15 +225,12 @@ describe('event mutation family', () => {
     });
     await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    await fireEvent.input(screen.getByLabelText('Reason for change *'), {
-      target: { value: 'Create the approved summer schedule.' },
-    });
     await fireEvent.click(
       screen.getByRole('button', { name: 'Save event drafts' }),
     );
 
     expect(screen.getByRole('button', { name: 'Processing...' })).toBeDisabled();
-    expect(screen.getByLabelText('Reason for change *')).toBeDisabled();
+    expect(screen.queryByText('Reason for change')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Additional Notes (Optional)')).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Back' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
@@ -276,9 +295,6 @@ describe('event mutation family', () => {
     await fireEvent.click(
       screen.getByRole('button', { name: calendarLabel(selected) }),
     );
-    await fireEvent.input(screen.getByLabelText('Reason for change *'), {
-      target: { value: 'Add the approved extra practice date.' },
-    });
     const save = screen.getByRole('button', { name: 'Add Dates' });
     await fireEvent.click(save);
     await fireEvent.click(save);
@@ -293,12 +309,12 @@ describe('event mutation family', () => {
           endTime: '17:30',
         }),
       ],
-      'Add the approved extra practice date.',
+      'Event dates added from CRM.',
       expect.stringContaining('event-duplicate:'),
     );
     expect(screen.getByRole('button', { name: 'Saving...' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
-    expect(screen.getByLabelText('Reason for change *')).toBeDisabled();
+    expect(screen.queryByText('Reason for change')).not.toBeInTheDocument();
 
     pending.resolve();
     await pending.promise;
@@ -324,9 +340,6 @@ describe('event mutation family', () => {
         lifecycleStatus: 'draft',
       },
       teams: { 'team-1': 'Tigers' },
-    });
-    await fireEvent.input(screen.getByLabelText('Reason for change *'), {
-      target: { value: 'Correct the reviewed event title.' },
     });
     await fireEvent.click(
       screen.getByRole('button', { name: 'Save Event Changes' }),
@@ -371,9 +384,6 @@ describe('event mutation family', () => {
     await fireEvent.change(screen.getByLabelText('Status'), {
       target: { value: 'published' },
     });
-    await fireEvent.input(screen.getByLabelText('Reason for change *'), {
-      target: { value: 'Publish the reviewed full event record.' },
-    });
     const save = screen.getByRole('button', { name: 'Save Event Changes' });
     expect(save).toBeDisabled();
     expect(screen.getByText(
@@ -393,7 +403,7 @@ describe('event mutation family', () => {
       'tenant-a',
       'event-1',
       expect.objectContaining({ lifecycleStatus: 'published' }),
-      'Publish the reviewed full event record.',
+      'Event updated from CRM.',
       expect.stringContaining('event-update:'),
     );
   });
@@ -412,9 +422,6 @@ describe('event mutation family', () => {
     expect(screen.getByLabelText('Date *')).toHaveValue('');
     expect(screen.getByLabelText('Time *')).toHaveValue('');
     expect(screen.getByLabelText('End time *')).toHaveValue('');
-    await fireEvent.input(screen.getByLabelText('Reason for change *'), {
-      target: { value: 'Repair the incomplete event schedule.' },
-    });
     await fireEvent.click(
       screen.getByRole('button', { name: 'Save Event Changes' }),
     );
@@ -429,9 +436,6 @@ describe('event mutation family', () => {
     backendMocks.updateEvent.mockReturnValue(pending.promise);
     render(TestedEventScheduler);
     await openInlineEditor();
-    await fireEvent.input(screen.getByLabelText('Reason for change *'), {
-      target: { value: 'Correct the reviewed event record.' },
-    });
     await fireEvent.click(
       screen.getByRole('button', { name: 'Save Event Changes' }),
     );
@@ -478,9 +482,6 @@ describe('event mutation family', () => {
         name: /Apply to all events in this series/,
       }),
     );
-    await fireEvent.input(screen.getByLabelText('Reason for change *'), {
-      target: { value: 'Update the reviewed event series.' },
-    });
     await fireEvent.click(
       screen.getByRole('button', { name: 'Save Event Changes' }),
     );
@@ -495,7 +496,7 @@ describe('event mutation family', () => {
     render(TestedEventScheduler);
     await fireEvent.click(
       screen.getByRole('button', {
-        name: 'View loaded registrants for Opening practice; exact count unavailable',
+        name: 'View loaded registrants for Opening practice; participant list is limited',
       }),
     );
     expect(screen.getByRole('dialog', {

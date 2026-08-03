@@ -1,19 +1,10 @@
 import { readable, derived, get, type Readable } from 'svelte/store';
-import {
-  collection,
-  documentId,
-  limit as queryLimit,
-  onSnapshot,
-  orderBy,
-  query,
-  where,
-} from 'firebase/firestore';
-import { db } from '../firebase';
 import { tenantIdStore } from '../authStore';
 import { backendClient } from '../api/backendClient';
-import { BackendApiError } from '../api/BackendApi';
-
-const COLLECTION_PROJECTION_LIMIT = 500;
+import {
+  BackendApiError,
+  type CrmOperationalCollection,
+} from '../api/BackendApi';
 
 interface CollectionProjection {
   records: any[];
@@ -32,41 +23,61 @@ const emptyCollectionProjection: CollectionProjection = {
 };
 
 function tenantCollectionProjectionStore(
-  collectionName: string,
+  collectionName: CrmOperationalCollection,
 ): Readable<CollectionProjection> {
   return readable<CollectionProjection>(emptyCollectionProjection, (set) => {
-    let unsubscribeSnapshot = () => {};
+    let disposed = false;
+    let generation = 0;
     const unsubscribeTenant = tenantIdStore.subscribe((tenantId) => {
-      unsubscribeSnapshot();
-      unsubscribeSnapshot = () => {};
+      const currentGeneration = ++generation;
       set({
         ...emptyCollectionProjection,
         loading: Boolean(tenantId),
       });
       if (!tenantId) return;
 
-      unsubscribeSnapshot = onSnapshot(
-        query(
-          collection(db, collectionName),
-          where('tenantId', '==', tenantId),
-          orderBy(documentId()),
-          queryLimit(COLLECTION_PROJECTION_LIMIT + 1),
-        ),
-        (snapshot) => {
+      void (async () => {
+        let cursor: string | undefined;
+        const records: any[] = [];
+        try {
+          do {
+            if (disposed || currentGeneration !== generation) return;
+            const page = await backendClient.crmOperationalPage(
+              tenantId,
+              collectionName,
+              { limit: 100, cursor },
+            );
+            if (disposed || currentGeneration !== generation) return;
+            records.push(...page.records);
+            set({
+              records: [...records],
+              truncated: false,
+              loading: page.hasMore,
+              error: '',
+              permissionDenied: false,
+            });
+            cursor = page.hasMore ? page.nextCursor || undefined : undefined;
+            if (page.hasMore && !cursor) {
+              throw new Error('The CRM page response omitted its next cursor.');
+            }
+          } while (cursor);
+          if (disposed || currentGeneration !== generation) return;
           set({
-            records: snapshot.docs
-              .slice(0, COLLECTION_PROJECTION_LIMIT)
-              .map((entry) => ({ id: entry.id, ...entry.data() })),
-            truncated: snapshot.docs.length > COLLECTION_PROJECTION_LIMIT,
+            records: [...records],
+            truncated: false,
             loading: false,
             error: '',
             permissionDenied: false,
           });
-        },
-        (error) => {
+        } catch (error) {
+          if (disposed || currentGeneration !== generation) return;
           console.error(`Could not load ${collectionName}.`);
           const code = String((error as { code?: unknown })?.code || '');
-          const permissionDenied = code.includes('permission-denied');
+          const status = Number((error as { status?: unknown })?.status || 0);
+          const permissionDenied =
+            code.includes('permission-denied')
+            || status === 401
+            || status === 403;
           set({
             ...emptyCollectionProjection,
             error: permissionDenied
@@ -74,12 +85,13 @@ function tenantCollectionProjectionStore(
               : `${collectionName} could not be loaded.`,
             permissionDenied,
           });
-        },
-      );
+        }
+      })();
     });
 
     return () => {
-      unsubscribeSnapshot();
+      disposed = true;
+      generation += 1;
       unsubscribeTenant();
     };
   });
@@ -91,6 +103,19 @@ interface FinancialOverviewState {
   refunds: any[];
   invoices: any[];
   deposits: any[];
+  recordCounts: {
+    transactions: number;
+    payments: number;
+    refunds: number;
+    invoices: number;
+    deposits: number;
+  };
+  tracking: {
+    complete: boolean;
+    unreconciledTransactionCount: number;
+    unreconciledDepositCount: number;
+    sourceCollections: string[];
+  };
   truncated: {
     transactions: boolean;
     refunds: boolean;
@@ -108,6 +133,19 @@ const emptyFinancialOverview: FinancialOverviewState = {
   refunds: [],
   invoices: [],
   deposits: [],
+  recordCounts: {
+    transactions: 0,
+    payments: 0,
+    refunds: 0,
+    invoices: 0,
+    deposits: 0,
+  },
+  tracking: {
+    complete: true,
+    unreconciledTransactionCount: 0,
+    unreconciledDepositCount: 0,
+    sourceCollections: [],
+  },
   truncated: {
     transactions: false,
     refunds: false,
@@ -140,6 +178,8 @@ const financialOverviewStore = readable<FinancialOverviewState>(
           refunds: overview.refunds,
           invoices: overview.invoices,
           deposits: overview.deposits,
+          recordCounts: overview.recordCounts,
+          tracking: overview.tracking,
           truncated: overview.truncated,
           requestId: overview.requestId,
           lastRefreshedAt: new Date().toISOString(),
@@ -164,8 +204,9 @@ const financialOverviewStore = readable<FinancialOverviewState>(
   },
 );
 
-// Each tenant collection opens a scoped listener only while a mounted view
-// subscribes to it. This prevents dormant modules from consuming reads.
+// Each tenant collection uses authenticated backend pages only while a mounted
+// view subscribes to it. This prevents direct client reads and removes any
+// fixed front-end record cap.
 const registrationsProjection =
   tenantCollectionProjectionStore('registrations');
 const seasonRegistrationsProjection =
@@ -197,7 +238,7 @@ export const eventsStore = derived(
 
 function projectionState(projection: CollectionProjection) {
   return {
-    limit: COLLECTION_PROJECTION_LIMIT,
+    limit: null,
     truncated: projection.truncated,
     loading: projection.loading,
     error: projection.error,
@@ -231,7 +272,7 @@ export const operationalProjectionScope = derived(
     teams,
     events,
   ]) => ({
-    limit: COLLECTION_PROJECTION_LIMIT,
+    limit: null,
     truncated: {
       registrations: registrations.truncated,
       seasonRegistrations: seasonRegistrations.truncated,
@@ -263,6 +304,44 @@ export const operationalProjectionScope = derived(
   }),
 );
 
+interface DashboardOperationalCountScope {
+  loading: boolean;
+  registrations: number | null;
+  teams: number | null;
+  events: number | null;
+  error: string;
+}
+
+const emptyDashboardOperationalCountScope: DashboardOperationalCountScope = {
+  loading: false,
+  registrations: null,
+  teams: null,
+  events: null,
+  error: '',
+};
+
+// Dashboard cards use the complete records loaded through authenticated
+// backend pages. Counts stay unavailable while the pages are still loading.
+export const dashboardOperationalCountScope = derived(
+  [registrationsProjection, teamsProjection, eventsProjection],
+  ([registrations, teams, events]) => {
+    const projections = [registrations, teams, events];
+    const loading = projections.some((projection) => projection.loading);
+    const error = projections.map((projection) => projection.error).find(Boolean) || '';
+    return {
+      loading,
+      registrations: loading || error ? null : registrations.records.length,
+      teams: loading || error ? null : teams.records.length,
+      events: loading || error ? null : events.records.filter((event) =>
+        event.isDeleted !== true
+        && event.isVisible !== false
+        && String(event.lifecycleStatus || '').toLowerCase() === 'published',
+      ).length,
+      error,
+    } satisfies DashboardOperationalCountScope;
+  },
+);
+
 export const transactionsStore = derived(
   financialOverviewStore,
   (overview) => overview.transactions,
@@ -290,10 +369,52 @@ export const financialProjectionScope = derived(
     truncated: overview.truncated,
     requestId: overview.requestId,
     lastRefreshedAt: overview.lastRefreshedAt,
-    limitPerCollection: 500,
+    recordCounts: overview.recordCounts,
+    tracking: overview.tracking,
     error: overview.error,
   }),
 );
+
+function firstRegistrationText(values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
+export function participantNameFromRegistration(registration: any) {
+  const participant =
+    registration?.participantSummary
+    && typeof registration.participantSummary === 'object'
+      ? registration.participantSummary
+      : {};
+  const formData =
+    registration?.formData && typeof registration.formData === 'object'
+      ? registration.formData
+      : {};
+  return firstRegistrationText([
+    registration?.participantName,
+    registration?.playerName,
+    registration?.childName,
+    participant.fullName,
+    participant.displayName,
+    formData.participantName,
+    formData.playerName,
+    formData.player_name,
+    [participant.firstName, participant.lastName]
+      .filter((value) => typeof value === 'string' && value.trim())
+      .join(' '),
+    [registration?.firstName, registration?.lastName]
+      .filter((value) => typeof value === 'string' && value.trim())
+      .join(' '),
+    [formData.player_first_name, formData.player_last_name]
+      .filter((value) => typeof value === 'string' && value.trim())
+      .join(' '),
+    [formData.firstName, formData.lastName]
+      .filter((value) => typeof value === 'string' && value.trim())
+      .join(' '),
+  ]);
+}
 
 // Derived Maps for quick lookups
 export const usersMap = derived(
@@ -301,23 +422,24 @@ export const usersMap = derived(
   ($regs) => {
     const map: Record<string, string> = {};
     $regs.forEach(r => {
-      if (r.userId) {
-        const participant =
-          r.participantSummary
-          && typeof r.participantSummary === 'object'
-            ? r.participantSummary
-            : {};
-        map[r.userId] =
-          participant.fullName
-          || participant.displayName
-          || [participant.firstName, participant.lastName]
-            .filter((value) => typeof value === 'string' && value.trim())
-            .join(' ')
-          || 'Participant name unavailable';
-      }
+      const userId = String(r?.userId || r?.uid || '').trim();
+      const name = participantNameFromRegistration(r);
+      if (userId && name && !map[userId]) map[userId] = name;
     });
     return map;
   }
+);
+
+export const registrationNamesMap = derived(
+  registrationsStore,
+  ($regs) => Object.fromEntries(
+    $regs
+      .map((registration) => [
+        String(registration?.id || '').trim(),
+        participantNameFromRegistration(registration),
+      ])
+      .filter(([registrationId, name]) => registrationId && name),
+  ),
 );
 
 export const teamsMap = derived(teamsStore, $teams => {
@@ -498,13 +620,7 @@ export class DataStore {
         .filter(Boolean)
     );
     const aggregate = aggregateFinancials(eventIds);
-    if (!eventProjection.truncated) return aggregate;
-    return {
-      ...aggregate,
-      totalsAvailable: false,
-      scopeReason:
-        `Event linkage exceeds the ${COLLECTION_PROJECTION_LIMIT}-record loaded scope.`,
-    };
+    return aggregate;
   }
 
   static getUserFinancialsForEvents(userId: string, eventIds: Set<string>) {
@@ -639,7 +755,7 @@ export class DataStore {
           ? 'Season event linkage is loading.'
           : eventProjection.error
             ? 'Season event linkage could not be loaded.'
-            : `Season event linkage exceeds the ${COLLECTION_PROJECTION_LIMIT}-record loaded scope.`
+            : 'Season event linkage is incomplete.'
         : aggregate.scopeReason,
       participants: sRegs.length
     };

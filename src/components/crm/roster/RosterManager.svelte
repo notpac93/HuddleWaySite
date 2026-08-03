@@ -3,6 +3,7 @@
   import { tenantIdStore } from '../../../lib/authStore';
   import { RosterService } from '../../../lib/services/RosterService';
   import {
+    seasonsStore,
     teamsProjectionScope,
     teamsStore,
   } from '../../../lib/services/DataStore';
@@ -145,6 +146,7 @@
     <PlayerTable
       players={rawData}
       allTeams={$teamsStore}
+      allSeasons={$seasonsStore}
       loading={playersLoading}
       error={playersError}
       truncated={Object.values(playersTruncated).some(Boolean)}
@@ -157,9 +159,9 @@
   {:else if activeTab === 'Teams'}
     <TeamTable
       {teams}
+      parentTeam={typeof activeTeam === 'object' ? activeTeam : null}
       loading={$teamsProjectionScope.loading}
       error={$teamsProjectionScope.error}
-      truncated={$teamsProjectionScope.truncated}
       {setActiveTeam}
     />
   {:else if activeTab === 'Import'}

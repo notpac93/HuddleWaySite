@@ -6,6 +6,7 @@ vi.mock('../../src/lib/firebase', () => ({
   appCheck: null,
   auth: {},
   db: {},
+  firebaseEnvironment: { config: { projectId: 'huddleway-dev' } },
 }));
 
 vi.mock('../../src/lib/authStore', async () => {
@@ -14,8 +15,10 @@ vi.mock('../../src/lib/authStore', async () => {
     activeTenantRole: writable('owner'),
     authErrorStore: writable(null),
     availableTenants: writable(['tenant-a']),
+    canViewTenantOperationsStore: writable(false),
     isAuthLoading: writable(false),
     tenantIdStore: writable('tenant-a'),
+    tenantOperationsRoleStore: writable(null),
     userStore: writable({
       uid: 'owner-user',
       emailVerified: true,

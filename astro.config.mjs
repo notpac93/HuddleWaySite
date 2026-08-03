@@ -5,7 +5,10 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   site: 'https://huddleway.com',
   output: 'static',
-  trailingSlash: 'never',
+  // Static hosting serves directory artifacts with trailing slashes while
+  // application links omit them. Accept both so bookmarks and provider return
+  // links cannot strand a user on Astro's development/static 404 page.
+  trailingSlash: 'ignore',
   build: {
     format: 'directory',
   },

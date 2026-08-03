@@ -9,6 +9,52 @@ export interface TenantAccess {
   role: TenantRole;
 }
 
+export type TenantOperationsRole =
+  | 'platform_admin'
+  | 'platform_operations_viewer';
+
+export interface CrmAuthorization {
+  tenantAccess: TenantAccess[];
+  canViewTenantOperations: boolean;
+  tenantOperationsRole: TenantOperationsRole | null;
+}
+
+function normalizedSystemRole(value: unknown) {
+  return String(value ?? '').trim().toLowerCase();
+}
+
+export function resolveTenantOperationsRole(
+  ...sources: Array<Record<string, unknown>>
+): TenantOperationsRole | null {
+  const values = sources.filter(Boolean);
+  const hasBoolean = (snake: string, camel: string) =>
+    values.some((source) => source[snake] === true || source[camel] === true);
+  const roles = values.flatMap((source) => [
+    normalizedSystemRole(source.role),
+    normalizedSystemRole(source.systemRole),
+    ...(Array.isArray(source.roles)
+      ? source.roles.map(normalizedSystemRole)
+      : []),
+  ]);
+  if (
+    hasBoolean('platform_admin', 'platformAdmin')
+    || hasBoolean('super_admin', 'superAdmin')
+    || roles.some((role) => ['platform_admin', 'super_admin'].includes(role))
+  ) {
+    return 'platform_admin';
+  }
+  if (
+    hasBoolean(
+      'platform_operations_viewer',
+      'platformOperationsViewer',
+    )
+    || roles.includes('platform_operations_viewer')
+  ) {
+    return 'platform_operations_viewer';
+  }
+  return null;
+}
+
 function normalizedRole(value: unknown): TenantRole | null {
   const candidate =
     typeof value === 'string'
@@ -84,20 +130,24 @@ export function parseTenantAccess(
 }
 
 export class AuthService {
-  static async fetchUserAccess(user: User): Promise<TenantAccess[]> {
+  static async fetchAuthorization(user: User): Promise<CrmAuthorization> {
     const [userDocSnap, tokenResult] = await Promise.all([
       getDoc(doc(db, 'users', user.uid)),
       user.getIdTokenResult(),
     ]);
-    if (!userDocSnap.exists()) return [];
-    const claims = tokenResult.claims;
-    const systemRole = String(claims.role ?? '').trim().toLowerCase();
-    const isPlatformAdmin =
-      claims.platformAdmin === true
-      || claims.platform_admin === true
-      || claims.super_admin === true
-      || ['platform_admin', 'super_admin'].includes(systemRole);
-    return parseTenantAccess(userDocSnap.data(), isPlatformAdmin);
+    const data = userDocSnap.exists() ? userDocSnap.data() : {};
+    const claims = tokenResult.claims as Record<string, unknown>;
+    const tenantOperationsRole = resolveTenantOperationsRole(claims, data);
+    const isPlatformAdmin = tenantOperationsRole === 'platform_admin';
+    return {
+      tenantAccess: parseTenantAccess(data, isPlatformAdmin),
+      canViewTenantOperations: tenantOperationsRole !== null,
+      tenantOperationsRole,
+    };
+  }
+
+  static async fetchUserAccess(user: User): Promise<TenantAccess[]> {
+    return (await this.fetchAuthorization(user)).tenantAccess;
   }
 
   static async fetchUserTenants(user: User): Promise<string[]> {

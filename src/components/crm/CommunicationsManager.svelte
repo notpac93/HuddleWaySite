@@ -3,7 +3,6 @@
   import {
     collection,
     getDocs,
-    limit,
     orderBy,
     query,
     where,
@@ -27,7 +26,6 @@
     createdAt: Date | null;
   };
 
-  const MESSAGE_LOAD_LIMIT = 100;
   const SUBJECT_MAX_LENGTH = 200;
   const BODY_MAX_LENGTH = 4_000;
   const audiencePreviewAvailable = false;
@@ -37,9 +35,9 @@
   let isLoading = true;
   let loadError = '';
   let loadRequestId = '';
-  let isTruncated = false;
   let activeTenantId = '';
   let searchQuery = '';
+  let expandedMessageIds = new Set<string>();
 
   let subject = '';
   let body = '';
@@ -94,7 +92,7 @@
       isAdding = false;
       searchQuery = '';
       messages = [];
-      isTruncated = false;
+      expandedMessageIds = new Set();
       resetComposer();
       operationMessage = '';
       operationRequestId = '';
@@ -127,6 +125,24 @@
       : 'Public organization post';
   }
 
+  function toggleMessageDetails(messageId: string) {
+    const nextExpandedIds = new Set(expandedMessageIds);
+    if (nextExpandedIds.has(messageId)) {
+      nextExpandedIds.delete(messageId);
+    } else {
+      nextExpandedIds.add(messageId);
+    }
+    expandedMessageIds = nextExpandedIds;
+  }
+
+  function messagePreview(messageBody: string) {
+    const normalizedBody = messageBody.trim();
+    if (!normalizedBody) return 'Message unavailable';
+    return normalizedBody.length > 140
+      ? `${normalizedBody.slice(0, 137).trimEnd()}…`
+      : normalizedBody;
+  }
+
   async function fetchMessages(tenantId: string) {
     isLoading = true;
     loadError = '';
@@ -136,14 +152,12 @@
         collection(db, 'board_messages'),
         where('tenantId', '==', tenantId),
         where('isDeleted', '==', false),
+        where('isSecret', '==', false),
         orderBy('createdAt', 'desc'),
-        limit(MESSAGE_LOAD_LIMIT + 1),
       ));
       if (tenantId !== activeTenantId) return;
 
-      isTruncated = snapshot.docs.length > MESSAGE_LOAD_LIMIT;
       messages = snapshot.docs
-        .slice(0, MESSAGE_LOAD_LIMIT)
         .map((messageDoc) => {
           const data = messageDoc.data();
           return {
@@ -252,7 +266,7 @@
     const tenantId = $tenantIdStore;
     const generation = tenantGeneration;
     if (!tenantId) {
-      operationMessage = 'Select an organization before recalling a post.';
+      operationMessage = 'Select an organization before deleting a post.';
       return;
     }
     recallingMessageId = id;
@@ -280,12 +294,12 @@
       if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
       recallIdempotencyKeys.delete(id);
       recallIdempotencyReasons.delete(id);
-      operationMessage = 'Announcement recalled.';
+      operationMessage = 'Announcement deleted.';
       recallTarget = null;
       recallAuditReason = '';
     } catch (error) {
       if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
-      operationMessage = 'The announcement could not be recalled.';
+      operationMessage = 'The announcement could not be deleted.';
       operationRequestId = requestIdFrom(error);
     } finally {
       if (generation === tenantGeneration && tenantId === $tenantIdStore) {
@@ -301,7 +315,7 @@
       <button
         type="button"
         class="fixed inset-0 z-0 h-full w-full bg-slate-950/70"
-        aria-label="Close recall confirmation"
+        aria-label="Close delete confirmation"
         tabindex="-1"
         disabled={Boolean(recallingMessageId)}
         on:click={closeRecallDialog}
@@ -311,19 +325,19 @@
         tabindex="-1"
         use:modalFocus={{ onEscape: closeRecallDialog, initialFocusSelector: '[data-recall-cancel]' }}
       >
-        <h3 id="recall-announcement-title" class="text-lg font-semibold text-gray-900">Recall announcement?</h3>
+        <h3 id="recall-announcement-title" class="text-lg font-semibold text-gray-900">Delete announcement?</h3>
         <p class="mt-2 text-sm text-gray-600">
-          Recall “{recallTarget.subject || 'Untitled announcement'}” from {audienceLabel(recallTarget.teamId)}. The Wall post will no longer be available to that audience.
+          Delete “{recallTarget.subject || 'Untitled announcement'}” from {audienceLabel(recallTarget.teamId)}. The Wall post will no longer be available to that audience.
         </p>
         <label class="mt-4 block">
-          <span class="text-sm font-medium text-gray-800">Internal recall reason</span>
+          <span class="text-sm font-medium text-gray-800">Reason for deletion</span>
           <textarea
             bind:value={recallAuditReason}
             minlength="3"
             maxlength="500"
             rows="3"
             disabled={Boolean(recallingMessageId)}
-            placeholder="Why is this announcement being recalled?"
+            placeholder="Why is this announcement being deleted?"
             class="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm disabled:opacity-50"
           ></textarea>
         </label>
@@ -340,7 +354,7 @@
             disabled={Boolean(recallingMessageId) || recallAuditReason.trim().length < 3}
             class="crm-ui-danger-button"
             on:click={handleRecallMessage}
-          >{recallingMessageId ? 'Recalling…' : 'Recall announcement'}</button>
+          >{recallingMessageId ? 'Deleting…' : 'Delete announcement'}</button>
         </div>
       </div>
     </div>
@@ -439,7 +453,7 @@
         <div>
           <h3 id="wall-announcements-heading" class="font-semibold text-gray-900">Published announcements</h3>
           <p class="crm-ui-hint">
-            Showing up to {MESSAGE_LOAD_LIMIT} records, sorted by available timestamp.
+            {messages.length} published
           </p>
         </div>
         <div>
@@ -452,11 +466,6 @@
           />
         </div>
       </div>
-      {#if isTruncated}
-        <p class="crm-ui-notice-spaced" role="status">
-          More than {MESSAGE_LOAD_LIMIT} announcements exist. Search and counts apply only to the loaded records.
-        </p>
-      {/if}
     </div>
 
     {#if isLoading}
@@ -474,28 +483,60 @@
     {:else}
       <ul class="divide-y divide-gray-200">
         {#each visibleMessages as message (message.id)}
-          <li class="flex flex-col gap-4 p-4 hover:bg-gray-50 sm:flex-row sm:items-start sm:justify-between">
-            <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="font-bold text-gray-900">{message.authorName || 'Actor unavailable'}</span>
-                <span class="crm-ui-hint-xs">• {message.createdAt ? message.createdAt.toLocaleString() : 'Timestamp unavailable'}</span>
-                <span class="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-800">
-                  {audienceLabel(message.teamId)}
-                </span>
-              </div>
-              {#if message.subject}
-                <p class="mt-1 text-sm font-medium text-gray-900">{message.subject}</p>
-              {/if}
-              <p class="mt-1 whitespace-pre-wrap break-words text-sm text-gray-600">{message.body || 'Message unavailable'}</p>
+          <li class="hover:bg-gray-50">
+            <div class="flex items-start gap-4 p-4">
+              <button
+                type="button"
+                class="min-w-0 flex-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1855c5] focus-visible:ring-offset-2"
+                aria-expanded={expandedMessageIds.has(message.id)}
+                aria-controls={`announcement-details-${message.id}`}
+                on:click={() => toggleMessageDetails(message.id)}
+              >
+                <div class="flex items-start justify-between gap-4">
+                  <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="font-bold text-gray-900">{message.authorName || 'Actor unavailable'}</span>
+                      <span class="crm-ui-hint-xs">• {message.createdAt ? message.createdAt.toLocaleString() : 'Timestamp unavailable'}</span>
+                    </div>
+                    <p class="mt-1 text-sm font-medium text-gray-900">{message.subject || 'Announcement'}</p>
+                    {#if !expandedMessageIds.has(message.id)}
+                      <p class="mt-1 break-words text-sm text-gray-600">{messagePreview(message.body)}</p>
+                    {/if}
+                  </div>
+                  <svg class="mt-1 h-5 w-5 shrink-0 text-gray-400 transition-transform {expandedMessageIds.has(message.id) ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                  </svg>
+                </div>
+              </button>
+              <button
+                type="button"
+                class="shrink-0 text-left text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50"
+                on:click={() => requestRecall(message)}
+                disabled={Boolean(recallingMessageId)}
+              >
+                {recallingMessageId === message.id ? 'Deleting…' : 'Delete'}
+              </button>
             </div>
-            <button
-              type="button"
-              class="shrink-0 text-left text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50"
-              on:click={() => requestRecall(message)}
-              disabled={Boolean(recallingMessageId)}
-            >
-              {recallingMessageId === message.id ? 'Recalling…' : 'Recall'}
-            </button>
+            {#if expandedMessageIds.has(message.id)}
+              <div id={`announcement-details-${message.id}`} class="border-t border-gray-100 bg-gray-50 px-4 py-4 sm:px-6">
+                <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500">Details</h4>
+                <p class="mt-2 whitespace-pre-wrap break-words text-sm text-gray-800">{message.body || 'Message unavailable'}</p>
+                <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+                  <div>
+                    <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">Audience</dt>
+                    <dd class="mt-1 text-gray-900">{audienceLabel(message.teamId)}</dd>
+                  </div>
+                  <div>
+                    <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">Published by</dt>
+                    <dd class="mt-1 text-gray-900">{message.authorName || 'Actor unavailable'}</dd>
+                  </div>
+                  <div>
+                    <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">Published</dt>
+                    <dd class="mt-1 text-gray-900">{message.createdAt ? message.createdAt.toLocaleString() : 'Timestamp unavailable'}</dd>
+                  </div>
+                </dl>
+              </div>
+            {/if}
           </li>
         {/each}
       </ul>

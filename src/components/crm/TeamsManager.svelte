@@ -1,5 +1,11 @@
 <script lang="ts">
   import { tick } from 'svelte';
+  import { tenantIdStore } from '../../lib/authStore';
+  import { backendClient } from '../../lib/api/backendClient';
+  import {
+    BackendApiError,
+    createIdempotencyKey,
+  } from '../../lib/api/BackendApi';
   import {
     teamsProjectionScope,
     teamsStore,
@@ -12,9 +18,64 @@
 
   let isCreateFormOpen = false;
   let consumedTargetId = '';
+  let pendingDeleteTeam: any = null;
+  let deleteState: 'idle' | 'loading' | 'error' = 'idle';
+  let deleteError = '';
+  let deleteOperationKey = '';
 
   function handleCreateClick() {
     isCreateFormOpen = true;
+  }
+
+  function requestDelete(team: any) {
+    pendingDeleteTeam = team;
+    deleteState = 'idle';
+    deleteError = '';
+    deleteOperationKey = createIdempotencyKey('team-delete');
+  }
+
+  function cancelDelete() {
+    if (deleteState === 'loading') return;
+    pendingDeleteTeam = null;
+    deleteState = 'idle';
+    deleteError = '';
+    deleteOperationKey = '';
+  }
+
+  async function confirmDelete() {
+    if (!pendingDeleteTeam || deleteState === 'loading') return;
+    const tenantId = $tenantIdStore;
+    if (!tenantId) {
+      deleteState = 'error';
+      deleteError = 'Select an organization before deleting a team.';
+      return;
+    }
+    const teamId = String(pendingDeleteTeam.id || '').trim();
+    const teamName = String(pendingDeleteTeam.name || 'team').trim();
+    if (!teamId) return;
+    deleteState = 'loading';
+    deleteError = '';
+    try {
+      await backendClient.deleteTeam(
+        tenantId,
+        teamId,
+        `Delete ${teamName} and archive its linked team content.`,
+        deleteOperationKey || createIdempotencyKey('team-delete'),
+      );
+      pendingDeleteTeam = null;
+      deleteState = 'idle';
+      deleteOperationKey = '';
+    } catch (error) {
+      const supportId = error instanceof BackendApiError
+        ? error.requestId
+        : null;
+      console.error(
+        'Team deletion failed.',
+        supportId ? { requestId: supportId } : {},
+      );
+      deleteState = 'error';
+      deleteError = `The team could not be deleted.${supportId ? ` Support request: ${supportId}` : ''}`;
+    }
   }
 
   $: if (activeResultId && activeResultId !== consumedTargetId) {
@@ -39,6 +100,44 @@
   />
 {/if}
 
+{#if pendingDeleteTeam}
+  <div class="crm-ui-modal-root" role="dialog" aria-modal="true" aria-labelledby="delete-team-title">
+    <button
+      type="button"
+      class="fixed inset-0 z-0 h-full w-full bg-gray-500 bg-opacity-75"
+      aria-label="Cancel team deletion"
+      disabled={deleteState === 'loading'}
+      on:click={cancelDelete}
+    ></button>
+    <span class="crm-ui-modal-spacer" aria-hidden="true">&#8203;</span>
+    <div class="relative z-10 inline-block w-full max-w-md overflow-hidden rounded-lg bg-white text-left align-bottom shadow-xl sm:my-8 sm:align-middle">
+      <div class="px-6 pb-4 pt-5">
+        <h3 id="delete-team-title" class="text-lg font-semibold text-gray-900">Delete {pendingDeleteTeam.name}?</h3>
+        <p class="mt-2 text-sm text-gray-600">
+          This removes the team page and navigation entry, archives linked events and messages, and keeps historical season records intact.
+        </p>
+        {#if deleteError}
+          <p class="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700" role="alert">{deleteError}</p>
+        {/if}
+      </div>
+      <div class="flex flex-col-reverse gap-3 bg-gray-50 px-6 py-4 sm:flex-row sm:justify-end">
+        <button
+          type="button"
+          class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-wait disabled:opacity-50"
+          disabled={deleteState === 'loading'}
+          on:click={cancelDelete}
+        >Cancel</button>
+        <button
+          type="button"
+          class="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-wait disabled:opacity-50"
+          disabled={deleteState === 'loading'}
+          on:click={confirmDelete}
+        >{deleteState === 'loading' ? 'Deleting…' : deleteState === 'error' ? 'Retry Delete' : 'Delete Team'}</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <div class="h-full overflow-y-auto bg-white p-4 sm:p-8">
   <div class="flex justify-between items-center mb-8 max-w-5xl mx-auto">
     <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Teams</h2>
@@ -59,27 +158,32 @@
         {$teamsProjectionScope.error}
       </div>
     {:else}
-    {#if $teamsProjectionScope.truncated}
-      <p class="mx-auto mb-4 max-w-5xl rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status">
-        Showing the first {$teamsProjectionScope.limit} teams by record ID. More teams exist.
-      </p>
-    {/if}
     <div class="space-y-4 max-w-5xl mx-auto">
       {#each $teamsStore as team (team.id)}
-        <button
-          type="button"
+        <div
           data-record-id={team.id}
-          class="w-full border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow bg-white group flex justify-between items-start text-left {activeResultId === String(team.id) ? 'ring-2 ring-blue-500' : ''}"
-          on:click={() => setActiveTeam(team)}
+          class="w-full border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow bg-white group flex items-start gap-4 {activeResultId === String(team.id) ? 'ring-2 ring-blue-500' : ''}"
         >
-          <div>
-            <h3 class="text-xl font-semibold text-[#1a56db] group-hover:text-[#1e40af] transition-colors">{team.name}</h3>
-            {#if team.description}
-              <p class="mt-2 text-sm text-gray-500 max-w-3xl">{team.description}</p>
-            {/if}
-          </div>
-          <span class="text-sm font-medium text-[#1a56db]">Open team</span>
-        </button>
+          <button
+            type="button"
+            class="flex min-w-0 flex-1 items-start justify-between gap-4 text-left"
+            on:click={() => setActiveTeam(team)}
+          >
+            <div>
+              <h3 class="text-xl font-semibold text-[#1a56db] group-hover:text-[#1e40af] transition-colors">{team.name}</h3>
+              {#if team.description}
+                <p class="mt-2 text-sm text-gray-500 max-w-3xl">{team.description}</p>
+              {/if}
+            </div>
+            <span class="whitespace-nowrap text-sm font-medium text-[#1a56db]">Open team</span>
+          </button>
+          <button
+            type="button"
+            class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+            aria-label={`Delete ${team.name}`}
+            on:click={() => requestDelete(team)}
+          >Delete</button>
+        </div>
       {/each}
 
       {#if $teamsStore.length === 0}

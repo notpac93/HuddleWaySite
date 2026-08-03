@@ -18,7 +18,7 @@ import {
   resolveFirebaseEnvironment,
 } from './config/publicEnvironment';
 
-const firebaseEnvironment = resolveFirebaseEnvironment(publicEnvironment);
+export const firebaseEnvironment = resolveFirebaseEnvironment(publicEnvironment);
 
 // Initialize Firebase only once
 export const firebaseApp = !getApps().length

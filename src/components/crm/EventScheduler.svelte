@@ -1,4 +1,11 @@
 <script lang="ts">
+import {
+    collection,
+    getCountFromServer,
+    query,
+    where,
+  } from 'firebase/firestore';
+  import { db } from '../../lib/firebase';
   import {
     DataStore,
     eventsProjectionScope,
@@ -17,6 +24,8 @@
   import DuplicateEventModal from './events/DuplicateEventModal.svelte';
   import EventRegistrantsModal from './events/EventRegistrantsModal.svelte';
   import StatusButton from './ui/StatusButton.svelte';
+  import ImageFilePicker from './ui/ImageFilePicker.svelte';
+  import { validateImageFile } from '../../lib/media/imageUpload';
 
   export let activeTeam: string | { id?: unknown } | null = null;
   export let activeResultId: string | null = null;
@@ -38,11 +47,15 @@
   let inlineEditTime = '16:00';
   let inlineEditEndTime = '18:00';
   let inlineEditApplyToSeries = false;
-  let inlineAuditReason = '';
+  let inlineImageFile: File | null = null;
+  let inlineImageValidationMessage = '';
+  const automaticInlineAuditReason = 'Event updated inline from CRM.';
+  let inlineAuditReason = automaticInlineAuditReason;
   let inlineSaveState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
   let inlineError = '';
   let inlineRequestId = '';
   let inlineOperationKey = '';
+  let inlineImageUploadKey = '';
   let inlinePayloadSignature = '';
   let currentInlinePayloadSignature = '';
   let inlineOperationGeneration = 0;
@@ -52,6 +65,11 @@
   let activeTab = 'Upcoming'; // 'Upcoming' or 'Past'
   let teams: Record<string, string> = {};
   let consumedTargetId = '';
+  let exactEventRegistrationCounts: Record<string, number | null> = {};
+  let exactEventCountSignature = '';
+  let exactEventCountGeneration = 0;
+  let exactEventCountLoading = false;
+  let exactEventCountError = '';
   const eventLifecycleStatuses = new Set(['draft', 'published', 'archived']);
   const MAX_SERIES_UPDATE_COUNT = 400;
   const publishConfirmationText = 'PUBLISH EVENT';
@@ -176,6 +194,19 @@
     });
 
   $: visibleEvents = activeTab === 'Upcoming' ? upcomingEvents : pastEvents;
+  $: exactEventCountScopeSignature = `${$tenantIdStore}|${visibleEvents.map((event) => event.id).sort().join(',')}`;
+  $: if (exactEventCountScopeSignature !== exactEventCountSignature) {
+    exactEventCountSignature = exactEventCountScopeSignature;
+    void loadExactEventRegistrationCounts(
+      exactEventCountScopeSignature,
+      visibleEvents,
+    );
+  }
+  $: exactEventCountIncomplete =
+    exactEventCountLoading
+    || visibleEvents.some((event) =>
+      typeof exactEventRegistrationCounts[event.id] !== 'number'
+    );
   $: publishConfirmationRequired =
     inlineEditStatus === 'published'
     && originalInlineStatus !== 'published';
@@ -190,6 +221,9 @@
     inlineEditTime,
     inlineEditEndTime,
     inlineEditApplyToSeries,
+    inlineImageFile: inlineImageFile
+      ? { name: inlineImageFile.name, type: inlineImageFile.type, size: inlineImageFile.size }
+      : null,
     inlineAuditReason,
   });
   $: {
@@ -197,6 +231,7 @@
     if (signature !== inlinePayloadSignature && inlineSaveState !== 'loading') {
       inlinePayloadSignature = signature;
       inlineOperationKey = createIdempotencyKey('event-inline-update');
+      inlineImageUploadKey = createIdempotencyKey('event-inline-cover-upload');
       if (inlineSaveState === 'error') {
         inlineSaveState = 'idle';
         inlineError = '';
@@ -205,6 +240,7 @@
     } else if (signature !== inlinePayloadSignature) {
       inlinePayloadSignature = signature;
       inlineOperationKey = createIdempotencyKey('event-inline-update');
+      inlineImageUploadKey = createIdempotencyKey('event-inline-cover-upload');
       inlineOperationGeneration += 1;
       inlineSaveState = 'error';
       inlineError =
@@ -249,14 +285,63 @@
     isCreateFormOpen = false;
   }
 
+  async function loadExactEventRegistrationCounts(
+    signature: string,
+    targetEvents: any[],
+  ) {
+    const tenantId = $tenantIdStore;
+    const eventIds = Array.from(
+      new Set(
+        targetEvents
+          .map((event) => String(event.id || '').trim())
+          .filter(Boolean),
+      ),
+    );
+    const generation = ++exactEventCountGeneration;
+    exactEventCountError = '';
+    if (!tenantId || eventIds.length === 0) {
+      exactEventRegistrationCounts = {};
+      exactEventCountLoading = false;
+      return;
+    }
+    exactEventCountLoading = true;
+    const results = await Promise.allSettled(eventIds.map(async (eventId) => {
+      const aggregate = await getCountFromServer(query(
+        collection(db, 'registrations'),
+        where('tenantId', '==', tenantId),
+        where('eventId', '==', eventId),
+      ));
+      const count = Number(aggregate.data().count);
+      return [eventId, Number.isSafeInteger(count) && count >= 0 ? count : null] as const;
+    }));
+    if (
+      generation !== exactEventCountGeneration
+      || signature !== exactEventCountSignature
+      || tenantId !== $tenantIdStore
+    ) return;
+    exactEventRegistrationCounts = Object.fromEntries(
+      results
+        .filter((result): result is PromiseFulfilledResult<readonly [string, number | null]> => result.status === 'fulfilled')
+        .map((result) => result.value),
+    );
+    exactEventCountError = results.some((result) => result.status === 'rejected')
+      ? 'Some event registration counts are unavailable.'
+      : '';
+    exactEventCountLoading = false;
+  }
+
   function toggleExpand(evt: any) {
     if (inlineSaveState === 'loading') return;
     if (expandedEventId === evt.id) {
       expandedEventId = null;
       inlineEditApplyToSeries = false;
+      inlineImageFile = null;
+      inlineImageValidationMessage = '';
     } else {
       expandedEventId = evt.id;
       inlineEditApplyToSeries = false;
+      inlineImageFile = null;
+      inlineImageValidationMessage = '';
       inlineEditTitle = evt.title || '';
       inlineEditLocation = evt.location || '';
       inlineEditTeamId = evt.teamId || 'general';
@@ -271,7 +356,7 @@
       inlineEditEndTime = evt.endDateObj
         ? new Date(evt.endDateObj).toTimeString().slice(0, 5)
         : '';
-      inlineAuditReason = '';
+      inlineAuditReason = automaticInlineAuditReason;
       inlinePublishConfirmation = '';
       inlineSaveState = 'idle';
       inlineError = '';
@@ -321,10 +406,8 @@
       failInlineEdit('Event end time must be later than its start time.');
       return;
     }
-    if (inlineAuditReason.trim().length < 3) {
-      failInlineEdit('Provide a reason for this event change.');
-      return;
-    }
+    inlineImageValidationMessage = validateImageFile(inlineImageFile);
+    if (inlineImageValidationMessage) return;
     if (
       publishConfirmationRequired
       && inlinePublishConfirmation !== publishConfirmationText
@@ -350,6 +433,20 @@
     inlineError = '';
     inlineRequestId = '';
     try {
+      const uploadedImage = inlineImageFile
+        ? await backendClient.uploadImageAsset(
+          tenantId,
+          inlineImageFile,
+          'event-cover',
+          inlineImageUploadKey,
+        )
+        : null;
+      if (
+        generation !== inlineOperationGeneration
+        || $tenantIdStore !== tenantId
+        || expandedEventId !== eventId
+        || inlinePayloadSignature !== submittedSignature
+      ) return;
       const update: Parameters<typeof backendClient.updateEvent>[2] = {
         title: inlineEditTitle.trim(),
         location: inlineEditLocation.trim(),
@@ -358,6 +455,9 @@
       };
       if (inlineEditStatus !== originalInlineStatus) {
         update.lifecycleStatus = inlineEditStatus;
+      }
+      if (uploadedImage) {
+        update.imageReservationId = uploadedImage.reservationId;
       }
       if (!update.applyToSeries) {
         const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -385,13 +485,29 @@
           timeZone,
         });
       }
-      await backendClient.updateEvent(
+      const updatedEvent = await backendClient.updateEvent(
         tenantId,
         eventId,
         update,
         inlineAuditReason.trim(),
         idempotencyKey,
       );
+      const imageReservationId = uploadedImage?.reservationId
+        || (
+          inlineEditStatus !== originalInlineStatus
+            ? String(evt.imageReservationId || evt.imageAssetId || '').trim()
+            : ''
+        );
+      if (imageReservationId) {
+        await backendClient.publishImageAsset(
+          tenantId,
+          imageReservationId,
+          'event',
+          updatedEvent.eventIds,
+          'Synchronize the verified event cover with event publication state.',
+          `${uploadedImage ? inlineImageUploadKey : idempotencyKey}:publish`,
+        );
+      }
       if (
         generation !== inlineOperationGeneration
         || $tenantIdStore !== tenantId
@@ -475,9 +591,9 @@
       This view is limited to {$eventsProjectionScope.limit} events and {$teamsProjectionScope.limit} teams. Search, series validation, and counts may be incomplete.
     </p>
   {/if}
-  {#if $registrationsProjectionScope.truncated}
+  {#if exactEventCountIncomplete}
     <p class="crm-ui-notice-card" role="status">
-      Registration counts are unavailable because more than {$registrationsProjectionScope.limit} registration records exist.
+      Exact event registration counts are loading or unavailable. The participant list remains safely limited to {$registrationsProjectionScope.limit} loaded records.
     </p>
   {/if}
   {#if malformedEventCount > 0}
@@ -556,7 +672,10 @@
                 <svg class="mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
-                {teams[event.teamId] || (event.teamId === 'general' ? 'Program-wide event' : 'Team unavailable')}
+                {teams[event.teamId]
+                  || (event.teamId === 'general' || event.teamId === 'all' || event.teamId === 'program'
+                    ? 'Program-wide event'
+                    : 'Team unavailable')}
               </span>
               <span class="crm-ui-center">
                 <svg class="mr-1.5 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -582,13 +701,17 @@
                 type="button"
                 class="text-center pr-2 hover:bg-gray-50 p-1 rounded transition-colors"
                 aria-label={$registrationsProjectionScope.truncated
-                  ? `View loaded registrants for ${event.title}; exact count unavailable`
+                  ? `View loaded registrants for ${event.title}; participant list is limited`
                   : `View ${DataStore.getEventRegistrationCount(event, $registrationsStore)} registrants for ${event.title}`}
                 disabled={$registrationsProjectionScope.loading || Boolean($registrationsProjectionScope.error)}
                 on:click={() => showRegistrantsForEvent = event}
               >
                 <div class="text-lg font-bold text-green-600">
-                  {$registrationsProjectionScope.truncated ? '—' : DataStore.getEventRegistrationCount(event, $registrationsStore)}
+                  {typeof exactEventRegistrationCounts[event.id] === 'number'
+                    ? exactEventRegistrationCounts[event.id]
+                    : $registrationsProjectionScope.truncated
+                      ? '—'
+                      : DataStore.getEventRegistrationCount(event, $registrationsStore)}
                 </div>
                 <div class="text-[10px] text-gray-500 uppercase font-semibold">Registered</div>
               </button>
@@ -632,22 +755,15 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
               <!-- Column 1: Image Media Editor -->
               <div class="space-y-3">
-                <p class="block text-xs font-semibold uppercase text-gray-700">Banner Image Graphic</p>
-                <div class="crm-ui-event-banner">
-                  <img
-                    src={event.imageUrl || defaultFallbackImage}
-                    alt="Inline Preview"
-                    width="640"
-                    height="288"
-                    loading="lazy"
-                    decoding="async"
-                    class="crm-ui-cover"
-                    on:error={handleImgError}
-                  />
-                </div>
-                <div class="crm-ui-notice-sm">
-                  Banner uploads are unavailable in this release. The existing event image is retained.
-                </div>
+                <ImageFilePicker
+                  inputId={`inline-event-image-${event.id}`}
+                  label="Banner Image Graphic"
+                  currentUrl={event.imageUrl}
+                  previewAlt={`${event.title} banner`}
+                  bind:selectedFile={inlineImageFile}
+                  bind:validationMessage={inlineImageValidationMessage}
+                  disabled={inlineSaveState === 'loading'}
+                />
               </div>
 
               <!-- Column 2: Event Details -->
@@ -712,6 +828,7 @@
                       class="crm-ui-select-teal"
                     >
                       <option value="" disabled>Select a team</option>
+                      <option value="all">Program-wide event</option>
                       {#each Object.entries(teams) as [id, name]}
                         <option value={id}>{name}</option>
                       {/each}
@@ -776,11 +893,6 @@
               </div>
             {/if}
 
-            <div>
-              <label for={`inline-event-audit-reason-${event.id}`} class="crm-ui-label-caps-sm">Reason for change *</label>
-              <input id={`inline-event-audit-reason-${event.id}`} type="text" bind:value={inlineAuditReason} minlength="3" maxlength="500" required class="crm-ui-field bg-white" placeholder="Why is this event being changed?">
-            </div>
-
             {#if inlineError}
               <div class="crm-ui-danger" role="alert">
                 <p>{inlineError}</p>
@@ -802,8 +914,7 @@
                 state={inlineSaveState}
                 on:click={() => saveInlineEdit(event)}
                 disabled={
-                  inlineAuditReason.trim().length < 3
-                  || inlineSaveState === 'loading'
+                  inlineSaveState === 'loading'
                   || (
                     publishConfirmationRequired
                     && inlinePublishConfirmation !== publishConfirmationText
@@ -847,6 +958,9 @@
     event={showRegistrantsForEvent}
     registrations={$registrationsStore}
     incomplete={$registrationsProjectionScope.truncated}
+    exactCount={typeof exactEventRegistrationCounts[showRegistrantsForEvent.id] === 'number'
+      ? exactEventRegistrationCounts[showRegistrantsForEvent.id]
+      : null}
     onClose={() => showRegistrantsForEvent = null}
   />
 {/if}

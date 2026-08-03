@@ -7,8 +7,6 @@
   export let isLoadingForms = true;
   export let activeTab = 'Active';
   export let error = '';
-  export let truncated = false;
-  export let limit = 500;
 
   const dispatch = createEventDispatcher();
 
@@ -16,12 +14,12 @@
     dispatch('select', form);
   }
 
-  $: {
-    $transactionsStore;
-    $invoicesStore;
-    $refundsStore;
-    $eventsStore;
-  }
+  $: financialProjection = [
+    $transactionsStore,
+    $invoicesStore,
+    $refundsStore,
+    $eventsStore,
+  ];
 
   function getFinancials(formId) {
     return DataStore.getRegistrationFormFinancials(formId);
@@ -34,37 +32,33 @@
   }
 
   function formatScopedMoney(row: any, key: 'totalCollected' | 'totalBalance') {
+    if (row.financialScopeReason === 'Financial projection is loading.') return 'Loading…';
     if (row.financialRecordCount === 0) return 'No records';
     if (!row.financialTotalsAvailable || !row.financialCurrency) return 'Unavailable';
     return formatMoney(row[key], row.financialCurrency);
   }
 
-  $: filteredForms = forms.filter((form) =>
-    activeTab === 'Active'
-      ? form.status === 'Open'
-      : activeTab === 'Retired'
-        ? form.status === 'Closed'
-        : form.status !== 'Open' && form.status !== 'Closed'
-  ).map(form => {
-    const fin = getFinancials(form.id);
-    return {
-      ...form,
-      totalCollected: fin.totalCollected,
-      totalBalance: fin.totalBalance,
-      financialTotalsAvailable: fin.totalsAvailable,
-      financialCurrency: fin.currency,
-      financialRecordCount: fin.financialRecordCount,
-      financialScopeReason: fin.scopeReason,
-    };
-  });
+  $: filteredForms = (financialProjection, forms.filter((form) =>
+      activeTab === 'Active'
+        ? form.status === 'Open'
+        : activeTab === 'Retired'
+          ? form.status === 'Closed'
+          : form.status !== 'Open' && form.status !== 'Closed'
+    ).map(form => {
+      const fin = getFinancials(form.id);
+      return {
+        ...form,
+        totalCollected: fin.totalCollected,
+        totalBalance: fin.totalBalance,
+        financialTotalsAvailable: fin.totalsAvailable,
+        financialCurrency: fin.currency,
+        financialRecordCount: fin.financialRecordCount,
+        financialScopeReason: fin.scopeReason,
+      };
+    }));
 </script>
 
 <div class="mt-4">
-    {#if truncated}
-      <p class="mb-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status">
-        Showing the first {limit} forms by record ID. Search, export, and totals apply only to this loaded set.
-      </p>
-    {/if}
     <DataTable
       data={filteredForms}
       columns={[
@@ -73,8 +67,7 @@
         { key: 'dateCreated', label: 'Date Created' },
         { key: 'program', label: 'Program' },
         { key: 'totalCollected', label: 'Collected', align: 'right' },
-        { key: 'totalBalance', label: 'Balance', align: 'right' },
-        { key: 'actions', label: '', sortable: false, align: 'right' }
+        { key: 'totalBalance', label: 'Balance', align: 'right' }
       ]}
       exportFilename="registration_forms"
       searchPlaceholder="Search forms..."
@@ -100,10 +93,6 @@
           <span title={row.financialScopeReason}>{formatScopedMoney(row, 'totalCollected')}</span>
         {:else if column.key === 'totalBalance'}
           <span title={row.financialScopeReason}>{formatScopedMoney(row, 'totalBalance')}</span>
-        {:else if column.key === 'actions'}
-          <button type="button" class="text-gray-400 hover:text-gray-600 border border-gray-200 rounded px-2 py-0.5" on:click={() => openFormDetails(row)}>
-            Open details
-          </button>
         {:else}
           {row[column.key] ?? 'Unavailable'}
         {/if}

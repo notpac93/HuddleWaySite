@@ -431,7 +431,7 @@
       disabled={listState === 'loading' || !tenantId}
       on:click={loadPeriods}
     >
-      {listState === 'loading' ? 'Refreshing periods…' : 'Refresh periods'}
+      {listState === 'loading' ? 'Refreshing…' : 'Refresh'}
     </button>
   </div>
 
@@ -494,7 +494,7 @@
         class="mt-4 rounded-md border border-[#008194] bg-white px-3 py-2 text-sm font-semibold text-[#006d7c] hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-50"
         disabled={Boolean(periodValidationError) || previewState === 'loading' || !tenantId}
       >
-        {previewState === 'loading' ? 'Reviewing records…' : 'Preview affected records'}
+        {previewState === 'loading' ? 'Previewing…' : 'Preview'}
       </button>
 
       {#if previewState === 'error'}
@@ -566,7 +566,7 @@
               }
               on:click={closePeriod}
             >
-              {closeState === 'loading' ? 'Closing period…' : 'Close financial period'}
+              {closeState === 'loading' ? 'Closing…' : 'Close'}
             </button>
           </div>
         {/if}
@@ -637,7 +637,7 @@
                     class="shrink-0 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-800 hover:bg-gray-50"
                     on:click={() => beginReopen(period.id)}
                   >
-                    Review reopen
+                    Review
                   </button>
                 {/if}
               </div>
@@ -686,7 +686,7 @@
                       }
                       on:click={reopenPeriod}
                     >
-                      {reopenState === 'loading' ? 'Reopening period…' : 'Reopen financial period'}
+                      {reopenState === 'loading' ? 'Reopening…' : 'Reopen'}
                     </button>
                     <button
                       type="button"

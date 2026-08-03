@@ -14,6 +14,7 @@
   export let activeResultId: string | null = null;
   export let onTargetConsumed: (id: string) => void = () => {};
   export let allTeams = [];
+  export let allSeasons = [];
   export let loading = false;
   export let error = '';
   export let truncated = false;
@@ -52,7 +53,11 @@
       bulkOperationSignature = signature;
       operationGeneration += 1;
       bulkOperationKey = signature
-        ? createIdempotencyKey('roster-atomic-transfer')
+        ? createIdempotencyKey(
+            bulkSelectedTeam.startsWith('season:')
+              ? 'season-participant-assignment'
+              : 'roster-atomic-transfer',
+          )
         : '';
       operationRequestId = '';
       if (changedWhileLoading) {
@@ -77,11 +82,17 @@
     const tenantId = $tenantIdStore;
     const generation = ++operationGeneration;
     const registrationIds = [...selectedPlayerIds].sort();
-    const destinationTeamId =
-      bulkSelectedTeam === 'unassign' ? null : bulkSelectedTeam;
+    const isSeasonAssignment = bulkSelectedTeam.startsWith('season:');
+    const destinationSeasonId = isSeasonAssignment
+      ? bulkSelectedTeam.slice('season:'.length)
+      : '';
+    const destinationTeamId = isSeasonAssignment
+      ? null
+      : bulkSelectedTeam === 'unassign' ? null : bulkSelectedTeam;
     const operationSignature = JSON.stringify({
       tenantId,
       registrationIds,
+      destinationSeasonId,
       destinationTeamId,
       auditReason: bulkAuditReason.trim(),
     });
@@ -89,8 +100,13 @@
       const currentSignature = JSON.stringify({
         tenantId: $tenantIdStore,
         registrationIds: [...selectedPlayerIds].sort(),
+        destinationSeasonId: bulkSelectedTeam.startsWith('season:')
+          ? bulkSelectedTeam.slice('season:'.length)
+          : '',
         destinationTeamId:
-          bulkSelectedTeam === 'unassign' ? null : bulkSelectedTeam,
+          bulkSelectedTeam.startsWith('season:')
+            ? null
+            : bulkSelectedTeam === 'unassign' ? null : bulkSelectedTeam,
         auditReason: bulkAuditReason.trim(),
       });
       if (
@@ -108,26 +124,45 @@
     operationRequestId = '';
     try {
       assertCurrentScope();
-      const preview = await backendClient.previewRosterTransfer(
-        tenantId,
-        registrationIds,
-        destinationTeamId,
-      );
-      assertCurrentScope();
       if (!bulkOperationKey) {
-        bulkOperationKey = createIdempotencyKey('roster-atomic-transfer');
+        bulkOperationKey = createIdempotencyKey(
+          isSeasonAssignment
+            ? 'season-participant-assignment'
+            : 'roster-atomic-transfer',
+        );
       }
-      const result = await backendClient.commitRosterTransfer(
-        tenantId,
-        preview,
-        bulkAuditReason.trim(),
-        bulkOperationKey,
-      );
+      if (isSeasonAssignment) {
+        const result = await backendClient.assignSeasonParticipants(
+          tenantId,
+          destinationSeasonId,
+          registrationIds,
+          bulkAuditReason.trim(),
+          bulkOperationKey,
+        );
+        assertCurrentScope();
+        operationMessage =
+          `Season assignment complete: ${result.assignedCount} assigned and `
+          + `${result.alreadyAssignedCount} already connected.`;
+      } else {
+        const preview = await backendClient.previewRosterTransfer(
+          tenantId,
+          registrationIds,
+          destinationTeamId,
+        );
+        assertCurrentScope();
+        const result = await backendClient.commitRosterTransfer(
+          tenantId,
+          preview,
+          bulkAuditReason.trim(),
+          bulkOperationKey,
+        );
+        assertCurrentScope();
+        operationMessage =
+          `Roster transfer complete: ${result.preview.addCount} added, `
+          + `${result.preview.removeCount} removed, and `
+          + `${result.preview.noOpCount} unchanged.`;
+      }
       assertCurrentScope();
-      operationMessage =
-        `Roster transfer complete: ${result.preview.addCount} added, `
-        + `${result.preview.removeCount} removed, and `
-        + `${result.preview.noOpCount} unchanged.`;
       submitState = 'success';
       dispatch('changed');
       dataTable?.clearSelection();
@@ -169,6 +204,16 @@
     .map((team) => ({
       id: String(team.id).trim(),
       name: String(team.name || team.title || '').trim() || 'Unnamed team',
+    }));
+  $: transferSeasons = (Array.isArray(allSeasons) ? allSeasons : [])
+    .filter((season) => {
+      const id = String(season?.id || '').trim();
+      const status = String(season?.status || '').trim().toLowerCase();
+      return id && !['archived', 'deleted'].includes(status);
+    })
+    .map((season) => ({
+      id: String(season.id).trim(),
+      name: String(season.name || season.title || '').trim() || 'Unnamed season',
     }));
   $: filteredPlayers = playerRows.filter(p => {
     if (roleFilter && p.role !== roleFilter) return false;
@@ -230,6 +275,13 @@
               <option value={team.id}>{team.name}</option>
             {/each}
           </optgroup>
+          {#if transferSeasons.length > 0}
+            <optgroup label="Assign to Season">
+              {#each transferSeasons as season (season.id)}
+                <option value={`season:${season.id}`}>{season.name}</option>
+              {/each}
+            </optgroup>
+          {/if}
           <optgroup label="Other Actions">
             <option value="unassign">Unassign from Team</option>
           </optgroup>

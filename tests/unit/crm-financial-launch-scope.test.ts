@@ -35,9 +35,9 @@ describe('CRM financial launch scope', () => {
     expect(decision).toContain('Scholarships, financial-aid adjustments');
     expect(decision).toContain('ACH-specific administrator promises');
     expect(decision).toContain('Partial offline payments');
-    expect(financials).toContain(
-      'Configurable installment schedules, autopay plans, scholarships, credits, and financial-aid adjustments are not shipped.',
-    );
+    expect(financials).not.toContain('Launch capability boundary');
+    expect(financials).not.toContain('Audited financial period locks');
+    expect(financials).not.toContain('Configurable installment schedules');
     expect(financials).not.toMatch(
       /(?:create|save|enable|configure)\s+(?:an?\s+)?(?:installment|credit|scholarship|financial aid)/i,
     );

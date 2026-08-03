@@ -9,10 +9,10 @@
   const dispatch = createEventDispatcher();
 
   export let team = null;
+  export let parentTeam = null;
 
   let name = team ? team.name : '';
   let description = team ? team.description || '' : '';
-  let auditReason = '';
   let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
   let errorMessage = '';
   let operationSignature = '';
@@ -21,12 +21,23 @@
   let successTimer: ReturnType<typeof setTimeout> | null = null;
   let formSignature = '';
 
+  $: parentTeamId = String(
+    team?.parentTeamId || parentTeam?.id || '',
+  ).trim() || null;
+  $: parentTeamName = String(parentTeam?.name || '').trim();
+  $: auditReason = team?.id
+    ? 'Team details updated from Teams & Divisions.'
+    : parentTeamName
+      ? `Sub-team created under ${parentTeamName}.`
+      : 'Team created from Teams & Divisions.';
+
   function buildOperationSignature() {
     return JSON.stringify({
       tenantId: $tenantIdStore,
       teamId: team?.id || '',
       name: name.trim(),
       description: description.trim(),
+      parentTeamId,
       auditReason: auditReason.trim(),
     });
   }
@@ -36,6 +47,7 @@
     teamId: team?.id || '',
     name: name.trim(),
     description: description.trim(),
+    parentTeamId,
     auditReason: auditReason.trim(),
   });
   $: {
@@ -66,7 +78,6 @@
   async function handleSubmit() {
     if (
       !name.trim()
-      || auditReason.trim().length < 3
       || submitState === 'loading'
       || submitState === 'success'
     ) return;
@@ -93,7 +104,8 @@
     try {
       const data = {
         name: name.trim(),
-        description: description.trim()
+        description: description.trim(),
+        parentTeamId,
       };
 
       if (team && team.id) {
@@ -160,6 +172,11 @@
           <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4" id="modal-title">
             {team ? 'Edit Team' : 'Create New Team'}
           </h3>
+          {#if !team && parentTeamName}
+            <p class="mb-4 text-sm text-gray-600">
+              This team will be created under <strong>{parentTeamName}</strong>.
+            </p>
+          {/if}
 
           <div class="space-y-4">
             <div>
@@ -171,10 +188,6 @@
               <label for="team-desc" class="crm-ui-label">Description</label>
               <textarea id="team-desc" bind:value={description} rows="3" disabled={submitState === 'loading'} class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:cursor-wait disabled:opacity-50 sm:text-sm" placeholder="Optional description..."></textarea>
             </div>
-            <div>
-              <label for="team-audit-reason" class="crm-ui-label">Reason for change *</label>
-              <input id="team-audit-reason" type="text" bind:value={auditReason} minlength="3" maxlength="500" required disabled={submitState === 'loading'} class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm disabled:cursor-wait disabled:opacity-50" placeholder="Why is this team being created or changed?">
-            </div>
             {#if errorMessage}
               <p class="rounded-md bg-red-50 p-3 text-sm text-red-700" role="alert">{errorMessage}</p>
             {/if}
@@ -184,7 +197,7 @@
           <StatusButton
             type="submit"
             state={submitState}
-            disabled={!name.trim() || auditReason.trim().length < 3}
+            disabled={!name.trim()}
             idleText={team ? 'Save Team' : 'Create Team'}
             loadingText={team ? 'Saving...' : 'Creating...'}
             successText={team ? 'Saved!' : 'Created!'}

@@ -62,13 +62,18 @@
     || $eventsProjectionScope.error;
   $: totalPlayers = operationalLoading || operationalError
     ? '—'
-    : `${$registrationsStore.length}${$registrationsProjectionScope.truncated ? '+' : ''}`;
+    : String($registrationsStore.length);
   $: activeTeams = operationalLoading || operationalError
     ? '—'
-    : `${$teamsStore.length}${$teamsProjectionScope.truncated ? '+' : ''}`;
+    : String($teamsStore.length);
+  $: visibleEvents = $eventsStore.filter((event) =>
+    event.isDeleted !== true
+    && event.isVisible !== false
+    && String(event.lifecycleStatus || '').toLowerCase() === 'published'
+  );
   $: totalEvents = operationalLoading || operationalError
     ? '—'
-    : `${$eventsStore.length}${$eventsProjectionScope.truncated ? '+' : ''}`;
+    : String(visibleEvents.length);
 
   // Keep totals separated by currency and format integer minor units only.
   $: revenueTotals = Array.from($transactionsStore.reduce((totals, transaction) => {
@@ -103,14 +108,6 @@
       currency
     }).format(amount / 100);
   };
-
-  function formatRefreshTime(value: string | null) {
-    if (!value) return 'Not refreshed';
-    const date = new Date(value);
-    return Number.isNaN(date.getTime())
-      ? 'Refresh time unavailable'
-      : date.toLocaleString();
-  }
 
   function formatRegistrationDate(value: any) {
     const candidate = value?.toDate?.() || value || null;
@@ -199,9 +196,6 @@
                   {/each}
                 {/if}
               </dd>
-              <dd class="mt-2 text-xs text-gray-500">
-                Current tenant · period: all returned records, not an all-time total · up to {$financialProjectionScope.limitPerCollection} records per financial collection · refreshed {formatRefreshTime($financialProjectionScope.lastRefreshedAt)}
-              </dd>
               {#if $financialProjectionScope.error}
                 <dd class="mt-1 text-xs text-red-700" role="alert">{$financialProjectionScope.error}</dd>
               {/if}
@@ -283,10 +277,10 @@
     <div class="bg-white shadow rounded-lg">
       <div class="px-4 py-5 border-b border-gray-200 sm:px-6">
         <h3 class="crm-ui-modal-title">
-          {$registrationsProjectionScope.truncated ? 'Registration sample' : 'Recent Registrations'}
+          Recent Registrations
         </h3>
         {#if $registrationsProjectionScope.truncated}
-          <p class="mt-1 text-xs text-amber-700">Showing records from a limited 500-record projection; this is not a complete or chronological total.</p>
+          <p class="mt-1 text-xs text-gray-500">Showing the most recent records available to this dashboard preview. Older records remain available in the Registrations workspace.</p>
         {/if}
       </div>
       <div class="bg-white overflow-hidden sm:rounded-md">

@@ -20,6 +20,7 @@ Element.prototype.animate = vi.fn(() => ({
 vi.mock('../../src/lib/firebase', () => ({
   auth: {},
   db: {},
+  firebaseEnvironment: { config: { projectId: 'huddleway-dev' } },
   storage: {},
 }));
 
@@ -221,7 +222,14 @@ describe('CRM modal stacking and navigation', () => {
     await fireEvent.click(
       screen.getByRole('button', { name: 'Open navigation menu' }),
     );
-    await fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+    const mobileNavigationForSignOut = screen.getByRole('dialog', {
+      name: 'HuddleWay',
+    });
+    await fireEvent.click(
+      within(mobileNavigationForSignOut).getByRole('button', {
+        name: 'Sign out',
+      }),
+    );
     const dialog = screen.getByRole('dialog', { name: 'Sign Out' });
     await fireEvent.click(
       within(dialog).getByRole('button', { name: 'Sign out' }),
@@ -275,7 +283,7 @@ describe('CRM modal stacking and navigation', () => {
 
     expect(
       screen.getByText(
-        'Configure what information parents must provide when registering.',
+        'Each step appears in this order for future registrations.',
       ),
     ).toBeVisible();
     expect(

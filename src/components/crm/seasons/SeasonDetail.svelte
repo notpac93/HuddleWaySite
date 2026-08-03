@@ -13,6 +13,7 @@
     financialProjectionScope,
     seasonRegistrationsProjectionScope,
     seasonRegistrationsStore,
+    registrationNamesMap,
     usersMap,
   } from '../../../lib/services/DataStore';
   import LinkEventModal from './LinkEventModal.svelte';
@@ -117,7 +118,12 @@
       return {
         id: r.id,
         userId: r.userId,
-        name: String($usersMap[r.userId] || r.userId || 'Participant name unavailable'),
+        name: String(
+          r.participantName
+          || $registrationNamesMap[String(r.registrationId || '').trim()]
+          || $usersMap[r.userId]
+          || 'Participant name unavailable'
+        ),
         date: r.createdAt
           ? new Date(r.createdAt.toMillis ? r.createdAt.toMillis() : r.createdAt)
           : null,
@@ -408,7 +414,7 @@
   >
     Export
   </button>
-  <p class="ml-auto text-xs text-gray-500">Add participants through a registration workflow.</p>
+  <p class="ml-auto text-xs text-gray-500">Participants are managed through registrations.</p>
 </div>
 
 <!-- Participants Table -->

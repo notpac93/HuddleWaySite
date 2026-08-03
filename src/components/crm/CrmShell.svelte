@@ -6,6 +6,7 @@
   import { doc, onSnapshot } from 'firebase/firestore';
   import { tenantIdStore, availableTenants } from '../../lib/authStore';
   import { modalFocus } from '../../lib/ui/modalFocus';
+  import CrmBreadcrumbs from './CrmBreadcrumbs.svelte';
 
   export let activeTab = 'Dashboard';
   export let tabs = [];
@@ -147,6 +148,24 @@
     activeTab = tab;
     showMobileMenu = false;
   }
+
+  function openActiveTeamHome() {
+    setActiveTab('Rostering');
+  }
+
+  $: breadcrumbItems = activeTeam
+    ? [
+        { label: 'Organization', onSelect: onExitTeam },
+        {
+          label: String(activeTeam.name || 'Team'),
+          onSelect: activeTab === 'Rostering' ? undefined : openActiveTeamHome,
+          current: activeTab === 'Rostering',
+        },
+        ...(activeTab === 'Rostering'
+          ? []
+          : [{ label: activeTab, current: true }]),
+      ]
+    : [{ label: activeTab, current: true }];
 
   function handleSearchNavigate(event: CustomEvent<{ tab: string; id: string }>) {
     activeResultId = event.detail.id;
@@ -336,18 +355,17 @@
             <span class="block text-xs text-gray-400 truncate">Switch organization</span>
           </span>
         </button>
-        {#if isSidebarHovered}
-          <button
-            type="button"
-            class="crm-ui-shell-signout-icon"
-            on:click={() => showLogoutModal = true}
-            aria-label="Sign out"
-          >
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-          </button>
-        {/if}
+        <button
+          type="button"
+          class="crm-ui-shell-signout-icon {isSidebarHovered ? '' : 'absolute bottom-3 right-2'}"
+          on:click={() => showLogoutModal = true}
+          aria-label="Sign out"
+          title="Sign out"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+        </button>
       </div>
 
       {#if showOrgSwitcher && $availableTenants.length > 0 && isSidebarHovered}
@@ -382,17 +400,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
         </svg>
       </button>
-      <div class="crm-ui-shell-breadcrumb">
-        {#if activeTeam}
-          <button type="button" class="hidden font-medium transition-colors hover:text-gray-900 sm:inline" on:click={onExitTeam}>Organization</button>
-          <svg class="hidden h-4 w-4 text-gray-400 sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-          <span class="hidden truncate font-medium sm:inline">{activeTeam.name}</span>
-          <svg class="hidden h-4 w-4 text-gray-400 sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-          <span class="truncate text-base font-semibold text-gray-900 sm:text-lg">{activeTab}</span>
-        {:else}
-          <span class="truncate text-base font-semibold text-gray-900 sm:text-lg">{activeTab}</span>
-        {/if}
-      </div>
+      <CrmBreadcrumbs items={breadcrumbItems} />
       <div class="max-w-lg flex-1 sm:px-4 lg:px-8">
         <div class="relative group">
           <div class="crm-ui-shell-search-icon">

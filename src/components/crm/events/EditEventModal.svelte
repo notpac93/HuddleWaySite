@@ -4,6 +4,8 @@
   import { backendClient } from '../../../lib/api/backendClient';
   import { BackendApiError, createIdempotencyKey, type CrmEventOccurrenceInput } from '../../../lib/api/BackendApi';
   import StatusButton from '../ui/StatusButton.svelte';
+  import ImageFilePicker from '../ui/ImageFilePicker.svelte';
+  import { validateImageFile } from '../../../lib/media/imageUpload';
   import { modalFocus } from '../../../lib/ui/modalFocus';
 
   export let event: any = null;
@@ -18,6 +20,8 @@
   let teamId = event ? event.teamId || '' : '';
   let lifecycleStatus = event ? event.lifecycleStatus || 'draft' : 'draft';
   let imageUrl = event ? event.imageUrl || '' : '';
+  let imageFile: File | null = null;
+  let imageValidationMessage = '';
   function localDateKey(date: Date) {
     return [
       date.getFullYear(),
@@ -35,11 +39,12 @@
     ? new Date(event.endDateObj).toTimeString().slice(0, 5)
     : '';
   let applyToSeries = false;
-  let auditReason = '';
+  const auditReason = 'Event updated from CRM.';
 
   let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
   let errorMessage = '';
   let operationKey = createIdempotencyKey('event-update');
+  let imageUploadKey = createIdempotencyKey('event-cover-upload');
   let payloadSignature = '';
   let currentPayloadSignature = '';
   let operationGeneration = 0;
@@ -61,6 +66,10 @@
     location: location.trim(),
     teamId,
     lifecycleStatus,
+    imageUrl: imageUrl.trim(),
+    imageFile: imageFile
+      ? { name: imageFile.name, type: imageFile.type, size: imageFile.size }
+      : null,
     rawDate,
     rawTime,
     rawEndTime,
@@ -73,6 +82,7 @@
     if (signature !== payloadSignature && submitState !== 'loading') {
       payloadSignature = signature;
       operationKey = createIdempotencyKey('event-update');
+      imageUploadKey = createIdempotencyKey('event-cover-upload');
       if (submitState === 'error') submitState = 'idle';
       errorMessage = '';
     } else if (signature !== payloadSignature) {
@@ -114,15 +124,15 @@
       errorMessage = 'Choose a valid event lifecycle status before saving.';
       return;
     }
+    imageValidationMessage = validateImageFile(imageFile);
+    if (imageValidationMessage) {
+      return;
+    }
     if (
       applyToSeries
       && (!projectionComplete || seriesSize > 400)
     ) {
       errorMessage = 'Series updates require a complete series of at most 400 events.';
-      return;
-    }
-    if (auditReason.trim().length < 3) {
-      errorMessage = 'Provide a reason for updating this event.';
       return;
     }
     if (
@@ -145,6 +155,20 @@
     errorMessage = '';
 
     try {
+      const uploadedImage = imageFile
+        ? await backendClient.uploadImageAsset(
+          tenantId,
+          imageFile,
+          'event-cover',
+          imageUploadKey,
+        )
+        : null;
+      if (
+        generation !== operationGeneration
+        || $tenantIdStore !== tenantId
+        || String(event?.id || '') !== eventId
+        || payloadSignature !== submittedSignature
+      ) return;
       const update: Parameters<typeof backendClient.updateEvent>[2] = {
         title: title.trim(),
         location: location.trim(),
@@ -153,6 +177,9 @@
       };
       if (lifecycleStatus !== originalLifecycleStatus) {
         update.lifecycleStatus = lifecycleStatus;
+      }
+      if (uploadedImage) {
+        update.imageReservationId = uploadedImage.reservationId;
       }
       if (!update.applyToSeries) {
         const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -178,13 +205,29 @@
           timeZone,
         } satisfies CrmEventOccurrenceInput);
       }
-      await backendClient.updateEvent(
+      const updatedEvent = await backendClient.updateEvent(
         tenantId,
         eventId,
         update,
         auditReason.trim(),
         idempotencyKey,
       );
+      const imageReservationId = uploadedImage?.reservationId
+        || (
+          lifecycleStatus !== originalLifecycleStatus
+            ? String(event.imageReservationId || event.imageAssetId || '').trim()
+            : ''
+        );
+      if (imageReservationId) {
+        await backendClient.publishImageAsset(
+          tenantId,
+          imageReservationId,
+          'event',
+          updatedEvent.eventIds,
+          'Synchronize the verified event cover with event publication state.',
+          `${uploadedImage ? imageUploadKey : idempotencyKey}:publish`,
+        );
+      }
       if (
         generation !== operationGeneration
         || $tenantIdStore !== tenantId
@@ -227,29 +270,15 @@
       </div>
 
       <div class="mt-4 space-y-4">
-        <!-- Banner Image Upload / Preview -->
-        <div>
-          <p class="block text-xs font-semibold uppercase tracking-wider text-gray-700 mb-1.5">Event Image Banner</p>
-          <div class="flex items-center space-x-4">
-            <div class="crm-ui-event-edit-thumbnail">
-              {#if imageUrl}
-                <img
-                  src={imageUrl}
-                  alt="Event Preview"
-                  width="640"
-                  height="288"
-                  decoding="async"
-                  class="crm-ui-cover"
-                />
-              {:else}
-                <div class="w-full h-full flex items-center justify-center text-xs text-gray-400">No Image</div>
-              {/if}
-            </div>
-            <div class="flex-1 space-y-2">
-              <p class="crm-ui-notice-sm">Image changes are unavailable until the approved upload workflow is enabled. The current image is retained.</p>
-            </div>
-          </div>
-        </div>
+        <ImageFilePicker
+          inputId="event-edit-image"
+          label="Event Image Banner"
+          currentUrl={imageUrl}
+          previewAlt="Event image"
+          bind:selectedFile={imageFile}
+          bind:validationMessage={imageValidationMessage}
+          disabled={submitState === 'loading'}
+        />
 
         <!-- Title -->
         <div>
@@ -376,11 +405,6 @@
           </div>
         {/if}
 
-        <div>
-          <label for="edit-event-audit-reason" class="crm-ui-label-caps">Reason for change *</label>
-          <input id="edit-event-audit-reason" type="text" bind:value={auditReason} minlength="3" maxlength="500" required class="crm-ui-field" placeholder="Why is this event being changed?">
-        </div>
-
         {#if errorMessage}
           <div class="crm-ui-danger">
             {errorMessage}
@@ -397,8 +421,7 @@
           state={submitState}
           on:click={handleSave}
           disabled={
-            auditReason.trim().length < 3
-            || submitState === 'loading'
+            submitState === 'loading'
             || (
               publishConfirmationRequired
               && publishConfirmation !== publishConfirmationText

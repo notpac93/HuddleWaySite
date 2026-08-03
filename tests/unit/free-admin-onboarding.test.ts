@@ -23,7 +23,9 @@ describe('free administrator onboarding contract', () => {
     const app = source('CrmApp.svelte');
 
     expect(app).toContain('$userStore.emailVerified');
-    expect(app).toContain('<SetupWorkflow />');
+    expect(app).toContain("import('./SetupWorkflow.svelte')");
+    expect(app).toContain('this={setupComponent}');
+    expect(app).toContain('Setup could not be loaded');
     expect(app).toContain('Program setup is free.');
     expect(app).not.toMatch(/activation entitlement|activation contact/i);
   });

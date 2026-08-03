@@ -8,44 +8,47 @@ const nativeControls = new Set(['button', 'a', 'input', 'select', 'textarea']);
 
 const reviewedControlCounts: Record<string, number> = {
   'ActivityManager.svelte': 3,
-  'CommunicationsManager.svelte': 11,
-  'CrmApp.svelte': 1,
-  'CrmShell.svelte': 15,
+  'CommunicationsManager.svelte': 12,
+  'CrmApp.svelte': 2,
+  'CrmBreadcrumbs.svelte': 1,
+  'CrmShell.svelte': 14,
   'DataTable.svelte': 9,
   'DocumentsManager.svelte': 7,
-  'EventScheduler.svelte': 19,
+  'EventScheduler.svelte': 18,
   'FinancialPeriodManager.svelte': 14,
-  'Financials.svelte': 29,
+  'Financials.svelte': 30,
   'GlobalDashboard.svelte': 2,
   'GlobalSearch.svelte': 5,
   'InviteStaffModal.svelte': 6,
   'Login.svelte': 13,
   'MediaManager.svelte': 2,
-  'MyAppStudio.svelte': 9,
+  'MyAppStudio.svelte': 10,
   'SettingsManager.svelte': 2,
   'SetupWorkflow.svelte': 11,
   'StaffManager.svelte': 14,
-  'TeamsManager.svelte': 3,
+  'TeamsManager.svelte': 7,
+  'TenantOperations.svelte': 10,
   'TransactionDetails.svelte': 36,
-  'events/CreateEventForm.svelte': 19,
-  'events/DuplicateEventModal.svelte': 10,
-  'events/EditEventModal.svelte': 13,
+  'events/CreateEventForm.svelte': 18,
+  'events/DuplicateEventModal.svelte': 9,
+  'events/EditEventModal.svelte': 12,
   'events/EventRegistrantsModal.svelte': 2,
   'events/RecurrenceSelector.svelte': 13,
-  'registration/CreateRegistrationForm.svelte': 18,
-  'registration/FormsTable.svelte': 2,
+  'registration/CreateRegistrationForm.svelte': 21,
+  'registration/FormsTable.svelte': 1,
   'registration/RegistrationDetail.svelte': 10,
   'registration/RegistrationManager.svelte': 7,
   'roster/ImportCsv.svelte': 2,
   'roster/PlayerTable.svelte': 5,
   'roster/RosterManager.svelte': 3,
-  'roster/TeamTable.svelte': 3,
-  'seasons/CreateSeasonModal.svelte': 7,
-  'seasons/EditSeasonModal.svelte': 10,
-  'seasons/LinkEventModal.svelte': 6,
+  'roster/TeamTable.svelte': 5,
+  'seasons/CreateSeasonModal.svelte': 6,
+  'seasons/EditSeasonModal.svelte': 8,
+  'seasons/LinkEventModal.svelte': 5,
   'seasons/SeasonDetail.svelte': 13,
   'seasons/SeasonsManager.svelte': 8,
-  'teams/CreateTeamForm.svelte': 5,
+  'teams/CreateTeamForm.svelte': 4,
+  'ui/ImageFilePicker.svelte': 1,
   'ui/StatusButton.svelte': 1,
 };
 
@@ -113,7 +116,7 @@ describe('exhaustive CRM control inventory', () => {
     );
 
     expect(actual).toEqual(reviewedControlCounts);
-    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(368);
+    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(382);
   });
 
   it('keeps every inventoried CRM component reachable from a production entry point', () => {

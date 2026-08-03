@@ -44,16 +44,12 @@ function deferred<T>() {
 async function reachBuilder({
   title = '  Fall 12U Registration  ',
   description = '  Fall program intake  ',
-  reason = 'Approved for the fall registration cycle.',
 } = {}) {
   await fireEvent.input(screen.getByLabelText('Registration Title *'), {
     target: { value: title },
   });
   await fireEvent.input(screen.getByLabelText('Description'), {
     target: { value: description },
-  });
-  await fireEvent.input(screen.getByLabelText('Reason for change *'), {
-    target: { value: reason },
   });
   await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
   expect(screen.getByRole('button', { name: 'Save Form' })).toBeVisible();
@@ -77,9 +73,6 @@ describe('CreateRegistrationForm guarded mutation states', () => {
     render(TestedCreateRegistrationForm);
     await reachBuilder();
 
-    await fireEvent.click(
-      screen.getByLabelText('Medical & Allergies'),
-    );
     const submit = screen.getByRole('button', { name: 'Save Form' });
     await fireEvent.click(submit);
     await fireEvent.click(submit);
@@ -87,7 +80,7 @@ describe('CreateRegistrationForm guarded mutation states', () => {
     expect(backendMocks.createRegistrationForm).toHaveBeenCalledTimes(1);
     expect(backendMocks.createRegistrationForm).toHaveBeenCalledWith(
       'tenant-a',
-      {
+      expect.objectContaining({
         title: 'Fall 12U Registration',
         description: 'Fall program intake',
         fields: {
@@ -98,14 +91,24 @@ describe('CreateRegistrationForm guarded mutation states', () => {
           collectDob: true,
           collectGender: false,
           collectShirtSize: false,
-          collectMedicalInfo: true,
+          collectMedicalInfo: false,
           collectExperience: false,
           collectCoachRequest: false,
           collectVolunteer: false,
         },
+        sections: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'player_information',
+            title: 'Player Information',
+            fields: expect.arrayContaining([
+              expect.objectContaining({ id: 'player_name', required: true }),
+              expect.objectContaining({ id: 'player_dob', type: 'date' }),
+            ]),
+          }),
+        ]),
         status: 'active',
-      },
-      'Approved for the fall registration cycle.',
+      }),
+      'Registration form created from CRM.',
       expect.stringMatching(/^registration-form-create:/),
     );
     expect(screen.getByRole('button', { name: 'Saving...' })).toBeDisabled();
@@ -114,8 +117,8 @@ describe('CreateRegistrationForm guarded mutation states', () => {
     expect(
       screen.getByRole('button', { name: 'Cancel registration form' }),
     ).toBeDisabled();
-    expect(screen.getByLabelText('Medical & Allergies')).toBeDisabled();
-    expect(screen.getByLabelText('Reason for change *')).toBeDisabled();
+    expect(screen.getAllByLabelText('Question')[0]).toBeDisabled();
+    expect(screen.queryByText('Reason for change')).not.toBeInTheDocument();
 
     pending.resolve({ id: 'registration-form-1' });
     expect(
@@ -159,9 +162,9 @@ describe('CreateRegistrationForm guarded mutation states', () => {
     });
     expect(backendMocks.createRegistrationForm.mock.calls[1][3]).toBe(firstKey);
 
-    await fireEvent.click(
-      screen.getByLabelText(/^Volunteer Opportunities/),
-    );
+    await fireEvent.input(screen.getAllByLabelText('Question')[0], {
+      target: { value: 'Athlete Full Name' },
+    });
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Save Form' })).toBeEnabled();
     });
@@ -188,9 +191,6 @@ describe('CreateRegistrationForm guarded mutation states', () => {
     await fireEvent.input(screen.getByLabelText('Description'), {
       target: { value: ' Updated retired form ' },
     });
-    await fireEvent.input(screen.getByLabelText('Reason for change *'), {
-      target: { value: 'Correct the retired form description.' },
-    });
     await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Save Form' }));
 
@@ -202,7 +202,7 @@ describe('CreateRegistrationForm guarded mutation states', () => {
         description: 'Updated retired form',
         status: 'archived',
       }),
-      'Correct the retired form description.',
+      'Registration form updated from CRM.',
       expect.stringMatching(/^registration-form-update:/),
     );
     expect(backendMocks.createRegistrationForm).not.toHaveBeenCalled();
@@ -214,9 +214,6 @@ describe('CreateRegistrationForm guarded mutation states', () => {
         title: 'Unknown Registration',
         rawStatus: 'migrating',
       },
-    });
-    await fireEvent.input(screen.getByLabelText('Reason for change *'), {
-      target: { value: 'Review the unsupported lifecycle.' },
     });
     await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(

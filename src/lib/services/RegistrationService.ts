@@ -1,98 +1,111 @@
-import { db } from '../firebase';
-import {
-  collection,
-  documentId,
-  getDocs,
-  limit,
-  onSnapshot,
-  orderBy,
-  query,
-  where,
-  type DocumentData,
-  type QuerySnapshot,
-} from 'firebase/firestore';
+import { backendClient } from '../api/backendClient';
 import { registrationDisplayRecord } from '../ui/registrationDisplay';
 
-const REGISTRATION_READ_LIMIT = 500;
+type OperationalRecord = Record<string, unknown> & { id: string };
 
 function timestampDateOrNull(value: unknown): Date | null {
-  if (!value || typeof (value as { toDate?: unknown }).toDate !== 'function') return null;
-  const date = (value as { toDate: () => Date }).toDate();
-  return date instanceof Date && !Number.isNaN(date.getTime()) ? date : null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  if (value && typeof (value as { toDate?: unknown }).toDate === 'function') {
+    const date = (value as { toDate: () => Date }).toDate();
+    return date instanceof Date && !Number.isNaN(date.getTime()) ? date : null;
+  }
+  return null;
+}
+
+async function loadAllOperationalRecords(
+  tenantId: string,
+  collection: 'events' | 'registration_forms' | 'registrations',
+): Promise<OperationalRecord[]> {
+  let cursor: string | undefined;
+  const records: OperationalRecord[] = [];
+  do {
+    const page = await backendClient.crmOperationalPage(
+      tenantId,
+      collection,
+      { limit: 100, cursor },
+    );
+    records.push(...page.records);
+    cursor = page.hasMore ? page.nextCursor || undefined : undefined;
+    if (page.hasMore && !cursor) {
+      throw new Error('The CRM page response omitted its next cursor.');
+    }
+  } while (cursor);
+  return records;
+}
+
+function normalizeForm(record: OperationalRecord) {
+  const storedTitle =
+    typeof record.title === 'string' && record.title.trim()
+      ? record.title.trim()
+      : typeof record.name === 'string' && record.name.trim()
+        ? record.name.trim()
+        : null;
+  const rawStatus =
+    typeof record.status === 'string' ? record.status.toLocaleLowerCase() : null;
+  return {
+    ...record,
+    title: storedTitle,
+    name: storedTitle || 'Form name unavailable',
+    rawStatus,
+    status:
+      rawStatus === 'archived' || rawStatus === 'closed'
+        ? 'Closed'
+        : rawStatus === 'active' || rawStatus === 'open'
+          ? 'Open'
+          : 'Status unavailable',
+    dateCreated: timestampDateOrNull(record.createdAt),
+    program:
+      typeof record.teamId === 'string' && record.teamId.trim()
+        ? record.teamId.trim()
+        : 'Program-wide',
+  };
 }
 
 export class RegistrationService {
   /**
-   * Subscribes to events/forms for a given tenant.
-   * We use onSnapshot for real-time updates.
+   * Loads registration forms through authenticated backend pages.
+   * The returned cancellation function prevents stale tenant responses from
+   * updating a view after the user switches organizations or leaves the page.
    */
   static subscribeToForms(
     tenantId: string,
     callback: (forms: any[]) => void,
     onError: (error: unknown) => void = () => {},
-    onScope: (scope: { truncated: boolean; limit: number }) => void = () => {},
   ) {
     if (!tenantId) {
       callback([]);
-      return () => {}; // return empty unsubscribe function
+      return () => {};
     }
 
-    const q = query(
-      collection(db, 'registration_forms'),
-      where('tenantId', '==', tenantId),
-      orderBy(documentId()),
-      limit(REGISTRATION_READ_LIMIT + 1),
-    );
+    let cancelled = false;
+    void loadAllOperationalRecords(tenantId, 'registration_forms')
+      .then((records) => {
+        if (!cancelled) callback(records.map(normalizeForm).sort((left, right) => {
+          if (left.dateCreated && right.dateCreated) {
+            return right.dateCreated.getTime() - left.dateCreated.getTime();
+          }
+          if (left.dateCreated) return -1;
+          if (right.dateCreated) return 1;
+          return left.id.localeCompare(right.id);
+        }));
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error('Registration forms could not be loaded.');
+        onError(error);
+      });
 
-    return onSnapshot(q, (querySnapshot: QuerySnapshot<DocumentData>) => {
-      const forms = querySnapshot.docs.slice(0, REGISTRATION_READ_LIMIT).map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          title:
-            typeof data.title === 'string' && data.title.trim()
-              ? data.title.trim()
-              : null,
-          name:
-            typeof data.title === 'string' && data.title.trim()
-              ? data.title.trim()
-              : 'Form name unavailable',
-          rawStatus:
-            typeof data.status === 'string' ? data.status.toLocaleLowerCase() : null,
-          status:
-            data.status === 'archived' || data.status === 'closed'
-              ? 'Closed'
-              : data.status === 'active' || data.status === 'open'
-                ? 'Open'
-                : 'Status unavailable',
-          dateCreated: timestampDateOrNull(data.createdAt),
-          program: typeof data.teamId === 'string' && data.teamId.trim()
-            ? data.teamId.trim()
-            : null,
-        };
-      }).sort((a, b) => {
-        if (a.dateCreated && b.dateCreated) {
-          return b.dateCreated.getTime() - a.dateCreated.getTime();
-        }
-        if (a.dateCreated) return -1;
-        if (b.dateCreated) return 1;
-        return a.id.localeCompare(b.id);
-      });
-      onScope({
-        truncated: querySnapshot.docs.length > REGISTRATION_READ_LIMIT,
-        limit: REGISTRATION_READ_LIMIT,
-      });
-      callback(forms);
-    }, (error) => {
-      console.error('Registration forms could not be loaded.');
-      onError(error);
-    });
+    return () => {
+      cancelled = true;
+    };
   }
 
-  /**
-   * Fetches participants (registrations) for a specific form.
-   */
   static async fetchParticipants(tenantId: string, formId: string) {
     return (await this.fetchParticipantsPage(tenantId, formId)).records;
   }
@@ -101,90 +114,64 @@ export class RegistrationService {
     return (await this.fetchRegistrationDetailPage(tenantId, formId)).participants;
   }
 
-  /**
-   * Fetches events that are connected to a specific form.
-   */
   static async fetchEventsForForm(tenantId: string, formId: string) {
     return (await this.fetchEventsForFormPage(tenantId, formId)).records;
   }
 
   static async fetchEventsForFormPage(tenantId: string, formId: string) {
     if (!tenantId || !formId) {
-      return { records: [], truncated: false, limit: REGISTRATION_READ_LIMIT };
+      return { records: [], truncated: false, limit: null };
     }
-    const result = await getDocs(query(
-      collection(db, 'events'),
-      where('tenantId', '==', tenantId),
-      where('registrationFormId', '==', formId),
-      orderBy(documentId()),
-      limit(REGISTRATION_READ_LIMIT + 1),
-    ));
+    const events = await loadAllOperationalRecords(tenantId, 'events');
     return {
-      records: result.docs.slice(0, REGISTRATION_READ_LIMIT).map((entry) => ({
-        id: entry.id,
-        ...entry.data(),
-      })),
-      truncated: result.docs.length > REGISTRATION_READ_LIMIT,
-      limit: REGISTRATION_READ_LIMIT,
+      records: events.filter((event) => event.registrationFormId === formId),
+      truncated: false,
+      limit: null,
     };
   }
 
   static async fetchRegistrationDetailPage(tenantId: string, formId: string) {
-    const events = await this.fetchEventsForFormPage(tenantId, formId);
-    const eventIds = events.records
-      .map((event) => event.id)
-      .filter((id): id is string => typeof id === 'string' && Boolean(id));
-    if (eventIds.length === 0) {
+    if (!tenantId || !formId) {
       return {
-        events,
+        events: { records: [], truncated: false, limit: null },
         participants: {
           records: [],
-          truncated: events.truncated,
-          limit: REGISTRATION_READ_LIMIT,
+          truncated: false,
+          limit: null,
+          exactCount: 0,
         },
       };
     }
 
-    const chunks: string[][] = [];
-    for (let index = 0; index < eventIds.length; index += 30) {
-      chunks.push(eventIds.slice(index, index + 30));
-    }
-    const snapshots = await Promise.all(chunks.map((eventIdChunk) =>
-      getDocs(query(
-        collection(db, 'registrations'),
-        where('tenantId', '==', tenantId),
-        where('eventId', 'in', eventIdChunk),
-        orderBy(documentId()),
-        limit(REGISTRATION_READ_LIMIT + 1),
+    const [events, registrations] = await Promise.all([
+      this.fetchEventsForFormPage(tenantId, formId),
+      loadAllOperationalRecords(tenantId, 'registrations'),
+    ]);
+    const eventIds = new Set(
+      events.records
+        .map((event) => event.id)
+        .filter((id): id is string => typeof id === 'string' && Boolean(id)),
+    );
+    const participants = registrations
+      .filter((registration) =>
+        registration.formId === formId
+        || (typeof registration.eventId === 'string'
+          && eventIds.has(registration.eventId)),
+      )
+      .map((registration) => registrationDisplayRecord(
+        registration.id,
+        registration,
+        timestampDateOrNull(registration.createdAt),
       ))
-    ));
-    const deduplicated = new Map<string, any>();
-    for (const snapshot of snapshots) {
-      for (const entry of snapshot.docs) {
-        if (deduplicated.size > REGISTRATION_READ_LIMIT) break;
-        const data = entry.data();
-        deduplicated.set(
-          entry.id,
-          registrationDisplayRecord(
-            entry.id,
-            data,
-            timestampDateOrNull(data.createdAt),
-          ),
-        );
-      }
-    }
-    const records = Array.from(deduplicated.values())
-      .sort((left, right) => left.id.localeCompare(right.id))
-      .slice(0, REGISTRATION_READ_LIMIT);
+      .sort((left, right) => left.id.localeCompare(right.id));
+
     return {
       events,
       participants: {
-        records,
-        truncated:
-          events.truncated
-          || snapshots.some((snapshot) => snapshot.docs.length > REGISTRATION_READ_LIMIT)
-          || deduplicated.size > REGISTRATION_READ_LIMIT,
-        limit: REGISTRATION_READ_LIMIT,
+        records: participants,
+        truncated: false,
+        limit: null,
+        exactCount: participants.length,
       },
     };
   }

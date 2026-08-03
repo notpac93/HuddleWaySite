@@ -2,6 +2,17 @@ import { expect, test } from '@playwright/test';
 
 const loopbackHosts = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
 
+test('admin entry routes accept bookmarked trailing slashes', async ({ page }) => {
+  for (const route of ['/admin/', '/admin/setup/']) {
+    await page.goto(route, { waitUntil: 'domcontentloaded' });
+    await expect(page).not.toHaveTitle('404: Not Found');
+  }
+
+  await expect(
+    page.getByRole('heading', { name: 'Set up your organization' }),
+  ).toBeVisible();
+});
+
 test('setup validation advances without contacting external Firebase services', async ({
   context,
   page,

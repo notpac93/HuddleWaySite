@@ -43,6 +43,13 @@ const stores = vi.hoisted(() => {
     registrationsProjectionScope: writableStore(projection()),
     teamsProjectionScope: writableStore(projection()),
     eventsProjectionScope: writableStore(projection()),
+    dashboardOperationalCountScope: writableStore({
+      loading: false,
+      registrations: 0,
+      teams: 0,
+      events: 0,
+      error: '',
+    }),
     financialProjectionScope: writableStore({
       loading: false,
       truncated: {
@@ -80,7 +87,7 @@ function projection(truncated = false, error = '') {
   };
 }
 
-describe('GlobalDashboard bounded projections', () => {
+describe('GlobalDashboard complete operational projections', () => {
   beforeEach(() => {
     stores.activeTenantRole.set('owner');
     stores.registrationsStore.set([]);
@@ -90,6 +97,13 @@ describe('GlobalDashboard bounded projections', () => {
     stores.registrationsProjectionScope.set(projection());
     stores.teamsProjectionScope.set(projection());
     stores.eventsProjectionScope.set(projection());
+    stores.dashboardOperationalCountScope.set({
+      loading: false,
+      registrations: 0,
+      teams: 0,
+      events: 0,
+      error: '',
+    });
     stores.financialProjectionScope.set({
       loading: false,
       truncated: {
@@ -123,6 +137,8 @@ describe('GlobalDashboard bounded projections', () => {
     stores.eventsStore.set(Array.from({ length: 500 }, (_, index) => ({
       id: `event-${index}`,
       title: `Event ${index}`,
+      lifecycleStatus: 'published',
+      isVisible: true,
     })));
     stores.transactionsStore.set([{
       id: 'transaction-1',
@@ -133,6 +149,13 @@ describe('GlobalDashboard bounded projections', () => {
     stores.registrationsProjectionScope.set(projection(true));
     stores.teamsProjectionScope.set(projection(true));
     stores.eventsProjectionScope.set(projection(true));
+    stores.dashboardOperationalCountScope.set({
+      loading: false,
+      registrations: 501,
+      teams: 501,
+      events: 501,
+      error: '',
+    });
     stores.financialProjectionScope.update((scope) => ({
       ...scope,
       truncated: { ...scope.truncated, transactions: true },
@@ -143,16 +166,16 @@ describe('GlobalDashboard bounded projections', () => {
       screen.getByText('Registration Records').closest('dl');
     const teamsCard = screen.getByText('Teams').closest('dl');
     const eventsCard = screen.getByText('Events Managed').closest('dl');
-    expect(registrationsCard).toHaveTextContent('500+');
+    expect(registrationsCard).toHaveTextContent('500');
     expect(registrationsCard).toHaveTextContent(
       'Limited projection; exact count unavailable',
     );
-    expect(teamsCard).toHaveTextContent('500+');
-    expect(eventsCard).toHaveTextContent('500+');
-    expect(screen.getByText('Registration sample')).toBeVisible();
+    expect(teamsCard).toHaveTextContent('500');
+    expect(eventsCard).toHaveTextContent('500');
+    expect(screen.getByText('Recent Registrations')).toBeVisible();
     expect(
       screen.getByText(
-        'Showing records from a limited 500-record projection; this is not a complete or chronological total.',
+        'Showing the most recent records available to this dashboard preview. Older records remain available in the Registrations workspace.',
       ),
     ).toBeVisible();
 

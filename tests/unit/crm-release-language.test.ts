@@ -18,8 +18,8 @@ function components(directory = crmRoot): string[] {
 }
 
 describe('CRM release language contract', () => {
-  it('reviews the entire 40-component release tree', () => {
-    expect(components().map((file) => relative(crmRoot, file))).toHaveLength(40);
+  it('reviews the entire 43-component release tree', () => {
+    expect(components().map((file) => relative(crmRoot, file))).toHaveLength(43);
   });
 
   it('rejects simulated, placeholder, and raw exception language', () => {
@@ -56,7 +56,8 @@ describe('CRM release language contract', () => {
       'Program creation and administration are free. No payment method is required.',
     );
     expect(setup).toContain('Skip payment setup');
-    expect(app).toContain('<SetupWorkflow />');
+    expect(app).toContain("import('./SetupWorkflow.svelte')");
+    expect(app).toContain('Setup could not be loaded');
     expect(marketing).toContain('Creating and administering a program is free.');
 
     for (const text of [login, setup, app, marketing]) {
@@ -68,9 +69,19 @@ describe('CRM release language contract', () => {
 
   it('states excluded financial capabilities instead of teasing them', () => {
     const financials = readFileSync(join(crmRoot, 'Financials.svelte'), 'utf8');
-    expect(financials).toContain(
-      'Configurable installment schedules, autopay plans, scholarships, credits, and financial-aid adjustments are not shipped.',
-    );
+    expect(financials).not.toContain('Launch capability boundary');
+    expect(financials).not.toContain('Audited financial period locks');
+    expect(financials).not.toContain('Configurable installment schedules');
     expect(financials).not.toMatch(/set up installments|add scholarship|apply credit/i);
+  });
+
+  it('keeps routine CRM actions free of generic audit-reason prompts', () => {
+    const source = components()
+      .map((file) => readFileSync(file, 'utf8'))
+      .join('\n');
+
+    expect(source).not.toContain('Reason for change');
+    expect(source).not.toContain('Open details');
+    expect(source).not.toMatch(/>\s*Recall\s*</);
   });
 });

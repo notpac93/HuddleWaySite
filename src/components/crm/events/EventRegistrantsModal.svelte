@@ -8,6 +8,7 @@
   export let registrations = [];
   export let onClose = () => {};
   export let incomplete = false;
+  export let exactCount: number | null = null;
 
   const dispatch = createEventDispatcher();
 
@@ -33,7 +34,11 @@
               Event Registrants
             </h3>
             <p class="mt-1 text-sm text-gray-500">
-              {event?.title || 'Event'} • {incomplete ? 'Count unavailable' : `${eventRegistrants.length} registered`}
+              {event?.title || 'Event'} • {exactCount !== null
+                ? `${exactCount} registered`
+                : incomplete
+                  ? 'Count unavailable'
+                  : `${eventRegistrants.length} registered`}
             </p>
           </div>
           <button type="button" on:click={onClose} class="text-gray-400 hover:text-gray-500">

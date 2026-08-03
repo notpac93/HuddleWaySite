@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  resolveCrmAppPreviewUrl,
   resolveBackendUrl,
   resolveFirebaseEnvironment,
   resolveWebsiteCommit,
@@ -63,6 +64,42 @@ describe('public environment contract', () => {
       provider: 'recaptcha-enterprise',
       siteKey: 'enterprise-site-key',
     });
+  });
+
+  it('allows the Development Firebase project to run without browser App Check', () => {
+    expect(
+      resolveFirebaseEnvironment({
+        PROD: true,
+        PUBLIC_FIREBASE_PROJECT_ID: 'huddleway-dev',
+        PUBLIC_FIREBASE_APP_CHECK_ENABLED: 'false',
+      }).appCheck,
+    ).toEqual({
+      enabled: false,
+      provider: 'recaptcha-enterprise',
+      siteKey: null,
+    });
+
+    expect(
+      resolveFirebaseEnvironment({
+        PROD: true,
+        PUBLIC_FIREBASE_PROJECT_ID: 'huddleway-dev',
+        PUBLIC_FIREBASE_APP_CHECK_ENABLED: 'false',
+        PUBLIC_FIREBASE_APP_CHECK_SITE_KEY: 'production-key-from-env-file',
+      }).appCheck.enabled,
+    ).toBe(false);
+  });
+
+  it('exposes the Dev Flutter preview only to Development CRM builds', () => {
+    expect(resolveCrmAppPreviewUrl({ DEV: true })).toBe(
+      'https://huddleway-app-preview-canary.web.app',
+    );
+    expect(resolveCrmAppPreviewUrl({ PROD: true })).toBeNull();
+    expect(() =>
+      resolveCrmAppPreviewUrl({
+        PROD: true,
+        PUBLIC_APP_PREVIEW_URL: 'https://huddleway-app-preview-canary.web.app',
+      }),
+    ).toThrow(/cannot embed the Dev app preview/i);
   });
 
   it('binds production RUM to the full website commit', () => {

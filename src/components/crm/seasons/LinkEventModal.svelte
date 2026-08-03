@@ -18,7 +18,7 @@
   let isSubmitting = false;
   let searchQuery = '';
   let errorMessage = '';
-  let auditReason = '';
+  const auditReason = 'Event linked to season from CRM.';
   let lastPayloadSignature = '';
   let lastOperationKey = createIdempotencyKey('event-season-link');
   let operationGeneration = 0;
@@ -53,10 +53,6 @@
     const normalizedEventId = String(eventId || '').trim();
     const tenantId = $tenantIdStore;
     if (!seasonId || !normalizedEventId || !tenantId || isSubmitting) return;
-    if (auditReason.trim().length < 3) {
-      errorMessage = 'Provide a reason for linking this event.';
-      return;
-    }
     const generation = ++operationGeneration;
     const submittedSignature = buildPayloadSignature(normalizedEventId);
     if (submittedSignature !== lastPayloadSignature) {
@@ -159,11 +155,6 @@
           >
         </div>
 
-        <div class="mb-4">
-          <label for="link-event-audit-reason" class="crm-ui-label">Reason for change *</label>
-          <input id="link-event-audit-reason" type="text" bind:value={auditReason} disabled={isSubmitting} minlength="3" maxlength="500" required class="crm-ui-field" placeholder="Why are these events being linked?">
-        </div>
-
         {#if errorMessage}
           <p class="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700" role="alert">{errorMessage}</p>
         {/if}
@@ -206,7 +197,7 @@
                   <StatusButton
                     state={linkStates[event.id] || 'idle'}
                     on:click={() => linkEvent(event.id)}
-                    disabled={isSubmitting || auditReason.trim().length < 3}
+                    disabled={isSubmitting}
                     idleText="Link to Season"
                     loadingText="Linking..."
                     successText="Linked!"

@@ -20,7 +20,6 @@ describe('CRM performance source boundaries', () => {
       maxAuthenticatedDashboardFirestoreListeners: 4,
       maxDashboardCollectionListeners: 3,
       maxAuthenticatedDashboardBackendRequests: 1,
-      maxFinancialProjectionRecordsPerCollection: 500,
       maxVisibleRosterRefreshesPerMinute: 1,
       maxHiddenRosterRefreshesPerMinute: 0,
     });

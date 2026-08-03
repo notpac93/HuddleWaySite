@@ -2,39 +2,16 @@ import { writable } from 'svelte/store';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const testState = vi.hoisted(() => ({
-  onSnapshot: vi.fn(),
+  crmOperationalPage: vi.fn(),
   financialOverview: vi.fn(),
-  unsubscribeSnapshot: vi.fn(),
 }));
 
 const tenantIdStore = writable<string | null>(null);
 
-vi.mock('../../src/lib/firebase', () => ({
-  db: {},
-}));
-
-vi.mock('../../src/lib/authStore', () => ({
-  tenantIdStore,
-}));
+vi.mock('../../src/lib/authStore', () => ({ tenantIdStore }));
 
 vi.mock('../../src/lib/api/backendClient', () => ({
-  backendClient: {
-    financialOverview: testState.financialOverview,
-  },
-}));
-
-vi.mock('firebase/firestore', () => ({
-  collection: (_db: unknown, name: string) => ({ name }),
-  documentId: () => '__name__',
-  limit: (count: number) => ({ limit: count }),
-  orderBy: (field: string) => ({ orderBy: field }),
-  where: (field: string, operator: string, value: string) => ({
-    field,
-    operator,
-    value,
-  }),
-  query: (...parts: unknown[]) => parts,
-  onSnapshot: testState.onSnapshot,
+  backendClient: testState,
 }));
 
 const {
@@ -48,59 +25,93 @@ const {
   registrationsProjectionScope,
   teamsStore,
   teamsProjectionScope,
+  dashboardOperationalCountScope,
   transactionsStore,
+  participantNameFromRegistration,
 } = await import('../../src/lib/services/DataStore');
 
-describe('CRM data-store performance boundaries', () => {
+function page(
+  collection: string,
+  records: any[],
+  hasMore = false,
+  nextCursor: string | null = null,
+) {
+  return {
+    schemaVersion: 'crm_operational_page_v1',
+    tenantId: 'fixture-tenant',
+    collection,
+    records,
+    hasMore,
+    nextCursor,
+    limit: 100,
+    requestId: `request-${collection}`,
+  };
+}
+
+describe('CRM data-store server paging boundaries', () => {
   beforeEach(() => {
     tenantIdStore.set(null);
-    testState.onSnapshot.mockReset();
+    testState.crmOperationalPage.mockReset();
     testState.financialOverview.mockReset();
-    testState.unsubscribeSnapshot.mockReset();
-    testState.onSnapshot.mockReturnValue(testState.unsubscribeSnapshot);
     testState.financialOverview.mockResolvedValue({
       tenantId: 'fixture-tenant',
       transactions: [],
       refunds: [],
       invoices: [],
       deposits: [],
+      recordCounts: {
+        transactions: 0,
+        payments: 0,
+        refunds: 0,
+        invoices: 0,
+        deposits: 0,
+      },
+      tracking: { complete: true },
       truncated: {
         transactions: false,
         refunds: false,
         invoices: false,
         deposits: false,
       },
-      requestId: 'request-1',
+      requestId: 'request-financial',
     });
+    testState.crmOperationalPage.mockImplementation(
+      async (_tenantId: string, collection: string) => page(collection, []),
+    );
   });
 
-  it('does not open collection listeners or financial requests for dormant modules', () => {
-    tenantIdStore.set('fixture-tenant');
+  it('resolves participant names across supported registration shapes', () => {
+    expect(participantNameFromRegistration({
+      firstName: 'Adella',
+      lastName: 'Fay',
+    })).toBe('Adella Fay');
+    expect(participantNameFromRegistration({
+      formData: { player_name: 'Jordan Lee' },
+    })).toBe('Jordan Lee');
+    expect(participantNameFromRegistration({
+      participantSummary: { firstName: 'Kai', lastName: 'Reed' },
+    })).toBe('Kai Reed');
+  });
 
-    expect(testState.onSnapshot).not.toHaveBeenCalled();
+  it('does not open operational or financial requests for a dormant tenant', () => {
+    expect(testState.crmOperationalPage).not.toHaveBeenCalled();
     expect(testState.financialOverview).not.toHaveBeenCalled();
   });
 
-  it('opens only the tenant collection whose mounted view subscribes', () => {
+  it('opens only the mounted tenant collection through the backend', () => {
     tenantIdStore.set('fixture-tenant');
     const unsubscribe = registrationsStore.subscribe(() => {});
 
-    expect(testState.onSnapshot).toHaveBeenCalledTimes(1);
-    const queryParts = testState.onSnapshot.mock.calls[0][0];
-    expect(queryParts[0]).toEqual({ name: 'registrations' });
-    expect(queryParts[1]).toEqual({
-      field: 'tenantId',
-      operator: '==',
-      value: 'fixture-tenant',
-    });
-    expect(queryParts[2]).toEqual({ orderBy: '__name__' });
-    expect(queryParts[3]).toEqual({ limit: 501 });
-
+    expect(testState.crmOperationalPage).toHaveBeenCalledTimes(1);
+    expect(testState.crmOperationalPage).toHaveBeenCalledWith(
+      'fixture-tenant',
+      'registrations',
+      { limit: 100, cursor: undefined },
+    );
     unsubscribe();
-    expect(testState.unsubscribeSnapshot).toHaveBeenCalledTimes(1);
   });
 
-  it('shares one financial projection request across all active financial stores', async () => {
+  it('shares one financial projection request across active financial stores', async () => {
     tenantIdStore.set('fixture-tenant');
     const unsubscribeTransactions = transactionsStore.subscribe(() => {});
     const unsubscribeInvoices = invoicesStore.subscribe(() => {});
@@ -134,6 +145,14 @@ describe('CRM data-store performance boundaries', () => {
       refunds: [],
       invoices: [],
       deposits: [],
+      recordCounts: {
+        transactions: 0,
+        payments: 0,
+        refunds: 0,
+        invoices: 0,
+        deposits: 0,
+      },
+      tracking: { complete: true },
       truncated: {
         transactions: false,
         refunds: false,
@@ -150,99 +169,79 @@ describe('CRM data-store performance boundaries', () => {
     unsubscribe();
   });
 
-  it('keeps the dashboard collection budget at three listeners', () => {
-    tenantIdStore.set('fixture-tenant');
-    const unsubscribes = [
-      registrationsStore.subscribe(() => {}),
-      teamsStore.subscribe(() => {}),
-      eventsStore.subscribe(() => {}),
-    ];
-
-    expect(testState.onSnapshot).toHaveBeenCalledTimes(3);
-    expect(
-      testState.onSnapshot.mock.calls.map((call) => call[0][0].name),
-    ).toEqual(['registrations', 'teams', 'events']);
-
-    unsubscribes.forEach((unsubscribe) => unsubscribe());
-  });
-
-  it('caps operational snapshots at 500 and exposes truncation without losing cleanup', () => {
-    const snapshotHandlers = new Map<string, (snapshot: any) => void>();
-    testState.onSnapshot.mockImplementation((sourceQuery, next) => {
-      snapshotHandlers.set(sourceQuery[0].name, next);
-      return testState.unsubscribeSnapshot;
-    });
+  it('pages the dashboard collections and reports complete counts after all pages resolve', async () => {
+    testState.crmOperationalPage.mockImplementation(
+      async (_tenantId: string, collection: string, options: { cursor?: string }) => {
+        if (options.cursor) return page(collection, []);
+        const records = collection === 'registrations'
+          ? Array.from({ length: 501 }, (_, index) => ({ id: `registration-${index}` }))
+          : collection === 'teams'
+            ? [{ id: 'team-1', name: 'Boys' }, { id: 'team-2', name: 'Girls' }]
+            : [{ id: 'event-1', lifecycleStatus: 'published' }];
+        return page(collection, records, true, `${collection}-cursor`);
+      },
+    );
     tenantIdStore.set('fixture-tenant');
     let latestScope: any;
-    const unsubscribeScope = operationalProjectionScope.subscribe((scope) => {
+    const unsubscribeScope = dashboardOperationalCountScope.subscribe((scope) => {
       latestScope = scope;
     });
-    const unsubscribeRecords = registrationsStore.subscribe(() => {});
-
-    snapshotHandlers.get('registrations')?.({
-      docs: Array.from({ length: 501 }, (_, index) => ({
-        id: `registration-${String(index).padStart(3, '0')}`,
-        data: () => ({ tenantId: 'fixture-tenant' }),
-      })),
+    let latestRecords: any[] = [];
+    const unsubscribeRecords = registrationsStore.subscribe((records) => {
+      latestRecords = records;
     });
 
-    expect(latestScope.limit).toBe(500);
-    expect(latestScope.truncated.registrations).toBe(true);
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    await vi.waitFor(() => expect(latestRecords).toHaveLength(501));
+    await vi.waitFor(() => expect(testState.crmOperationalPage).toHaveBeenCalledWith(
+      'fixture-tenant',
+      'registrations',
+      { limit: 100, cursor: 'registrations-cursor' },
+    ));
+    expect(latestScope).toMatchObject({
+      loading: false,
+      registrations: 501,
+      teams: 2,
+      events: 1,
+      error: '',
+    });
     unsubscribeRecords();
     unsubscribeScope();
-    expect(testState.unsubscribeSnapshot).toHaveBeenCalledTimes(5);
   });
 
-  it('bounds every Dashboard collection at 501 reads and exposes only 500 records', () => {
-    const snapshotHandlers = new Map<string, (snapshot: any) => void>();
-    testState.onSnapshot.mockImplementation((sourceQuery, next) => {
-      snapshotHandlers.set(sourceQuery[0].name, next);
-      return testState.unsubscribeSnapshot;
-    });
+  it('cleans up a paged projection without a live Firestore listener', async () => {
+    let resolvePage!: (value: any) => void;
+    testState.crmOperationalPage.mockReturnValueOnce(new Promise((resolve) => {
+      resolvePage = resolve;
+    }));
     tenantIdStore.set('fixture-tenant');
-    const latest: Record<string, any> = {};
-    const unsubscribes = [
-      registrationsStore.subscribe((records) => {
-        latest.registrations = records;
-      }),
-      registrationsProjectionScope.subscribe((scope) => {
-        latest.registrationsScope = scope;
-      }),
-      teamsStore.subscribe((records) => {
-        latest.teams = records;
-      }),
-      teamsProjectionScope.subscribe((scope) => {
-        latest.teamsScope = scope;
-      }),
-      eventsStore.subscribe((records) => {
-        latest.events = records;
-      }),
-      eventsProjectionScope.subscribe((scope) => {
-        latest.eventsScope = scope;
-      }),
-    ];
+    let latestRecords: any[] = [];
+    const unsubscribe = registrationsStore.subscribe((records) => {
+      latestRecords = records;
+    });
+    unsubscribe();
+    resolvePage(page('registrations', [{ id: 'stale' }]));
+    await Promise.resolve();
+    expect(latestRecords).toEqual([]);
+  });
 
-    expect(testState.onSnapshot).toHaveBeenCalledTimes(3);
-    for (const call of testState.onSnapshot.mock.calls) {
-      expect(call[0][3]).toEqual({ limit: 501 });
-      const collectionName = call[0][0].name;
-      snapshotHandlers.get(collectionName)?.({
-        docs: Array.from({ length: 501 }, (_, index) => ({
-          id: `${collectionName}-${String(index).padStart(3, '0')}`,
-          data: () => ({ tenantId: 'fixture-tenant' }),
-        })),
-      });
-    }
-
-    for (const collectionName of ['registrations', 'teams', 'events']) {
-      expect(latest[collectionName]).toHaveLength(500);
-      expect(latest[`${collectionName}Scope`]).toMatchObject({
-        limit: 500,
-        truncated: true,
-        loading: false,
-      });
-    }
-    unsubscribes.forEach((unsubscribe) => unsubscribe());
-    expect(testState.unsubscribeSnapshot).toHaveBeenCalledTimes(3);
+  it('exposes the complete operational projection shape', () => {
+    tenantIdStore.set('fixture-tenant');
+    let latest: any;
+    const unsubscribe = operationalProjectionScope.subscribe((scope) => {
+      latest = scope;
+    });
+    expect(latest).toMatchObject({
+      limit: null,
+      truncated: {
+        registrations: false,
+        teams: false,
+        events: false,
+      },
+    });
+    unsubscribe();
   });
 });

@@ -13,12 +13,11 @@
   let isLoadingForms = true;
   let isLoadingParticipants = false;
   let formsError = '';
-  let formsTruncated = false;
-  let formsLimit = 500;
   let detailError = '';
   let participantsTruncated = false;
+  let participantCount: number | null = null;
   let eventsTruncated = false;
-  let detailLimit = 500;
+  let eventCount: number | null = null;
   let detailGeneration = 0;
   let formsSubscriptionGeneration = 0;
   let activeTenantId = '';
@@ -56,8 +55,6 @@
     const generation = ++formsSubscriptionGeneration;
     forms = [];
     formsError = '';
-    formsTruncated = false;
-    formsLimit = 500;
     isLoadingForms = true;
     try {
       unsubscribeForms = RegistrationService.subscribeToForms(
@@ -76,14 +73,6 @@
           isLoadingForms = false;
         },
         (error) => handleFormsError(error, tenantId, generation),
-        (scope) => {
-          if (
-            activeTenantId !== tenantId
-            || formsSubscriptionGeneration !== generation
-          ) return;
-          formsTruncated = scope.truncated;
-          formsLimit = scope.limit;
-        },
       );
     } catch (error) {
       handleFormsError(error, tenantId, generation);
@@ -110,10 +99,11 @@
       editingForm = null;
       isCreateFormOpen = false;
       formsError = '';
-      formsTruncated = false;
       detailError = '';
       participantsTruncated = false;
+      participantCount = null;
       eventsTruncated = false;
+      eventCount = null;
       isLoadingParticipants = false;
       activeTab = 'Active';
       searchQuery = '';
@@ -151,7 +141,6 @@
     detailError = '';
     participantsTruncated = false;
     eventsTruncated = false;
-    detailLimit = 500;
     try {
       const detailPage =
         await RegistrationService.fetchRegistrationDetailPage(tenantId, form.id);
@@ -163,11 +152,9 @@
       participants = detailPage.participants.records;
       connectedEvents = detailPage.events.records;
       participantsTruncated = detailPage.participants.truncated;
+      participantCount = detailPage.participants.exactCount;
       eventsTruncated = detailPage.events.truncated;
-      detailLimit = Math.min(
-        detailPage.participants.limit,
-        detailPage.events.limit,
-      );
+      eventCount = detailPage.events.records.length;
     } catch (error) {
       if (
         generation !== detailGeneration
@@ -198,13 +185,38 @@
     connectedEvents = [];
     detailError = '';
     participantsTruncated = false;
+    participantCount = null;
     eventsTruncated = false;
+    eventCount = null;
     isLoadingParticipants = false;
   }
 
-  function openFormEditor(event) {
-    editingForm = event.detail;
+  function openNewRegistrationForm() {
+    editingForm = null;
     isCreateFormOpen = true;
+  }
+
+  function openRegistrationFormEditor() {
+    if (!selectedForm) return;
+    editingForm = selectedForm;
+    isCreateFormOpen = true;
+  }
+
+  function handleFormSaveSuccess(event) {
+    const wasEditing = Boolean(editingForm?.id);
+    if (wasEditing && selectedFormId === editingForm.id) {
+      const saved = event.detail || {};
+      selectedForm = {
+        ...selectedForm,
+        ...saved,
+        name: saved.title || selectedForm.name,
+        rawStatus: saved.status || selectedForm.rawStatus,
+        status: saved.status === 'archived' ? 'Closed' : 'Open',
+      };
+    }
+    isCreateFormOpen = false;
+    editingForm = null;
+    if (!wasEditing) goBackToOverview();
   }
 
   $: filteredForms = forms.filter(f => {
@@ -250,11 +262,7 @@
 {#if isCreateFormOpen}
   <CreateRegistrationForm
     form={editingForm}
-    on:success={() => {
-      isCreateFormOpen = false;
-      editingForm = null;
-      goBackToOverview();
-    }}
+    on:success={handleFormSaveSuccess}
     on:cancel={() => {
       isCreateFormOpen = false;
       editingForm = null;
@@ -266,7 +274,7 @@
   {#if !selectedFormId}
     <!-- Overview Dashboard -->
     <div class="flex justify-end items-center mb-2">
-      <button on:click={() => { editingForm = null; isCreateFormOpen = true; }} class="bg-[#1855c5] text-white px-4 py-2 rounded text-sm font-semibold hover:bg-[#1546a3] flex items-center shadow-sm">
+      <button on:click={openNewRegistrationForm} class="bg-[#1855c5] text-white px-4 py-2 rounded text-sm font-semibold hover:bg-[#1546a3] flex items-center shadow-sm">
         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
         Create New Registration Form
       </button>
@@ -329,8 +337,6 @@
       {isLoadingForms}
       {activeTab}
       error={formsError}
-      truncated={formsTruncated}
-      limit={formsLimit}
       on:select={handleFormSelect}
     />
     {#if formsError}
@@ -355,9 +361,10 @@
       error={detailError}
       {participantsTruncated}
       {eventsTruncated}
-      limit={detailLimit}
+      {participantCount}
+      {eventCount}
       on:back={goBackToOverview}
-      on:edit={openFormEditor}
+      on:edit={openRegistrationFormEditor}
       on:retry={retryFormDetail}
     />
   {/if}

@@ -27,7 +27,6 @@ describe('exhaustive CRM table and projection audit', () => {
       'events/EventRegistrantsModal.svelte',
       'registration/FormsTable.svelte',
       'roster/PlayerTable.svelte',
-      'roster/TeamTable.svelte',
     ]) {
       expect(source(file)).toContain('<DataTable');
     }
@@ -91,13 +90,13 @@ describe('exhaustive CRM table and projection audit', () => {
     }
   });
 
-  it('pins bounded projections and refuses incomplete financial claims', () => {
+  it('pins complete operational projections and refuses incomplete financial claims', () => {
     const dataStore = readFileSync(
       join(process.cwd(), 'src/lib/services/DataStore.ts'),
       'utf8',
     );
-    expect(dataStore).toContain('const COLLECTION_PROJECTION_LIMIT = 500');
-    expect(dataStore).toContain('queryLimit(COLLECTION_PROJECTION_LIMIT + 1)');
+    expect(dataStore).not.toMatch(/COLLECTION_PROJECTION_LIMIT|queryLimit\(/);
+    expect(dataStore).toContain('backendClient.crmOperationalPage');
 
     for (const file of [
       'Financials.svelte',

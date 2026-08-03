@@ -87,9 +87,6 @@ describe('event publication flow', () => {
     });
     expect(save).toBeDisabled();
 
-    await fireEvent.input(screen.getByLabelText('Reason for change *'), {
-      target: { value: 'Publish the reviewed practice schedule.' },
-    });
     await fireEvent.input(screen.getByLabelText(/Type PUBLISH EVENT/), {
       target: { value: 'PUBLISH EVENT' },
     });
@@ -108,7 +105,7 @@ describe('event publication flow', () => {
         lifecycleStatus: 'published',
         applyToSeries: false,
       }),
-      'Publish the reviewed practice schedule.',
+      'Event updated inline from CRM.',
       expect.stringContaining('event-inline-update:'),
     );
   });

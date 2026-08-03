@@ -4,15 +4,16 @@
   import {
     activeTenantRole,
     authErrorStore,
+    canViewTenantOperationsStore,
     isAuthLoading,
     tenantIdStore,
+    tenantOperationsRoleStore,
     userStore,
   } from '../../lib/authStore';
   import { appCheck } from '../../lib/firebase';
   import { startCrmRumCapture } from '../../lib/performance/crmRum';
   import Login from './Login.svelte';
   import CrmShell from './CrmShell.svelte';
-  import SetupWorkflow from './SetupWorkflow.svelte';
 
   let activeTab = 'Dashboard';
   let activeTeam = null;
@@ -22,6 +23,9 @@
   let loadedTab = '';
   let moduleLoadError = '';
   let moduleLoadSequence = 0;
+  let setupComponent: Component<any> | null = null;
+  let setupLoadState: 'idle' | 'loading' | 'ready' | 'error' = 'idle';
+  let setupLoadSequence = 0;
   let isTenantSwitching = false;
   let rumStarted = false;
 
@@ -41,6 +45,7 @@
     Activity: () => import('./ActivityManager.svelte'),
     Documents: () => import('./DocumentsManager.svelte'),
     Messages: () => import('./CommunicationsManager.svelte'),
+    'Tenant Operations': () => import('./TenantOperations.svelte'),
   };
 
   async function loadActiveTab(tab: string) {
@@ -69,11 +74,37 @@
     }
   }
 
+  async function loadSetupWorkflow() {
+    if (setupLoadState === 'loading' || setupLoadState === 'ready') return;
+    setupLoadState = 'loading';
+    const sequence = ++setupLoadSequence;
+    try {
+      const module = await import('./SetupWorkflow.svelte');
+      if (sequence !== setupLoadSequence) return;
+      setupComponent = module.default;
+      setupLoadState = 'ready';
+    } catch {
+      if (sequence !== setupLoadSequence) return;
+      console.error('Could not load the organization setup workflow.');
+      setupComponent = null;
+      setupLoadState = 'error';
+    }
+  }
+
+  function retrySetupWorkflow() {
+    setupLoadState = 'idle';
+    void loadSetupWorkflow();
+  }
+
   function retryActiveTab() {
     requestedTab = '';
   }
 
   const documentIcon = 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z';
+  const tenantOperationsTab = {
+    name: 'Tenant Operations',
+    icon: 'M9 17v-2a4 4 0 014-4h6m0 0l-3-3m3 3l-3 3M5 3h4a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z',
+  };
   const globalTabs = [
     { name: 'Dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
     { name: 'Teams', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' },
@@ -109,6 +140,7 @@
   $: canManageTenant = isOwner || $activeTenantRole === 'editor';
   $: canViewTenant =
     canManageTenant || $activeTenantRole === 'viewer';
+  $: canViewCrm = canViewTenant || $canViewTenantOperationsStore;
   $: visibleGlobalTabs = globalTabs.filter(
     (tab) =>
       canManageTenant
@@ -122,11 +154,17 @@
   // The Dashboard is the one module whose viewer surface has been fully
   // reduced to read-only controls. Do not expose write-capable modules until
   // each has an explicit viewer presentation.
-  $: currentTabs = $activeTenantRole === 'viewer'
-    ? [globalTabs[0]]
-    : activeTeam
-      ? visibleTeamTabs
-      : visibleGlobalTabs;
+  $: tenantTabsWithOperations = $canViewTenantOperationsStore
+    ? [...visibleGlobalTabs, tenantOperationsTab]
+    : visibleGlobalTabs;
+  $: currentTabs =
+    $tenantOperationsRoleStore === 'platform_operations_viewer'
+      ? [tenantOperationsTab]
+      : $activeTenantRole === 'viewer'
+        ? [globalTabs[0]]
+        : activeTeam
+          ? visibleTeamTabs
+          : tenantTabsWithOperations;
   $: activeComponentProps = {
     ...(activeTab === 'Teams'
       ? { activeTeam, setActiveTeam, activeResultId, onTargetConsumed }
@@ -143,17 +181,17 @@
       : {}),
   };
   $: if (
-    canViewTenant
+    canViewCrm
     && currentTabs.length > 0
     && !currentTabs.some((tab) => tab.name === activeTab)
   ) {
     activeTab = currentTabs[0].name;
   }
   $: if (
-    canViewTenant
+    canViewCrm
     && !isTenantSwitching
     && $userStore
-    && $tenantIdStore
+    && ($tenantIdStore || activeTab === 'Tenant Operations')
     && activeTab
     && requestedTab !== activeTab
   ) {
@@ -173,6 +211,15 @@
         ? (await getAppCheckToken(appCheck, false)).token
         : '',
     }));
+  }
+  $: if (
+    !$isAuthLoading
+    && $userStore?.emailVerified
+    && (!$tenantIdStore || !$activeTenantRole)
+    && !$canViewTenantOperationsStore
+    && setupLoadState === 'idle'
+  ) {
+    void loadSetupWorkflow();
   }
 
   function setActiveTeam(team) {
@@ -225,9 +272,35 @@
       <p class="mt-2 text-sm text-red-700">{$authErrorStore}</p>
     </div>
   </div>
-{:else if !$tenantIdStore || !$activeTenantRole}
+{:else if (
+  (!$tenantIdStore || !$activeTenantRole)
+  && !$canViewTenantOperationsStore
+)}
   {#if $userStore.emailVerified}
-    <SetupWorkflow />
+    {#if setupComponent && setupLoadState === 'ready'}
+      <svelte:component this={setupComponent} />
+    {:else if setupLoadState === 'error'}
+      <div class="min-h-screen flex items-center justify-center bg-gray-50 p-6" role="alert">
+        <div class="max-w-lg rounded-lg border border-red-200 bg-white p-8 shadow">
+          <h1 class="text-xl font-semibold text-gray-900">Setup could not be loaded</h1>
+          <p class="mt-2 text-sm text-red-700">
+            Check your connection and try again. No organization changes were made.
+          </p>
+          <button
+            type="button"
+            class="mt-4 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            on:click={retrySetupWorkflow}
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    {:else}
+      <div class="min-h-screen flex items-center justify-center bg-gray-50" role="status">
+        <span class="sr-only">Loading organization setup</span>
+        <div class="h-10 w-10 animate-spin rounded-full border-2 border-gray-200 border-b-indigo-600"></div>
+      </div>
+    {/if}
   {:else}
     <div class="min-h-screen flex items-center justify-center bg-gray-50 p-6">
       <div class="max-w-lg rounded-lg border border-gray-200 bg-white p-8 shadow">
@@ -238,7 +311,7 @@
       </div>
     </div>
   {/if}
-{:else if !canViewTenant}
+{:else if !canViewCrm}
   <div class="min-h-screen flex items-center justify-center bg-gray-50 p-6">
     <div class="max-w-lg rounded-lg border border-gray-200 bg-white p-8 shadow">
       <h1 class="text-xl font-semibold text-gray-900">Unsupported organization role</h1>

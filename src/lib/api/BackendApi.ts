@@ -20,6 +20,39 @@ export interface BackendErrorPayload {
   requestId?: string;
 }
 
+export type CrmImageUploadPurpose =
+  | 'branding-logo'
+  | 'season-banner'
+  | 'event-cover';
+
+export interface CrmImageUploadResult {
+  tenantId: string;
+  reservationId: string;
+  storagePath: string;
+  contentType: string;
+  sizeBytes: number;
+  storageGeneration: string;
+  status: 'verified_private';
+  previewUrl: string;
+  previewExpiresAt: string;
+  idempotentReplay: boolean;
+  requestId: string;
+}
+
+export interface CrmImagePublicationResult {
+  tenantId: string;
+  reservationId: string;
+  publicationId: string;
+  resourceType: 'event';
+  resourceIds: string[];
+  status: 'draft' | 'published';
+  isVisible: boolean;
+  publicUrl: string;
+  idempotentReplay: boolean;
+  operationId: string;
+  requestId: string;
+}
+
 function validIsoTimestamp(value: unknown): value is string {
   return (
     typeof value === 'string'
@@ -113,6 +146,87 @@ export interface BillingHistory {
   requestId?: string;
 }
 
+export type TenantOperationsEnvironment = 'all' | 'development' | 'production';
+export type TenantOperationsHealth = 'healthy' | 'warning' | 'critical';
+
+export interface TenantOperationsFinding {
+  code: string;
+  severity: 'warning' | 'critical' | 'informational';
+  message: string;
+  environment?: Exclude<TenantOperationsEnvironment, 'all'>;
+  tenantId?: string;
+  programName?: string;
+  relatedTenantIds?: string[];
+}
+
+export interface TenantOperationsTenant {
+  environment: Exclude<TenantOperationsEnvironment, 'all'>;
+  tenantId: string;
+  programName: string;
+  tenantState: 'active' | 'inactive' | 'archived' | 'missing';
+  publicState: 'public' | 'hidden' | 'ineligible';
+  health: TenantOperationsHealth;
+  counts: {
+    pages: number;
+    teams: number;
+    events: number;
+    registrations: number;
+    forms: number;
+    billing: number;
+  };
+  accounts: number;
+  consumers: number;
+  staff: number;
+  branding: {
+    exists: boolean;
+    hasLogo: boolean;
+  };
+  home: {
+    exists: boolean;
+    status: string;
+    visible: boolean;
+  };
+  updatedAt: string | null;
+  findings: TenantOperationsFinding[];
+}
+
+export interface TenantOperationsSummary {
+  totalTenants: number;
+  publicTenants: number;
+  hiddenActiveTenants: number;
+  incompleteTenants: number;
+  criticalTenants: number;
+  warningTenants: number;
+  duplicateCandidates: number;
+  accounts: number;
+  consumers: number;
+  staff: number;
+}
+
+export interface TenantOperationsTenantPage {
+  schemaVersion: 'tenant_operations_v1';
+  environment: TenantOperationsEnvironment;
+  generatedAt: string;
+  freshness: {
+    source: 'live' | 'cache';
+    generatedAt: string;
+    sources?: Array<{
+      environment: Exclude<TenantOperationsEnvironment, 'all'>;
+      generatedAt: string;
+      source: 'live' | 'cache';
+    }>;
+  };
+  availableEnvironments: Array<Exclude<TenantOperationsEnvironment, 'all'>>;
+  summary: TenantOperationsSummary;
+  tenants: TenantOperationsTenant[];
+  totalFiltered: number;
+  limit: number;
+  hasMore: boolean;
+  nextCursor: string | null;
+  actorRole: 'platform_admin' | 'platform_operations_viewer';
+  requestId: string;
+}
+
 export interface OnboardingBootstrapResult {
   tenantId: string;
   programName: string;
@@ -188,6 +302,22 @@ export type CrmRegistrationFieldsInput = {
   collectExperience: boolean;
   collectCoachRequest: boolean;
   collectVolunteer: boolean;
+};
+
+export type CrmRegistrationFormSectionInput = {
+  id: string;
+  title: string;
+  description: string;
+  isActive: true;
+  fields: Array<{
+    id: string;
+    type: 'text' | 'email' | 'phone' | 'date' | 'dropdown' | 'yes_no';
+    label: string;
+    required: boolean;
+    placeholder: string | null;
+    options: string[] | null;
+    isActive: true;
+  }>;
 };
 
 export type CrmAppConfiguration = {
@@ -380,12 +510,44 @@ export interface FinancialOverview {
   refunds: Array<Record<string, unknown>>;
   invoices: Array<Record<string, unknown>>;
   deposits: Array<Record<string, unknown>>;
+  recordCounts: {
+    transactions: number;
+    payments: number;
+    refunds: number;
+    invoices: number;
+    deposits: number;
+  };
+  tracking: {
+    complete: boolean;
+    unreconciledTransactionCount: number;
+    unreconciledDepositCount: number;
+    sourceCollections: string[];
+  };
   truncated: {
     transactions: boolean;
     refunds: boolean;
     invoices: boolean;
     deposits: boolean;
   };
+  requestId: string;
+}
+
+export type CrmOperationalCollection =
+  | 'events'
+  | 'registration_forms'
+  | 'registrations'
+  | 'season_registrations'
+  | 'seasons'
+  | 'teams';
+
+export interface CrmOperationalPage {
+  schemaVersion: 'crm_operational_page_v1';
+  tenantId: string;
+  collection: CrmOperationalCollection;
+  records: Array<Record<string, unknown> & { id: string }>;
+  hasMore: boolean;
+  nextCursor: string | null;
+  limit: number;
   requestId: string;
 }
 
@@ -749,10 +911,199 @@ export class BackendApi {
     return result.payload as T;
   }
 
+  async uploadImageAsset(
+    tenantId: string,
+    file: File,
+    purpose: CrmImageUploadPurpose,
+    idempotencyKey = createIdempotencyKey('image-upload'),
+  ): Promise<CrmImageUploadResult> {
+    const digest = await globalThis.crypto.subtle.digest(
+      'SHA-256',
+      await file.arrayBuffer(),
+    );
+    const sha256 = Array.from(new Uint8Array(digest))
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('');
+    const reservation = await this.send<{
+      success: boolean;
+      tenantId: string;
+      reservationId: string;
+      storagePath: string;
+      uploadUrl: string;
+      contentType: string;
+      expiresAt: string;
+      requestId: string;
+    }>('/admin/crm/images/upload-reservations', {
+      method: 'POST',
+      body: {
+        tenantId,
+        purpose,
+        fileName: file.name,
+        contentType: file.type,
+        sizeBytes: file.size,
+        sha256,
+        idempotencyKey,
+      },
+      idempotencyKey,
+    });
+    if (
+      reservation.success !== true
+      || reservation.tenantId !== tenantId
+      || !/^image_upload_[a-f0-9]{40}$/.test(reservation.reservationId)
+      || !String(reservation.storagePath || '').startsWith(`private/${tenantId}/media/`)
+      || !/^https:\/\//i.test(String(reservation.uploadUrl || ''))
+      || reservation.contentType !== file.type
+      || !validIsoTimestamp(reservation.expiresAt)
+      || !String(reservation.requestId || '').trim()
+    ) {
+      invalidBackendResponse(
+        reservation as unknown as Record<string, unknown>,
+        'The image upload reservation was invalid.',
+      );
+    }
+
+    let uploadResponse: Response;
+    try {
+      uploadResponse = await this.fetchImplementation(reservation.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file,
+        credentials: 'omit',
+      });
+    } catch {
+      throw new BackendApiError({
+        message: 'The selected image could not be uploaded.',
+        status: 503,
+        code: 'image_upload_failed',
+        requestId: reservation.requestId,
+      });
+    }
+    if (!uploadResponse.ok) {
+      throw new BackendApiError({
+        message: 'The selected image could not be uploaded.',
+        status: uploadResponse.status || 503,
+        code: 'image_upload_failed',
+        requestId: reservation.requestId,
+      });
+    }
+
+    const completionKey = `${idempotencyKey}:complete`;
+    const completion = await this.send<CrmImageUploadResult & { success: boolean }>(
+      `/admin/crm/images/upload-reservations/${encodeURIComponent(reservation.reservationId)}/complete`,
+      {
+        method: 'POST',
+        body: { tenantId, idempotencyKey: completionKey },
+        idempotencyKey: completionKey,
+      },
+    );
+    if (
+      completion.success !== true
+      || completion.tenantId !== tenantId
+      || completion.reservationId !== reservation.reservationId
+      || completion.storagePath !== reservation.storagePath
+      || completion.contentType !== file.type
+      || completion.sizeBytes !== file.size
+      || !/^[1-9]\d{0,30}$/.test(String(completion.storageGeneration || ''))
+      || completion.status !== 'verified_private'
+      || !/^https:\/\//i.test(String(completion.previewUrl || ''))
+      || !validIsoTimestamp(completion.previewExpiresAt)
+      || typeof completion.idempotentReplay !== 'boolean'
+      || !String(completion.requestId || '').trim()
+    ) {
+      invalidBackendResponse(
+        completion as unknown as Record<string, unknown>,
+        'The completed image upload was invalid.',
+      );
+    }
+    return completion;
+  }
+
+  async publishImageAsset(
+    tenantId: string,
+    reservationId: string,
+    resourceType: 'event',
+    resourceIds: string[],
+    auditReason: string,
+    idempotencyKey: string,
+  ): Promise<CrmImagePublicationResult> {
+    const payload = await this.send<CrmImagePublicationResult & { success: boolean }>(
+      `/admin/crm/images/upload-reservations/${encodeURIComponent(reservationId)}/publish`,
+      {
+        method: 'POST',
+        body: {
+          tenantId,
+          resourceType,
+          resourceIds,
+          auditReason,
+          idempotencyKey,
+        },
+        idempotencyKey,
+      },
+    );
+    if (
+      payload.success !== true
+      || payload.tenantId !== tenantId
+      || payload.reservationId !== reservationId
+      || payload.publicationId !== reservationId
+      || payload.resourceType !== resourceType
+      || !Array.isArray(payload.resourceIds)
+      || payload.resourceIds.length !== resourceIds.length
+      || payload.resourceIds.some((id) => !resourceIds.includes(id))
+      || !['draft', 'published'].includes(payload.status)
+      || payload.isVisible !== (payload.status === 'published')
+      || !/^https?:\/\//i.test(String(payload.publicUrl || ''))
+      || typeof payload.idempotentReplay !== 'boolean'
+      || !String(payload.operationId || '').trim()
+      || !String(payload.requestId || '').trim()
+    ) {
+      invalidBackendResponse(
+        payload as unknown as Record<string, unknown>,
+        'The image publication response was invalid.',
+      );
+    }
+    return payload;
+  }
+
   billingHistory(tenantId: string, limit = 100) {
     return this.send<BillingHistory>('/admin/billing/history', {
       query: { tenantId, limit },
     });
+  }
+
+  tenantOperationsTenants({
+    environment = 'all',
+    search = '',
+    status = 'all',
+    publicState = 'all',
+    health = 'all',
+    limit = 100,
+    cursor = '',
+    refresh = false,
+  }: {
+    environment?: TenantOperationsEnvironment;
+    search?: string;
+    status?: string;
+    publicState?: string;
+    health?: string;
+    limit?: number;
+    cursor?: string;
+    refresh?: boolean;
+  } = {}) {
+    return this.send<TenantOperationsTenantPage>(
+      '/admin/crm/tenant-operations/tenants',
+      {
+        query: {
+          environment,
+          search,
+          status,
+          publicState,
+          health,
+          limit,
+          cursor,
+          refresh: refresh ? 'true' : '',
+        },
+      },
+    );
   }
 
   billingRuntimeStatus(tenantId: string, limit = 20) {
@@ -761,9 +1112,45 @@ export class BackendApi {
     });
   }
 
-  async financialOverview(tenantId: string, limit = 500) {
+  async crmOperationalPage(
+    tenantId: string,
+    collection: CrmOperationalCollection,
+    {
+      limit = 100,
+      cursor,
+    }: { limit?: number; cursor?: string } = {},
+  ) {
+    const payload = await this.send<CrmOperationalPage>(
+      '/admin/crm/operational-records',
+      { query: { tenantId, collection, limit, cursor } },
+    );
+    assertTenantEnvelope(
+      payload as unknown as Record<string, unknown>,
+      tenantId,
+    );
+    if (
+      payload.schemaVersion !== 'crm_operational_page_v1'
+      || payload.collection !== collection
+      || !Array.isArray(payload.records)
+      || payload.records.some(
+        (record) => !record || typeof record !== 'object' || !String(record.id || '').trim(),
+      )
+      || typeof payload.hasMore !== 'boolean'
+      || (payload.hasMore && !String(payload.nextCursor || '').trim())
+      || !Number.isSafeInteger(payload.limit)
+      || payload.limit < 1
+      || !String(payload.requestId || '').trim()
+    ) {
+      invalidBackendResponse(
+        payload as unknown as Record<string, unknown>,
+      );
+    }
+    return payload;
+  }
+
+  async financialOverview(tenantId: string) {
     const payload = await this.send<FinancialOverview>('/admin/crm/financial-overview', {
-      query: { tenantId, limit },
+      query: { tenantId },
     });
     assertTenantEnvelope(
       payload as unknown as Record<string, unknown>,
@@ -774,6 +1161,17 @@ export class BackendApi {
       || !Array.isArray(payload.refunds)
       || !Array.isArray(payload.invoices)
       || !Array.isArray(payload.deposits)
+      || !payload.recordCounts
+      || typeof payload.recordCounts !== 'object'
+      || Object.values(payload.recordCounts).some(
+        (count) => !Number.isSafeInteger(count) || count < 0,
+      )
+      || !payload.tracking
+      || typeof payload.tracking !== 'object'
+      || typeof payload.tracking.complete !== 'boolean'
+      || !Number.isSafeInteger(payload.tracking.unreconciledTransactionCount)
+      || !Number.isSafeInteger(payload.tracking.unreconciledDepositCount)
+      || !Array.isArray(payload.tracking.sourceCollections)
       || !payload.truncated
       || typeof payload.truncated !== 'object'
       || Object.values(payload.truncated).some(
@@ -924,7 +1322,7 @@ export class BackendApi {
 
   createTeam(
     tenantId: string,
-    data: { name: string; description: string },
+    data: { name: string; description: string; parentTeamId: string | null },
     auditReason: string,
     idempotencyKey: string,
   ) {
@@ -938,7 +1336,7 @@ export class BackendApi {
   updateTeam(
     tenantId: string,
     teamId: string,
-    data: { name: string; description: string },
+    data: { name: string; description: string; parentTeamId: string | null },
     auditReason: string,
     idempotencyKey: string,
   ) {
@@ -950,6 +1348,26 @@ export class BackendApi {
     });
   }
 
+  async deleteTeam(
+    tenantId: string,
+    teamId: string,
+    auditReason: string,
+    idempotencyKey: string,
+  ) {
+    const payload = await this.crmResourceMutation(tenantId, 'team.delete', {
+      resourceId: teamId,
+      data: {},
+      auditReason,
+      idempotencyKey,
+    });
+    if (payload.id !== teamId || payload.deleted !== true) {
+      invalidBackendResponse(
+        payload as unknown as Record<string, unknown>,
+      );
+    }
+    return payload;
+  }
+
   async createEventSeries(
     tenantId: string,
     data: {
@@ -959,6 +1377,7 @@ export class BackendApi {
       occurrences: CrmEventOccurrenceInput[];
       location: string;
       notes: string;
+      imageReservationId?: string | null;
       seasonId: string | null;
       registrationFormId: string | null;
       publishMode: 'immediate' | 'draft';
@@ -1017,7 +1436,7 @@ export class BackendApi {
       location?: string;
       teamId?: string;
       lifecycleStatus?: string;
-      imageUrl?: string;
+      imageReservationId?: string | null;
       dateKey?: string;
       startTime?: string;
       endTime?: string;
@@ -1038,6 +1457,9 @@ export class BackendApi {
     });
     if (
       payload.id !== eventId
+      || !Array.isArray(payload.eventIds)
+      || payload.eventIds.length < 1
+      || payload.eventIds.some((id) => !String(id || '').trim())
       || !Number.isSafeInteger(payload.updatedCount)
       || Number(payload.updatedCount) < 1
       || !['succeeded', 'not_required'].includes(
@@ -1055,6 +1477,7 @@ export class BackendApi {
       title: string;
       description: string;
       fields: CrmRegistrationFieldsInput;
+      sections: CrmRegistrationFormSectionInput[];
       status: 'active' | 'archived';
     },
     auditReason: string,
@@ -1074,6 +1497,7 @@ export class BackendApi {
       title: string;
       description: string;
       fields: CrmRegistrationFieldsInput;
+      sections: CrmRegistrationFormSectionInput[];
       status: 'active' | 'archived';
     },
     auditReason: string,
@@ -1096,6 +1520,7 @@ export class BackendApi {
       endDate: string | null;
       teamId: string | null;
       registrationFormId: string | null;
+      imageReservationId?: string | null;
     },
     auditReason: string,
     idempotencyKey: string,
@@ -1118,7 +1543,7 @@ export class BackendApi {
       endDate?: string | null;
       teamId?: string | null;
       registrationFormId?: string | null;
-      imageUrl?: string;
+      imageReservationId?: string | null;
     },
     auditReason: string,
     idempotencyKey: string,
@@ -1992,6 +2417,35 @@ export class BackendApi {
         registrationIds: preview.registrationIds,
         destinationTeamId: preview.destinationTeamId,
         changeSetHash: preview.changeSetHash,
+        auditReason,
+      },
+      idempotencyKey,
+    });
+  }
+
+  assignSeasonParticipants(
+    tenantId: string,
+    seasonId: string,
+    registrationIds: string[],
+    auditReason: string,
+    idempotencyKey: string,
+  ) {
+    return this.send<{
+      success: boolean;
+      idempotentReplay: boolean;
+      tenantId: string;
+      seasonId: string;
+      registrationIds: string[];
+      assignedCount: number;
+      alreadyAssignedCount: number;
+      operationId: string;
+      auditEventId: string | null;
+      requestId: string;
+    }>(`/admin/seasons/${encodeURIComponent(seasonId)}/participants/assign`, {
+      method: 'POST',
+      body: {
+        tenantId,
+        registrationIds,
         auditReason,
       },
       idempotencyKey,

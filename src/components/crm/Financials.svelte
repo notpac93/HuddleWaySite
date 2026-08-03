@@ -18,7 +18,6 @@
     reconcileDeposit,
     safeCurrency,
     safeMinorUnits,
-    summarizeFinancialsByCurrency,
     type FinanceRecord,
     type FinanceTableRow,
   } from '../../lib/finance/crmFinancials';
@@ -62,6 +61,18 @@
     'Deposits',
     'Reconciliation',
   ];
+  const primaryViews: FinanceView[] = [
+    'Deposits',
+    'Outstanding',
+    'Transactions',
+  ];
+  const toolViews: Array<{ view: FinanceView; label: string }> = [
+    { view: 'Invoices', label: 'Invoices' },
+    { view: 'Refunds', label: 'Refunds' },
+    { view: 'Disputes', label: 'Disputes' },
+    { view: 'Reconciliation', label: 'Reconcile' },
+    { view: 'Overview', label: 'Periods' },
+  ];
   const allColumns = [
     { id: 'date', label: 'Date' },
     { id: 'record', label: 'Record' },
@@ -84,7 +95,8 @@
   let loadSequence = 0;
   let activeTeamScope = '';
 
-  let activeView: FinanceView = 'Overview';
+  let activeView: FinanceView = 'Deposits';
+  let filtersOpen = false;
   let searchInput = '';
   let searchQuery = '';
   let statusFilter = '';
@@ -170,11 +182,6 @@
   );
   $: scopedDeposits = teamId ? [] : overview?.deposits ?? [];
   $: scopedDirectInvoices = teamId ? [] : directInvoices;
-  $: summaryResult = summarizeFinancialsByCurrency({
-    transactions: scopedTransactions,
-    refunds: scopedRefunds,
-    directInvoices: scopedDirectInvoices,
-  });
   $: baseRows = buildRows(
     activeView,
     scopedDirectInvoices,
@@ -183,6 +190,12 @@
     scopedRefunds,
     scopedDeposits,
   );
+  $: leadSummary = buildLeadSummary(
+    activeView,
+    baseRows,
+    scopedRefunds,
+  );
+  $: tableLabels = financialColumnLabels(activeView);
   $: statusOptions = [
     ...new Set(baseRows.map((row) => row.status).filter(Boolean)),
   ].sort();
@@ -285,7 +298,7 @@
     loadRequestId = '';
     try {
       const [nextOverview, directInvoiceProjection] = await Promise.all([
-        backendClient.financialOverview(tenantId, 1000),
+        backendClient.financialOverview(tenantId),
         loadDirectInvoiceProjection(tenantId),
       ]);
       if (sequence !== loadSequence || $tenantIdStore !== tenantId) return;
@@ -322,9 +335,7 @@
     const seenInvoiceIds = new Set<string>();
     const seenCursors = new Set<string>();
     let cursor: string | undefined;
-    const maximumLoadedRecords = 5_000;
-
-    while (invoices.length < maximumLoadedRecords) {
+    while (true) {
       const page = await backendClient.directInvoicePage(tenantId, {
         limit: 200,
         cursor,
@@ -338,7 +349,6 @@
         if (!invoice?.id || seenInvoiceIds.has(invoice.id)) continue;
         seenInvoiceIds.add(invoice.id);
         invoices.push(invoice);
-        if (invoices.length >= maximumLoadedRecords) break;
       }
       if (!page.hasMore) {
         return { invoices, incomplete: false };
@@ -351,7 +361,6 @@
       cursor = nextCursor;
     }
 
-    return { invoices, incomplete: true };
   }
 
   function rowCurrency(record: FinanceRecord) {
@@ -360,13 +369,16 @@
 
   function coreParty(record: FinanceRecord) {
     return (
-      String(record.userId || '').trim()
+      String(record.memberName || '').trim()
+      || String(record.sourceLabel || '').trim()
+      || String(record.userId || '').trim()
       || String(record.invoiceId || '').trim()
       || 'Party unavailable'
     );
   }
 
   function coreContext(record: FinanceRecord) {
+    if (record.sourceLabel) return String(record.sourceLabel);
     if (record.teamId) return `Team ${String(record.teamId)}`;
     if (record.seasonId) return `Season ${String(record.seasonId)}`;
     if (record.eventId) return `Event ${String(record.eventId)}`;
@@ -384,13 +396,17 @@
     return null;
   }
 
-  function directInvoiceRow(invoice: DirectInvoiceRecord): FinanceTableRow {
+  function directInvoiceRow(
+    invoice: DirectInvoiceRecord,
+    dueDateOnly = false,
+  ): FinanceTableRow {
+    const date = dueDateOnly ? invoice.dueAt : invoice.dueAt || invoice.createdAt;
     return {
       id: `direct_invoice:${invoice.id}`,
       recordId: invoice.id,
       kind: 'direct_invoice',
-      dateIso: invoice.createdAt,
-      dateLabel: dateLabel(invoice.createdAt),
+      dateIso: date,
+      dateLabel: dateLabel(date),
       recordLabel: invoice.invoiceNumber || invoice.id,
       partyLabel:
         invoice.recipientName
@@ -407,23 +423,38 @@
     };
   }
 
-  function coreInvoiceRow(invoice: FinanceRecord): FinanceTableRow {
+  function coreInvoiceRow(
+    invoice: FinanceRecord,
+    dueDateOnly = false,
+  ): FinanceTableRow {
     const currency = rowCurrency(invoice);
     const recordId = String(invoice.id || '');
+    const date = dueDateOnly
+      ? invoice.dueAt || invoice.dueDate
+      : invoice.dueAt || invoice.dueDate || invoice.createdAt || invoice.updatedAt;
     return {
       id: `core_invoice:${recordId}`,
       recordId,
       kind: 'core_invoice',
-      dateIso: recordIso(invoice, 'createdAt', 'updatedAt'),
-      dateLabel: dateLabel(invoice.createdAt || invoice.updatedAt),
-      recordLabel: String(invoice.id || 'Invoice'),
-      partyLabel: coreParty(invoice),
-      contextLabel: coreContext(invoice),
+      dateIso: dueDateOnly
+        ? recordIso(invoice, 'dueAt', 'dueDate')
+        : recordIso(invoice, 'dueAt', 'dueDate', 'createdAt', 'updatedAt'),
+      dateLabel: dateLabel(date),
+      recordLabel: String(invoice.programName || invoice.id || 'Invoice'),
+      partyLabel: String(invoice.sourceLabel || invoice.id || 'Invoice'),
+      contextLabel: `${humanizeStatus(invoice.sourceType || 'invoice')} · ${coreParty(invoice)}`,
       status: String(invoice.status || 'unavailable'),
       currency,
-      primaryCents: safeMinorUnits(invoice.amountPaid),
-      secondaryCents: safeMinorUnits(invoice.amountDue),
-      primaryLabel: 'Amount paid',
+      primaryCents: safeMinorUnits(invoice.amountDue),
+      secondaryCents:
+        safeMinorUnits(invoice.amountDue) === null
+          ? null
+          : Math.max(
+              0,
+              (safeMinorUnits(invoice.amountDue) ?? 0)
+                - (safeMinorUnits(invoice.amountPaid) ?? 0),
+            ),
+      primaryLabel: 'Invoice total',
       secondaryLabel: 'Amount due',
       original: invoice,
     };
@@ -441,12 +472,16 @@
       kind,
       dateIso: recordIso(transaction, 'createdAt', 'updatedAt'),
       dateLabel: dateLabel(transaction.createdAt || transaction.updatedAt),
-      recordLabel: String(transaction.id || 'Transaction'),
-      partyLabel: coreParty(transaction),
+      recordLabel: String(
+        transaction.programName || transaction.id || 'Transaction',
+      ),
+      partyLabel: String(
+        transaction.sourceLabel || transaction.sourceId || 'Payment',
+      ),
       contextLabel:
         kind === 'dispute'
           ? `Processor dispute · ${coreContext(transaction)}`
-          : `${humanizeStatus(transaction.paymentMethodType)} · ${coreContext(transaction)}`,
+          : `${humanizeStatus(transaction.sourceType || 'payment')} · ${humanizeStatus(transaction.paymentMethodType)} · ${coreParty(transaction)}`,
       status:
         kind === 'dispute'
           ? String(transaction.disputeStatus || transaction.status || 'unavailable')
@@ -496,8 +531,12 @@
       kind: 'deposit',
       dateIso: recordIso(deposit, 'depositDate'),
       dateLabel: dateLabel(deposit.depositDate),
-      recordLabel: String(deposit.id || 'Payout'),
-      partyLabel: String(deposit.gateway || 'Gateway unavailable'),
+      recordLabel: String(
+        deposit.depositAccount || deposit.id || 'Payout',
+      ),
+      partyLabel: humanizeStatus(
+        deposit.paymentType || deposit.gateway || 'bank transfer',
+      ),
       contextLabel: reconciliation
         ? result.message
         : `${Array.isArray(deposit.transactionIds) ? deposit.transactionIds.length : 0} transactions`,
@@ -524,7 +563,7 @@
     depositRecords: FinanceRecord[],
   ): FinanceTableRow[] {
     if (view === 'Invoices') {
-      return directInvoiceRecords.map(directInvoiceRow);
+      return directInvoiceRecords.map((invoice) => directInvoiceRow(invoice));
     }
     if (view === 'Outstanding') {
       return [
@@ -532,17 +571,21 @@
           .filter((invoice) =>
             ['open', 'partially_paid', 'past_due'].includes(invoice.status),
           )
-          .map(directInvoiceRow),
+          .map((invoice) => directInvoiceRow(invoice, true)),
         ...coreInvoiceRecords
           .filter((invoice) =>
             ['open', 'partially_paid', 'past_due'].includes(
               String(invoice.status || ''),
             ),
           )
-          .map(coreInvoiceRow),
+          .map((invoice) => coreInvoiceRow(invoice, true)),
       ];
     }
-    if (view === 'Transactions') return transactionRecords.map(transactionRow);
+    if (view === 'Transactions') {
+      return transactionRecords.map((transaction) =>
+        transactionRow(transaction),
+      );
+    }
     if (view === 'Refunds') return refundRecords.map(refundRow);
     if (view === 'Disputes') {
       return transactionRecords
@@ -564,6 +607,159 @@
       );
     }
     return [];
+  }
+
+  function buildLeadSummary(
+    view: FinanceView,
+    rows: FinanceTableRow[],
+    refunds: FinanceRecord[],
+  ) {
+    const currencies = [
+      ...new Set(rows.map((row) => row.currency).filter(Boolean)),
+    ] as string[];
+    const currency = currencies.length <= 1 ? currencies[0] || 'USD' : null;
+    const sumOriginal = (
+      sourceRows: FinanceTableRow[],
+      field: string,
+    ) => {
+      const values = sourceRows.map((row) =>
+        safeMinorUnits((row.original as FinanceRecord)[field]),
+      );
+      if (values.some((value) => value === null)) return null;
+      return values.reduce<number>(
+        (total, value) => total + (value ?? 0),
+        0,
+      );
+    };
+    if (view === 'Outstanding') {
+      const now = Date.now();
+      const overdue = rows.filter((row) => {
+        const original = row.original as FinanceRecord;
+        const dueAt = original.dueAt || original.dueDate;
+        if (!dueAt || (row.secondaryCents ?? 0) <= 0) return false;
+        const due = new Date(String(dueAt)).getTime();
+        return Number.isFinite(due) && due < now;
+      }).length;
+      const unpaidRegistrations = rows.filter((row) => {
+        const original = row.original as FinanceRecord;
+        return String(original.sourceType || '').toLowerCase() === 'registration'
+          || row.kind === 'core_invoice';
+      }).length;
+      const scheduledPayments = rows.filter((row) => {
+        const original = row.original as FinanceRecord;
+        return Boolean(
+          original.scheduleId
+          || original.installmentId
+          || original.scheduledAt,
+        );
+      }).length;
+      return {
+        currency,
+        metrics: [
+          { label: 'Overdue invoices', kind: 'count', value: overdue },
+          { label: 'Unpaid registrations', kind: 'count', value: unpaidRegistrations },
+          { label: 'Scheduled payments', kind: 'count', value: scheduledPayments },
+        ],
+      };
+    }
+    if (view === 'Transactions') {
+      const succeeded = rows.filter((row) =>
+        String(row.status).toLowerCase() === 'succeeded',
+      );
+      const refundValues = refunds
+        .filter((refund) => String(refund.status || '').toLowerCase() === 'succeeded')
+        .map((refund) => safeMinorUnits(refund.amountCents));
+      const refunded = refundValues.some((value) => value === null)
+        ? null
+        : refundValues.reduce<number>(
+            (total, value) => total + (value ?? 0),
+            0,
+          );
+      return {
+        currency,
+        metrics: [
+          { label: 'Gross', kind: 'amount', value: sumOriginal(succeeded, 'grossAmount') },
+          { label: 'Net', kind: 'amount', value: sumOriginal(succeeded, 'netAmount') },
+          { label: 'Fees', kind: 'amount', value: sumOriginal(succeeded, 'feeAmount') },
+          { label: 'Refunds', kind: 'amount', value: refunded },
+          { label: 'Failed', kind: 'count', value: rows.filter((row) => String(row.status).toLowerCase() === 'failed').length },
+        ],
+      };
+    }
+    return {
+      currency,
+      metrics: [
+        { label: 'Gross', kind: 'amount', value: sumOriginal(rows, 'totalGross') },
+        { label: 'Net', kind: 'amount', value: sumOriginal(rows, 'totalNet') },
+        { label: 'Fees', kind: 'amount', value: sumOriginal(rows, 'totalFees') },
+      ],
+    };
+  }
+
+  function leadMetricValue(
+    metric: { kind: string; value: number | null },
+    currency: string | null,
+  ) {
+    if (metric.kind === 'count') {
+      return (metric.value ?? 0).toLocaleString();
+    }
+    if (metric.value === null) return 'Pending';
+    return currency ? formatMinorUnits(metric.value, currency) : 'Multiple';
+  }
+
+  function recordTypeLabel(view: FinanceView) {
+    const labels: Record<FinanceView, string> = {
+      Overview: 'financial',
+      Invoices: 'invoice',
+      Outstanding: 'outstanding',
+      Transactions: 'transaction',
+      Refunds: 'refund',
+      Disputes: 'dispute',
+      Deposits: 'deposit',
+      Reconciliation: 'reconciliation',
+    };
+    return labels[view];
+  }
+
+  function financialColumnLabels(view: FinanceView) {
+    if (view === 'Deposits' || view === 'Reconciliation') {
+      return {
+        date: 'Deposit date',
+        record: 'Deposit account',
+        party: 'Type',
+        context: 'Details',
+        primary: 'Gross',
+        secondary: view === 'Reconciliation' ? 'Variance' : 'Net',
+      };
+    }
+    if (view === 'Outstanding') {
+      return {
+        date: 'Due date',
+        record: 'Program',
+        party: 'Source',
+        context: 'Member / type',
+        primary: 'Invoiced',
+        secondary: 'Due',
+      };
+    }
+    if (view === 'Transactions' || view === 'Disputes') {
+      return {
+        date: 'Payment date',
+        record: 'Program',
+        party: 'Source',
+        context: 'Member / type',
+        primary: 'Gross',
+        secondary: 'Net',
+      };
+    }
+    return {
+      date: 'Date',
+      record: 'Record',
+      party: 'Party / source',
+      context: 'Context',
+      primary: 'Amount',
+      secondary: 'Balance / net',
+    };
   }
 
   function filterAndSortRows(
@@ -621,6 +817,7 @@
 
   function setView(view: FinanceView) {
     activeView = view;
+    filtersOpen = false;
     page = 1;
     selectedIds = new Set();
     statusFilter = '';
@@ -833,7 +1030,7 @@
     )) {
       if (truncated) {
         warnings.push(
-          `${humanizeStatus(resource)} reached the 1,000-record projection limit.`,
+          `${humanizeStatus(resource)} did not finish loading. Refresh before relying on this view.`,
         );
       }
     }
@@ -1019,43 +1216,28 @@
 </script>
 
 <div class="flex h-full min-h-0 flex-col bg-gray-50">
-  <header class="border-b border-gray-200 bg-white px-4 py-4 sm:px-6">
-    <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-wide text-[#008194]">Owner-only financial operations</p>
-        <h1 class="mt-1 text-2xl font-semibold text-gray-950">Financials</h1>
-        <p class="mt-1 text-sm text-gray-600">
-          Scope: {teamId ? `Team ${teamLabel}` : 'entire organization'} ·
-          {lastLoadedAt ? ` refreshed ${lastLoadedAt.toLocaleTimeString()}` : ' not refreshed'}
-        </p>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <button
-          type="button"
-          class="crm-ui-button-secondary bg-white text-gray-800"
-          disabled={loadState === 'loading' || !ownerAuthorized}
-          on:click={loadFinancials}
-        >
-          {loadState === 'loading' ? 'Refreshing…' : 'Refresh financials'}
-        </button>
-        <button
-          type="button"
-          class="rounded-md bg-[#008194] px-3 py-2 text-sm font-semibold text-white hover:bg-[#006d7c] disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={!ownerAuthorized || Boolean(teamId) || loadState !== 'ready'}
-          title={teamId ? 'Switch to organization scope to create a tenant-scoped invoice.' : undefined}
-          on:click={openCreateInvoice}
-        >
-          Create invoice draft
-        </button>
-      </div>
+  <header class="border-b border-gray-200 bg-white px-4 pt-3 sm:px-6">
+    <div class="flex items-center justify-between gap-4 pb-2">
+      <p class="text-xs text-gray-500">
+        {teamId ? `Team ${teamLabel}` : 'Organization'}
+        {#if lastLoadedAt} · {lastLoadedAt.toLocaleTimeString()}{/if}
+      </p>
+      <button
+        type="button"
+        class="crm-ui-button-secondary bg-white text-gray-800"
+        disabled={loadState === 'loading' || !ownerAuthorized}
+        on:click={loadFinancials}
+      >
+        {loadState === 'loading' ? 'Refreshing…' : 'Refresh'}
+      </button>
     </div>
 
-    <nav class="mt-4 flex gap-1 overflow-x-auto" aria-label="Financial views">
-      {#each views as view}
+    <nav class="grid grid-cols-3" aria-label="Financial views">
+      {#each primaryViews as view}
         <button
           type="button"
           aria-pressed={activeView === view}
-          class="whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium {activeView === view ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-950'}"
+          class="border-b-4 px-3 py-4 text-base font-semibold transition-colors sm:text-lg {activeView === view ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-800 hover:border-gray-200'}"
           on:click={() => setView(view)}
         >
           {view}
@@ -1098,54 +1280,45 @@
         </div>
       {/if}
 
+      {#if primaryViews.includes(activeView)}
+        <section aria-label={`${activeView} summary`} class="rounded-xl border border-gray-200 bg-white shadow-sm">
+          <dl class="grid divide-x divide-gray-200" style="grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));">
+            {#each leadSummary.metrics as metric}
+              <div class="px-4 py-5 text-center sm:px-8 sm:py-7">
+                <dt class="text-xs font-semibold uppercase tracking-wide text-gray-500 sm:text-sm">{metric.label}</dt>
+                <dd class="mt-2 text-xl font-bold text-gray-950 sm:text-3xl">
+                  {leadMetricValue(metric, leadSummary.currency)}
+                </dd>
+              </div>
+            {/each}
+          </dl>
+        </section>
+      {/if}
+
+      <section aria-label="Financial tools" class="mt-4 flex flex-wrap items-center gap-2">
+        {#each toolViews as tool}
+          <button
+            type="button"
+            aria-pressed={activeView === tool.view}
+            class="rounded-lg border px-3 py-2 text-sm font-semibold {activeView === tool.view ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}"
+            on:click={() => setView(tool.view)}
+          >
+            {tool.label}
+          </button>
+        {/each}
+        <button
+          type="button"
+          class="rounded-lg bg-[#008194] px-3 py-2 text-sm font-semibold text-white hover:bg-[#006d7c] disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!ownerAuthorized || Boolean(teamId) || loadState !== 'ready'}
+          title={teamId ? 'Switch to organization scope to create a tenant-scoped invoice.' : undefined}
+          on:click={openCreateInvoice}
+        >
+          Create
+        </button>
+      </section>
+
       {#if activeView === 'Overview'}
-        <section aria-labelledby="financial-overview-heading">
-          <div class="flex items-end justify-between gap-4">
-            <div>
-              <h2 id="financial-overview-heading" class="text-lg font-semibold text-gray-950">Currency-safe overview</h2>
-              <p class="mt-1 text-sm text-gray-600">Successful payments, fees, refunds, and direct-invoice balances remain separate. Bank payouts are not inferred from payment success.</p>
-            </div>
-          </div>
-
-          {#if summaryResult.excludedRecordCount > 0}
-            <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950" role="alert">
-              {summaryResult.excludedRecordCount} financial {summaryResult.excludedRecordCount === 1 ? 'record was' : 'records were'} excluded because currency or integer minor-unit amounts were invalid.
-            </div>
-          {/if}
-
-          {#if summaryResult.summaries.length === 0}
-            <div class="mt-4 rounded-lg border border-gray-200 bg-white p-8 text-center text-sm text-gray-600">
-              No successful payment, refund, or outstanding direct-invoice totals are available for this scope.
-            </div>
-          {:else}
-            <div class="mt-4 grid gap-4 xl:grid-cols-2">
-              {#each summaryResult.summaries as summary (summary.currency)}
-                <article class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-                  <div class="crm-ui-between"><h3 class="font-semibold text-gray-950">{summary.currency} {truncationWarnings.length > 0 ? 'loaded projection' : 'totals'}</h3><span class="crm-ui-hint-xs">{teamId ? `Team ${teamLabel}` : 'Organization'}</span></div>
-                  <dl class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-5">
-                    <div><dt class="crm-ui-eyebrow">Collected</dt><dd class="mt-1 text-lg font-semibold">{formatMinorUnits(summary.collectedCents, summary.currency)}</dd></div>
-                    <div><dt class="crm-ui-eyebrow">Fees</dt><dd class="mt-1 text-lg font-semibold">{formatMinorUnits(summary.feeCents, summary.currency)}</dd></div>
-                    <div><dt class="crm-ui-eyebrow">Net</dt><dd class="mt-1 text-lg font-semibold">{formatMinorUnits(summary.netCents, summary.currency)}</dd></div>
-                    <div><dt class="crm-ui-eyebrow">Refunded</dt><dd class="mt-1 text-lg font-semibold">{formatMinorUnits(summary.refundedCents, summary.currency)}</dd></div>
-                    <div><dt class="crm-ui-eyebrow">Outstanding</dt><dd class="mt-1 text-lg font-semibold">{formatMinorUnits(summary.outstandingCents, summary.currency)}</dd></div>
-                  </dl>
-                </article>
-              {/each}
-            </div>
-          {/if}
-
-          <div class="mt-6 grid gap-4 lg:grid-cols-2">
-            <article class="rounded-xl border border-gray-200 bg-white p-5">
-              <h3 class="font-semibold text-gray-950">Launch capability boundary</h3>
-              <p class="mt-2 text-sm text-gray-700">HuddleWay supports direct invoices, authoritative balances, offline payment records, processor refunds, dispute status, deposits, and reconciliation views in this release.</p>
-              <p class="mt-2 text-sm text-gray-700">Configurable installment schedules, autopay plans, scholarships, credits, and financial-aid adjustments are not shipped. Recurring subscriptions are not presented as invoice installments.</p>
-            </article>
-            <article class="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
-              <h3 class="font-semibold text-emerald-950">Audited financial period locks</h3>
-              <p class="mt-2 text-sm text-emerald-900">Owners can preview, close, and reopen half-open financial date ranges. The backend rejects covered administrative financial mutations and records close/reopen audit events.</p>
-            </article>
-          </div>
-
+        <section aria-label="Financial periods">
           {#if !teamId}
             <FinancialPeriodManager
               tenantId={$tenantIdStore}
@@ -1160,67 +1333,83 @@
       {:else}
         <section aria-labelledby="financial-table-heading" class="rounded-xl border border-gray-200 bg-white shadow-sm">
           <div class="border-b border-gray-200 p-4">
-            <div class="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-              <div>
-                <h2 id="financial-table-heading" class="text-lg font-semibold text-gray-950">{activeView}</h2>
-                <p class="mt-1 text-sm text-gray-600">{filteredRows.length} matching {filteredRows.length === 1 ? 'record' : 'records'} in the loaded {teamId ? 'team' : 'organization'} projection.</p>
-              </div>
-              <div class="flex flex-wrap gap-2">
-                <details class="relative">
-                  <summary class="crm-ui-button-secondary cursor-pointer text-gray-800">Columns</summary>
-                  <div class="absolute right-0 z-20 mt-2 w-56 rounded-lg border border-gray-200 bg-white p-3 shadow-xl">
-                    {#each allColumns as column}
-                      <label class="flex items-center gap-2 py-1 text-sm text-gray-800">
-                        <input type="checkbox" checked={visibleColumns.has(column.id)} disabled={visibleColumns.size === 1 && visibleColumns.has(column.id)} on:change={() => toggleColumn(column.id)} />
-                        {column.label}
-                      </label>
-                    {/each}
-                  </div>
-                </details>
+            <h2 id="financial-table-heading" class="sr-only">{activeView}</h2>
+            <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <p class="text-sm font-medium text-gray-700">
+                {filteredRows.length} {filteredRows.length === 1 ? 'record' : 'records'}
+              </p>
+              <div class="flex flex-wrap items-center gap-2">
+                <div class="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-2">
+                  <label for="financial-from" class="sr-only">From date</label>
+                  <input id="financial-from" type="date" bind:value={fromDate} on:change={applyFilters} class="min-w-0 border-0 bg-transparent px-1 py-2 text-sm text-gray-800" />
+                  <span class="text-gray-400">–</span>
+                  <label for="financial-to" class="sr-only">To date</label>
+                  <input id="financial-to" type="date" bind:value={toDate} on:change={applyFilters} class="min-w-0 border-0 bg-transparent px-1 py-2 text-sm text-gray-800" />
+                </div>
                 <button
                   type="button"
-                  class="crm-ui-button-secondary text-gray-800"
-                  disabled={activeView !== 'Invoices' || filteredRows.length === 0 || exportState === 'loading'}
-                  title={activeView !== 'Invoices' ? 'Only direct invoices have an audited backend export contract in this release.' : undefined}
+                  class="rounded-lg border border-blue-100 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+                  aria-expanded={filtersOpen}
+                  on:click={() => filtersOpen = !filtersOpen}
+                >
+                  Filters
+                </button>
+                {#if activeView === 'Invoices'}
+                <button
+                  type="button"
+                  class="rounded-lg border border-blue-100 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={filteredRows.length === 0 || exportState === 'loading'}
                   on:click={exportInvoices}
                 >
-                  {exportState === 'loading' ? 'Exporting…' : selectedIds.size > 0 ? `Export ${selectedIds.size} selected` : 'Export filtered invoices'}
+                  {exportState === 'loading' ? 'Exporting…' : 'Export'}
                 </button>
+                {/if}
               </div>
             </div>
 
-            <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-              <div class="xl:col-span-2">
-                <label for="financial-search" class="crm-ui-label-xs">Search loaded records</label>
-                <div class="mt-1 flex gap-2">
-                  <input id="financial-search" type="search" bind:value={searchInput} on:input={handleSearchInput} placeholder="Record, party, context, or status" class="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm" />
-                  <button type="button" disabled={!searchInput && !searchQuery} on:click={() => { searchInput = ''; searchQuery = ''; applyFilters(); }} class="crm-ui-button-secondary">Clear</button>
+            {#if filtersOpen}
+              <div class="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <div class="xl:col-span-2">
+                    <label for="financial-search" class="crm-ui-label-xs">Search</label>
+                    <input id="financial-search" type="search" bind:value={searchInput} on:input={handleSearchInput} placeholder="Record, person, or status" class="crm-ui-input mt-1 bg-white" aria-label="Search loaded records" />
+                  </div>
+                  <div>
+                    <label for="financial-status" class="crm-ui-label-xs">Status</label>
+                    <select id="financial-status" bind:value={statusFilter} on:change={applyFilters} class="crm-ui-input mt-1 bg-white"><option value="">All statuses</option>{#each statusOptions as status}<option value={status}>{humanizeStatus(status)}</option>{/each}</select>
+                  </div>
+                  <div>
+                    <label for="financial-currency" class="crm-ui-label-xs">Currency</label>
+                    <select id="financial-currency" bind:value={currencyFilter} on:change={applyFilters} class="crm-ui-input mt-1 bg-white"><option value="">All currencies</option>{#each currencyOptions as currency}<option value={currency}>{currency}</option>{/each}</select>
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label for="financial-status" class="crm-ui-label-xs">Status</label>
-                <select id="financial-status" bind:value={statusFilter} on:change={applyFilters} class="crm-ui-input"><option value="">All statuses</option>{#each statusOptions as status}<option value={status}>{humanizeStatus(status)}</option>{/each}</select>
-              </div>
-              <div>
-                <label for="financial-currency" class="crm-ui-label-xs">Currency</label>
-                <select id="financial-currency" bind:value={currencyFilter} on:change={applyFilters} class="crm-ui-input"><option value="">All currencies</option>{#each currencyOptions as currency}<option value={currency}>{currency}</option>{/each}</select>
-              </div>
-              <div class="flex items-end"><button type="button" on:click={clearFilters} disabled={!searchQuery && !statusFilter && !currencyFilter && !fromDate && !toDate} class="crm-ui-button-secondary w-full">Clear all filters</button></div>
-            </div>
+                <div class="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <div><label for="financial-page-size" class="crm-ui-label-xs">Rows</label><select id="financial-page-size" bind:value={pageSize} on:change={() => { page = 1; syncUrl(); }} class="crm-ui-input mt-1 bg-white"><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option></select></div>
+                  <div><label for="financial-sort" class="crm-ui-label-xs">Sort</label><select id="financial-sort" bind:value={sortKey} on:change={() => { page = 1; syncUrl(); }} class="crm-ui-input mt-1 bg-white"><option value="dateIso">Date</option><option value="recordLabel">Record</option><option value="status">Status</option><option value="primaryCents">Amount</option></select></div>
+                  <div class="flex items-end">
+                    <details class="relative w-full">
+                      <summary class="crm-ui-button-secondary cursor-pointer bg-white text-center text-gray-800">Columns</summary>
+                      <div class="absolute left-0 z-20 mt-2 w-56 rounded-lg border border-gray-200 bg-white p-3 shadow-xl">
+                        {#each allColumns as column}
+                          <label class="flex items-center gap-2 py-1 text-sm text-gray-800">
+                            <input type="checkbox" checked={visibleColumns.has(column.id)} disabled={visibleColumns.size === 1 && visibleColumns.has(column.id)} on:change={() => toggleColumn(column.id)} />
+                            {column.label}
+                          </label>
+                        {/each}
+                      </div>
+                    </details>
+                  </div>
+                  <div class="flex items-end"><button type="button" on:click={clearFilters} disabled={!searchQuery && !statusFilter && !currencyFilter && !fromDate && !toDate} class="crm-ui-button-secondary w-full bg-white">Clear</button></div>
+                </div>
 
-            <div class="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <div><label for="financial-from" class="crm-ui-label-xs">From date</label><input id="financial-from" type="date" bind:value={fromDate} on:change={applyFilters} class="crm-ui-input" /></div>
-              <div><label for="financial-to" class="crm-ui-label-xs">To date</label><input id="financial-to" type="date" bind:value={toDate} on:change={applyFilters} class="crm-ui-input" /></div>
-              <div><label for="financial-page-size" class="crm-ui-label-xs">Rows per page</label><select id="financial-page-size" bind:value={pageSize} on:change={() => { page = 1; syncUrl(); }} class="crm-ui-input"><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option></select></div>
-              <div><label for="financial-sort" class="crm-ui-label-xs">Sort</label><select id="financial-sort" bind:value={sortKey} on:change={() => { page = 1; syncUrl(); }} class="crm-ui-input"><option value="dateIso">Date</option><option value="recordLabel">Record</option><option value="status">Status</option><option value="primaryCents">Amount</option></select></div>
-            </div>
-
-            <div class="mt-4 grid gap-3 rounded-lg bg-gray-50 p-3 lg:grid-cols-[1fr_auto_auto]">
-              <div><label for="saved-financial-view" class="crm-ui-label-xs">Local saved view</label><select id="saved-financial-view" bind:value={selectedSavedView} class="crm-ui-select"><option value="">Choose a saved view</option>{#each savedViews as saved}<option value={saved.name}>{saved.name}</option>{/each}</select></div>
-              <div class="flex items-end gap-2"><button type="button" disabled={!selectedSavedView} on:click={applySavedView} class="crm-ui-button-secondary bg-white">Apply</button><button type="button" disabled={!selectedSavedView} on:click={deleteSavedView} class="crm-ui-button-danger-outline bg-white">Delete</button></div>
-              <div class="flex items-end gap-2"><div><label for="save-financial-view-name" class="crm-ui-label-xs">Save current filters locally</label><input id="save-financial-view-name" bind:value={savedViewName} maxlength="60" class="crm-ui-input bg-white" placeholder="View name" /></div><button type="button" disabled={!savedViewName.trim()} on:click={saveLocalView} class="crm-ui-button-secondary bg-white">Save</button></div>
-            </div>
-            {#if savedViewMessage}<p class="mt-2 text-xs text-gray-600" role="status">{savedViewMessage}</p>{/if}
+                <div class="mt-3 grid gap-3 border-t border-gray-200 pt-3 lg:grid-cols-[1fr_auto_auto]">
+                  <div><label for="saved-financial-view" class="crm-ui-label-xs">Saved view</label><select id="saved-financial-view" bind:value={selectedSavedView} class="crm-ui-select mt-1 bg-white" aria-label="Local saved view"><option value="">Choose</option>{#each savedViews as saved}<option value={saved.name}>{saved.name}</option>{/each}</select></div>
+                  <div class="flex items-end gap-2"><button type="button" disabled={!selectedSavedView} on:click={applySavedView} class="crm-ui-button-secondary bg-white">Apply</button><button type="button" disabled={!selectedSavedView} on:click={deleteSavedView} class="crm-ui-button-danger-outline bg-white">Delete</button></div>
+                  <div class="flex items-end gap-2"><div><label for="save-financial-view-name" class="crm-ui-label-xs">Save view</label><input id="save-financial-view-name" aria-label="Save current filters locally" bind:value={savedViewName} maxlength="60" class="crm-ui-input mt-1 bg-white" placeholder="Name" /></div><button type="button" disabled={!savedViewName.trim()} on:click={saveLocalView} class="crm-ui-button-secondary bg-white">Save</button></div>
+                </div>
+                {#if savedViewMessage}<p class="mt-2 text-xs text-gray-600" role="status">{savedViewMessage}</p>{/if}
+              </div>
+            {/if}
             {#if exportMessage}<div class="crm-ui-operation-message mt-3 {exportState === 'error' ? 'border-red-200 bg-red-50 text-red-800' : 'border-green-200 bg-green-50 text-green-800'}" role={exportState === 'error' ? 'alert' : 'status'}>{exportMessage}{#if exportRequestId}<span class="block text-xs">Support request: {exportRequestId}</span>{/if}</div>{/if}
           </div>
 
@@ -1230,13 +1419,14 @@
               <thead class="bg-gray-50">
                 <tr>
                   <th scope="col" class="w-12 px-4 py-3 text-left"><input type="checkbox" aria-label="Select every row on this page" checked={currentPageSelected} disabled={pagedRows.length === 0} on:change={toggleCurrentPage} /></th>
-                  {#if visibleColumns.has('date')}<th scope="col" class="crm-ui-th"><button type="button" on:click={() => setSort('dateIso')}>Date {sortKey === 'dateIso' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}</button></th>{/if}
-                  {#if visibleColumns.has('record')}<th scope="col" class="crm-ui-th"><button type="button" on:click={() => setSort('recordLabel')}>Record {sortKey === 'recordLabel' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}</button></th>{/if}
-                  {#if visibleColumns.has('party')}<th scope="col" class="crm-ui-th">Party / source</th>{/if}
-                  {#if visibleColumns.has('context')}<th scope="col" class="crm-ui-th">Context</th>{/if}
+                  {#if visibleColumns.has('date')}<th scope="col" class="crm-ui-th"><button type="button" on:click={() => setSort('dateIso')}>{tableLabels.date} {sortKey === 'dateIso' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}</button></th>{/if}
+                  {#if visibleColumns.has('record')}<th scope="col" class="crm-ui-th"><button type="button" on:click={() => setSort('recordLabel')}>{tableLabels.record} {sortKey === 'recordLabel' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}</button></th>{/if}
+                  {#if visibleColumns.has('party')}<th scope="col" class="crm-ui-th">{tableLabels.party}</th>{/if}
+                  {#if visibleColumns.has('context')}<th scope="col" class="crm-ui-th">{tableLabels.context}</th>{/if}
                   {#if visibleColumns.has('status')}<th scope="col" class="crm-ui-th"><button type="button" on:click={() => setSort('status')}>Status {sortKey === 'status' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}</button></th>{/if}
-                  {#if visibleColumns.has('primary')}<th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-600"><button type="button" on:click={() => setSort('primaryCents')}>Amount {sortKey === 'primaryCents' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}</button></th>{/if}
-                  {#if visibleColumns.has('secondary')}<th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-600">Balance / net</th>{/if}
+                  {#if visibleColumns.has('primary')}<th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-600"><button type="button" on:click={() => setSort('primaryCents')}>{tableLabels.primary} {sortKey === 'primaryCents' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}</button></th>{/if}
+                  {#if activeView === 'Deposits'}<th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-600">Fees</th>{/if}
+                  {#if visibleColumns.has('secondary')}<th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-600">{tableLabels.secondary}</th>{/if}
                   <th scope="col" class="px-4 py-3"><span class="sr-only">Actions</span></th>
                 </tr>
               </thead>
@@ -1250,19 +1440,20 @@
                     {#if visibleColumns.has('context')}<td data-label="Context" class="max-w-xs px-4 py-3 text-sm text-gray-700">{row.contextLabel}</td>{/if}
                     {#if visibleColumns.has('status')}<td data-label="Status" class="px-4 py-3 text-sm"><span class="inline-flex rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-800">{humanizeStatus(row.status)}</span></td>{/if}
                     {#if visibleColumns.has('primary')}<td data-label={row.primaryLabel} class="px-4 py-3 text-right text-sm font-medium text-gray-950">{formatMinorUnits(row.primaryCents, row.currency)}</td>{/if}
+                    {#if activeView === 'Deposits'}<td data-label="Fees" class="px-4 py-3 text-right text-sm text-gray-700">{formatMinorUnits((row.original as FinanceRecord).totalFees, row.currency)}</td>{/if}
                     {#if visibleColumns.has('secondary')}<td data-label={row.secondaryLabel} class="px-4 py-3 text-right text-sm text-gray-700">{formatMinorUnits(row.secondaryCents, row.currency)}</td>{/if}
-                    <td class="px-4 py-3 text-right"><button type="button" class="crm-ui-button-secondary px-2 py-1 text-gray-800 hover:bg-gray-100" on:click={() => openDetails(row)}>View details</button></td>
+                    <td class="px-4 py-3 text-right"><button type="button" class="crm-ui-button-secondary px-2 py-1 text-gray-800 hover:bg-gray-100" on:click={() => openDetails(row)}>View</button></td>
                   </tr>
                 {/each}
                 {#if pagedRows.length === 0}
-                  <tr><td colspan={visibleColumns.size + 2} class="px-6 py-10 text-center text-sm text-gray-600">{baseRows.length === 0 ? `No ${activeView.toLowerCase()} records are available in this authorized scope.` : 'No records match the current search and filters.'}</td></tr>
+                  <tr><td colspan={visibleColumns.size + 2 + (activeView === 'Deposits' ? 1 : 0)} class="px-6 py-10 text-center text-sm text-gray-600">{baseRows.length === 0 ? `No ${recordTypeLabel(activeView)} records are available.` : 'No records match the current filters.'}</td></tr>
                 {/if}
               </tbody>
             </table>
           </div>
 
           <footer class="flex flex-col gap-3 border-t border-gray-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <p class="text-sm text-gray-600">Page {page} of {pageCount} · {selectedIds.size} selected by stable record ID</p>
+            <p class="text-sm text-gray-600">Page {page} of {pageCount} · {selectedIds.size} selected</p>
             <div class="flex gap-2">
               <button type="button" disabled={page <= 1} on:click={() => { page -= 1; syncUrl(); }} class="crm-ui-button-secondary py-1.5">Previous</button>
               <button type="button" disabled={page >= pageCount} on:click={() => { page += 1; syncUrl(); }} class="crm-ui-button-secondary py-1.5">Next</button>

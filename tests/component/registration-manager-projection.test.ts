@@ -3,7 +3,6 @@ import {
   fireEvent,
   render,
   screen,
-  waitFor,
 } from '@testing-library/svelte';
 import type { Component } from 'svelte';
 import type { Writable } from 'svelte/store';
@@ -79,7 +78,6 @@ type Subscription = {
   tenantId: string;
   next: (forms: Array<Record<string, unknown>>) => void;
   error: (error: unknown) => void;
-  scope: (scope: { truncated: boolean; limit: number }) => void;
   unsubscribe: ReturnType<typeof vi.fn>;
 };
 
@@ -127,7 +125,7 @@ function detailPage(participantName = 'Jordan Player') {
         priceCents: 12_500,
       }],
       truncated: false,
-      limit: 500,
+      limit: null,
     },
     participants: {
       records: [{
@@ -139,7 +137,7 @@ function detailPage(participantName = 'Jordan Player') {
         date: new Date('2026-07-01T12:00:00.000Z'),
       }],
       truncated: false,
-      limit: 500,
+      limit: null,
     },
   };
 }
@@ -166,10 +164,9 @@ describe('RegistrationManager projection and detail lifecycle', () => {
         tenantId: string,
         next: Subscription['next'],
         error: Subscription['error'],
-        scope: Subscription['scope'],
       ) => {
         const unsubscribe = vi.fn();
-        subscriptions.push({ tenantId, next, error, scope, unsubscribe });
+        subscriptions.push({ tenantId, next, error, unsubscribe });
         return unsubscribe;
       },
     );
@@ -187,15 +184,9 @@ describe('RegistrationManager projection and detail lifecycle', () => {
     expect(subscriptions[0].tenantId).toBe('tenant-a');
 
     await act(async () => {
-      subscriptions[0].scope({ truncated: true, limit: 500 });
       subscriptions[0].next([activeForm, retiredForm, unknownForm]);
     });
 
-    expect(
-      screen.getByText(
-        'Showing the first 500 forms by record ID. Search, export, and totals apply only to this loaded set.',
-      ),
-    ).toBeVisible();
     expect(screen.getAllByText('Fall Registration').length)
       .toBeGreaterThan(0);
     expect(screen.queryByText('Spring Registration')).toBeNull();
@@ -267,11 +258,9 @@ describe('RegistrationManager projection and detail lifecycle', () => {
     expect(screen.getByText('Loading records…')).toBeVisible();
 
     await act(async () => {
-      subscriptions[0].scope({ truncated: true, limit: 12 });
       subscriptions[0].next([retiredForm]);
     });
     expect(screen.queryByText('Spring Registration')).toBeNull();
-    expect(screen.queryByText(/first 12 forms/)).toBeNull();
 
     await act(async () => {
       subscriptions[1].next([activeForm]);
@@ -290,9 +279,7 @@ describe('RegistrationManager projection and detail lifecycle', () => {
       subscriptions[0].next([activeForm]);
     });
 
-    await fireEvent.click(
-      screen.getAllByRole('button', { name: 'Open details' })[0],
-    );
+    await fireEvent.click(screen.getAllByRole('button', { name: 'Fall Registration' })[0]);
     expect(
       await screen.findByText(
         'You do not have permission to view this registration detail.',
@@ -307,6 +294,16 @@ describe('RegistrationManager projection and detail lifecycle', () => {
       'form-active',
     );
     expect(await screen.findByText('Jordan Player')).toBeVisible();
+    expect(screen.queryByText('Open')).toBeNull();
+    await fireEvent.click(screen.getByRole('button', {
+      name: 'Edit Registration Form',
+    }));
+    expect(screen.getByRole('dialog', {
+      name: 'Edit Registration Form',
+    })).toBeVisible();
+    expect(screen.getByLabelText('Registration Title *')).toHaveValue('Fall Registration');
+    expect(screen.queryByText('Reason for change')).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     await act(async () => {
       subscriptions[0].next([{
@@ -336,9 +333,7 @@ describe('RegistrationManager projection and detail lifecycle', () => {
     await act(async () => {
       subscriptions[0].next([activeForm]);
     });
-    await fireEvent.click(
-      screen.getAllByRole('button', { name: 'Open details' })[0],
-    );
+    await fireEvent.click(screen.getAllByRole('button', { name: 'Fall Registration' })[0]);
 
     await act(async () => {
       tenants.set('tenant-b');

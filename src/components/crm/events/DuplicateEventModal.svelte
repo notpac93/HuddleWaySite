@@ -33,7 +33,8 @@
   let selectedDateKeys: string[] = [];
   let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
   let saveError = '';
-  let auditReason = '';
+  const automaticAuditReason = 'Event dates added from CRM.';
+  let auditReason = automaticAuditReason;
   let operationKey = createIdempotencyKey('event-duplicate');
   let payloadSignature = '';
   let currentPayloadSignature = '';
@@ -49,7 +50,7 @@
     selectedDateKeys = [];
     submitState = 'idle';
     saveError = '';
-    auditReason = '';
+    auditReason = automaticAuditReason;
     showTimes = false;
     if (event.dateObj instanceof Date) {
       originalStartTime = event.dateObj.toTimeString().slice(0, 5);
@@ -122,7 +123,7 @@
     operationGeneration += 1;
     selectedDateKeys = [];
     saveError = '';
-    auditReason = '';
+    auditReason = automaticAuditReason;
     submitState = 'idle';
     showTimes = false;
     dispatch('close');
@@ -175,10 +176,6 @@
 
     if (selectedDateKeys.length === 0) {
       saveError = 'Please select at least one date.';
-      return;
-    }
-    if (auditReason.trim().length < 3) {
-      saveError = 'Provide a reason for adding these dates.';
       return;
     }
     const uniqueTimeSlots = new Set(
@@ -342,11 +339,6 @@
             </div>
           {/if}
 
-          <div class="mt-4">
-            <label for="duplicate-event-audit-reason" class="crm-ui-label">Reason for change *</label>
-            <input id="duplicate-event-audit-reason" type="text" bind:value={auditReason} minlength="3" maxlength="500" required class="crm-ui-field" placeholder="Why are these dates being added?">
-          </div>
-
           {#if saveError}
             <div class="crm-ui-danger mt-4">
               {saveError}
@@ -361,7 +353,7 @@
           type="button"
           state={submitState}
           on:click={handleDuplicate}
-          disabled={selectedDateKeys.length === 0 || auditReason.trim().length < 3 || submitState === 'loading'}
+          disabled={selectedDateKeys.length === 0 || submitState === 'loading'}
           idleText="Add Dates"
           loadingText="Saving..."
           successText="Added!"

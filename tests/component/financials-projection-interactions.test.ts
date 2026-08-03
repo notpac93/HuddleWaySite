@@ -53,6 +53,25 @@ function overview(tenantId = 'tenant-a'): FinancialOverview {
     refunds: [],
     invoices: [],
     deposits: [],
+    recordCounts: {
+      transactions: 0,
+      payments: 0,
+      refunds: 0,
+      invoices: 0,
+      deposits: 0,
+    },
+    tracking: {
+      complete: true,
+      unreconciledTransactionCount: 0,
+      unreconciledDepositCount: 0,
+      sourceCollections: [
+        'transactions',
+        'payments',
+        'refunds',
+        'invoices',
+        'deposits',
+      ],
+    },
     truncated: {
       transactions: false,
       refunds: false,
@@ -161,10 +180,7 @@ describe('Financials projection and controls', () => {
 
     roles.set('owner');
     expect(await screen.findByText('HW-invoice-1')).toBeInTheDocument();
-    expect(backendMocks.financialOverview).toHaveBeenCalledWith(
-      'tenant-a',
-      1000,
-    );
+    expect(backendMocks.financialOverview).toHaveBeenCalledWith('tenant-a');
     expect(backendMocks.directInvoicePage).toHaveBeenCalledWith(
       'tenant-a',
       { limit: 200, cursor: undefined },
@@ -189,7 +205,7 @@ describe('Financials projection and controls', () => {
     render(TestedFinancials);
     expect(await screen.findByText('HW-invoice-1')).toBeInTheDocument();
     await fireEvent.click(
-      screen.getByRole('button', { name: 'Refresh financials' }),
+      screen.getByRole('button', { name: 'Refresh' }),
     );
     expect(screen.getByText('HW-invoice-1')).toBeInTheDocument();
     expect(
@@ -271,7 +287,7 @@ describe('Financials projection and controls', () => {
     await screen.findByText('HW-invoice-1');
     await fireEvent.click(screen.getByLabelText('Select HW-invoice-1'));
     const exportButton = screen.getByRole('button', {
-      name: 'Export 1 selected',
+      name: 'Export',
     });
     await fireEvent.click(exportButton);
     expect(
@@ -291,7 +307,7 @@ describe('Financials projection and controls', () => {
 
     await fireEvent.click(screen.getByLabelText('Select HW-invoice-2'));
     await fireEvent.click(
-      screen.getByRole('button', { name: 'Export 2 selected' }),
+      screen.getByRole('button', { name: 'Export' }),
     );
     await waitFor(() =>
       expect(backendMocks.createCrmExport).toHaveBeenCalledTimes(3),
@@ -309,7 +325,7 @@ describe('Financials projection and controls', () => {
     const view = render(TestedFinancials, { activeTeam: null });
     await screen.findByText('HW-invoice-1');
     await fireEvent.click(
-      screen.getAllByRole('button', { name: 'View details' })[0],
+      screen.getAllByRole('button', { name: 'View' })[0],
     );
     expect(
       screen.getByRole('dialog', { name: 'HW-invoice-2' }),
@@ -326,7 +342,7 @@ describe('Financials projection and controls', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('HW-invoice-1')).not.toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Create invoice draft' }),
+      screen.getByRole('button', { name: 'Create' }),
     ).toBeDisabled();
   });
 
@@ -342,7 +358,7 @@ describe('Financials projection and controls', () => {
     backendMocks.directInvoicePage.mockResolvedValue(invoicePage(records));
     render(TestedFinancials);
 
-    expect(await screen.findByText(/30 matching records/i))
+    expect(await screen.findByText(/^30 records$/i))
       .toBeInTheDocument();
     await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(screen.getByText(/Page 2 of 2/i)).toBeInTheDocument();
@@ -350,9 +366,10 @@ describe('Financials projection and controls', () => {
       screen.getByLabelText('Select every row on this page'),
     );
     expect(
-      screen.getByRole('button', { name: 'Export 5 selected' }),
+      screen.getByRole('button', { name: 'Export' }),
     ).toBeInTheDocument();
 
+    await fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
     await fireEvent.click(screen.getByText('Columns'));
     const partyColumnToggle = screen.getByRole('checkbox', {
       name: 'Party / source',
@@ -365,7 +382,7 @@ describe('Financials projection and controls', () => {
     await fireEvent.change(screen.getByRole('combobox', { name: 'Status' }), {
       target: { value: 'paid' },
     });
-    expect(await screen.findByText(/15 matching records/i))
+    expect(await screen.findByText(/^15 records$/i))
       .toBeInTheDocument();
     expect(screen.getByText(/Page 1 of 1 · 0 selected/i))
       .toBeInTheDocument();
@@ -375,10 +392,10 @@ describe('Financials projection and controls', () => {
     await fireEvent.input(screen.getByLabelText('Search loaded records'), {
       target: { value: 'invoice-02' },
     });
-    expect(await screen.findByText(/1 matching record in/i))
+    expect(await screen.findByText(/^1 record$/i))
       .toBeInTheDocument();
     await fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
-    expect(await screen.findByText(/15 matching records/i))
+    expect(await screen.findByText(/^30 records$/i))
       .toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole('button', { name: /^Record/ }));
@@ -389,6 +406,7 @@ describe('Financials projection and controls', () => {
   it('saves, applies, and deletes tenant-local views without crashing when browser storage rejects a write', async () => {
     render(TestedFinancials);
     await screen.findByText('HW-invoice-1');
+    await fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
     await fireEvent.change(screen.getByRole('combobox', { name: 'Status' }), {
       target: { value: 'open' },
     });

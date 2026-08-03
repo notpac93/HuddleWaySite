@@ -43,16 +43,12 @@ function deferred<T>() {
 async function fillCreateForm({
   name = '  Falcons  ',
   description = '  12U travel team  ',
-  reason = 'Approved by the program director.',
 } = {}) {
   await fireEvent.input(screen.getByLabelText('Team Name *'), {
     target: { value: name },
   });
   await fireEvent.input(screen.getByLabelText('Description'), {
     target: { value: description },
-  });
-  await fireEvent.input(screen.getByLabelText('Reason for change *'), {
-    target: { value: reason },
   });
 }
 
@@ -71,7 +67,9 @@ describe('CreateTeamForm guarded mutation states', () => {
   it('submits a normalized create once and locks every close/edit control in flight', async () => {
     const pending = deferred<void>();
     backendMocks.createTeam.mockReturnValue(pending.promise);
-    render(TestedCreateTeamForm);
+    render(TestedCreateTeamForm, {
+      parentTeam: { id: 'boys', name: 'Boys' },
+    });
     await fillCreateForm();
 
     const submit = screen.getByRole('button', { name: 'Create Team' });
@@ -84,8 +82,9 @@ describe('CreateTeamForm guarded mutation states', () => {
       {
         name: 'Falcons',
         description: '12U travel team',
+        parentTeamId: 'boys',
       },
-      'Approved by the program director.',
+      'Sub-team created under Boys.',
       expect.stringContaining('team-create:'),
     );
     expect(screen.getByRole('button', { name: 'Creating...' })).toBeDisabled();
@@ -95,7 +94,7 @@ describe('CreateTeamForm guarded mutation states', () => {
     ).toBeDisabled();
     expect(screen.getByLabelText('Team Name *')).toBeDisabled();
     expect(screen.getByLabelText('Description')).toBeDisabled();
-    expect(screen.getByLabelText('Reason for change *')).toBeDisabled();
+    expect(screen.getByText(/created under/i)).toHaveTextContent('Boys');
 
     pending.resolve();
     expect(
@@ -177,9 +176,6 @@ describe('CreateTeamForm guarded mutation states', () => {
     await fireEvent.input(screen.getByLabelText('Description'), {
       target: { value: ' Updated description ' },
     });
-    await fireEvent.input(screen.getByLabelText('Reason for change *'), {
-      target: { value: 'Correct the team description.' },
-    });
     await fireEvent.click(
       screen.getByRole('button', { name: 'Save Team' }),
     );
@@ -190,8 +186,9 @@ describe('CreateTeamForm guarded mutation states', () => {
       {
         name: 'Falcons',
         description: 'Updated description',
+        parentTeamId: null,
       },
-      'Correct the team description.',
+      'Team details updated from Teams & Divisions.',
       expect.stringContaining('team-update:'),
     );
     expect(backendMocks.createTeam).not.toHaveBeenCalled();

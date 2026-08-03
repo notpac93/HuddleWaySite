@@ -80,6 +80,134 @@ function validAppConfiguration() {
 }
 
 describe('BackendApi', () => {
+  it('uploads image files through a protected reservation and verified completion', async () => {
+    const reservationId = `image_upload_${'a'.repeat(40)}`;
+    const storagePath = `private/fixture-tenant/media/events/${reservationId}.png`;
+    const previewUrl = 'https://storage.googleapis.test/signed-preview';
+    const file = new File(['image-bytes'], 'event-cover.png', {
+      type: 'image/png',
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(201, {
+        success: true,
+        tenantId: 'fixture-tenant',
+        reservationId,
+        storagePath,
+        uploadUrl: 'https://storage.googleapis.test/signed-write',
+        contentType: 'image/png',
+        expiresAt: '2030-08-01T12:15:00.000Z',
+        requestId: 'image-reservation-request',
+      }))
+      .mockResolvedValueOnce(new Response('', { status: 200 }))
+      .mockResolvedValueOnce(response(200, {
+        success: true,
+        tenantId: 'fixture-tenant',
+        reservationId,
+        storagePath,
+        contentType: 'image/png',
+        sizeBytes: file.size,
+        storageGeneration: '123',
+        status: 'verified_private',
+        previewUrl,
+        previewExpiresAt: '2030-08-01T12:20:00.000Z',
+        idempotentReplay: false,
+        requestId: 'image-completion-request',
+      }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+      createRequestId: () => 'browser-request',
+    });
+
+    await expect(api.uploadImageAsset(
+      'fixture-tenant',
+      file,
+      'event-cover',
+      'image-upload:stable',
+    )).resolves.toMatchObject({ previewUrl, storagePath });
+
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      'https://api.example.test/admin/crm/images/upload-reservations',
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      tenantId: 'fixture-tenant',
+      purpose: 'event-cover',
+      fileName: 'event-cover.png',
+      contentType: 'image/png',
+      sizeBytes: file.size,
+      sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+      idempotencyKey: 'image-upload:stable',
+    });
+    expect(fetchMock.mock.calls[1]).toEqual([
+      'https://storage.googleapis.test/signed-write',
+      expect.objectContaining({
+        method: 'PUT',
+        body: file,
+        credentials: 'omit',
+        headers: { 'Content-Type': 'image/png' },
+      }),
+    ]);
+    expect(String(fetchMock.mock.calls[2][0])).toContain(
+      `/admin/crm/images/upload-reservations/${reservationId}/complete`,
+    );
+    expect(fetchMock.mock.calls[2][1].headers['Idempotency-Key']).toBe(
+      'image-upload:stable:complete',
+    );
+  });
+
+  it('binds a verified event image through the backend publication route', async () => {
+    const reservationId = `image_upload_${'b'.repeat(40)}`;
+    const fetchMock = vi.fn().mockResolvedValueOnce(response(200, {
+      success: true,
+      tenantId: 'fixture-tenant',
+      reservationId,
+      publicationId: reservationId,
+      resourceType: 'event',
+      resourceIds: ['event-1', 'event-2'],
+      status: 'published',
+      isVisible: true,
+      publicUrl: `https://api.example.test/public/media/fixture-tenant/${reservationId}`,
+      idempotentReplay: false,
+      operationId: 'media_publish_fixture',
+      requestId: 'media-publish-request',
+    }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+      createRequestId: () => 'browser-request',
+    });
+
+    await expect(api.publishImageAsset(
+      'fixture-tenant',
+      reservationId,
+      'event',
+      ['event-1', 'event-2'],
+      'Publish the verified event cover.',
+      'image-publish:stable',
+    )).resolves.toMatchObject({
+      reservationId,
+      status: 'published',
+      isVisible: true,
+    });
+
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      `https://api.example.test/admin/crm/images/upload-reservations/${reservationId}/publish`,
+    );
+    expect(fetchMock.mock.calls[0][1].headers['Idempotency-Key']).toBe(
+      'image-publish:stable',
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      tenantId: 'fixture-tenant',
+      resourceType: 'event',
+      resourceIds: ['event-1', 'event-2'],
+      auditReason: 'Publish the verified event cover.',
+      idempotencyKey: 'image-publish:stable',
+    });
+  });
+
   it('uses bearer auth, tenant query scope, and one forced-token retry', async () => {
     const fetchMock = vi
       .fn()
@@ -444,6 +572,51 @@ describe('BackendApi', () => {
       destinationTeamId: 'team-2',
       changeSetHash: preview.changeSetHash,
       auditReason: 'Move selected players to the Gold Team.',
+    });
+  });
+
+  it('assigns registrations to a season with a stable operation key', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      response(200, {
+        success: true,
+        idempotentReplay: false,
+        tenantId: 'fixture-tenant',
+        seasonId: 'season/fall',
+        registrationIds: ['registration-1'],
+        assignedCount: 1,
+        alreadyAssignedCount: 0,
+        operationId: 'season_assignment_one',
+        auditEventId: 'audit-season-one',
+        requestId: 'season-assignment-request',
+      }),
+    );
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+      getAppCheckToken: async () => 'app-check-token',
+    });
+
+    await api.assignSeasonParticipants(
+      'fixture-tenant',
+      'season/fall',
+      ['registration-1'],
+      'Connect reviewed player to the fall season.',
+      'season-assignment:stable',
+    );
+
+    expect(String(fetchMock.mock.calls[0][0])).toContain(
+      '/admin/seasons/season%2Ffall/participants/assign',
+    );
+    expect(fetchMock.mock.calls[0][1]?.headers).toMatchObject({
+      'Idempotency-Key': 'season-assignment:stable',
+      'X-Idempotency-Key': 'season-assignment:stable',
+      'X-Firebase-AppCheck': 'app-check-token',
+    });
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
+      tenantId: 'fixture-tenant',
+      registrationIds: ['registration-1'],
+      auditReason: 'Connect reviewed player to the fall season.',
     });
   });
 
@@ -1040,7 +1213,7 @@ describe('BackendApi', () => {
     await expect(
       api.createTeam(
         'fixture-tenant',
-        { name: 'Tigers', description: '' },
+        { name: 'Tigers', description: '', parentTeamId: null },
         'Create the approved team.',
         'team-create:stable',
       ),
@@ -1048,6 +1221,44 @@ describe('BackendApi', () => {
       status: 502,
       code: 'invalid_backend_response',
       requestId: 'request-without-operation',
+    });
+  });
+
+  it('deletes a team through the audited CRM mutation contract', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response(200, {
+      success: true,
+      id: 'team-1',
+      deleted: true,
+      idempotentReplay: false,
+      operationId: 'team-delete-operation',
+      requestId: 'team-delete-request',
+    }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+    });
+
+    await expect(
+      api.deleteTeam(
+        'fixture-tenant',
+        'team-1',
+        'Delete the obsolete team and archive linked content.',
+        'team-delete:stable',
+      ),
+    ).resolves.toMatchObject({ id: 'team-1', deleted: true });
+
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
+      tenantId: 'fixture-tenant',
+      action: 'team.delete',
+      resourceId: 'team-1',
+      data: {},
+      auditReason: 'Delete the obsolete team and archive linked content.',
+      idempotencyKey: 'team-delete:stable',
+    });
+    expect(fetchMock.mock.calls[0][1]?.headers).toMatchObject({
+      'Idempotency-Key': 'team-delete:stable',
+      'X-Idempotency-Key': 'team-delete:stable',
     });
   });
 
@@ -1074,6 +1285,7 @@ describe('BackendApi', () => {
       .mockResolvedValueOnce(response(200, {
         ...mutationBase,
         id: 'series-1',
+        eventIds: ['series-1'],
         updatedCount: 1,
         publicationSyncStatus: 'succeeded',
       }));
@@ -1100,6 +1312,7 @@ describe('BackendApi', () => {
         occurrences: [occurrence],
         location: 'Field One',
         notes: '',
+        imageReservationId: null,
         seasonId: null,
         registrationFormId: null,
         publishMode: 'draft',
@@ -1132,6 +1345,7 @@ describe('BackendApi', () => {
         occurrences: [occurrence],
         location: 'Field One',
         notes: '',
+        imageReservationId: null,
         seasonId: null,
         registrationFormId: null,
         publishMode: 'draft',

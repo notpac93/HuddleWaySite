@@ -13,6 +13,7 @@ const backendMocks = vi.hoisted(() => ({
   createSeason: vi.fn(),
   updateSeason: vi.fn(),
   updateEvent: vi.fn(),
+  uploadImageAsset: vi.fn(),
 }));
 const csvMocks = vi.hoisted(() => ({
   downloadCsv: vi.fn(),
@@ -30,17 +31,15 @@ vi.mock('../../src/lib/authStore', async () => {
 });
 
 vi.mock('../../src/lib/services/RegistrationService', () => ({
-  RegistrationService: {
-    subscribeToForms: vi.fn((
-      _tenantId: string,
-      onForms: (forms: unknown[]) => void,
-      _onError: (error: unknown) => void,
-      onScope: (scope: { truncated: boolean; limit: number }) => void,
-    ) => {
-      onForms([{ id: 'form-1', title: 'Fall registration' }]);
-      onScope({ truncated: false, limit: 500 });
-      return () => {};
-    }),
+    RegistrationService: {
+      subscribeToForms: vi.fn((
+        _tenantId: string,
+        onForms: (forms: unknown[]) => void,
+        _onError: (error: unknown) => void,
+      ) => {
+        onForms([{ id: 'form-1', title: 'Fall registration' }]);
+        return () => {};
+      }),
   },
 }));
 
@@ -110,6 +109,7 @@ vi.mock('../../src/lib/services/DataStore', async () => {
     transactionsStore: writable([]),
     invoicesStore: writable([]),
     usersMap: writable({ 'user-1': 'Jordan Lee' }),
+    registrationNamesMap: writable({}),
     seasonsProjectionScope: writable(healthy),
     eventsProjectionScope: writable(healthy),
     seasonRegistrationsProjectionScope: writable(healthy),
@@ -203,9 +203,6 @@ async function fillCreateSeason() {
   await fireEvent.input(screen.getByLabelText('End Date'), {
     target: { value: '2031-02-01' },
   });
-  await fireEvent.input(screen.getByLabelText('Reason for change *'), {
-    target: { value: 'Create the approved winter program.' },
-  });
 }
 
 describe('season mutation family', () => {
@@ -251,7 +248,7 @@ describe('season mutation family', () => {
         status: 'active',
         registrationFormId: null,
       },
-      'Create the approved winter program.',
+      'Season created from CRM.',
       expect.stringContaining('season-create:'),
     );
     expect(screen.getByRole('button', { name: 'Creating...' })).toBeDisabled();
@@ -300,9 +297,6 @@ describe('season mutation family', () => {
       }))
       .mockResolvedValueOnce(undefined);
     render(TestedEditSeasonModal, { season: fallLeague });
-    await fireEvent.input(screen.getByLabelText('Reason for change *'), {
-      target: { value: 'Correct the reviewed season record.' },
-    });
     await fireEvent.click(screen.getByRole('button', {
       name: 'Save Changes',
     }));
@@ -319,17 +313,16 @@ describe('season mutation family', () => {
       .toBe(backendMocks.updateSeason.mock.calls[0][4]);
   });
 
-  it('rejects insecure image URLs and reversed edit dates', async () => {
+  it('rejects non-image files before updating a season', async () => {
     render(TestedEditSeasonModal, { season: fallLeague });
-    await fireEvent.input(screen.getByLabelText('Season Banner Graphic'), {
-      target: { value: 'http://example.com/banner.png' },
-    });
-    await fireEvent.input(screen.getByLabelText('Reason for change *'), {
-      target: { value: 'Update the approved banner.' },
+    await fireEvent.change(screen.getByLabelText('Season Banner Graphic'), {
+      target: {
+        files: [new File(['not-an-image'], 'banner.txt', { type: 'text/plain' })],
+      },
     });
     await fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Season image URL must be a valid HTTPS address.',
+      'Choose a PNG, JPG, GIF, or WebP image.',
     );
     expect(backendMocks.updateSeason).not.toHaveBeenCalled();
   });
@@ -344,9 +337,6 @@ describe('season mutation family', () => {
       }))
       .mockResolvedValueOnce(undefined);
     render(TestedLinkEventModal, { season: fallLeague });
-    await fireEvent.input(screen.getByLabelText('Reason for change *'), {
-      target: { value: 'Link the approved practice schedule.' },
-    });
     await fireEvent.click(screen.getByRole('button', {
       name: 'Link to Season',
     }));
@@ -363,7 +353,7 @@ describe('season mutation family', () => {
       'tenant-a',
       'event-1',
       { seasonId: 'season-1' },
-      'Link the approved practice schedule.',
+      'Event linked to season from CRM.',
       expect.stringContaining('event-season-link:'),
     ]);
     expect(backendMocks.updateEvent.mock.calls[1][4])

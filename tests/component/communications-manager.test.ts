@@ -100,7 +100,26 @@ describe('CommunicationsManager recall boundary', () => {
     vi.restoreAllMocks();
   });
 
-  it('requires a reason, submits one recall, and refreshes the visible message', async () => {
+  it('expands an announcement into its details view', async () => {
+    mocks.getDocs.mockResolvedValueOnce(messageSnapshot());
+    render(TestedCommunicationsManager);
+
+    const announcement = await screen.findByRole('button', {
+      name: /Practice update/,
+    });
+    expect(announcement).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('heading', { name: 'Details' })).toBeNull();
+
+    await fireEvent.click(announcement);
+
+    expect(announcement).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('heading', { name: 'Details' })).toBeVisible();
+    expect(screen.getByText('Audience')).toBeVisible();
+    expect(screen.getByText('Published by')).toBeVisible();
+    expect(screen.getAllByText('Practice starts at six.')).toHaveLength(1);
+  });
+
+  it('requires a reason, submits one delete, and refreshes the visible message', async () => {
     mocks.getDocs
       .mockResolvedValueOnce(messageSnapshot())
       .mockResolvedValueOnce(emptySnapshot());
@@ -115,16 +134,16 @@ describe('CommunicationsManager recall boundary', () => {
     render(TestedCommunicationsManager);
 
     expect(await screen.findByText('Practice update')).toBeVisible();
-    await fireEvent.click(screen.getByRole('button', { name: 'Recall' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     const dialog = screen.getByRole('dialog', {
-      name: 'Recall announcement?',
+      name: 'Delete announcement?',
     });
     const submit = screen.getByRole('button', {
-      name: 'Recall announcement',
+      name: 'Delete announcement',
     });
     expect(submit).toBeDisabled();
     await fireEvent.input(
-      screen.getByLabelText('Internal recall reason'),
+      screen.getByLabelText('Reason for deletion'),
       { target: { value: 'Incorrect practice time was posted.' } },
     );
     expect(submit).toBeEnabled();
@@ -139,10 +158,10 @@ describe('CommunicationsManager recall boundary', () => {
     expect(reason).toBe('Incorrect practice time was posted.');
     expect(operationKey).toMatch(/^message-recall-message-1:/);
     expect(
-      within(dialog).getByRole('button', { name: 'Recalling…' }),
+      within(dialog).getByRole('button', { name: 'Deleting…' }),
     ).toBeDisabled();
     expect(
-      screen.getByRole('button', { name: 'Close recall confirmation' }),
+      screen.getByRole('button', { name: 'Close delete confirmation' }),
     ).toBeDisabled();
 
     resolveRecall?.({
@@ -154,7 +173,7 @@ describe('CommunicationsManager recall boundary', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       expect(screen.queryByText('Practice update')).not.toBeInTheDocument();
-      expect(screen.getByText('Announcement recalled.')).toBeVisible();
+      expect(screen.getByText('Announcement deleted.')).toBeVisible();
     });
   });
 
@@ -180,23 +199,23 @@ describe('CommunicationsManager recall boundary', () => {
     render(TestedCommunicationsManager);
     expect(await screen.findByText('Practice update')).toBeVisible();
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Recall' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     await fireEvent.input(
-      screen.getByLabelText('Internal recall reason'),
+      screen.getByLabelText('Reason for deletion'),
       { target: { value: 'Duplicate announcement was posted.' } },
     );
     await fireEvent.click(
-      screen.getByRole('button', { name: 'Recall announcement' }),
+      screen.getByRole('button', { name: 'Delete announcement' }),
     );
     expect(
-      await screen.findByText('The announcement could not be recalled.'),
+      await screen.findByText('The announcement could not be deleted.'),
     ).toBeVisible();
     expect(screen.getByText('Support request: safe-recall-request')).toBeVisible();
     expect(screen.queryByText('raw backend detail')).not.toBeInTheDocument();
     const firstCall = vi.mocked(backendClient.recallMessage).mock.calls[0];
 
     await fireEvent.click(
-      screen.getByRole('button', { name: 'Recall announcement' }),
+      screen.getByRole('button', { name: 'Delete announcement' }),
     );
     await waitFor(() => {
       expect(backendClient.recallMessage).toHaveBeenCalledTimes(2);

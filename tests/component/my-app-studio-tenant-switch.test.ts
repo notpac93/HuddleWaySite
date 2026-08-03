@@ -20,6 +20,7 @@ const snapshotSubscriptions: SnapshotSubscription[] = [];
 const appMocks = vi.hoisted(() => ({
   appConfiguration: vi.fn(),
   publishAppConfiguration: vi.fn(),
+  uploadImageAsset: vi.fn(),
 }));
 
 vi.mock('../../src/lib/firebase', () => ({
@@ -83,6 +84,7 @@ import MyAppStudio from '../../src/components/crm/MyAppStudio.svelte';
 const TestedMyAppStudio = MyAppStudio as unknown as Component;
 const tenants = tenantIdStore as Writable<string | null>;
 const configNames = new Map<string, string>();
+const configLogos = new Map<string, string>();
 
 function configurationSnapshot(tenantId: string) {
   return {
@@ -95,7 +97,7 @@ function configurationSnapshot(tenantId: string) {
       primaryColor: '#112233',
       secondaryColor: '#223344',
       tertiaryColor: '#ffffff',
-      logoUrl: 'https://cdn.example.test/logo.png',
+      logoUrl: configLogos.get(tenantId) || 'https://cdn.example.test/logo.png',
       navigationTabs: [
         {
           key: 'home',
@@ -163,6 +165,7 @@ describe('MyAppStudio tenant preview isolation', () => {
   beforeEach(() => {
     snapshotSubscriptions.length = 0;
     configNames.clear();
+    configLogos.clear();
     tenants.set('tenant-a');
     appMocks.appConfiguration.mockReset();
     appMocks.appConfiguration.mockImplementation(
@@ -172,51 +175,124 @@ describe('MyAppStudio tenant preview isolation', () => {
     appMocks.publishAppConfiguration.mockImplementation(
       async (
         tenantId: string,
-        data: { name: string },
+        data: { name: string; logoUrl: string | null },
       ) => {
         configNames.set(tenantId, data.name);
+        if (data.logoUrl) configLogos.set(tenantId, data.logoUrl);
         return publishResult();
       },
     );
+    appMocks.uploadImageAsset.mockReset();
   });
 
-  it('clears tenant A previews while B loads and ignores delayed A callbacks', async () => {
+  it('fails closed when logo publication has no approved private-media contract', async () => {
     render(TestedMyAppStudio);
+    const logoFile = new File(['logo-bytes'], 'tenant-logo.png', {
+      type: 'image/png',
+    });
 
-    await waitFor(() => {
-      expect(snapshotSubscriptions).toHaveLength(2);
+    await fireEvent.change(await screen.findByLabelText('Logo'), {
+      target: { files: [logoFile] },
     });
-    await act(async () => {
-      subscription('registrations', 'tenant-a').next(rosterSnapshot('Alpha Player'));
-      subscription('events', 'tenant-a').next(eventSnapshot('Alpha Match'));
-    });
-    expect(screen.getByText('Alpha Player')).toBeVisible();
-    expect(screen.getByText('Alpha Match')).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Publish App' }));
+
+    expect(await screen.findByText(
+      'Logo upload is temporarily unavailable while publication privacy is being finalized. Remove the selected logo to publish other app settings safely.',
+    )).toBeVisible();
+    expect(appMocks.uploadImageAsset).not.toHaveBeenCalled();
+    expect(appMocks.publishAppConfiguration).not.toHaveBeenCalled();
+  });
+
+  it('rebuilds the Flutter preview URL when the selected tenant changes', async () => {
+    render(TestedMyAppStudio);
+    const alphaPreview = await screen.findByTitle(
+      'Alpha League mobile app preview',
+    );
+    expect(alphaPreview).toHaveAttribute(
+      'src',
+      expect.stringContaining('forcedTenant=tenant-a'),
+    );
 
     await act(async () => {
       tenants.set('tenant-b');
     });
-    expect(screen.queryByText('Alpha Player')).toBeNull();
-    expect(screen.queryByText('Alpha Match')).toBeNull();
-    expect(screen.getByText('Loading roster preview…')).toBeVisible();
-    expect(screen.getByText('Loading schedule preview…')).toBeVisible();
+    const betaPreview = await screen.findByTitle(
+      'Beta League mobile app preview',
+    );
+    expect(betaPreview).toHaveAttribute(
+      'src',
+      expect.stringContaining('forcedTenant=tenant-b'),
+    );
+    expect(screen.queryByTitle('Alpha League mobile app preview')).toBeNull();
+  });
 
-    await act(async () => {
-      subscription('registrations', 'tenant-a').next(rosterSnapshot('Stale Alpha Player'));
-      subscription('events', 'tenant-a').next(eventSnapshot('Stale Alpha Match'));
+  it('streams unsaved branding changes to the selected tenant preview', async () => {
+    render(TestedMyAppStudio);
+    const preview = await screen.findByTitle(
+      'Alpha League mobile app preview',
+    ) as HTMLIFrameElement;
+    const postMessage = vi.spyOn(preview.contentWindow!, 'postMessage');
+
+    await fireEvent.load(preview);
+    await fireEvent.input(screen.getByLabelText('App Name'), {
+      target: { value: 'Alpha League Draft' },
     });
-    expect(screen.queryByText('Stale Alpha Player')).toBeNull();
-    expect(screen.queryByText('Stale Alpha Match')).toBeNull();
 
     await waitFor(() => {
-      expect(snapshotSubscriptions).toHaveLength(4);
+      expect(postMessage).toHaveBeenCalled();
     });
-    await act(async () => {
-      subscription('registrations', 'tenant-b').next(rosterSnapshot('Beta Player'));
-      subscription('events', 'tenant-b').next(eventSnapshot('Beta Match'));
+    const matchingCall = postMessage.mock.calls
+      .map(([payload, targetOrigin]) => ({
+        payload: typeof payload === 'string' ? JSON.parse(payload) : payload,
+        targetOrigin,
+      }))
+      .find(({ payload }) =>
+        payload?.configuration?.name === 'Alpha League Draft');
+    expect(matchingCall).toMatchObject({
+      targetOrigin: 'https://huddleway-app-preview-canary.web.app',
+      payload: {
+        type: 'huddleway.crm.preview.update',
+        tenantId: 'tenant-a',
+        configuration: {
+          name: 'Alpha League Draft',
+        },
+      },
     });
-    expect(screen.getByText('Beta Player')).toBeVisible();
-    expect(screen.getByText('Beta Match')).toBeVisible();
+    expect(appMocks.publishAppConfiguration).not.toHaveBeenCalled();
+  });
+
+  it('resends the authoritative draft after the selected tenant preview is ready', async () => {
+    render(TestedMyAppStudio);
+    const preview = await screen.findByTitle(
+      'Alpha League mobile app preview',
+    ) as HTMLIFrameElement;
+    const postMessage = vi.spyOn(preview.contentWindow!, 'postMessage');
+
+    window.dispatchEvent(new MessageEvent('message', {
+      origin: 'https://huddleway-app-preview-canary.web.app',
+      source: preview.contentWindow,
+      data: JSON.stringify({
+        type: 'huddleway.crm.preview.ready',
+        tenantId: 'tenant-a',
+      }),
+    }));
+
+    await waitFor(() => {
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.stringContaining('"name":"Alpha League"'),
+        'https://huddleway-app-preview-canary.web.app',
+      );
+    });
+
+    window.dispatchEvent(new MessageEvent('message', {
+      origin: 'https://huddleway-app-preview-canary.web.app',
+      source: preview.contentWindow,
+      data: JSON.stringify({
+        type: 'huddleway.crm.preview.applied',
+        tenantId: 'tenant-a',
+      }),
+    }));
+    expect(await screen.findByText(/375 × 812 · Synced/)).toBeVisible();
   });
 
   it('locks the reviewed configuration, publishes once, and verifies readback', async () => {
@@ -233,7 +309,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     );
     render(TestedMyAppStudio);
     const nameInput = await screen.findByLabelText('App Name');
-    expect(screen.getByAltText('Logo Preview')).toHaveAttribute(
+    expect(screen.getByAltText('Logo preview')).toHaveAttribute(
       'src',
       'https://cdn.example.test/logo.png',
     );
@@ -259,6 +335,40 @@ describe('MyAppStudio tenant preview isolation', () => {
     ).toBeVisible();
     expect(nameInput).toHaveValue('Alpha League Updated');
     expect(appMocks.appConfiguration).toHaveBeenCalledTimes(2);
+  });
+
+  it('accepts canonical lowercase colors in the authoritative readback', async () => {
+    let secondaryColor = '#223344';
+    appMocks.appConfiguration.mockImplementation(async (tenantId: string) => ({
+      ...configurationSnapshot(tenantId),
+      configuration: {
+        ...configurationSnapshot(tenantId).configuration,
+        secondaryColor,
+      },
+    }));
+    appMocks.publishAppConfiguration.mockImplementationOnce(
+      async (_tenantId: string, data: { secondaryColor: string }) => {
+        secondaryColor = data.secondaryColor.toLowerCase();
+        return publishResult();
+      },
+    );
+    render(TestedMyAppStudio);
+
+    await fireEvent.input(
+      await screen.findByLabelText('Secondary brand color hex value'),
+      { target: { value: '#AABBCC' } },
+    );
+    await fireEvent.click(screen.getByRole('button', { name: 'Publish App' }));
+
+    expect(
+      await screen.findByText(
+        'App configuration published and reloaded from the server.',
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText(/server readback did not match/i)).toBeNull();
+    expect(screen.getByLabelText('Secondary brand color hex value')).toHaveValue(
+      '#aabbcc',
+    );
   });
 
   it('masks publish failures and reuses the same key on unchanged retry', async () => {

@@ -1,333 +1,170 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const firestoreMocks = vi.hoisted(() => ({
-  getDocs: vi.fn(),
-  onSnapshot: vi.fn(),
-  unsubscribe: vi.fn(),
+const apiMocks = vi.hoisted(() => ({
+  crmOperationalPage: vi.fn(),
 }));
 
-vi.mock('../../src/lib/firebase', () => ({
-  db: { kind: 'fixture-db' },
-}));
-
-vi.mock('firebase/firestore', () => ({
-  collection: (_db: unknown, name: string) => ({
-    kind: 'collection',
-    name,
-  }),
-  documentId: () => '__name__',
-  getDocs: firestoreMocks.getDocs,
-  limit: (count: number) => ({ kind: 'limit', count }),
-  onSnapshot: firestoreMocks.onSnapshot,
-  orderBy: (field: string) => ({ kind: 'orderBy', field }),
-  query: (...parts: unknown[]) => ({ kind: 'query', parts }),
-  where: (field: string, operator: string, value: unknown) => ({
-    kind: 'where',
-    field,
-    operator,
-    value,
-  }),
+vi.mock('../../src/lib/api/backendClient', () => ({
+  backendClient: apiMocks,
 }));
 
 import { RegistrationService } from '../../src/lib/services/RegistrationService';
 
-function document(
-  id: string,
-  data: Record<string, unknown> = {},
+function page(
+  collection: string,
+  records: Array<Record<string, unknown>>,
+  hasMore = false,
+  nextCursor: string | null = null,
 ) {
   return {
-    id,
-    data: () => data,
+    schemaVersion: 'crm_operational_page_v1',
+    tenantId: 'tenant-a',
+    collection,
+    records,
+    hasMore,
+    nextCursor,
+    limit: 100,
+    requestId: `request-${collection}`,
   };
 }
 
-function timestamp(value: string) {
-  return {
-    toDate: () => new Date(value),
-  };
-}
-
-describe('RegistrationService bounded Firestore projections', () => {
+describe('RegistrationService authenticated backend projections', () => {
   beforeEach(() => {
-    firestoreMocks.getDocs.mockReset();
-    firestoreMocks.onSnapshot.mockReset();
-    firestoreMocks.unsubscribe.mockReset();
-    firestoreMocks.onSnapshot.mockReturnValue(firestoreMocks.unsubscribe);
+    apiMocks.crmOperationalPage.mockReset();
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
-  it('does not open a listener without a tenant', () => {
+  it('does not request a page without a tenant', () => {
     const callback = vi.fn();
     const unsubscribe = RegistrationService.subscribeToForms('', callback);
 
     expect(callback).toHaveBeenCalledWith([]);
-    expect(firestoreMocks.onSnapshot).not.toHaveBeenCalled();
+    expect(apiMocks.crmOperationalPage).not.toHaveBeenCalled();
     unsubscribe();
   });
 
-  it('caps, normalizes, sorts, and reports the registration-form subscription scope', () => {
-    let nextSnapshot!: (snapshot: {
-      docs: Array<ReturnType<typeof document>>;
-    }) => void;
-    let failSnapshot!: (error: unknown) => void;
-    firestoreMocks.onSnapshot.mockImplementation(
-      (_source, next, error) => {
-        nextSnapshot = next;
-        failSnapshot = error;
-        return firestoreMocks.unsubscribe;
-      },
-    );
-    const callback = vi.fn();
-    const onError = vi.fn();
-    const onScope = vi.fn();
-
-    const unsubscribe = RegistrationService.subscribeToForms(
-      'tenant-a',
-      callback,
-      onError,
-      onScope,
-    );
-
-    const sourceQuery = firestoreMocks.onSnapshot.mock.calls[0][0];
-    expect(sourceQuery).toEqual({
-      kind: 'query',
-      parts: [
-        { kind: 'collection', name: 'registration_forms' },
+  it('loads every form page and normalizes the complete result', async () => {
+    apiMocks.crmOperationalPage
+      .mockResolvedValueOnce(page('registration_forms', [
         {
-          kind: 'where',
-          field: 'tenantId',
-          operator: '==',
-          value: 'tenant-a',
-        },
-        { kind: 'orderBy', field: '__name__' },
-        { kind: 'limit', count: 501 },
-      ],
-    });
-
-    const filler = Array.from({ length: 498 }, (_, index) =>
-      document(`filler-${String(index).padStart(3, '0')}`, {
-        title: `Filler ${index}`,
-        status: 'active',
-      }),
-    );
-    nextSnapshot({
-      docs: [
-        document('form-archived', {
-          title: '   ',
+          id: 'form-old',
+          name: 'Legacy Form',
           status: 'archived',
-          createdAt: { toDate: () => new Date('invalid') },
-        }),
-        document('form-open', {
+          createdAt: '2026-07-01T12:00:00.000Z',
+        },
+      ], true, 'cursor-1'))
+      .mockResolvedValueOnce(page('registration_forms', [
+        {
+          id: 'form-new',
           title: ' Fall Registration ',
           status: 'open',
           teamId: ' 12U ',
-          createdAt: timestamp('2026-07-01T12:00:00.000Z'),
-        }),
-        document('form-unknown', {
-          title: 'Imported Form',
-          status: 'migrating',
-          createdAt: timestamp('2026-07-10T12:00:00.000Z'),
-        }),
-        ...filler,
-      ],
-    });
+          createdAt: '2026-07-10T12:00:00.000Z',
+        },
+      ]));
 
-    expect(onScope).toHaveBeenCalledWith({
-      truncated: true,
-      limit: 500,
-    });
-    expect(callback).toHaveBeenCalledTimes(1);
-    const forms = callback.mock.calls[0][0];
-    expect(forms).toHaveLength(500);
-    expect(forms[0]).toMatchObject({
-      id: 'form-unknown',
-      name: 'Imported Form',
-      rawStatus: 'migrating',
-      status: 'Status unavailable',
-    });
-    expect(forms.find((form: { id: string }) => form.id === 'form-open'))
-      .toMatchObject({
+    const callback = vi.fn();
+    RegistrationService.subscribeToForms('tenant-a', callback);
+    await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
+
+    expect(apiMocks.crmOperationalPage).toHaveBeenNthCalledWith(
+      2,
+      'tenant-a',
+      'registration_forms',
+      { limit: 100, cursor: 'cursor-1' },
+    );
+    expect(callback.mock.calls[0][0]).toEqual([
+      expect.objectContaining({
+        id: 'form-new',
         title: 'Fall Registration',
         name: 'Fall Registration',
-        rawStatus: 'open',
         status: 'Open',
         program: '12U',
-      });
-    expect(
-      forms.find((form: { id: string }) => form.id === 'form-archived'),
-    ).toMatchObject({
-      name: 'Form name unavailable',
-      status: 'Closed',
-      dateCreated: null,
-      program: null,
-    });
-
-    const permissionError = { code: 'firestore/permission-denied' };
-    failSnapshot(permissionError);
-    expect(onError).toHaveBeenCalledWith(permissionError);
-    unsubscribe();
-    expect(firestoreMocks.unsubscribe).toHaveBeenCalledTimes(1);
-  });
-
-  it('caps connected events and returns an empty participant scope for invalid or unlinked forms', async () => {
-    expect(
-      await RegistrationService.fetchEventsForFormPage('', 'form-a'),
-    ).toEqual({
-      records: [],
-      truncated: false,
-      limit: 500,
-    });
-    expect(firestoreMocks.getDocs).not.toHaveBeenCalled();
-
-    firestoreMocks.getDocs.mockResolvedValueOnce({
-      docs: Array.from({ length: 501 }, (_, index) =>
-        document(`event-${String(index).padStart(3, '0')}`, {
-          tenantId: 'tenant-a',
-          title: `Event ${index}`,
-        }),
-      ),
-    });
-    const events = await RegistrationService.fetchEventsForFormPage(
-      'tenant-a',
-      'form-a',
-    );
-    expect(events.records).toHaveLength(500);
-    expect(events.truncated).toBe(true);
-    expect(firestoreMocks.getDocs.mock.calls[0][0]).toEqual({
-      kind: 'query',
-      parts: [
-        { kind: 'collection', name: 'events' },
-        {
-          kind: 'where',
-          field: 'tenantId',
-          operator: '==',
-          value: 'tenant-a',
-        },
-        {
-          kind: 'where',
-          field: 'registrationFormId',
-          operator: '==',
-          value: 'form-a',
-        },
-        { kind: 'orderBy', field: '__name__' },
-        { kind: 'limit', count: 501 },
-      ],
-    });
-
-    firestoreMocks.getDocs.mockReset();
-    firestoreMocks.getDocs.mockResolvedValueOnce({ docs: [] });
-    const emptyDetail =
-      await RegistrationService.fetchRegistrationDetailPage(
-        'tenant-a',
-        'form-a',
-      );
-    expect(emptyDetail.participants).toEqual({
-      records: [],
-      truncated: false,
-      limit: 500,
-    });
-    expect(firestoreMocks.getDocs).toHaveBeenCalledTimes(1);
-  });
-
-  it('chunks event IDs by 30, deduplicates registrations, and emits only the safe display projection', async () => {
-    const eventDocs = Array.from({ length: 61 }, (_, index) =>
-      document(`event-${String(index + 1).padStart(2, '0')}`, {
-        title: `Event ${index + 1}`,
-      }),
-    );
-    firestoreMocks.getDocs
-      .mockResolvedValueOnce({ docs: eventDocs })
-      .mockResolvedValueOnce({
-        docs: [
-          document('registration-b', {
-            participantSummary: { fullName: ' Player B ' },
-            payerSummary: {
-              email: ' guardian-b@example.test ',
-            },
-            userId: ' user-b ',
-            eventId: 'event-01',
-            status: ' submitted ',
-            createdAt: timestamp('2026-07-02T12:00:00.000Z'),
-            formData: { medicalNotes: 'must not be exposed' },
-          }),
-        ],
-      })
-      .mockResolvedValueOnce({
-        docs: [
-          document('registration-a', {
-            firstName: 'Player',
-            lastName: 'A',
-            email: 'player-a@example.test',
-            eventId: 'event-31',
-            createdAt: timestamp('2026-07-01T12:00:00.000Z'),
-          }),
-          document('registration-b', {
-            participantName: 'Replacement Player B',
-            eventId: 'event-32',
-          }),
-        ],
-      })
-      .mockResolvedValueOnce({ docs: [] });
-
-    const detail = await RegistrationService.fetchRegistrationDetailPage(
-      'tenant-a',
-      'form-a',
-    );
-
-    expect(firestoreMocks.getDocs).toHaveBeenCalledTimes(4);
-    const registrationQueries = firestoreMocks.getDocs.mock.calls
-      .slice(1)
-      .map((call) => call[0]);
-    expect(
-      registrationQueries.map((sourceQuery) =>
-        sourceQuery.parts.find(
-          (part: { field?: string }) => part.field === 'eventId',
-        ).value.length
-      ),
-    ).toEqual([30, 30, 1]);
-    for (const sourceQuery of registrationQueries) {
-      expect(sourceQuery.parts).toContainEqual({
-        kind: 'where',
-        field: 'tenantId',
-        operator: '==',
-        value: 'tenant-a',
-      });
-      expect(sourceQuery.parts).toContainEqual({
-        kind: 'limit',
-        count: 501,
-      });
-    }
-
-    expect(detail.events.records).toHaveLength(61);
-    expect(detail.participants.truncated).toBe(false);
-    expect(detail.participants.records).toEqual([
-      expect.objectContaining({
-        id: 'registration-a',
-        participantName: 'Player A',
-        email: 'player-a@example.test',
       }),
       expect.objectContaining({
-        id: 'registration-b',
-        participantName: 'Replacement Player B',
-        eventId: 'event-32',
+        id: 'form-old',
+        name: 'Legacy Form',
+        status: 'Closed',
       }),
     ]);
-    expect(detail.participants.records[0]).not.toHaveProperty('formData');
-    expect(detail.participants.records[1]).not.toHaveProperty('formData');
   });
 
-  it('propagates query failures instead of fabricating an empty success', async () => {
-    const permissionError = Object.assign(
-      new Error('permission denied'),
-      { code: 'firestore/permission-denied' },
-    );
-    firestoreMocks.getDocs.mockRejectedValue(permissionError);
+  it('cancels stale form responses', async () => {
+    let resolvePage!: (value: unknown) => void;
+    apiMocks.crmOperationalPage.mockReturnValueOnce(new Promise((resolve) => {
+      resolvePage = resolve;
+    }));
+    const callback = vi.fn();
+    const unsubscribe = RegistrationService.subscribeToForms('tenant-a', callback);
+    unsubscribe();
+    resolvePage(page('registration_forms', [{ id: 'stale' }]));
+    await Promise.resolve();
+    expect(callback).not.toHaveBeenCalled();
+  });
+
+  it('loads all event pages and filters events linked to a form', async () => {
+    apiMocks.crmOperationalPage
+      .mockResolvedValueOnce(page('events', [
+        { id: 'event-1', registrationFormId: 'form-a' },
+        { id: 'event-2', registrationFormId: 'form-b' },
+      ], true, 'event-cursor'))
+      .mockResolvedValueOnce(page('events', [
+        { id: 'event-3', registrationFormId: 'form-a' },
+      ]));
+
+    const result = await RegistrationService.fetchEventsForFormPage('tenant-a', 'form-a');
+    expect(result.records.map((record) => record.id)).toEqual(['event-1', 'event-3']);
+    expect(result.truncated).toBe(false);
+    expect(apiMocks.crmOperationalPage).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns complete participant details without raw registration answers', async () => {
+    apiMocks.crmOperationalPage
+      .mockResolvedValueOnce(page('events', [
+        { id: 'event-1', registrationFormId: 'form-a' },
+      ]))
+      .mockResolvedValueOnce(page('registrations', [
+        {
+          id: 'registration-1',
+          eventId: 'event-1',
+          participantSummary: { fullName: ' Player One ' },
+          payerSummary: { email: 'guardian@example.test' },
+          userId: 'user-1',
+          status: 'submitted',
+          createdAt: '2026-07-02T12:00:00.000Z',
+        },
+        {
+          id: 'unrelated',
+          eventId: 'event-other',
+          formId: 'form-other',
+        },
+      ]));
+
+    const result = await RegistrationService.fetchRegistrationDetailPage('tenant-a', 'form-a');
+    expect(result.events.records).toHaveLength(1);
+    expect(result.participants).toMatchObject({
+      truncated: false,
+      limit: null,
+      exactCount: 1,
+    });
+    expect(result.participants.records[0]).toMatchObject({
+      id: 'registration-1',
+      participantName: 'Player One',
+      email: 'guardian@example.test',
+      eventId: 'event-1',
+    });
+    expect(result.participants.records[0]).not.toHaveProperty('formData');
+  });
+
+  it('propagates backend failures instead of returning a fake empty result', async () => {
+    const permissionError = Object.assign(new Error('permission denied'), {
+      status: 403,
+      code: 'permission-denied',
+    });
+    apiMocks.crmOperationalPage.mockRejectedValue(permissionError);
 
     await expect(
-      RegistrationService.fetchRegistrationDetailPage(
-        'tenant-a',
-        'form-a',
-      ),
+      RegistrationService.fetchEventsForFormPage('tenant-a', 'form-a'),
     ).rejects.toBe(permissionError);
   });
 });

@@ -99,6 +99,9 @@ describe('RegistrationDetail table interactions', () => {
         name: 'Back to registration forms',
       }),
     ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Edit Registration Form' })).toBeVisible();
+    expect(screen.queryByText('Registration ID')).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search by participant name or email')).toBeVisible();
     expect(screen.getAllByText('$125.00')).toHaveLength(2);
     expect(screen.getByText(/9\/1\/2026/)).toBeVisible();
     expect(screen.getByText('1 - 10 of 12')).toBeVisible();
@@ -176,9 +179,9 @@ describe('RegistrationDetail table interactions', () => {
       limit: 500,
     });
 
-    expect(screen.getByText(/more than 500 participants exist/)).toBeVisible();
-    expect(screen.getByText(/more than 500 connected events exist/)).toBeVisible();
-    expect(screen.getByText('2+')).toBeVisible();
+    expect(screen.getByText(/Showing 2 loaded participants/)).toBeVisible();
+    expect(screen.getByText(/Showing 1 connected event\./)).toBeVisible();
+    expect(screen.getByText('2')).toBeVisible();
     expect(screen.getByText('Date unavailable')).toBeVisible();
     expect(screen.getByText('Currency unavailable')).toBeVisible();
     expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0);

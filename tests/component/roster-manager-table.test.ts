@@ -21,6 +21,7 @@ vi.mock('../../src/lib/authStore', async () => {
 vi.mock('../../src/lib/services/DataStore', async () => {
   const { writable } = await import('svelte/store');
   return {
+    seasonsStore: writable([]),
     teamsStore: writable([]),
     teamsProjectionScope: writable({
       loading: false,
@@ -38,6 +39,7 @@ vi.mock('../../src/lib/api/backendClient', () => ({
   backendClient: {
     previewRosterTransfer: vi.fn(),
     commitRosterTransfer: vi.fn(),
+    assignSeasonParticipants: vi.fn(),
     previewRosterChanges: vi.fn(),
     commitRosterChanges: vi.fn(),
     createTeam: vi.fn(),
@@ -197,6 +199,7 @@ describe('TeamTable row controls', () => {
   it('omits unstable rows and wires open, edit, create, and cancel controls', async () => {
     const setActiveTeam = vi.fn();
     render(TestedTeamTable, {
+      parentTeam: { id: 'boys', name: 'Boys' },
       teams: [
         {
           id: 'team-1',
@@ -213,15 +216,15 @@ describe('TeamTable row controls', () => {
     expect(screen.getByRole('status')).toHaveTextContent(
       '1 team record was omitted',
     );
-    await fireEvent.click(
-      screen.getAllByRole('button', { name: 'Falcons' })[0],
-    );
+    expect(screen.getByText('Boys teams')).toBeVisible();
+    expect(screen.getByText('9')).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Open team' }));
     expect(setActiveTeam).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'team-1', name: 'Falcons' }),
     );
 
     await fireEvent.click(
-      screen.getAllByRole('button', { name: 'Edit Falcons' })[0],
+      screen.getByRole('button', { name: 'Edit' }),
     );
     expect(screen.getByRole('heading', { name: 'Edit Team' })).toBeVisible();
     await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));

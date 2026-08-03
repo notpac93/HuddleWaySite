@@ -1,14 +1,19 @@
 <script lang="ts">
-  import { db } from '../../lib/firebase';
+  import { onMount } from 'svelte';
   import { tenantIdStore } from '../../lib/authStore';
-  import { onDestroy } from 'svelte';
   import { backendClient } from '../../lib/api/backendClient';
+  import {
+    publicEnvironment,
+    resolveCrmAppPreviewUrl,
+  } from '../../lib/config/publicEnvironment';
   import {
     BackendApiError,
     createIdempotencyKey,
     type CrmAppConfiguration,
   } from '../../lib/api/BackendApi';
   import StatusButton from './ui/StatusButton.svelte';
+  import ImageFilePicker from './ui/ImageFilePicker.svelte';
+  import { validateImageFile } from '../../lib/media/imageUpload';
 
 
   // Form Configurator State
@@ -18,14 +23,16 @@
   let appName = '';
   let tabsConfig = [];
   let logoUrl = null;
+  let logoFile: File | null = null;
+  let logoPreviewDataUrl: string | null = null;
+  let logoPreviewSequence = 0;
+  let logoValidationMessage = '';
   let configVersionToken = '';
   let configMode: 'initialize' | 'update' = 'initialize';
   let configLoadState: 'idle' | 'loading' | 'ready' | 'error' | 'permission' = 'idle';
   let configLoadMessage = '';
   let loadedConfigSignature = '';
   let configLoadSequence = 0;
-  let rosterPreviewError = '';
-  let schedulePreviewError = '';
   let publishMessage = '';
   let publishRequestId = '';
   let publishIdempotencyKey = createIdempotencyKey('app-configuration-publish');
@@ -33,6 +40,12 @@
   let currentConfigSignature = '';
   let currentAttemptSignature = '';
   let activeTenantId = '';
+  let previewFrame: HTMLIFrameElement | null = null;
+  let previewLoadState: 'idle' | 'loading' | 'ready' = 'idle';
+  let previewDraftSyncState: 'idle' | 'awaiting' | 'synced' = 'idle';
+  let previewDraftRetryTimers: number[] = [];
+
+  const previewBaseUrl = resolveCrmAppPreviewUrl(publicEnvironment);
 
   let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
 
@@ -47,9 +60,9 @@
   function buildConfigSignature() {
     return JSON.stringify({
       appName: appName.trim(),
-      primaryColor,
-      secondaryColor,
-      tertiaryColor,
+      primaryColor: primaryColor.toLowerCase(),
+      secondaryColor: secondaryColor.toLowerCase(),
+      tertiaryColor: tertiaryColor.toLowerCase(),
       tabsConfig,
       logoUrl,
     });
@@ -59,6 +72,9 @@
     return JSON.stringify({
       tenantId: $tenantIdStore,
       configuration: buildConfigSignature(),
+      logoFile: logoFile
+        ? { name: logoFile.name, type: logoFile.type, size: logoFile.size }
+        : null,
       configMode,
       configVersionToken,
     });
@@ -71,11 +87,15 @@
     tertiaryColor;
     tabsConfig;
     logoUrl;
+    logoFile;
     currentConfigSignature = buildConfigSignature();
   }
   $: isDirty =
     configLoadState === 'ready'
-    && currentConfigSignature !== loadedConfigSignature;
+    && (
+      currentConfigSignature !== loadedConfigSignature
+      || Boolean(logoFile)
+    );
   $: configIsValid =
     appName.trim().length > 0
     && appName.trim().length <= 160
@@ -103,9 +123,32 @@
   $: currentAttemptSignature = JSON.stringify({
     tenantId: $tenantIdStore,
     configuration: currentConfigSignature,
+    logoFile: logoFile
+      ? { name: logoFile.name, type: logoFile.type, size: logoFile.size }
+      : null,
     configMode,
     configVersionToken,
   });
+  $: previewPayload = JSON.stringify({
+    type: 'huddleway.crm.preview.update',
+    tenantId: String($tenantIdStore || ''),
+    configuration: {
+      name: appName.trim(),
+      primaryColor,
+      secondaryColor,
+      tertiaryColor,
+      logoUrl: logoPreviewDataUrl || logoUrl,
+      navigationTabs: tabsConfig.map((tab) => ({ ...tab })),
+    },
+  });
+  $: previewSrc = buildPreviewSrc(String($tenantIdStore || ''));
+  $: logoFile, refreshLogoPreview(logoFile);
+  $: {
+    previewPayload;
+    if (previewFrame && configLoadState === 'ready') {
+      queueMicrotask(postPreviewDraft);
+    }
+  }
   $: {
     const signature = currentAttemptSignature;
     if (signature !== publishAttemptSignature && submitState !== 'loading') {
@@ -124,14 +167,15 @@
   $: if (String($tenantIdStore || '') !== activeTenantId) {
     activeTenantId = String($tenantIdStore || '');
     configLoadSequence += 1;
-    unsubscribeRoster();
-    unsubscribeSchedule();
     primaryColor = '';
     secondaryColor = '';
     tertiaryColor = '';
     appName = '';
     tabsConfig = [];
     logoUrl = null;
+    logoFile = null;
+    logoPreviewDataUrl = null;
+    logoValidationMessage = '';
     loadedConfigSignature = '';
     configVersionToken = '';
     publishAttemptSignature = '';
@@ -140,133 +184,137 @@
     publishMessage = '';
     publishRequestId = '';
     submitState = 'idle';
-    rosterPreview = [];
-    schedulePreview = null;
-    rosterPreviewError = '';
-    schedulePreviewError = '';
+    clearPreviewDraftRetries();
+    previewLoadState = activeTenantId && previewBaseUrl ? 'loading' : 'idle';
+    previewDraftSyncState = 'idle';
     if (activeTenantId) {
       loadTenantConfig(activeTenantId);
-      loadRosterPreview(activeTenantId);
-      loadSchedulePreview(activeTenantId);
     } else {
       configLoadSequence += 1;
       configLoadState = 'idle';
       configLoadMessage = '';
-      rosterPreviewLoading = false;
-      schedulePreviewLoading = false;
     }
   }
 
-  let rosterPreview = [];
-  let rosterPreviewLoading = false;
-  let unsubscribeRoster = () => {};
-
-  import {
-    collection,
-    limit,
-    onSnapshot,
-    orderBy,
-    query,
-    where,
-  } from 'firebase/firestore';
-
-  function loadRosterPreview(tenantId) {
-    unsubscribeRoster();
-    rosterPreview = [];
-    rosterPreviewLoading = true;
-    const q = query(
-      collection(db, 'registrations'),
-      where('tenantId', '==', tenantId),
-      limit(4)
-    );
-    rosterPreviewError = '';
-    unsubscribeRoster = onSnapshot(
-      q,
-      (snapshot) => {
-        if ($tenantIdStore !== tenantId) return;
-        rosterPreview = snapshot.docs.map(doc => {
-          const data = doc.data();
-          const participant =
-            data.participantSummary
-            && typeof data.participantSummary === 'object'
-              ? data.participantSummary
-              : {};
-          return {
-            id: doc.id,
-            name:
-              (typeof participant.fullName === 'string'
-                ? participant.fullName.trim()
-                : '')
-              || (typeof participant.displayName === 'string'
-                ? participant.displayName.trim()
-                : '')
-              || [
-                typeof participant.firstName === 'string'
-                  ? participant.firstName.trim()
-                  : '',
-                typeof participant.lastName === 'string'
-                  ? participant.lastName.trim()
-                  : '',
-              ].filter(Boolean).join(' ')
-              || null,
-          };
-        });
-        rosterPreviewLoading = false;
-      },
-      () => {
-        if ($tenantIdStore !== tenantId) return;
-        console.error('Roster preview could not be loaded.');
-        rosterPreview = [];
-        rosterPreviewLoading = false;
-        rosterPreviewError = 'Roster preview unavailable.';
-      },
-    );
+  function buildPreviewSrc(tenantId: string) {
+    if (!previewBaseUrl || !tenantId) return '';
+    const url = new URL('/', previewBaseUrl);
+    url.searchParams.set('forcedTenant', tenantId);
+    url.searchParams.set('crmPreview', '1');
+    return url.toString();
   }
 
-  let schedulePreview = null;
-  let schedulePreviewLoading = false;
-  let unsubscribeSchedule = () => {};
+  function postPreviewDraft() {
+    if (
+      !previewFrame?.contentWindow
+      || !previewBaseUrl
+      || configLoadState !== 'ready'
+    ) return;
+    previewDraftSyncState = 'awaiting';
+    previewFrame.contentWindow.postMessage(previewPayload, previewBaseUrl);
+  }
 
-  function loadSchedulePreview(tenantId) {
-    unsubscribeSchedule();
-    schedulePreview = null;
-    schedulePreviewLoading = true;
-    const q = query(
-      collection(db, 'events'),
-      where('tenantId', '==', tenantId),
-      where('status', '==', 'published'),
-      where('isVisible', '==', true),
-      where('isDeleted', '==', false),
-      where('date', '>=', new Date()),
-      orderBy('date', 'asc'),
-      limit(1),
-    );
-    schedulePreviewError = '';
-    unsubscribeSchedule = onSnapshot(
-      q,
-      (snapshot) => {
-        if ($tenantIdStore !== tenantId) return;
-        if (!snapshot.empty) {
-          const data = snapshot.docs[0].data();
-          schedulePreview = {
-            id: snapshot.docs[0].id,
-            title: data.title || null,
-            date: data.date?.toDate ? data.date.toDate() : null,
-            location: data.location || null,
-          };
-        } else {
-          schedulePreview = null;
+  function handlePreviewLoad() {
+    previewLoadState = 'ready';
+    postPreviewDraft();
+    clearPreviewDraftRetries();
+    previewDraftRetryTimers = [750, 2000, 5000].map((delay) =>
+      window.setTimeout(() => {
+        if (
+          previewLoadState === 'ready'
+          && activeTenantId === String($tenantIdStore || '')
+        ) {
+          postPreviewDraft();
         }
-        schedulePreviewLoading = false;
-      },
-      () => {
-        if ($tenantIdStore !== tenantId) return;
-        console.error('Schedule preview could not be loaded.');
-        schedulePreview = null;
-        schedulePreviewLoading = false;
-        schedulePreviewError = 'Schedule preview unavailable.';
-      },
-    );
+      }, delay));
+  }
+
+  function clearPreviewDraftRetries() {
+    for (const timer of previewDraftRetryTimers) window.clearTimeout(timer);
+    previewDraftRetryTimers = [];
+  }
+
+  onMount(() => {
+    const handlePreviewReady = (event: MessageEvent) => {
+      if (
+        !previewBaseUrl
+        || event.origin !== previewBaseUrl
+        || event.source !== previewFrame?.contentWindow
+      ) return;
+      try {
+        const payload = typeof event.data === 'string'
+          ? JSON.parse(event.data)
+          : event.data;
+        if (
+          payload?.type === 'huddleway.crm.preview.ready'
+          && payload?.tenantId === String($tenantIdStore || '')
+        ) {
+          postPreviewDraft();
+        } else if (
+          payload?.type === 'huddleway.crm.preview.applied'
+          && payload?.tenantId === String($tenantIdStore || '')
+        ) {
+          previewDraftSyncState = 'synced';
+        }
+      } catch {
+        // Ignore unrelated or malformed cross-window messages.
+      }
+    };
+    window.addEventListener('message', handlePreviewReady);
+    return () => {
+      clearPreviewDraftRetries();
+      window.removeEventListener('message', handlePreviewReady);
+    };
+  });
+
+  function refreshLogoPreview(file: File | null) {
+    const sequence = ++logoPreviewSequence;
+    if (!file) {
+      logoPreviewDataUrl = null;
+      return;
+    }
+    const validationMessage = validateImageFile(file);
+    if (validationMessage) {
+      logoPreviewDataUrl = null;
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (sequence !== logoPreviewSequence) return;
+      logoPreviewDataUrl = typeof reader.result === 'string'
+        ? reader.result
+        : null;
+    };
+    reader.onerror = () => {
+      if (sequence === logoPreviewSequence) logoPreviewDataUrl = null;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function appConfigurationLoadMessage(error: unknown) {
+    const code = String((error as { code?: unknown })?.code || '').toLowerCase();
+    const message = error instanceof Error ? error.message.toLowerCase() : '';
+    if (
+      code.includes('auth/')
+      || message.includes('sign in to continue')
+      || message.includes('authenticated session')
+    ) {
+      return 'Your administrator session is still loading. Retry in a moment.';
+    }
+    if (
+      code.includes('network')
+      || message.includes('failed to fetch')
+      || message.includes('network')
+    ) {
+      return 'The app configuration service could not be reached. Retry in a moment.';
+    }
+    if (error instanceof BackendApiError && error.status === 403) {
+      return 'You do not have permission to edit app configuration.';
+    }
+    if (error instanceof BackendApiError && error.status >= 500) {
+      return 'The app configuration service returned an invalid response. Retry in a moment.';
+    }
+    return 'The authoritative app configuration could not be loaded. Publishing is disabled.';
   }
 
   async function loadTenantConfig(tenantId) {
@@ -317,39 +365,49 @@
         || code.includes('permission-denied')
           ? 'permission'
           : 'error';
-      configLoadMessage = configLoadState === 'permission'
-        ? 'You do not have permission to edit app configuration.'
-        : 'The authoritative app configuration could not be loaded. Publishing is disabled.';
+      configLoadMessage = appConfigurationLoadMessage(e);
       publishRequestId = e instanceof BackendApiError ? e.requestId || '' : '';
     }
   }
-
-  onDestroy(() => {
-    configLoadSequence += 1;
-    unsubscribeRoster();
-    unsubscribeSchedule();
-  });
 
   async function handlePublish() {
     if (!canPublish || submitState === 'loading') return;
     const tenantId = $tenantIdStore;
     if (!tenantId) return;
 
-    const configuration: CrmAppConfiguration = {
-      name: appName.trim(),
-      primaryColor,
-      secondaryColor,
-      tertiaryColor,
-      logoUrl,
-      navigationTabs: tabsConfig.map((tab) => ({ ...tab })),
-    };
+    logoValidationMessage = validateImageFile(logoFile);
+    if (logoValidationMessage) {
+      return;
+    }
+    if (logoFile) {
+      publishMessage =
+        'Logo upload is temporarily unavailable while publication privacy is being finalized. Remove the selected logo to publish other app settings safely.';
+      submitState = 'error';
+      return;
+    }
+
     const expectedVersionToken = configVersionToken;
     const mode = configMode;
-    const submittedSignature = buildConfigSignature();
     submitState = 'loading';
     publishMessage = '';
     publishRequestId = '';
     try {
+      const configuration: CrmAppConfiguration = {
+        name: appName.trim(),
+        primaryColor,
+        secondaryColor,
+        tertiaryColor,
+        logoUrl,
+        navigationTabs: tabsConfig.map((tab) => ({ ...tab })),
+      };
+      const submittedSignature = JSON.stringify({
+        appName: configuration.name,
+        primaryColor: configuration.primaryColor.toLowerCase(),
+        secondaryColor: configuration.secondaryColor.toLowerCase(),
+        tertiaryColor: configuration.tertiaryColor.toLowerCase(),
+        tabsConfig: configuration.navigationTabs,
+        logoUrl: configuration.logoUrl,
+      });
       await backendClient.publishAppConfiguration(
         tenantId,
         {
@@ -361,6 +419,8 @@
         publishIdempotencyKey,
       );
       if ($tenantIdStore !== tenantId) return;
+      logoFile = null;
+      logoValidationMessage = '';
       await loadTenantConfig(tenantId);
       if ($tenantIdStore !== tenantId || configLoadState !== 'ready') return;
       if (loadedConfigSignature !== submittedSignature) {
@@ -410,8 +470,8 @@
   <!-- Left Pane: Configuration Form -->
   <div class="crm-ui-studio-editor">
     <div class="px-8 pt-6 pb-4 border-b border-gray-200">
-      <h1 class="crm-ui-page-title">Page Studio</h1>
-      <p class="text-sm text-gray-500 mt-1">Configure your public-facing app for parents and players.</p>
+      <h1 class="crm-ui-page-title">My App</h1>
+      <p class="text-sm text-gray-500 mt-1">Preview changes here, then publish them to your family app.</p>
     </div>
 
     <div class="flex border-b border-gray-200 px-6 pt-2">
@@ -432,7 +492,18 @@
     {#if configLoadState === 'loading'}
       <p class="crm-ui-studio-loading" role="status">Loading authoritative app configuration…</p>
     {:else if configLoadState === 'error' || configLoadState === 'permission'}
-      <p class="crm-ui-studio-error" role="alert">{configLoadMessage}</p>
+      <div class="crm-ui-studio-error" role="alert">
+        <p>{configLoadMessage}</p>
+        {#if configLoadState === 'error' && activeTenantId}
+          <button
+            type="button"
+            class="mt-2 rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-800 hover:bg-red-100"
+            on:click={() => loadTenantConfig(activeTenantId)}
+          >
+            Retry
+          </button>
+        {/if}
+      </div>
     {:else if configLoadState === 'ready' && !configVersionToken}
       <p class="crm-ui-studio-warning" role="status">
         Configuration loaded in {configMode} mode, but no concurrency token was returned. Publishing remains disabled.
@@ -533,22 +604,15 @@
     <!-- Top Right: Logo Upload & Colors -->
     <div class="flex justify-end mb-6 z-20">
       <div class="crm-ui-studio-toolbar">
-        <div>
-          <p class="crm-ui-label-caps">Logo</p>
-          <div class="flex items-center space-x-3">
-              <div class="crm-ui-studio-logo">
-                <img
-                  src={safeLogoPreviewUrl}
-                  alt="Logo Preview"
-                  width="80"
-                  height="80"
-                  decoding="async"
-                  class="crm-ui-cover"
-                />
-              </div>
-            <p class="crm-ui-notice-sm max-w-xs">Logo uploads are unavailable in this release. The existing logo is retained.</p>
-          </div>
-        </div>
+        <ImageFilePicker
+          inputId="studio-logo-image"
+          label="Logo"
+          currentUrl={safeLogoPreviewUrl}
+          previewAlt="Logo preview"
+          bind:selectedFile={logoFile}
+          bind:validationMessage={logoValidationMessage}
+          disabled={submitState === 'loading'}
+        />
 
         <div class="border-l border-gray-200 pl-6">
           <p class="crm-ui-label-caps">Brand Colors</p>
@@ -591,65 +655,33 @@
       </div>
     </div>
 
-    <div class="flex-1 flex items-center justify-center">
+    <div class="flex flex-1 flex-col items-center justify-start gap-3 py-4">
+      <p class="z-10 text-xs font-medium text-gray-600">
+        Live mobile preview · 375 × 812{previewDraftSyncState === 'synced' ? ' · Synced' : ''}
+      </p>
       <!-- Mobile Device Frame -->
       <div class="crm-ui-studio-device">
 
         <!-- Notch -->
         <div class="crm-ui-studio-notch"></div>
 
-      <!-- Source-native app preview. The quarantined consumer build is never
-           embedded in the CRM release artifact. -->
-      {#if $tenantIdStore}
-        <div class="crm-ui-studio-app" aria-label="App configuration preview">
-          <header class="crm-ui-studio-app-header" style="background-color: {primaryColor || '#334155'}">
-            <img src={safeLogoPreviewUrl} alt="" width="36" height="36" class="crm-ui-studio-app-logo" />
-            <div class="min-w-0">
-              <p class="truncate text-base font-bold">{appName.trim() || 'App name not set'}</p>
-              <p class="text-[10px] opacity-80">Configuration preview</p>
-            </div>
-          </header>
-          <main class="crm-ui-studio-app-main">
-            <section class="crm-ui-studio-app-card" aria-labelledby="preview-next-event">
-              <h3 id="preview-next-event" class="crm-ui-studio-app-heading">Schedule preview</h3>
-              {#if schedulePreviewLoading}
-                <p class="mt-2 text-sm text-gray-500" role="status">Loading schedule preview…</p>
-              {:else if schedulePreviewError}
-                <p class="mt-2 text-sm text-red-700">{schedulePreviewError}</p>
-              {:else if schedulePreview}
-                <p class="mt-2 font-semibold text-gray-900">{schedulePreview.title || 'Event title unavailable'}</p>
-                <p class="mt-1 text-xs text-gray-600">
-                  {schedulePreview.date ? schedulePreview.date.toLocaleString() : 'Date unavailable'}
-                  · {schedulePreview.location || 'Location unavailable'}
-                </p>
-              {:else}
-                <p class="mt-2 text-sm text-gray-500">No event is available in the loaded preview.</p>
-              {/if}
-            </section>
-            <section class="crm-ui-studio-app-card" aria-labelledby="preview-roster">
-              <h3 id="preview-roster" class="crm-ui-studio-app-heading">Roster preview</h3>
-              {#if rosterPreviewLoading}
-                <p class="mt-2 text-sm text-gray-500" role="status">Loading roster preview…</p>
-              {:else if rosterPreviewError}
-                <p class="mt-2 text-sm text-red-700">{rosterPreviewError}</p>
-              {:else if rosterPreview.length === 0}
-                <p class="mt-2 text-sm text-gray-500">No player is available in the loaded preview.</p>
-              {:else}
-                <ul class="mt-2 divide-y divide-gray-100">
-                  {#each rosterPreview as player (player.id)}
-                    <li class="py-2 text-sm text-gray-700">
-                      {player.name || 'Player name unavailable'}
-                    </li>
-                  {/each}
-                </ul>
-              {/if}
-            </section>
-          </main>
-          <nav class="crm-ui-studio-nav" aria-label="Enabled module preview">
-            {#each tabsConfig.filter((tab) => tab.enabled).slice(0, 5) as tab (tab.key)}
-              <span class="crm-ui-studio-nav-label">{tab.label}</span>
-            {/each}
-          </nav>
+      {#if $tenantIdStore && previewSrc}
+        <iframe
+          bind:this={previewFrame}
+          src={previewSrc}
+          title={`${appName.trim() || 'Program'} mobile app preview`}
+          class="crm-ui-studio-app-frame"
+          allow="clipboard-read; clipboard-write; fullscreen"
+          on:load={handlePreviewLoad}
+        ></iframe>
+        {#if previewLoadState === 'loading'}
+          <div class="crm-ui-studio-preview-loading" role="status">
+            Loading the mobile app…
+          </div>
+        {/if}
+      {:else if !previewBaseUrl}
+        <div class="crm-ui-studio-empty-preview">
+          The mobile preview is unavailable in this environment.
         </div>
       {:else}
         <div class="crm-ui-studio-empty-preview">
