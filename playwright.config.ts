@@ -61,7 +61,7 @@ export default defineConfig({
     },
     {
       command:
-        'npx firebase emulators:start --only auth --project demo-huddleway-crm',
+        'npx --yes firebase-tools@15.23.0 emulators:start --only auth --project demo-huddleway-crm',
       cwd: backendRoot,
       url:
         'http://127.0.0.1:9099/emulator/v1/projects/demo-huddleway-crm/config',
@@ -70,7 +70,7 @@ export default defineConfig({
     },
     {
       command:
-        'npx firebase emulators:start --only firestore --project demo-huddleway-crm',
+        'npx --yes firebase-tools@15.23.0 emulators:start --only firestore --project demo-huddleway-crm',
       cwd: backendRoot,
       url: 'http://127.0.0.1:8080/',
       reuseExistingServer: true,
