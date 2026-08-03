@@ -19,6 +19,7 @@
   export let error = '';
   export let truncated = false;
   export let requestId = '';
+  export let onAddPlayer: () => void = () => {};
 
   let roleFilter = '';
   let statusFilter = '';
@@ -313,6 +314,17 @@
         </select>
       </label>
     {/if}
+  </svelte:fragment>
+
+  <svelte:fragment slot="actions">
+    <button
+      type="button"
+      class="inline-flex items-center rounded-md bg-[#1855c5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1546a3] focus:outline-none focus:ring-2 focus:ring-[#1855c5] focus:ring-offset-2"
+      on:click={onAddPlayer}
+    >
+      <span class="mr-2 text-lg leading-none" aria-hidden="true">+</span>
+      Add player
+    </button>
   </svelte:fragment>
 
   <svelte:fragment slot="cell" let:row let:column>

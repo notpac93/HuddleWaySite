@@ -263,16 +263,16 @@
   <div class="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="roster-entry-title">
     <div class="flex items-start justify-between gap-4">
       <div>
-        <h2 id="roster-entry-title" class="text-xl font-semibold text-[#0f2142]">Add people to the program</h2>
+        <h2 id="roster-entry-title" class="text-xl font-semibold text-[#0f2142]">Add players to the program</h2>
         <p class="mt-1 text-sm text-gray-600">Create program members, then optionally place them on teams and in seasons.</p>
       </div>
       <button type="button" aria-label="Close" class="text-2xl leading-none text-gray-400 hover:text-gray-700" on:click={() => dispatch('cancel')}>×</button>
     </div>
 
     <div class="mt-5 border-b border-gray-200">
-      <nav class="flex gap-6" aria-label="Add people method">
-        <button type="button" class="border-b-2 px-1 pb-3 text-sm font-semibold {mode === 'manual' ? 'border-[#1855c5] text-[#1855c5]' : 'border-transparent text-gray-500'}" on:click={() => { mode = 'manual'; resetOperation(); }}>Add one person</button>
-        <button type="button" class="border-b-2 px-1 pb-3 text-sm font-semibold {mode === 'csv' ? 'border-[#1855c5] text-[#1855c5]' : 'border-transparent text-gray-500'}" on:click={() => { mode = 'csv'; resetOperation(); }}>Upload people CSV</button>
+      <nav class="flex gap-6" aria-label="Add players method">
+        <button type="button" class="border-b-2 px-1 pb-3 text-sm font-semibold {mode === 'manual' ? 'border-[#1855c5] text-[#1855c5]' : 'border-transparent text-gray-500'}" on:click={() => { mode = 'manual'; resetOperation(); }}>Add one player</button>
+        <button type="button" class="border-b-2 px-1 pb-3 text-sm font-semibold {mode === 'csv' ? 'border-[#1855c5] text-[#1855c5]' : 'border-transparent text-gray-500'}" on:click={() => { mode = 'csv'; resetOperation(); }}>Upload players CSV</button>
       </nav>
     </div>
 
@@ -326,7 +326,7 @@
 
     <div class="mt-6 flex justify-end gap-3 border-t border-gray-200 pt-5">
       <button type="button" class="rounded border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700" on:click={() => dispatch('cancel')}>Cancel</button>
-      <button type="button" class="rounded bg-[#1855c5] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50" disabled={isSaving || (mode === 'csv' && !csvRows.length)} on:click={submit}>{isSaving ? 'Saving…' : mode === 'manual' ? 'Add person' : 'Add people'}</button>
+      <button type="button" class="rounded bg-[#1855c5] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50" disabled={isSaving || (mode === 'csv' && !csvRows.length)} on:click={submit}>{isSaving ? 'Saving…' : mode === 'manual' ? 'Add player' : 'Add players'}</button>
     </div>
   </div>
 </div>

@@ -193,6 +193,19 @@ describe('RosterManager projection and navigation controls', () => {
       screen.getByRole('button', { name: 'CSV Import' }),
     ).toHaveAttribute('aria-pressed', 'true');
   });
+
+  it('opens manual player entry from the All Players action row', async () => {
+    render(TestedRosterManager);
+
+    await fireEvent.click(
+      screen.getByRole('button', { name: 'Add player' }),
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Add players to the program' }),
+    ).toBeVisible();
+    expect(screen.getByLabelText(/Person name/)).toBeVisible();
+  });
 });
 
 describe('TeamTable row controls', () => {

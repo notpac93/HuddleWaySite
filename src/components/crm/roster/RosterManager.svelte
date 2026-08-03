@@ -131,10 +131,7 @@
       <h2 class="crm-ui-page-title">Rosters & Teams</h2>
       <p class="text-sm text-gray-500">Manage program members, teams, seasons, and reviewed player assignments.</p>
     </div>
-    <div class="flex items-center gap-2">
-      <button type="button" class="rounded border border-[#1855c5] px-4 py-2 text-sm font-semibold text-[#1855c5] hover:bg-blue-50" on:click={() => { entrySuccess = ''; entryMode = 'manual'; }}>Add person</button>
-      <button type="button" class="rounded bg-[#1855c5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1546a3]" on:click={() => { entrySuccess = ''; entryMode = 'csv'; }}>Import people CSV</button>
-    </div>
+    <button type="button" class="rounded bg-[#1855c5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1546a3]" on:click={() => { entrySuccess = ''; entryMode = 'csv'; }}>Import players CSV</button>
   </div>
   {#if entrySuccess}<p class="rounded border border-green-200 bg-green-50 p-3 text-sm text-green-800" role="status">{entrySuccess}</p>{/if}
 
@@ -180,6 +177,7 @@
       {setActiveTeam}
       {activeResultId}
       {onTargetConsumed}
+      onAddPlayer={() => { entrySuccess = ''; entryMode = 'manual'; }}
       on:changed={refreshPlayers}
     />
   {:else if activeTab === 'Teams'}

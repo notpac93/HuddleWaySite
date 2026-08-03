@@ -59,7 +59,7 @@ describe('Roster participant entry', () => {
     });
     await fireEvent.click(screen.getByLabelText('Boys Team'));
     await fireEvent.click(screen.getByLabelText('Fall Season'));
-    await fireEvent.click(screen.getByRole('button', { name: 'Add person' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Add player' }));
 
     await waitFor(() => expect(backendMocks.importRosterParticipants).toHaveBeenCalledTimes(1));
     expect(backendMocks.importRosterParticipants).toHaveBeenCalledWith(
@@ -95,7 +95,7 @@ describe('Roster participant entry', () => {
     await fireEvent.input(screen.getByLabelText(/Email address/), {
       target: { value: 'not-an-email' },
     });
-    await fireEvent.click(screen.getByRole('button', { name: 'Add person' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Add player' }));
     expect(screen.getByRole('alert')).toHaveTextContent('valid email');
     expect(backendMocks.importRosterParticipants).not.toHaveBeenCalled();
   });
