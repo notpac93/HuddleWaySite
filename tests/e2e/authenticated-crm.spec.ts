@@ -167,6 +167,125 @@ async function signIn(page: Page, email: string) {
   await expect(page.getByText('Quick Actions')).toBeVisible();
 }
 
+async function mockAuthenticatedBackend(page: Page, tenantId: string) {
+  await page.route('**/admin/crm/operational-records**', async (route) => {
+    const url = new URL(route.request().url());
+    const collection = url.searchParams.get('collection') || '';
+    const records: Record<string, unknown>[] = {
+      registrations: [{
+        id: 'registration-e2e',
+        tenantId,
+        participantSummary: { fullName: 'Fixture Player' },
+        userId: 'e2e-player',
+        eventId: 'event-e2e',
+        createdAt: new Date().toISOString(),
+      }],
+      registration_forms: [{
+        id: 'form-e2e',
+        tenantId,
+        title: 'Fixture Registration',
+        status: 'active',
+        createdAt: new Date().toISOString(),
+      }],
+      events: [{
+        id: 'event-e2e',
+        tenantId,
+        title: 'Fixture Practice',
+        lifecycleStatus: 'published',
+        isDeleted: false,
+        isVisible: true,
+        teamId: 'team-e2e',
+        date: new Date().toISOString(),
+      }],
+      teams: [{
+        id: 'team-e2e',
+        tenantId,
+        name: 'Fixture Falcons',
+        description: 'Emulator-only E2E team',
+        status: 'active',
+      }],
+      seasons: [],
+      season_registrations: [],
+    }[collection] || [];
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        schemaVersion: 'crm_operational_page_v1',
+        tenantId,
+        collection,
+        records,
+        hasMore: false,
+        nextCursor: null,
+        limit: 100,
+        requestId: `e2e-${collection}`,
+      }),
+    });
+  });
+
+  await page.route('**/admin/crm/financial-overview**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        tenantId,
+        transactions: [],
+        refunds: [],
+        invoices: [],
+        deposits: [],
+        recordCounts: {
+          transactions: 0,
+          payments: 0,
+          refunds: 0,
+          invoices: 0,
+          deposits: 0,
+        },
+        tracking: {
+          complete: true,
+          unreconciledTransactionCount: 0,
+          unreconciledDepositCount: 0,
+          sourceCollections: [],
+        },
+        truncated: {
+          transactions: false,
+          refunds: false,
+          invoices: false,
+          deposits: false,
+        },
+        requestId: 'e2e-financials',
+      }),
+    });
+  });
+
+  await page.route('**/admin/roster/players**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        tenantId,
+        teamId: null,
+        players: [{
+          id: 'registration-e2e',
+          name: 'Fixture Player',
+          imageUrl: null,
+          role: 'Player',
+          status: 'active',
+          teamId: 'team-e2e',
+          teamIds: ['team-e2e'],
+          team: 'Fixture Falcons',
+          email: 'family@huddleway.test',
+        }],
+        truncated: {
+          registrations: false,
+          memberships: false,
+          teams: false,
+        },
+        requestId: 'e2e-roster',
+      }),
+    });
+  });
+}
+
 async function openCrmTab(page: Page, tab: string, mobile: boolean) {
   if (mobile) {
     await page.getByRole('button', { name: 'Open navigation menu' }).click();
@@ -198,6 +317,10 @@ test('verified owner can use the authenticated CRM shell by keyboard and mobile 
 }, testInfo) => {
   const mobile = testInfo.project.name.includes('mobile');
   const { email } = await seedVerifiedOwner(testInfo.project.name);
+  await mockAuthenticatedBackend(
+    page,
+    `e2e-tenant-${testInfo.project.name.replace(/[^a-z0-9]/gi, '-').toLowerCase()}`,
+  );
   await signIn(page, email);
 
   await page.keyboard.press(
