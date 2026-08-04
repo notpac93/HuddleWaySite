@@ -98,6 +98,23 @@ function emptySnapshot() {
   return { docs: [] };
 }
 
+function notificationSummary(overrides: Record<string, unknown> = {}) {
+  return {
+    scope: 'tenant_account_holders',
+    topic: null,
+    requestedMessageCount: 1,
+    sentMessageCount: 1,
+    failedMessageCount: 0,
+    noRecipientMessageCount: 0,
+    replayedMessageCount: 0,
+    eligibleAccountCount: 2,
+    eligibleDeviceCount: 2,
+    successCount: 2,
+    failureCount: 0,
+    ...overrides,
+  };
+}
+
 describe('CommunicationsManager recall boundary', () => {
   beforeEach(() => {
     tenants.set('tenant-a');
@@ -237,6 +254,7 @@ describe('CommunicationsManager recall boundary', () => {
       activeRecipientCount: 0,
       retainedRecipientCount: 0,
       publicCount: 1,
+      notifications: notificationSummary(),
       requestId: 'publish-request',
     });
     render(TestedCommunicationsManager);
@@ -245,7 +263,7 @@ describe('CommunicationsManager recall boundary', () => {
     await fireEvent.click(
       screen.getByRole('button', { name: 'New announcement' }),
     );
-    expect(screen.getByText('Public to the entire organization. No notification alert is sent.')).toBeVisible();
+    expect(screen.getByText('Only account holders in this organization can receive this announcement. Publishing sends a notification only to their registered devices.')).toBeVisible();
     await fireEvent.input(screen.getByLabelText('Message'), {
       target: { value: 'A valid announcement body.' },
     });
@@ -274,7 +292,40 @@ describe('CommunicationsManager recall boundary', () => {
         seasonId: null,
       }),
     ]);
-    expect(await screen.findByText('Announcement published.')).toBeVisible();
+    expect(await screen.findByText('Announcement published and notification sent to 2 registered devices.')).toBeVisible();
+  });
+
+  it('explains when the tenant has no registered notification devices', async () => {
+    mocks.getDocs
+      .mockResolvedValueOnce(emptySnapshot())
+      .mockResolvedValueOnce(emptySnapshot());
+    mocks.sendMessageBatch.mockResolvedValueOnce({
+      success: true,
+      sendId: 'send-no-devices',
+      messageCount: 1,
+      activeRecipientCount: 0,
+      retainedRecipientCount: 0,
+      publicCount: 1,
+      notifications: notificationSummary({
+        sentMessageCount: 0,
+        noRecipientMessageCount: 1,
+        eligibleAccountCount: 0,
+        eligibleDeviceCount: 0,
+        successCount: 0,
+      }),
+      requestId: 'publish-no-devices-request',
+    });
+    render(TestedCommunicationsManager);
+    await screen.findByText('No Wall announcements have been published.');
+    await fireEvent.click(screen.getByRole('button', { name: 'New announcement' }));
+    await fireEvent.input(screen.getByLabelText('Message'), {
+      target: { value: 'No-device tenant announcement.' },
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Publish announcement' }));
+
+    expect(await screen.findByText(
+      'Announcement published. No registered devices were available for this organization.',
+    )).toBeVisible();
   });
 
   it('requires and publishes an event attachment', async () => {
@@ -288,6 +339,11 @@ describe('CommunicationsManager recall boundary', () => {
       activeRecipientCount: 0,
       retainedRecipientCount: 0,
       publicCount: 1,
+      notifications: notificationSummary({
+        eligibleAccountCount: 1,
+        eligibleDeviceCount: 1,
+        successCount: 1,
+      }),
       requestId: 'publish-event-request',
     });
     render(TestedCommunicationsManager);
@@ -326,6 +382,11 @@ describe('CommunicationsManager recall boundary', () => {
       activeRecipientCount: 0,
       retainedRecipientCount: 0,
       publicCount: 1,
+      notifications: notificationSummary({
+        eligibleAccountCount: 1,
+        eligibleDeviceCount: 1,
+        successCount: 1,
+      }),
       requestId: 'publish-season-request',
     });
     render(TestedCommunicationsManager);

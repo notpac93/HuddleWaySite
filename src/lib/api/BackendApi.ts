@@ -2280,6 +2280,19 @@ export class BackendApi {
       activeRecipientCount: number;
       retainedRecipientCount: number;
       publicCount: number;
+      notifications: {
+        scope: 'tenant_account_holders';
+        topic: null;
+        requestedMessageCount: number;
+        sentMessageCount: number;
+        failedMessageCount: number;
+        noRecipientMessageCount: number;
+        replayedMessageCount: number;
+        eligibleAccountCount: number;
+        eligibleDeviceCount: number;
+        successCount: number;
+        failureCount: number;
+      };
       requestId: string;
     }>('/admin/messages/batch', {
       method: 'POST',

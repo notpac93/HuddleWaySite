@@ -164,8 +164,8 @@
 
   function audienceLabel(messageTeamId: string | null) {
     return messageTeamId && messageTeamId !== 'program'
-      ? 'Public organization post · legacy team restriction not enforced'
-      : 'Public organization post';
+      ? 'Account holders in this organization · legacy team restriction not enforced'
+      : 'Account holders in this organization';
   }
 
   function attachmentLabel(message: WallMessage) {
@@ -302,9 +302,18 @@
       await fetchMessages(tenantId);
       if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
       submitState = 'success';
-      operationMessage = result.publicCount === 1
-        ? 'Announcement published.'
-        : 'Announcement accepted by the delivery service.';
+      if (result.publicCount === 1 && result.notifications.successCount > 0) {
+        const deviceWord = result.notifications.successCount === 1 ? 'device' : 'devices';
+        operationMessage = result.notifications.failureCount > 0
+          ? `Announcement published. Notification reached ${result.notifications.successCount} registered ${deviceWord}; ${result.notifications.failureCount} delivery attempt(s) failed.`
+          : `Announcement published and notification sent to ${result.notifications.successCount} registered ${deviceWord}.`;
+      } else if (result.publicCount === 1 && result.notifications.failureCount > 0) {
+        operationMessage = 'Announcement published, but its notification could not be delivered.';
+      } else if (result.publicCount === 1) {
+        operationMessage = 'Announcement published. No registered devices were available for this organization.';
+      } else {
+        operationMessage = 'Announcement accepted by the delivery service.';
+      }
       isAdding = false;
       subject = '';
       body = '';
@@ -417,7 +426,7 @@
   <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
     <div>
       <h2 class="text-xl font-bold text-gray-900">Wall announcements</h2>
-      <p class="text-sm text-gray-500">Review public organization announcements on the app Wall.</p>
+      <p class="text-sm text-gray-500">Review announcements visible to this organization’s account holders on the app Wall.</p>
     </div>
     <button
       type="button"
@@ -445,7 +454,7 @@
         <div>
           <p class="crm-ui-label">Audience</p>
           <p class="mt-1 rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
-            Public to the entire organization. No notification alert is sent.
+            Only account holders in this organization can receive this announcement. Publishing sends a notification only to their registered devices.
           </p>
         </div>
         <div>
@@ -456,7 +465,7 @@
             on:change={handleAttachmentScopeChange}
             class="mt-1 block w-full rounded-md border border-gray-300 bg-white p-2 shadow-sm focus:border-[#00a4bd] focus:ring-[#00a4bd] sm:text-sm"
           >
-            <option value="all">All organization (no attachment)</option>
+            <option value="all">All organization account holders</option>
             <option value="event">An event</option>
             <option value="season">A season</option>
           </select>
