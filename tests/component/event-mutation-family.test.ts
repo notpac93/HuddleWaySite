@@ -215,6 +215,52 @@ describe('event mutation family', () => {
     );
   });
 
+  it('shows the Events CSV import control and creates an audited draft', async () => {
+    backendMocks.createEventSeries.mockResolvedValue({
+      success: true,
+      id: 'series-import-1',
+      eventIds: ['event-import-1'],
+    });
+    render(TestedEventScheduler);
+
+    const input = screen.getByLabelText('Import events CSV');
+    expect(input).toHaveAttribute('accept', '.csv,text/csv');
+    const file = new File([
+      'title,date,start_time,end_time,team,type,location\n'
+      + 'Tryouts,2030-08-20,18:00,19:00,team-1,Tryout,Main Gym\n',
+    ], 'tryouts.csv', { type: 'text/csv' });
+    // jsdom's File does not implement the browser File.text() API used by the
+    // import path, so supply the native-browser equivalent for this test.
+    Object.defineProperty(file, 'text', {
+      value: async () =>
+        'title,date,start_time,end_time,team,type,location\n'
+        + 'Tryouts,2030-08-20,18:00,19:00,team-1,Tryout,Main Gym\n',
+    });
+    await fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(backendMocks.createEventSeries).toHaveBeenCalledTimes(1);
+    });
+    expect(backendMocks.createEventSeries).toHaveBeenCalledWith(
+      'tenant-a',
+      expect.objectContaining({
+        title: 'Tryouts',
+        teamId: 'team-1',
+        type: 'Tryout',
+        location: 'Main Gym',
+        publishMode: 'draft',
+        occurrences: [expect.objectContaining({
+          dateKey: '2030-08-20',
+          startTime: '18:00',
+          endTime: '19:00',
+        })],
+      }),
+      'Event draft imported from CSV.',
+      expect.stringMatching(/^crm-event-csv-import:/),
+    );
+    expect(await screen.findByText('1 event drafts created.')).toBeVisible();
+  });
+
   it('locks create controls and invalidates the response when tenant scope changes', async () => {
     const pending = deferred<void>();
     backendMocks.createEventSeries.mockReturnValue(pending.promise);
