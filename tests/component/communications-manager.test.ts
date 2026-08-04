@@ -55,6 +55,18 @@ vi.mock('../../src/lib/api/backendClient', () => ({
   },
 }));
 
+vi.mock('../../src/lib/services/DataStore', async () => {
+  const { writable } = await import('svelte/store');
+  return {
+    eventsStore: writable([
+      { id: 'event-1', title: 'Summer Showcase' },
+    ]),
+    seasonsStore: writable([
+      { id: 'season-1', name: 'Summer 2026' },
+    ]),
+  };
+});
+
 import { tenantIdStore } from '../../src/lib/authStore';
 import { backendClient } from '../../src/lib/api/backendClient';
 import { BackendApiError } from '../../src/lib/api/BackendApi';
@@ -214,25 +226,130 @@ describe('CommunicationsManager recall boundary', () => {
     expect(secondCall[2]).toBe(firstCall[2]);
   });
 
-  it('keeps unsupported publication disabled and labels its exact boundary', async () => {
-    mocks.getDocs.mockResolvedValueOnce(emptySnapshot());
+  it('publishes a valid organization announcement through the backend', async () => {
+    mocks.getDocs
+      .mockResolvedValueOnce(emptySnapshot())
+      .mockResolvedValueOnce(emptySnapshot());
+    mocks.sendMessageBatch.mockResolvedValueOnce({
+      success: true,
+      sendId: 'send-1',
+      messageCount: 1,
+      activeRecipientCount: 0,
+      retainedRecipientCount: 0,
+      publicCount: 1,
+      requestId: 'publish-request',
+    });
     render(TestedCommunicationsManager);
     await screen.findByText('No Wall announcements have been published.');
 
     await fireEvent.click(
       screen.getByRole('button', { name: 'New announcement' }),
     );
-    expect(
-      screen.getByText(
-        'Publishing is disabled in this release because the server cannot yet preview and validate the exact public organization audience. Team-targeted announcements are not supported by the current authorization rules.',
-      ),
-    ).toBeVisible();
+    expect(screen.getByText('Public to the entire organization. No notification alert is sent.')).toBeVisible();
     await fireEvent.input(screen.getByLabelText('Message'), {
       target: { value: 'A valid announcement body.' },
     });
-    expect(
-      screen.getByRole('button', { name: 'Publish announcement' }),
-    ).toBeDisabled();
-    expect(backendClient.sendMessageBatch).not.toHaveBeenCalled();
+    const publishButton = screen.getByRole('button', {
+      name: 'Publish announcement',
+    });
+    expect(publishButton).toBeEnabled();
+
+    await fireEvent.click(publishButton);
+
+    await waitFor(() => {
+      expect(backendClient.sendMessageBatch).toHaveBeenCalledTimes(1);
+    });
+    const [tenantId, messages, idempotencyKey] =
+      vi.mocked(backendClient.sendMessageBatch).mock.calls[0];
+    expect(tenantId).toBe('tenant-a');
+    expect(idempotencyKey).toMatch(/^message-batch:/);
+    expect(messages).toEqual([
+      expect.objectContaining({
+        tenantId: 'tenant-a',
+        teamId: 'program',
+        body: 'A valid announcement body.',
+        isSecret: false,
+        attachmentScope: 'all',
+        eventId: null,
+        seasonId: null,
+      }),
+    ]);
+    expect(await screen.findByText('Announcement published.')).toBeVisible();
+  });
+
+  it('requires and publishes an event attachment', async () => {
+    mocks.getDocs
+      .mockResolvedValueOnce(emptySnapshot())
+      .mockResolvedValueOnce(emptySnapshot());
+    mocks.sendMessageBatch.mockResolvedValueOnce({
+      success: true,
+      sendId: 'send-event-1',
+      messageCount: 1,
+      activeRecipientCount: 0,
+      retainedRecipientCount: 0,
+      publicCount: 1,
+      requestId: 'publish-event-request',
+    });
+    render(TestedCommunicationsManager);
+    await screen.findByText('No Wall announcements have been published.');
+    await fireEvent.click(screen.getByRole('button', { name: 'New announcement' }));
+    await fireEvent.input(screen.getByLabelText('Message'), {
+      target: { value: 'Event announcement.' },
+    });
+    await fireEvent.change(screen.getByLabelText('Attach announcement to'), {
+      target: { value: 'event' },
+    });
+    expect(screen.getByRole('button', { name: 'Publish announcement' })).toBeDisabled();
+    await fireEvent.change(screen.getByLabelText('Event'), {
+      target: { value: 'event-1' },
+    });
+    expect(screen.getByRole('button', { name: 'Publish announcement' })).toBeEnabled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Publish announcement' }));
+    await waitFor(() => expect(backendClient.sendMessageBatch).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(backendClient.sendMessageBatch).mock.calls[0][1][0]).toEqual(
+      expect.objectContaining({
+        attachmentScope: 'event',
+        eventId: 'event-1',
+        seasonId: null,
+      }),
+    );
+  });
+
+  it('requires and publishes a season attachment', async () => {
+    mocks.getDocs
+      .mockResolvedValueOnce(emptySnapshot())
+      .mockResolvedValueOnce(emptySnapshot());
+    mocks.sendMessageBatch.mockResolvedValueOnce({
+      success: true,
+      sendId: 'send-season-1',
+      messageCount: 1,
+      activeRecipientCount: 0,
+      retainedRecipientCount: 0,
+      publicCount: 1,
+      requestId: 'publish-season-request',
+    });
+    render(TestedCommunicationsManager);
+    await screen.findByText('No Wall announcements have been published.');
+    await fireEvent.click(screen.getByRole('button', { name: 'New announcement' }));
+    await fireEvent.input(screen.getByLabelText('Message'), {
+      target: { value: 'Season announcement.' },
+    });
+    await fireEvent.change(screen.getByLabelText('Attach announcement to'), {
+      target: { value: 'season' },
+    });
+    expect(screen.getByRole('button', { name: 'Publish announcement' })).toBeDisabled();
+    await fireEvent.change(screen.getByLabelText('Season'), {
+      target: { value: 'season-1' },
+    });
+    expect(screen.getByRole('button', { name: 'Publish announcement' })).toBeEnabled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Publish announcement' }));
+    await waitFor(() => expect(backendClient.sendMessageBatch).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(backendClient.sendMessageBatch).mock.calls[0][1][0]).toEqual(
+      expect.objectContaining({
+        attachmentScope: 'season',
+        eventId: null,
+        seasonId: 'season-1',
+      }),
+    );
   });
 });

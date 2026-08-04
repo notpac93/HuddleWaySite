@@ -302,7 +302,6 @@ describe('BackendApi', () => {
         tenantId: 'fixture-tenant',
         recipientEmail: 'payer@example.test',
         title: 'Registration',
-        auditReason: 'Create the approved registration invoice.',
         dueDays: 30,
         lineItems: [
           {
@@ -322,8 +321,8 @@ describe('BackendApi', () => {
       expect(JSON.parse(call[1].body)).toMatchObject({
         tenantId: 'fixture-tenant',
         idempotencyKey: 'invoice:fixture-operation',
-        auditReason: 'Create the approved registration invoice.',
       });
+      expect(JSON.parse(call[1].body)).not.toHaveProperty('auditReason');
     }
   });
 

@@ -259,7 +259,6 @@ export interface DirectInvoiceDraft {
   dueDays: number;
   discountCents?: number;
   taxRateBps?: number;
-  auditReason: string;
   lineItems: Array<{
     description: string;
     quantity: number;

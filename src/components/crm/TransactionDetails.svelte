@@ -90,7 +90,6 @@
   let draftDueDays = 30;
   let draftDiscount = '0.00';
   let draftTaxPercent = '0';
-  let draftReason = '';
   let draftLines: DraftLine[] = [];
   let draftKeySignature = '';
 
@@ -163,7 +162,6 @@
       draftDueDays = 30;
       draftDiscount = '0.00';
       draftTaxPercent = '0';
-      draftReason = '';
       draftLines = [newDraftLine()];
       draftKeySignature = '';
     } else if (row?.kind === 'direct_invoice') {
@@ -567,9 +565,6 @@
     ) {
       return 'Due days must be an integer from 1 to 90.';
     }
-    if (draftReason.trim().length < 3 || draftReason.trim().length > 500) {
-      return 'Enter an audit reason between 3 and 500 characters.';
-    }
     if (!draftPreview.valid) {
       return 'Review line descriptions, quantities, amounts, discount, tax, and the 50-cent minimum total.';
     }
@@ -594,7 +589,6 @@
       dueDays: draftDueDays,
       discountCents: draftPreview.discountCents ?? 0,
       taxRateBps: draftPreview.taxRateBps ?? 0,
-      auditReason: draftReason.trim(),
       lineItems: draftLines.map((line) => ({
         description: line.description.trim(),
         quantity: line.quantity,
@@ -778,12 +772,6 @@
             <div><dt class="text-gray-500">Tax</dt><dd class="mt-1 font-semibold">{formatMinorUnits(draftPreview.taxCents, 'USD')}</dd></div>
             <div><dt class="text-gray-500">Draft total</dt><dd class="mt-1 font-semibold">{formatMinorUnits(draftPreview.totalCents, 'USD')}</dd></div>
           </dl>
-
-          <div>
-            <label for="invoice-audit-reason" class="crm-ui-label-strong">Internal audit reason</label>
-            <textarea id="invoice-audit-reason" bind:value={draftReason} minlength="3" maxlength="500" required rows="2" aria-describedby="invoice-audit-help" class="crm-ui-input"></textarea>
-            <p id="invoice-audit-help" class="crm-ui-hint">Required for the append-only audit record; this is not shown to the recipient.</p>
-          </div>
 
           <label class="flex items-start gap-3 rounded-lg border border-gray-200 p-3 text-sm text-gray-800">
             <input type="checkbox" bind:checked={impactConfirmed} class="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#00a4bd]" />

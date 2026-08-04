@@ -10,6 +10,7 @@
   import { db } from '../../lib/firebase';
   import { tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
+  import { eventsStore, seasonsStore } from '../../lib/services/DataStore';
   import {
     BackendApiError,
     createIdempotencyKey,
@@ -23,12 +24,18 @@
     subject: string | null;
     body: string;
     teamId: string | null;
+    attachmentScope: 'all' | 'event' | 'season';
+    eventId: string | null;
+    eventTitle: string | null;
+    seasonId: string | null;
+    seasonName: string | null;
     createdAt: Date | null;
   };
 
+  type AttachmentScope = 'all' | 'event' | 'season';
+
   const SUBJECT_MAX_LENGTH = 200;
   const BODY_MAX_LENGTH = 4_000;
-  const audiencePreviewAvailable = false;
 
   let messages: WallMessage[] = [];
   let isAdding = false;
@@ -42,6 +49,9 @@
   let subject = '';
   let body = '';
   let teamId = 'program';
+  let attachmentScope: AttachmentScope = 'all';
+  let selectedEventId = '';
+  let selectedSeasonId = '';
   let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
   let operationMessage = '';
   let operationRequestId = '';
@@ -54,6 +64,20 @@
   let recallTarget: WallMessage | null = null;
 
   $: normalizedSearch = searchQuery.trim().toLocaleLowerCase();
+  $: eventOptions = $eventsStore
+    .map((event) => ({
+      id: String(event.id || '').trim(),
+      title: String(event.title || event.name || event.id || 'Untitled event').trim(),
+    }))
+    .filter((event) => event.id)
+    .sort((a, b) => a.title.localeCompare(b.title));
+  $: seasonOptions = $seasonsStore
+    .map((season) => ({
+      id: String(season.id || '').trim(),
+      title: String(season.name || season.title || season.id || 'Untitled season').trim(),
+    }))
+    .filter((season) => season.id)
+    .sort((a, b) => a.title.localeCompare(b.title));
   $: visibleMessages = normalizedSearch
     ? messages.filter((message) =>
         [
@@ -61,19 +85,26 @@
           message.subject,
           message.body,
           audienceLabel(message.teamId),
+          attachmentLabel(message),
         ].some((value) => value?.toLocaleLowerCase().includes(normalizedSearch)))
     : messages;
   $: postIsValid =
     teamId === 'program'
     && body.trim().length > 0
     && body.trim().length <= BODY_MAX_LENGTH
-    && subject.trim().length <= SUBJECT_MAX_LENGTH;
-  $: canPublish = postIsValid && audiencePreviewAvailable;
+    && subject.trim().length <= SUBJECT_MAX_LENGTH
+    && (attachmentScope === 'all'
+      || (attachmentScope === 'event' && Boolean(selectedEventId))
+      || (attachmentScope === 'season' && Boolean(selectedSeasonId)));
+  $: canPublish = postIsValid;
   $: {
     const signature = JSON.stringify({
       subject: subject.trim(),
       body: body.trim(),
       teamId,
+      attachmentScope,
+      selectedEventId,
+      selectedSeasonId,
     });
     if (signature !== postPayloadSignature && submitState !== 'loading') {
       postPayloadSignature = signature;
@@ -114,13 +145,37 @@
     subject = '';
     body = '';
     teamId = 'program';
+    attachmentScope = 'all';
+    selectedEventId = '';
+    selectedSeasonId = '';
     submitState = 'idle';
+  }
+
+  function handleAttachmentScopeChange() {
+    if (attachmentScope === 'all') {
+      selectedEventId = '';
+      selectedSeasonId = '';
+    } else if (attachmentScope === 'event') {
+      selectedSeasonId = '';
+    } else {
+      selectedEventId = '';
+    }
   }
 
   function audienceLabel(messageTeamId: string | null) {
     return messageTeamId && messageTeamId !== 'program'
       ? 'Public organization post · legacy team restriction not enforced'
       : 'Public organization post';
+  }
+
+  function attachmentLabel(message: WallMessage) {
+    if (message.attachmentScope === 'event' || message.eventId || message.eventTitle) {
+      return `Event · ${message.eventTitle || message.eventId || 'Attached event'}`;
+    }
+    if (message.attachmentScope === 'season' || message.seasonId || message.seasonName) {
+      return `Season · ${message.seasonName || message.seasonId || 'Attached season'}`;
+    }
+    return 'All organization';
   }
 
   function toggleMessageDetails(messageId: string) {
@@ -173,6 +228,24 @@
               typeof data.teamId === 'string' && data.teamId
                 ? data.teamId
                 : null,
+            attachmentScope:
+              data.attachmentScope === 'event' || data.eventId
+                ? 'event'
+                : data.attachmentScope === 'season' || data.seasonId
+                  ? 'season'
+                  : 'all',
+            eventId: typeof data.eventId === 'string' && data.eventId.trim()
+              ? data.eventId.trim()
+              : null,
+            eventTitle: typeof data.eventTitle === 'string' && data.eventTitle.trim()
+              ? data.eventTitle.trim()
+              : null,
+            seasonId: typeof data.seasonId === 'string' && data.seasonId.trim()
+              ? data.seasonId.trim()
+              : null,
+            seasonName: typeof data.seasonName === 'string' && data.seasonName.trim()
+              ? data.seasonName.trim()
+              : null,
             createdAt: data.createdAt?.toDate?.() || null,
           };
         })
@@ -219,6 +292,9 @@
           subject: subject.trim(),
           body: body.trim(),
           isSecret: false,
+          attachmentScope,
+          eventId: attachmentScope === 'event' ? selectedEventId : null,
+          seasonId: attachmentScope === 'season' ? selectedSeasonId : null,
         }],
         postIdempotencyKey,
       );
@@ -233,6 +309,9 @@
       subject = '';
       body = '';
       teamId = 'program';
+      attachmentScope = 'all';
+      selectedEventId = '';
+      selectedSeasonId = '';
     } catch (error) {
       if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
       submitState = 'error';
@@ -363,15 +442,59 @@
     <section class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-6" aria-labelledby="new-announcement-heading">
       <h3 id="new-announcement-heading" class="mb-4 text-lg font-bold">Create announcement</h3>
       <div class="space-y-4">
-        <p class="crm-ui-notice-card" role="status">
-          Publishing is disabled in this release because the server cannot yet preview and validate the exact public organization audience. Team-targeted announcements are not supported by the current authorization rules.
-        </p>
         <div>
           <p class="crm-ui-label">Audience</p>
           <p class="mt-1 rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
-            Public to the entire organization. Team restrictions are not available.
+            Public to the entire organization. No notification alert is sent.
           </p>
         </div>
+        <div>
+          <label for="announcement-attachment" class="crm-ui-label">Attach announcement to</label>
+          <select
+            id="announcement-attachment"
+            bind:value={attachmentScope}
+            on:change={handleAttachmentScopeChange}
+            class="mt-1 block w-full rounded-md border border-gray-300 bg-white p-2 shadow-sm focus:border-[#00a4bd] focus:ring-[#00a4bd] sm:text-sm"
+          >
+            <option value="all">All organization (no attachment)</option>
+            <option value="event">An event</option>
+            <option value="season">A season</option>
+          </select>
+          <p class="crm-ui-hint">Choose one event, one season, or leave it for everyone.</p>
+        </div>
+        {#if attachmentScope === 'event'}
+          <div>
+            <label for="announcement-event" class="crm-ui-label">Event</label>
+            <select
+              id="announcement-event"
+              bind:value={selectedEventId}
+              disabled={eventOptions.length === 0}
+              class="mt-1 block w-full rounded-md border border-gray-300 bg-white p-2 shadow-sm focus:border-[#00a4bd] focus:ring-[#00a4bd] disabled:bg-gray-100 sm:text-sm"
+            >
+              <option value="">Select an event</option>
+              {#each eventOptions as event}
+                <option value={event.id}>{event.title}</option>
+              {/each}
+            </select>
+            {#if eventOptions.length === 0}<p class="crm-ui-hint">No events are available for this organization.</p>{/if}
+          </div>
+        {:else if attachmentScope === 'season'}
+          <div>
+            <label for="announcement-season" class="crm-ui-label">Season</label>
+            <select
+              id="announcement-season"
+              bind:value={selectedSeasonId}
+              disabled={seasonOptions.length === 0}
+              class="mt-1 block w-full rounded-md border border-gray-300 bg-white p-2 shadow-sm focus:border-[#00a4bd] focus:ring-[#00a4bd] disabled:bg-gray-100 sm:text-sm"
+            >
+              <option value="">Select a season</option>
+              {#each seasonOptions as season}
+                <option value={season.id}>{season.title}</option>
+              {/each}
+            </select>
+            {#if seasonOptions.length === 0}<p class="crm-ui-hint">No seasons are available for this organization.</p>{/if}
+          </div>
+        {/if}
         <div>
           <label for="announcement-subject" class="crm-ui-label">Subject (optional)</label>
           <input
@@ -498,6 +621,10 @@
                   <div>
                     <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">Audience</dt>
                     <dd class="mt-1 text-gray-900">{audienceLabel(message.teamId)}</dd>
+                  </div>
+                  <div>
+                    <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">Attachment</dt>
+                    <dd class="mt-1 text-gray-900">{attachmentLabel(message)}</dd>
                   </div>
                   <div>
                     <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">Published by</dt>

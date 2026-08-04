@@ -444,9 +444,6 @@ describe('financial mutation drawer', () => {
     await fireEvent.input(screen.getByLabelText('Tax percent'), {
       target: { value: '10' },
     });
-    await fireEvent.input(screen.getByLabelText('Internal audit reason'), {
-      target: { value: 'Create the approved summer invoice.' },
-    });
     await fireEvent.click(
       screen.getByLabelText(/I reviewed the recipient, line items/i),
     );
@@ -462,6 +459,7 @@ describe('financial mutation drawer', () => {
     expect(screen.queryByText('Private upstream response'))
       .not.toBeInTheDocument();
     const firstCall = backendMocks.createDirectInvoice.mock.calls[0];
+    expect(screen.queryByLabelText('Internal audit reason')).not.toBeInTheDocument();
     expect(firstCall[0]).toEqual(
       expect.objectContaining({
         tenantId: 'fixture-tenant',
