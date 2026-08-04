@@ -331,9 +331,6 @@
             </div>
           {/if}
 
-          <div class="crm-ui-notice" role="status">
-            Saved changes apply to future registrations. Existing participant submissions are preserved.
-          </div>
           {#if form && !existingStatus}
             <div class="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">
               This form has an unsupported lifecycle status. Saving is disabled to avoid reopening or retiring it accidentally.

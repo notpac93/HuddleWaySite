@@ -26,6 +26,7 @@ import {
   import StatusButton from './ui/StatusButton.svelte';
   import ImageFilePicker from './ui/ImageFilePicker.svelte';
   import { validateImageFile } from '../../lib/media/imageUpload';
+  import { normalizeCsvHeader, parseCsv } from '../../lib/ui/csvImport';
 
   export let activeTeam: string | { id?: unknown } | null = null;
   export let activeResultId: string | null = null;
@@ -61,6 +62,10 @@ import {
   let inlineOperationGeneration = 0;
   let originalInlineStatus = '';
   let inlinePublishConfirmation = '';
+  let selectedDraftEventIds = new Set<string>();
+  let publishingSelectedDrafts = false;
+  let csvImporting = false;
+  let csvImportMessage = '';
 
   let activeTab = 'Upcoming'; // 'Upcoming' or 'Past'
   let teams: Record<string, string> = {};
@@ -194,6 +199,7 @@ import {
     });
 
   $: visibleEvents = activeTab === 'Upcoming' ? upcomingEvents : pastEvents;
+  $: selectedDraftEvents = events.filter((event) => selectedDraftEventIds.has(event.id) && event.lifecycleStatus === 'draft');
   $: exactEventCountScopeSignature = `${$tenantIdStore}|${visibleEvents.map((event) => event.id).sort().join(',')}`;
   $: if (exactEventCountScopeSignature !== exactEventCountSignature) {
     exactEventCountSignature = exactEventCountScopeSignature;
@@ -283,6 +289,69 @@ import {
 
   function handleCreateEventSuccess() {
     isCreateFormOpen = false;
+  }
+
+  async function importEventsCsv(event: Event) {
+    const file = (event.currentTarget as HTMLInputElement).files?.[0];
+    const tenantId = $tenantIdStore;
+    if (!file || !tenantId || csvImporting) return;
+    csvImporting = true;
+    csvImportMessage = '';
+    try {
+      const csv = parseCsv(await file.text());
+      const headers = csv.headers.map(normalizeCsvHeader);
+      const required = ['title', 'date', 'starttime', 'endtime', 'team'];
+      if (required.some((header) => !headers.includes(header)) || !csv.rows.length || csv.rows.length > 200) {
+        throw new Error('Use title, date, start_time, end_time, and team ID columns; upload 1–200 events.');
+      }
+      const key = createIdempotencyKey('crm-event-csv-import');
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      for (const [index, values] of csv.rows.entries()) {
+        const row = Object.fromEntries(headers.map((header, column) => [header, String(values[column] || '').trim()]));
+        const startAt = new Date(`${row.date}T${row.starttime}:00`);
+        const endAt = new Date(`${row.date}T${row.endtime}:00`);
+        await backendClient.createEventSeries(tenantId, {
+          teamId: row.team,
+          title: row.title,
+          type: row.type || row.eventtype || 'Other',
+          occurrences: [{ dateKey: row.date, startTime: row.starttime, endTime: row.endtime, startAt: startAt.toISOString(), endAt: endAt.toISOString(), timeZone }],
+          location: row.location || '',
+          notes: row.notes || '',
+          seasonId: null,
+          registrationFormId: null,
+          publishMode: 'draft',
+        }, 'Event draft imported from CSV.', `${key}:${index}`);
+      }
+      csvImportMessage = `${csv.rows.length} event drafts created.`;
+    } catch (caught) {
+      csvImportMessage = 'Could not import every event. Check the CSV and try again.';
+    } finally { csvImporting = false; }
+  }
+
+  function toggleDraftSelection(eventId: string) {
+    const next = new Set(selectedDraftEventIds);
+    if (next.has(eventId)) next.delete(eventId);
+    else next.add(eventId);
+    selectedDraftEventIds = next;
+  }
+
+  async function publishSelectedDrafts() {
+    const tenantId = $tenantIdStore;
+    if (!tenantId || publishingSelectedDrafts || !selectedDraftEvents.length) return;
+    publishingSelectedDrafts = true;
+    const batchKey = createIdempotencyKey('event-batch-publish');
+    try {
+      for (const event of selectedDraftEvents) {
+        await backendClient.updateEvent(
+          tenantId,
+          event.id,
+          { lifecycleStatus: 'published' },
+          `Publish selected event draft from CRM batch (${selectedDraftEvents.length} events).`,
+          `${batchKey}:${event.id}`,
+        );
+      }
+      selectedDraftEventIds = new Set();
+    } finally { publishingSelectedDrafts = false; }
   }
 
   async function loadExactEventRegistrationCounts(
@@ -576,15 +645,17 @@ import {
       <h2 class="crm-ui-page-title">Events</h2>
       <p class="mt-1 text-sm text-gray-500">Create drafts and manage authoritative event records.</p>
     </div>
-    <button
-      type="button"
-      disabled={inlineSaveState === 'loading'}
-      class="crm-ui-event-top-primary"
-      on:click={() => isCreateFormOpen = true}
-    >
-      New event
-    </button>
+    <div class="flex flex-wrap gap-3">
+      <label class="crm-ui-button-secondary cursor-pointer">Import events CSV<input class="sr-only" type="file" accept=".csv,text/csv" disabled={csvImporting} on:change={importEventsCsv} /></label>
+      <button type="button" disabled={inlineSaveState === 'loading'} class="crm-ui-event-top-primary" on:click={() => isCreateFormOpen = true}>New event</button>
+    </div>
   </div>
+
+  {#if csvImportMessage}<p class="crm-ui-notice-card" role="status">{csvImportMessage}</p>{/if}
+
+  {#if selectedDraftEvents.length > 0}
+    <div class="crm-ui-notice-card flex items-center justify-between gap-3"><span>{selectedDraftEvents.length} draft {selectedDraftEvents.length === 1 ? 'event' : 'events'} selected</span><button type="button" class="crm-ui-event-top-primary" disabled={publishingSelectedDrafts} on:click={publishSelectedDrafts}>{publishingSelectedDrafts ? 'Publishing…' : 'Publish selected'}</button></div>
+  {/if}
 
   {#if $eventsProjectionScope.truncated || $teamsProjectionScope.truncated}
     <p class="crm-ui-notice-card" role="status">
@@ -694,6 +765,13 @@ import {
           </div>
 
           <div class="flex items-center gap-4">
+
+            {#if event.lifecycleStatus === 'draft'}
+              <label class="flex items-center gap-2 text-xs font-semibold text-gray-700">
+                <input type="checkbox" checked={selectedDraftEventIds.has(event.id)} disabled={publishingSelectedDrafts} on:change={() => toggleDraftSelection(event.id)} />
+                Select to publish
+              </label>
+            {/if}
 
 
             <div class="flex gap-3 border-l border-gray-200 pl-4">
