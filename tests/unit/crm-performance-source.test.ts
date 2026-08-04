@@ -43,6 +43,16 @@ describe('CRM performance source boundaries', () => {
     );
   });
 
+  it('keeps dashboard startup bounded as tenant datasets grow', () => {
+    const dashboard = source('src/components/crm/GlobalDashboard.svelte');
+
+    expect(dashboard).toContain('backendClient.crmDashboardSummary');
+    expect(dashboard).not.toMatch(/\beventsStore\b/);
+    expect(dashboard).not.toMatch(/\bregistrationsStore\b/);
+    expect(dashboard).not.toMatch(/\bteamsStore\b/);
+    expect(dashboard).not.toContain('crmOperationalPage');
+  });
+
   it('initializes Storage only from upload-capable feature modules', () => {
     const firebaseCore = source('src/lib/firebase.ts');
     const firebaseStorage = source('src/lib/firebaseStorage.ts');
