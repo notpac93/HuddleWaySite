@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import type { Component } from 'svelte';
 import {
   afterEach,
@@ -64,13 +64,23 @@ const stores = vi.hoisted(() => {
       error: '',
     }),
     activeTenantRole: writableStore<string | null>('owner'),
+    tenantIdStore: writableStore<string | null>('fixture-tenant'),
   };
 });
 
+const backendMocks = vi.hoisted(() => ({
+  crmDashboardSummary: vi.fn(),
+}));
+
 vi.mock('../../src/lib/services/DataStore', () => stores);
+
+vi.mock('../../src/lib/api/backendClient', () => ({
+  backendClient: backendMocks,
+}));
 
 vi.mock('../../src/lib/authStore', () => ({
   activeTenantRole: stores.activeTenantRole,
+  tenantIdStore: stores.tenantIdStore,
 }));
 
 import GlobalDashboard from '../../src/components/crm/GlobalDashboard.svelte';
@@ -87,7 +97,7 @@ function projection(truncated = false, error = '') {
   };
 }
 
-describe('GlobalDashboard complete operational projections', () => {
+describe('GlobalDashboard bounded operational summary', () => {
   beforeEach(() => {
     stores.activeTenantRole.set('owner');
     stores.registrationsStore.set([]);
@@ -103,6 +113,15 @@ describe('GlobalDashboard complete operational projections', () => {
       teams: 0,
       events: 0,
       error: '',
+    });
+    stores.tenantIdStore.set('fixture-tenant');
+    backendMocks.crmDashboardSummary.mockReset();
+    backendMocks.crmDashboardSummary.mockResolvedValue({
+      schemaVersion: 'crm_dashboard_summary_v1',
+      tenantId: 'fixture-tenant',
+      counts: { registrations: 0, teams: 0, events: 0 },
+      recentRegistrations: [],
+      requestId: 'dashboard-summary-request',
     });
     stores.financialProjectionScope.set({
       loading: false,
@@ -123,61 +142,43 @@ describe('GlobalDashboard complete operational projections', () => {
     cleanup();
   });
 
-  it('labels every capped operational projection and refuses a partial revenue total', () => {
-    stores.registrationsStore.set(Array.from({ length: 500 }, (_, index) => ({
-      id: `registration-${index}`,
-      participantSummary: { fullName: `Participant ${index}` },
-      payer: { email: `payer-${index}@example.test` },
-      createdAt: new Date(2026, 6, 26, 12, 0, index % 60),
-    })));
-    stores.teamsStore.set(Array.from({ length: 500 }, (_, index) => ({
-      id: `team-${index}`,
-      name: `Team ${index}`,
-    })));
-    stores.eventsStore.set(Array.from({ length: 500 }, (_, index) => ({
-      id: `event-${index}`,
-      title: `Event ${index}`,
-      lifecycleStatus: 'published',
-      isVisible: true,
-    })));
+  it('uses one bounded summary request instead of loading every operational record', async () => {
+    backendMocks.crmDashboardSummary.mockResolvedValue({
+      schemaVersion: 'crm_dashboard_summary_v1',
+      tenantId: 'fixture-tenant',
+      counts: { registrations: 501, teams: 42, events: 13 },
+      recentRegistrations: [{
+        id: 'registration-recent',
+        participantSummary: { fullName: 'Recent Player' },
+        payerSummary: { email: 'guardian@example.test' },
+        createdAt: '2026-07-26T12:00:00.000Z',
+      }],
+      requestId: 'dashboard-summary-request',
+    });
     stores.transactionsStore.set([{
       id: 'transaction-1',
       status: 'succeeded',
       grossAmount: 25_000,
       currency: 'usd',
     }]);
-    stores.registrationsProjectionScope.set(projection(true));
-    stores.teamsProjectionScope.set(projection(true));
-    stores.eventsProjectionScope.set(projection(true));
-    stores.dashboardOperationalCountScope.set({
-      loading: false,
-      registrations: 501,
-      teams: 501,
-      events: 501,
-      error: '',
-    });
     stores.financialProjectionScope.update((scope) => ({
       ...scope,
       truncated: { ...scope.truncated, transactions: true },
     }));
     render(TestedGlobalDashboard);
 
+    await waitFor(() => expect(backendMocks.crmDashboardSummary).toHaveBeenCalledWith('fixture-tenant'));
+
     const registrationsCard =
       screen.getByText('Registration Records').closest('dl');
     const teamsCard = screen.getByText('Teams').closest('dl');
     const eventsCard = screen.getByText('Events Managed').closest('dl');
-    expect(registrationsCard).toHaveTextContent('500');
-    expect(registrationsCard).toHaveTextContent(
-      'Limited projection; exact count unavailable',
-    );
-    expect(teamsCard).toHaveTextContent('500');
-    expect(eventsCard).toHaveTextContent('500');
+    expect(registrationsCard).toHaveTextContent('501');
+    expect(teamsCard).toHaveTextContent('42');
+    expect(eventsCard).toHaveTextContent('13');
+    expect(screen.getByText('Recent Player')).toBeVisible();
     expect(screen.getByText('Recent Registrations')).toBeVisible();
-    expect(
-      screen.getByText(
-        'Showing the most recent records available to this dashboard preview. Older records remain available in the Registrations workspace.',
-      ),
-    ).toBeVisible();
+    expect(screen.queryByText(/Limited projection/)).not.toBeInTheDocument();
 
     const revenueCard =
       screen.getByText('Successful payment revenue').closest('dl');
@@ -211,18 +212,13 @@ describe('GlobalDashboard complete operational projections', () => {
     expect(screen.getByText('Read-only access')).toBeVisible();
   });
 
-  it('masks every operational metric when one required projection fails', () => {
-    stores.registrationsStore.set([{ id: 'registration-1' }]);
-    stores.teamsStore.set([{ id: 'team-1' }]);
-    stores.eventsStore.set([{ id: 'event-1' }]);
-    stores.teamsProjectionScope.set(
-      projection(false, 'You do not have permission to view teams.'),
-    );
+  it('masks every operational metric when the summary request fails', async () => {
+    backendMocks.crmDashboardSummary.mockRejectedValue(new Error('denied'));
     render(TestedGlobalDashboard);
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'You do not have permission to view teams. Metrics and recent records are unavailable.',
-    );
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(
+      'Organization metrics could not be loaded. Metrics and recent records are unavailable.',
+    ));
     for (const label of [
       'Registration Records',
       'Teams',
