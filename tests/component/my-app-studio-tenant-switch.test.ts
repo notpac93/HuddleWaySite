@@ -161,6 +161,13 @@ function eventSnapshot(title: string) {
   };
 }
 
+async function findTenantPreview(name: string) {
+  await waitFor(() => {
+    expect(screen.getByLabelText('App Name')).toHaveValue(name);
+  }, { timeout: 5000 });
+  return screen.getByTitle(`${name} mobile app preview`);
+}
+
 describe('MyAppStudio tenant preview isolation', () => {
   beforeEach(() => {
     snapshotSubscriptions.length = 0;
@@ -205,9 +212,7 @@ describe('MyAppStudio tenant preview isolation', () => {
 
   it('rebuilds the Flutter preview URL when the selected tenant changes', async () => {
     render(TestedMyAppStudio);
-    const alphaPreview = await screen.findByTitle(
-      'Alpha League mobile app preview',
-    );
+    const alphaPreview = await findTenantPreview('Alpha League');
     expect(alphaPreview).toHaveAttribute(
       'src',
       expect.stringContaining('forcedTenant=tenant-a'),
@@ -216,9 +221,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     await act(async () => {
       tenants.set('tenant-b');
     });
-    const betaPreview = await screen.findByTitle(
-      'Beta League mobile app preview',
-    );
+    const betaPreview = await findTenantPreview('Beta League');
     expect(betaPreview).toHaveAttribute(
       'src',
       expect.stringContaining('forcedTenant=tenant-b'),
@@ -228,9 +231,7 @@ describe('MyAppStudio tenant preview isolation', () => {
 
   it('streams unsaved branding changes to the selected tenant preview', async () => {
     render(TestedMyAppStudio);
-    const preview = await screen.findByTitle(
-      'Alpha League mobile app preview',
-    ) as HTMLIFrameElement;
+    const preview = await findTenantPreview('Alpha League') as HTMLIFrameElement;
     const postMessage = vi.spyOn(preview.contentWindow!, 'postMessage');
 
     await fireEvent.load(preview);
@@ -263,9 +264,7 @@ describe('MyAppStudio tenant preview isolation', () => {
 
   it('resends the authoritative draft after the selected tenant preview is ready', async () => {
     render(TestedMyAppStudio);
-    const preview = await screen.findByTitle(
-      'Alpha League mobile app preview',
-    ) as HTMLIFrameElement;
+    const preview = await findTenantPreview('Alpha League') as HTMLIFrameElement;
     const postMessage = vi.spyOn(preview.contentWindow!, 'postMessage');
 
     window.dispatchEvent(new MessageEvent('message', {
