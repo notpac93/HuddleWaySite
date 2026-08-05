@@ -63,6 +63,8 @@ const developmentFirebase = {
   storageBucket: 'huddleway-dev.firebasestorage.app',
 };
 
+const productionCrmPreviewOrigin = 'https://sports-team-apps.web.app';
+
 const loopbackHosts = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
 
 function normalized(value: unknown) {
@@ -132,7 +134,9 @@ export function resolveCrmAppPreviewUrl(environment: PublicEnvironment) {
   const raw = explicit || (
     projectId === developmentFirebase.projectId
       ? 'https://huddleway-app-preview-canary.web.app'
-      : ''
+      : projectId === productionFirebase.projectId
+        ? productionCrmPreviewOrigin
+        : ''
   );
   if (!raw) return null;
 

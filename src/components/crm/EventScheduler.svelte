@@ -17,7 +17,11 @@ import {
   } from '../../lib/services/DataStore';
   import { tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
-  import { BackendApiError, createIdempotencyKey } from '../../lib/api/BackendApi';
+  import {
+    BackendApiError,
+    createIdempotencyKey,
+    type CrmEventOccurrenceInput,
+  } from '../../lib/api/BackendApi';
   import { onDestroy, tick } from 'svelte';
   import CreateEventForm from './events/CreateEventForm.svelte';
   import EditEventModal from './events/EditEventModal.svelte';
@@ -68,8 +72,10 @@ import {
   let csvImportMessage = '';
   let isCsvImportDialogOpen = false;
 
-  const eventsCsvSample = `title,date,start_time,end_time,team,type,location,notes
-Fall Tryouts,2026-08-27,18:00,20:00,general,Tryout,Santa Margarita Catholic High School,Free registration`;
+  const eventsCsvSample = `title,date,end_date,start_time,end_time,team,recurrence,repeat_count,type,location,notes
+Fall Tryouts,2026-08-27,,18:00,20:00,general,,,Tryout,Santa Margarita Catholic High School,Free registration
+Skills Camp,2026-09-01,2026-09-03,09:00,15:00,general,,,Camp,Main Gym,Three-day camp
+Weekly Practice,2026-09-08,,18:00,19:30,team-1,weekly,8,Practice,Main Gym,Repeats weekly eight times`;
 
   let activeTab = 'Upcoming'; // 'Upcoming' or 'Past'
   let teams: Record<string, string> = {};
@@ -295,6 +301,145 @@ Fall Tryouts,2026-08-27,18:00,20:00,general,Tryout,Santa Margarita Catholic High
     isCreateFormOpen = false;
   }
 
+  function dateKeyDate(value: string, field: string) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      throw new Error(`${field} must use YYYY-MM-DD.`);
+    }
+    const [year, month, day] = value.split('-').map(Number);
+    const date = new Date(year, month - 1, day, 12);
+    if (
+      date.getFullYear() !== year
+      || date.getMonth() !== month - 1
+      || date.getDate() !== day
+    ) {
+      throw new Error(`${field} is not a calendar date.`);
+    }
+    return date;
+  }
+
+  function dateKeyFromDate(date: Date) {
+    return [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+      String(date.getDate()).padStart(2, '0'),
+    ].join('-');
+  }
+
+  function addCalendarDays(date: Date, days: number) {
+    const next = new Date(date);
+    next.setDate(next.getDate() + days);
+    return next;
+  }
+
+  function csvOccurrence(
+    dateKey: string,
+    startTime: string,
+    endTime: string,
+    timeZone: string,
+  ): CrmEventOccurrenceInput {
+    if (
+      !/^\d{2}:\d{2}$/.test(startTime)
+      || !/^\d{2}:\d{2}$/.test(endTime)
+      || endTime <= startTime
+    ) {
+      throw new Error('Each CSV event needs valid 24-hour start_time and end_time values.');
+    }
+    const startAt = new Date(`${dateKey}T${startTime}:00`);
+    const endAt = new Date(`${dateKey}T${endTime}:00`);
+    if (
+      Number.isNaN(startAt.getTime())
+      || Number.isNaN(endAt.getTime())
+      || dateKeyFromDate(startAt) !== dateKey
+      || dateKeyFromDate(endAt) !== dateKey
+    ) {
+      throw new Error('CSV event dates or times are invalid.');
+    }
+    return {
+      dateKey,
+      startTime,
+      endTime,
+      startAt: startAt.toISOString(),
+      endAt: endAt.toISOString(),
+      timeZone,
+    };
+  }
+
+  function csvOccurrences(
+    row: Record<string, string>,
+    timeZone: string,
+  ): CrmEventOccurrenceInput[] {
+    const startDateValue = String(row.startdate || row.date || '').trim();
+    const endDateValue = String(row.enddate || startDateValue).trim();
+    const startDate = dateKeyDate(startDateValue, 'date');
+    const endDate = dateKeyDate(endDateValue, 'end_date');
+    if (endDate < startDate) {
+      throw new Error('end_date cannot be before date.');
+    }
+    const recurrence = String(row.recurrence || '').trim().toLowerCase() || 'none';
+    const recurrenceDays = recurrence === 'daily'
+      ? 1
+      : recurrence === 'weekly'
+        ? 7
+        : recurrence === 'biweekly'
+          ? 14
+          : recurrence === 'none'
+            ? 0
+            : -1;
+    if (recurrenceDays < 0) {
+      throw new Error('recurrence must be daily, weekly, biweekly, or blank.');
+    }
+    const rawRepeatCount = String(row.repeatcount || '').trim();
+    const repeatCount = rawRepeatCount ? Number.parseInt(rawRepeatCount, 10) : null;
+    if (rawRepeatCount && (!Number.isSafeInteger(repeatCount) || repeatCount! < 1)) {
+      throw new Error('repeat_count must be a whole number of occurrences.');
+    }
+    const repeatUntilValue = String(row.repeatuntil || '').trim();
+    if (recurrenceDays === 0 && (repeatCount || repeatUntilValue)) {
+      throw new Error('Choose a recurrence before using repeat_count or repeat_until.');
+    }
+    if (recurrenceDays > 0 && !repeatCount && !repeatUntilValue) {
+      throw new Error('Recurring events need repeat_count or repeat_until.');
+    }
+    if (repeatCount && repeatUntilValue) {
+      throw new Error('Use either repeat_count or repeat_until, not both.');
+    }
+    const repeatUntil = repeatUntilValue
+      ? dateKeyDate(repeatUntilValue, 'repeat_until')
+      : null;
+    if (repeatUntil && repeatUntil < startDate) {
+      throw new Error('repeat_until cannot be before date.');
+    }
+
+    const occurrenceDates = new Set<string>();
+    const addSeriesDates = (seriesStart: Date) => {
+      for (let date = new Date(seriesStart); date <= addCalendarDays(seriesStart, Math.round((endDate.getTime() - startDate.getTime()) / 86_400_000)); date = addCalendarDays(date, 1)) {
+        occurrenceDates.add(dateKeyFromDate(date));
+      }
+    };
+    if (recurrenceDays === 0) {
+      addSeriesDates(startDate);
+    } else if (repeatCount) {
+      for (let index = 0; index < repeatCount; index += 1) {
+        addSeriesDates(addCalendarDays(startDate, recurrenceDays * index));
+      }
+    } else if (repeatUntil) {
+      for (let date = new Date(startDate); date <= repeatUntil; date = addCalendarDays(date, recurrenceDays)) {
+        addSeriesDates(date);
+      }
+    }
+    if (occurrenceDates.size === 0 || occurrenceDates.size > 200) {
+      throw new Error('Each CSV series must create between 1 and 200 event dates.');
+    }
+    return [...occurrenceDates]
+      .sort()
+      .map((dateKey) => csvOccurrence(
+        dateKey,
+        String(row.starttime || '').trim(),
+        String(row.endtime || '').trim(),
+        timeZone,
+      ));
+  }
+
   async function importEventsCsv(event: Event) {
     const file = (event.currentTarget as HTMLInputElement).files?.[0];
     const tenantId = $tenantIdStore;
@@ -305,21 +450,39 @@ Fall Tryouts,2026-08-27,18:00,20:00,general,Tryout,Santa Margarita Catholic High
     try {
       const csv = parseCsv(await file.text());
       const headers = csv.headers.map(normalizeCsvHeader);
-      const required = ['title', 'date', 'starttime', 'endtime', 'team'];
-      if (required.some((header) => !headers.includes(header)) || !csv.rows.length || csv.rows.length > 200) {
-        throw new Error('Use title, date, start_time, end_time, and team ID columns; upload 1–200 events.');
+      const required = ['title', 'starttime', 'endtime', 'team'];
+      if (
+        required.some((header) => !headers.includes(header))
+        || (!headers.includes('date') && !headers.includes('startdate'))
+        || !csv.rows.length
+        || csv.rows.length > 200
+      ) {
+        throw new Error('Use title, date, start_time, end_time, and team ID columns; upload 1–200 event series.');
       }
       const key = createIdempotencyKey('crm-event-csv-import');
       const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      for (const [index, values] of csv.rows.entries()) {
+      if (!timeZone) throw new Error('Your browser time zone could not be determined.');
+      const importedSeries = csv.rows.map((values, index) => {
         const row = Object.fromEntries(headers.map((header, column) => [header, String(values[column] || '').trim()]));
-        const startAt = new Date(`${row.date}T${row.starttime}:00`);
-        const endAt = new Date(`${row.date}T${row.endtime}:00`);
+        if (!row.title || !row.team) {
+          throw new Error(`Row ${index + 2} needs a title and team.`);
+        }
+        return { row, occurrences: csvOccurrences(row, timeZone) };
+      });
+      const occurrenceCount = importedSeries.reduce(
+        (total, series) => total + series.occurrences.length,
+        0,
+      );
+      if (occurrenceCount > 200) {
+        throw new Error('Upload at most 200 event dates across all CSV series.');
+      }
+      for (const [index, series] of importedSeries.entries()) {
+        const { row, occurrences } = series;
         await backendClient.createEventSeries(tenantId, {
           teamId: row.team,
           title: row.title,
           type: row.type || row.eventtype || 'Other',
-          occurrences: [{ dateKey: row.date, startTime: row.starttime, endTime: row.endtime, startAt: startAt.toISOString(), endAt: endAt.toISOString(), timeZone }],
+          occurrences,
           location: row.location || '',
           notes: row.notes || '',
           seasonId: null,
@@ -327,7 +490,7 @@ Fall Tryouts,2026-08-27,18:00,20:00,general,Tryout,Santa Margarita Catholic High
           publishMode: 'draft',
         }, 'Event draft imported from CSV.', `${key}:${index}`);
       }
-      csvImportMessage = `${csv.rows.length} event drafts created.`;
+      csvImportMessage = `${occurrenceCount} event ${occurrenceCount === 1 ? 'draft' : 'drafts'} created across ${importedSeries.length} ${importedSeries.length === 1 ? 'series' : 'series'}.`;
     } catch (caught) {
       csvImportMessage = 'Could not import every event. Check the CSV and try again.';
     } finally { csvImporting = false; }
@@ -667,9 +830,11 @@ Fall Tryouts,2026-08-27,18:00,20:00,general,Tryout,Santa Margarita Catholic High
       </div>
 
       <div class="mt-5 rounded-lg border border-cyan-100 bg-cyan-50 p-4 text-sm text-slate-700">
-        <p><strong>Required columns:</strong> <code>title</code>, <code>date</code>, <code>start_time</code>, <code>end_time</code>, and <code>team</code>.</p>
+        <p><strong>Required columns:</strong> <code>title</code>, <code>date</code> (or <code>start_date</code>), <code>start_time</code>, <code>end_time</code>, and <code>team</code>.</p>
         <p class="mt-2"><strong>Dates and times:</strong> use <code>YYYY-MM-DD</code> and 24-hour <code>HH:MM</code> values. For a program-wide event, use <code>general</code> for <code>team</code>; otherwise use the team’s ID.</p>
-        <p class="mt-2"><strong>Optional columns:</strong> <code>type</code>, <code>location</code>, and <code>notes</code>. Upload between 1 and 200 rows at a time.</p>
+        <p class="mt-2"><strong>Multi-day events:</strong> add an inclusive <code>end_date</code>. Each date becomes a connected event draft in one series.</p>
+        <p class="mt-2"><strong>Recurring events:</strong> set <code>recurrence</code> to <code>daily</code>, <code>weekly</code>, or <code>biweekly</code>, then provide either <code>repeat_count</code> (including the first occurrence) or <code>repeat_until</code>.</p>
+        <p class="mt-2"><strong>Optional columns:</strong> <code>type</code>, <code>location</code>, and <code>notes</code>. Upload 1–200 series and no more than 200 total event dates at a time.</p>
       </div>
 
       <div class="mt-4 overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-3">

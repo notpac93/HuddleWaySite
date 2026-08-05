@@ -230,6 +230,8 @@ describe('event mutation family', () => {
     expect(screen.getByRole('dialog')).toHaveTextContent(
       /title.*date.*start_time.*end_time.*team/,
     );
+    expect(screen.getByRole('dialog')).toHaveTextContent(/Multi-day events:/);
+    expect(screen.getByRole('dialog')).toHaveTextContent(/Recurring events:/);
     expect(screen.getByRole('button', { name: 'Download example CSV' })).toBeVisible();
     const input = screen.getByLabelText('Choose events CSV file');
     expect(input).toHaveAttribute('accept', '.csv,text/csv');
@@ -266,7 +268,44 @@ describe('event mutation family', () => {
       'Event draft imported from CSV.',
       expect.stringMatching(/^crm-event-csv-import:/),
     );
-    expect(await screen.findByText('1 event drafts created.')).toBeVisible();
+    expect(await screen.findByText('1 event draft created across 1 series.')).toBeVisible();
+  });
+
+  it('imports multi-day and weekly recurring CSV rows as bounded event series', async () => {
+    backendMocks.createEventSeries.mockResolvedValue({
+      success: true,
+      id: 'series-import-recurring',
+      eventIds: ['event-import-1'],
+    });
+    render(TestedEventScheduler);
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Import events CSV' }));
+    const input = screen.getByLabelText('Choose events CSV file');
+    const csvContents = [
+      'title,date,end_date,start_time,end_time,team,recurrence,repeat_count,type,location',
+      'Camp,2030-08-20,2030-08-22,09:00,15:00,team-1,,,Camp,Main Gym',
+      'Practice,2030-09-02,,18:00,19:30,team-1,weekly,3,Practice,Main Gym',
+    ].join('\n');
+    const file = new File([csvContents], 'series.csv', { type: 'text/csv' });
+    Object.defineProperty(file, 'text', { value: async () => csvContents });
+    await fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(backendMocks.createEventSeries).toHaveBeenCalledTimes(2);
+    });
+    expect(backendMocks.createEventSeries.mock.calls[0][1].occurrences)
+      .toEqual(expect.arrayContaining([
+        expect.objectContaining({ dateKey: '2030-08-20' }),
+        expect.objectContaining({ dateKey: '2030-08-21' }),
+        expect.objectContaining({ dateKey: '2030-08-22' }),
+      ]));
+    expect(backendMocks.createEventSeries.mock.calls[1][1].occurrences)
+      .toEqual(expect.arrayContaining([
+        expect.objectContaining({ dateKey: '2030-09-02' }),
+        expect.objectContaining({ dateKey: '2030-09-09' }),
+        expect.objectContaining({ dateKey: '2030-09-16' }),
+      ]));
+    expect(await screen.findByText('6 event drafts created across 2 series.')).toBeVisible();
   });
 
   it('locks create controls and invalidates the response when tenant scope changes', async () => {

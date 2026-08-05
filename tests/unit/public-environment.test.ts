@@ -97,11 +97,13 @@ describe('public environment contract', () => {
     ).toBe(false);
   });
 
-  it('exposes the Dev Flutter preview only to Development CRM builds', () => {
+  it('uses the tenant-safe production consumer app and keeps the Dev preview out of production', () => {
     expect(resolveCrmAppPreviewUrl({ DEV: true })).toBe(
       'https://huddleway-app-preview-canary.web.app',
     );
-    expect(resolveCrmAppPreviewUrl({ PROD: true })).toBeNull();
+    expect(resolveCrmAppPreviewUrl({ PROD: true })).toBe(
+      'https://sports-team-apps.web.app',
+    );
     expect(() =>
       resolveCrmAppPreviewUrl({
         PROD: true,
