@@ -45,6 +45,9 @@
   let previewDraftSyncState: 'idle' | 'awaiting' | 'synced' = 'idle';
   let previewDraftRetryTimers: number[] = [];
 
+  const previewInputActiveClass = 'crm-ui-preview-input-active';
+  const previewBuildToken = '202608051230';
+
   const previewBaseUrl = resolveCrmAppPreviewUrl(publicEnvironment);
 
   let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
@@ -198,9 +201,10 @@
 
   function buildPreviewSrc(tenantId: string) {
     if (!previewBaseUrl || !tenantId) return '';
-    const url = new URL('/', previewBaseUrl);
+    const url = new URL('/crm-preview-v2/', previewBaseUrl);
     url.searchParams.set('forcedTenant', tenantId);
     url.searchParams.set('crmPreview', '1');
+    url.searchParams.set('preview_build', previewBuildToken);
     return url.toString();
   }
 
@@ -234,6 +238,11 @@
     previewDraftRetryTimers = [];
   }
 
+  function setPreviewInputActive(active: boolean) {
+    document.documentElement.classList.toggle(previewInputActiveClass, active);
+    document.body.classList.toggle(previewInputActiveClass, active);
+  }
+
   onMount(() => {
     const handlePreviewReady = (event: MessageEvent) => {
       if (
@@ -263,6 +272,7 @@
     window.addEventListener('message', handlePreviewReady);
     return () => {
       clearPreviewDraftRetries();
+      setPreviewInputActive(false);
       window.removeEventListener('message', handlePreviewReady);
     };
   });
@@ -670,9 +680,12 @@
           bind:this={previewFrame}
           src={previewSrc}
           title={`${appName.trim() || 'Program'} mobile app preview`}
+          role="application"
           class="crm-ui-studio-app-frame"
           allow="clipboard-read; clipboard-write; fullscreen"
           on:load={handlePreviewLoad}
+          on:mouseenter={() => setPreviewInputActive(true)}
+          on:mouseleave={() => setPreviewInputActive(false)}
         ></iframe>
         {#if previewLoadState === 'loading'}
           <div class="crm-ui-studio-preview-loading" role="status">

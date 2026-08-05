@@ -1,6 +1,12 @@
 @import "tailwindcss";
 @config "../../tailwind.config.mjs";
 
+html.crm-ui-preview-input-active,
+body.crm-ui-preview-input-active {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
 /*
  * Repeated CRM template utilities are centralized here so Svelte does not
  * serialize the same long class lists into every lazy feature chunk.
@@ -157,9 +163,9 @@
   .crm-ui-studio-color-swatch { @apply relative h-8 w-8 cursor-pointer overflow-hidden rounded-full border-2 border-white shadow-inner ring-1 ring-gray-200; }
   .crm-ui-studio-color-picker { @apply absolute inset-[-10px] z-10 m-0 h-12 w-12 cursor-pointer p-0 opacity-0; }
   .crm-ui-studio-color-hex { @apply w-20 rounded border border-gray-300 px-2 py-1 text-xs uppercase; }
-  .crm-ui-studio-device { @apply relative z-10 flex h-[812px] w-[375px] max-w-[calc(100vw-3rem)] flex-none flex-col overflow-hidden rounded-[3rem] bg-black shadow-2xl ring-[14px] ring-gray-900; }
+  .crm-ui-studio-device { @apply relative z-10 flex h-[812px] w-[375px] max-w-[calc(100vw-3rem)] flex-none flex-col overflow-hidden rounded-[3rem] bg-black shadow-2xl ring-[14px] ring-gray-900; overscroll-behavior: contain; }
   .crm-ui-studio-notch { @apply absolute inset-x-0 top-0 z-20 mx-auto h-6 w-40 rounded-b-3xl bg-gray-900; }
-  .crm-ui-studio-app-frame { @apply z-10 h-full w-full border-0 bg-gray-50; }
+  .crm-ui-studio-app-frame { @apply z-10 h-full w-full border-0 bg-gray-50; overscroll-behavior: contain; }
   .crm-ui-studio-preview-loading { @apply absolute inset-0 z-10 flex items-center justify-center rounded-[3rem] bg-gray-50 text-sm font-medium text-gray-600; }
   .crm-ui-studio-app { @apply z-10 flex h-full w-full flex-col bg-gray-50 pt-7; }
   .crm-ui-studio-app-header { @apply flex items-center gap-3 px-5 py-4 text-white; }

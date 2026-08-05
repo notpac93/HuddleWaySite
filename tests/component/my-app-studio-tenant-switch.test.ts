@@ -212,6 +212,14 @@ describe('MyAppStudio tenant preview isolation', () => {
       'src',
       expect.stringContaining('forcedTenant=tenant-a'),
     );
+    expect(alphaPreview).toHaveAttribute(
+      'src',
+      expect.stringContaining('/crm-preview-v2/'),
+    );
+    expect(alphaPreview).toHaveAttribute(
+      'src',
+      expect.stringContaining('preview_build=202608051230'),
+    );
 
     await act(async () => {
       tenants.set('tenant-b');
@@ -259,6 +267,23 @@ describe('MyAppStudio tenant preview isolation', () => {
       },
     });
     expect(appMocks.publishAppConfiguration).not.toHaveBeenCalled();
+  });
+
+  it('locks CRM page scrolling only while the pointer is inside the app preview', async () => {
+    render(TestedMyAppStudio);
+    const preview = await screen.findByTitle(
+      'Alpha League mobile app preview',
+    );
+
+    await fireEvent.mouseEnter(preview);
+
+    expect(document.documentElement).toHaveClass('crm-ui-preview-input-active');
+    expect(document.body).toHaveClass('crm-ui-preview-input-active');
+
+    await fireEvent.mouseLeave(preview);
+
+    expect(document.documentElement).not.toHaveClass('crm-ui-preview-input-active');
+    expect(document.body).not.toHaveClass('crm-ui-preview-input-active');
   });
 
   it('resends the authoritative draft after the selected tenant preview is ready', async () => {
