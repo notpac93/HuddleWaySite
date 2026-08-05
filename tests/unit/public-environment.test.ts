@@ -97,11 +97,17 @@ describe('public environment contract', () => {
     ).toBe(false);
   });
 
-  it('exposes the Dev Flutter preview only to Development CRM builds', () => {
+  it('selects the matching Flutter app host for Development and Production CRM builds', () => {
     expect(resolveCrmAppPreviewUrl({ DEV: true })).toBe(
       'https://huddleway-app-preview-canary.web.app',
     );
-    expect(resolveCrmAppPreviewUrl({ PROD: true })).toBeNull();
+    expect(resolveCrmAppPreviewUrl({ PROD: true })).toBe(
+      'https://huddleway-app-preview-prod.web.app',
+    );
+    expect(resolveCrmAppPreviewUrl({
+      PROD: true,
+      PUBLIC_APP_PREVIEW_URL: 'https://huddleway-app-preview-prod.web.app',
+    })).toBe('https://huddleway-app-preview-prod.web.app');
     expect(() =>
       resolveCrmAppPreviewUrl({
         PROD: true,
