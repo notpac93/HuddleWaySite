@@ -166,18 +166,13 @@ describe('CRM fixture-media evidence', () => {
     })).rejects.toThrow(/backend commit/i);
   });
 
-  it('keeps token material out of the protected workflow artifacts', async () => {
+  it('is not part of the single-developer production workflow', async () => {
     const workflow = await readFile(
-      resolve(process.cwd(), '.github/workflows/crm-media-evidence.yml'),
+      resolve(process.cwd(), '.github/workflows/crm-production-deploy.yml'),
       'utf8',
     );
-    expect(workflow).toContain('environment:\n      name: crm-production-observation');
-    expect(workflow).toContain('CRM_MEDIA_FIXTURE_JSON: ${{ secrets.CRM_MEDIA_FIXTURE_JSON }}');
-    expect(workflow).toContain('rm -f "$RUNNER_TEMP/crm-media-fixture.json"');
-    expect(workflow).toContain('--website-commit "$WEBSITE_COMMIT"');
-    expect(workflow).toContain('--backend-commit "$BACKEND_COMMIT"');
-    expect(workflow).toContain('${{ runner.temp }}/crm-media-evidence.json');
-    expect(workflow).not.toContain('${{ runner.temp }}/crm-media-fixture.json');
-    expect(workflow).not.toMatch(/echo\s+["']?\$CRM_MEDIA_FIXTURE_JSON/);
+    expect(workflow).toContain('name: CRM single-developer production deployment');
+    expect(workflow).not.toContain('CRM_MEDIA_FIXTURE_JSON');
+    expect(workflow).not.toContain('crm-media-evidence.mjs');
   });
 });

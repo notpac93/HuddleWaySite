@@ -26,8 +26,6 @@ const defaultManifestPath = join(
 const exactCanonicalInputs = [
   '.env.example',
   '.gitignore',
-  '.github/workflows/crm-media-evidence.yml',
-  '.github/workflows/crm-production-acceptance.yml',
   '.github/workflows/crm-production-deploy.yml',
   '.github/workflows/crm-release-gate.yml',
   '.node-version',
@@ -41,6 +39,7 @@ const exactCanonicalInputs = [
   'scripts/release/crm-external-evidence.mjs',
   'scripts/release/crm-media-evidence.mjs',
   'scripts/release/crm-production-deploy.mjs',
+  'scripts/release/crm-single-developer-deploy.mjs',
   'scripts/release/crm-release.mjs',
   'src/layouts/CrmLayout.astro',
   'src/lib/authStore.ts',

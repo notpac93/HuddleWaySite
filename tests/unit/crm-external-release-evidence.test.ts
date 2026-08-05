@@ -401,41 +401,19 @@ describe('CRM external release evidence', () => {
     expect(receipt.acceptanceSha256).toBe(acceptanceDigest(body));
   });
 
-  it('uses a protected workflow and never publishes the private evidence file', async () => {
+  it('is no longer wired into the single-developer production workflow', async () => {
     const workflow = await readFile(
-      resolve('.github/workflows/crm-production-acceptance.yml'),
+      resolve('.github/workflows/crm-production-deploy.yml'),
       'utf8',
     );
     const packageJson = JSON.parse(await readFile(resolve('package.json'), 'utf8'));
 
-    expect(workflow).toContain('environment:\n      name: crm-production-acceptance');
-    expect(workflow).toContain(
-      'CRM_EXTERNAL_RELEASE_EVIDENCE_JSON: ${{ secrets.CRM_EXTERNAL_RELEASE_EVIDENCE_JSON }}',
-    );
-    expect(workflow).toContain(
-      'rm -f .release/private/crm-external-evidence.json',
-    );
-    expect(workflow).toContain('id-token: write');
-    expect(workflow).toContain('attestations: write');
-    expect(workflow).toContain(
-      'actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6',
-    );
-    expect(workflow).toContain(
-      'if [[ "${GITHUB_SHA,,}" != "${WEBSITE_REF,,}" ]]',
-    );
-    expect(workflow).toContain('.release/crm-production-accepted.tar.gz');
-    expect(workflow).toContain('.release/crm-production-acceptance.json');
-    const uploadSection = workflow.slice(
-      workflow.indexOf('Publish accepted artifact and redacted receipts'),
-      workflow.indexOf('Publish failure diagnostics'),
-    );
-    expect(uploadSection).not.toContain('.release/private');
-    expect(packageJson.scripts['release:acceptance']).toContain(
-      'crm-external-evidence.mjs accept',
-    );
-    expect(packageJson.scripts['release:acceptance:verify']).toContain(
-      'crm-external-evidence.mjs verify',
-    );
+    expect(workflow).toContain('name: CRM single-developer production deployment');
+    expect(workflow).not.toContain('CRM_EXTERNAL_RELEASE_EVIDENCE_JSON');
+    expect(workflow).not.toContain('crm-production-acceptance.yml');
+    expect(workflow).not.toContain('actions/attest@');
+    expect(packageJson.scripts['release:acceptance']).toBeUndefined();
+    expect(packageJson.scripts['release:acceptance:verify']).toBeUndefined();
   });
 
   it('requires the separately approved evidence-file hash at the CLI boundary', async () => {
