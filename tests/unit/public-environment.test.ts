@@ -102,12 +102,12 @@ describe('public environment contract', () => {
       'https://huddleway-app-preview-canary.web.app',
     );
     expect(resolveCrmAppPreviewUrl({ PROD: true })).toBe(
-      'https://huddleway-app-preview-prod.web.app',
+      'https://sports-team-apps.web.app',
     );
     expect(resolveCrmAppPreviewUrl({
       PROD: true,
-      PUBLIC_APP_PREVIEW_URL: 'https://huddleway-app-preview-prod.web.app',
-    })).toBe('https://huddleway-app-preview-prod.web.app');
+      PUBLIC_APP_PREVIEW_URL: 'https://sports-team-apps.web.app',
+    })).toBe('https://sports-team-apps.web.app');
     expect(() =>
       resolveCrmAppPreviewUrl({
         PROD: true,

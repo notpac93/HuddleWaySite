@@ -64,7 +64,7 @@ const developmentFirebase = {
 };
 
 const developmentAppPreviewOrigin = 'https://huddleway-app-preview-canary.web.app';
-const productionAppPreviewOrigin = 'https://huddleway-app-preview-prod.web.app';
+const productionAppPreviewOrigin = 'https://sports-team-apps.web.app';
 
 const loopbackHosts = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
 
