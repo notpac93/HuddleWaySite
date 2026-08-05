@@ -126,10 +126,10 @@ describe('CRM performance source boundaries', () => {
 
   it('keeps redundant production controls out of the public Vite environment', () => {
     const releaseGate = source('.github/workflows/crm-release-gate.yml');
-    const acceptance = source('.github/workflows/crm-production-acceptance.yml');
+    const deployment = source('.github/workflows/crm-production-deploy.yml');
     const preflight = source('scripts/release/crm-release.mjs');
 
-    for (const workflow of [releaseGate, acceptance]) {
+    for (const workflow of [releaseGate, deployment]) {
       expect(workflow).toContain(
         'HUDDLEWAY_RELEASE_BACKEND_URL: https://api.huddleway.com',
       );
@@ -140,8 +140,6 @@ describe('CRM performance source boundaries', () => {
         'HUDDLEWAY_RELEASE_FIREBASE_USE_EMULATORS: "false"',
       );
       expect(workflow).not.toMatch(/^\s+PUBLIC_BACKEND_URL:/m);
-      expect(workflow).not.toMatch(/^\s+PUBLIC_FIREBASE_PROJECT_ID:/m);
-      expect(workflow).not.toMatch(/^\s+PUBLIC_FIREBASE_USE_EMULATORS:/m);
     }
 
     expect(preflight).toContain("'PUBLIC_BACKEND_URL'");

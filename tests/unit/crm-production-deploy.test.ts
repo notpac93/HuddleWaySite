@@ -402,29 +402,22 @@ describe('CRM production artifact promotion', () => {
     })).rejects.toThrow(/does not vary on Accept-Encoding/i);
   });
 
-  it('pins protected artifact download, signed provenance, fast-forward push, and rollback', async () => {
+  it('pins the lightweight single-developer deployment path', async () => {
     const workflow = await readFile(
       resolve('.github/workflows/crm-production-deploy.yml'),
       'utf8',
     );
     expect(workflow).toContain('environment:\n      name: crm-production-deployment');
+    expect(workflow).toContain('name: CRM single-developer production deployment');
+    expect(workflow).toContain('crm-single-developer-deploy.mjs stage');
+    expect(workflow).toContain('crm-single-developer-deploy.mjs verify-live');
+    expect(workflow).not.toContain('CRM_EXTERNAL_RELEASE_EVIDENCE_JSON');
+    expect(workflow).not.toContain('actions/download-artifact');
+    expect(workflow).not.toContain('--signer-workflow');
     expect(workflow).toContain(
-      'actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0',
-    );
-    expect(workflow).toContain('--signer-workflow');
-    expect(workflow).toContain(
-      '$GITHUB_REPOSITORY/.github/workflows/crm-production-acceptance.yml',
-    );
-    expect(workflow).toContain('--source-digest "${HUDDLEWAY_WEBSITE_REF,,}"');
-    expect(workflow).toContain(
-      'origin "HEAD:refs/heads/$HUDDLEWAY_DEPLOY_TARGET"',
+      'git -C "$STATIC_TARGET_DIR" push origin HEAD:refs/heads/porkbun-huddleway-static',
     );
     expect(workflow).not.toContain('git push --force');
-    expect(workflow).toContain('revert --no-edit "$HUDDLEWAY_DEPLOYED_COMMIT"');
-    expect(workflow).toContain('crm-production-deploy.mjs verify-live');
-    expect(workflow).toContain(
-      'crm-production-deploy.mjs verify-rollback-live',
-    );
   });
 
   it('keeps the owner-operated path artifact-bound, explicitly approved, and rollback-capable', async () => {
