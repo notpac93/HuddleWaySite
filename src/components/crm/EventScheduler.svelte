@@ -18,6 +18,7 @@ import {
   import { tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
   import { BackendApiError, createIdempotencyKey } from '../../lib/api/BackendApi';
+  import { registrationOutreachApi } from '../../lib/api/RegistrationOutreachApi';
   import { onDestroy, tick } from 'svelte';
   import CreateEventForm from './events/CreateEventForm.svelte';
   import EditEventModal from './events/EditEventModal.svelte';
@@ -66,6 +67,12 @@ import {
   let publishingSelectedDrafts = false;
   let csvImporting = false;
   let csvImportMessage = '';
+  let creatingShareableLinkForEventId = '';
+  let shareableRegistrationLinks: Record<string, { url: string; expiresAt: string }> = {};
+  let shareableLinkErrors: Record<string, { message: string; requestId: string }> = {};
+  let shareableLinkCopyMessage = '';
+  let shareableLinkTenantId = '';
+  const shareableLinkOperationKeys = new Map<string, string>();
 
   let activeTab = 'Upcoming'; // 'Upcoming' or 'Past'
   let teams: Record<string, string> = {};
@@ -159,6 +166,7 @@ import {
             seasonId: data.seasonId || null,
             registrationFormId: data.registrationFormId || null,
             isRegistrationEnabled: data.isRegistrationEnabled === true,
+            isVisible: data.isVisible === true,
           };
   }
 
@@ -183,6 +191,14 @@ import {
   $: events = mappedEvents.filter((event) => Boolean(event.id));
 
   $: now = new Date();
+  $: if ($tenantIdStore !== shareableLinkTenantId) {
+    shareableLinkTenantId = $tenantIdStore || '';
+    shareableRegistrationLinks = {};
+    shareableLinkErrors = {};
+    shareableLinkCopyMessage = '';
+    shareableLinkOperationKeys.clear();
+    creatingShareableLinkForEventId = '';
+  }
 
   // Sort past events descending (newest past event first)
   $: pastEvents = events
@@ -430,6 +446,96 @@ import {
       inlineSaveState = 'idle';
       inlineError = '';
       inlineRequestId = '';
+    }
+  }
+
+  function eventRegistrationIsLive(event: any) {
+    const eventEndsAt = event.endDateObj
+      || (event.dateObj
+        ? new Date(event.dateObj.getTime() + 24 * 60 * 60 * 1000)
+        : null);
+    return (
+      event.lifecycleStatus === 'published'
+      && event.isVisible === true
+      && event.isRegistrationEnabled === true
+      && !event.isDeleted
+      && Boolean(eventEndsAt && eventEndsAt.getTime() >= Date.now())
+    );
+  }
+
+  function shareableLinkAvailabilityMessage(event: any) {
+    if (event.lifecycleStatus !== 'published') {
+      return 'Publish this event before creating a registration link.';
+    }
+    if (event.isRegistrationEnabled !== true) {
+      return 'Attach and publish a registration form before creating a registration link.';
+    }
+    if (event.isVisible !== true) {
+      return 'Make this published event visible before creating a registration link.';
+    }
+    return 'Registration is no longer live for this event.';
+  }
+
+  function shareableLinkExpirationLabel(expiresAt: string) {
+    const value = new Date(expiresAt);
+    return Number.isNaN(value.getTime())
+      ? 'the registration deadline'
+      : value.toLocaleString();
+  }
+
+  async function createShareableRegistrationLink(event: any) {
+    const eventId = String(event.id || '').trim();
+    const tenantId = $tenantIdStore;
+    if (
+      !tenantId
+      || !eventId
+      || !eventRegistrationIsLive(event)
+      || creatingShareableLinkForEventId
+    ) return;
+    const operationKey = shareableLinkOperationKeys.get(eventId)
+      || createIdempotencyKey('event-shareable-registration-link');
+    shareableLinkOperationKeys.set(eventId, operationKey);
+    creatingShareableLinkForEventId = eventId;
+    shareableLinkCopyMessage = '';
+    shareableLinkErrors = {
+      ...shareableLinkErrors,
+      [eventId]: { message: '', requestId: '' },
+    };
+    try {
+      const link = await registrationOutreachApi.createShareableLink({
+        tenantId,
+        eventId,
+        idempotencyKey: operationKey,
+      });
+      if ($tenantIdStore !== tenantId) return;
+      shareableRegistrationLinks = {
+        ...shareableRegistrationLinks,
+        [eventId]: { url: link.url, expiresAt: link.expiresAt },
+      };
+    } catch (error: unknown) {
+      if ($tenantIdStore !== tenantId) return;
+      shareableLinkErrors = {
+        ...shareableLinkErrors,
+        [eventId]: {
+          message: 'The shareable registration link could not be created.',
+          requestId: error instanceof BackendApiError ? error.requestId || '' : '',
+        },
+      };
+    } finally {
+      if ($tenantIdStore === tenantId) creatingShareableLinkForEventId = '';
+    }
+  }
+
+  async function copyShareableRegistrationLink(eventId: string) {
+    const link = shareableRegistrationLinks[eventId]?.url;
+    if (!link) return;
+    shareableLinkCopyMessage = '';
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(link);
+      shareableLinkCopyMessage = 'Registration link copied.';
+    } catch {
+      shareableLinkCopyMessage = 'Copy the registration link shown below.';
     }
   }
 
@@ -829,6 +935,58 @@ import {
               <h4 class="text-sm font-bold text-gray-900 uppercase tracking-wider">Inline Event Editor & Media Controls</h4>
 
             </div>
+
+            <section class="rounded-lg border border-sky-200 bg-white p-4" aria-labelledby={`share-registration-${event.id}`}>
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h5 id={`share-registration-${event.id}`} class="text-sm font-semibold text-gray-900">Share registration</h5>
+                  {#if eventRegistrationIsLive(event)}
+                    <p class="mt-1 text-sm text-gray-600">Create a temporary public link for this live registration. It closes automatically when registration or the event ends.</p>
+                  {:else}
+                    <p class="mt-1 text-sm text-gray-600">{shareableLinkAvailabilityMessage(event)}</p>
+                  {/if}
+                </div>
+                {#if eventRegistrationIsLive(event) && !shareableRegistrationLinks[event.id]}
+                  <button
+                    type="button"
+                    class="crm-ui-button-secondary"
+                    disabled={creatingShareableLinkForEventId === event.id}
+                    on:click={() => createShareableRegistrationLink(event)}
+                  >
+                    {creatingShareableLinkForEventId === event.id
+                      ? 'Creating link…'
+                      : 'Create shareable registration link'}
+                  </button>
+                {/if}
+              </div>
+              {#if shareableRegistrationLinks[event.id]}
+                <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <input
+                    id={`shareable-registration-link-${event.id}`}
+                    aria-label={`Shareable registration link for ${event.title}`}
+                    type="text"
+                    readonly
+                    value={shareableRegistrationLinks[event.id].url}
+                    class="crm-ui-field flex-1"
+                  />
+                  <button
+                    type="button"
+                    class="crm-ui-button-secondary"
+                    on:click={() => copyShareableRegistrationLink(event.id)}
+                  >Copy link</button>
+                </div>
+                <p class="mt-2 text-xs text-gray-500">Available until {shareableLinkExpirationLabel(shareableRegistrationLinks[event.id].expiresAt)}.</p>
+              {/if}
+              {#if shareableLinkErrors[event.id]?.message}
+                <div class="mt-3 crm-ui-danger" role="alert">
+                  <p>{shareableLinkErrors[event.id].message}</p>
+                  {#if shareableLinkErrors[event.id].requestId}<p class="mt-1 text-xs">Support request: {shareableLinkErrors[event.id].requestId}</p>{/if}
+                </div>
+              {/if}
+              {#if shareableLinkCopyMessage && shareableRegistrationLinks[event.id]}
+                <p class="mt-2 text-sm text-green-700" role="status">{shareableLinkCopyMessage}</p>
+              {/if}
+            </section>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
               <!-- Column 1: Image Media Editor -->

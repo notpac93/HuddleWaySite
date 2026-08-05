@@ -101,6 +101,27 @@ export class RegistrationOutreachApi {
     return payload;
   }
 
+  async createShareableLink({
+    tenantId,
+    eventId,
+    idempotencyKey,
+  }: {
+    tenantId: string;
+    eventId: string;
+    idempotencyKey: string;
+  }) {
+    const payload = await this.createInvite({
+      tenantId,
+      targetType: 'event',
+      targetId: eventId,
+      eventId,
+      recipientEmails: [],
+      idempotencyKey,
+    });
+    if (payload.recipientCount !== 0) invalidResponse(payload);
+    return payload;
+  }
+
   async sendEmail({
     tenantId,
     recipientEmails,

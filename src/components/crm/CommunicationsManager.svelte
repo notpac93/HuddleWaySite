@@ -570,7 +570,7 @@
         class="rounded-md bg-[#00a4bd] px-4 py-2 text-sm font-medium text-white hover:bg-[#008194]"
         on:click={() => openComposer('registration_email')}
       >
-        Send registration email
+        Start registration email
       </button>
     </div>
   </div>

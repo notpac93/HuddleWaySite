@@ -342,7 +342,7 @@ describe('CommunicationsManager recall boundary', () => {
     await screen.findByText('No Wall announcements have been published.');
 
     await fireEvent.click(
-      screen.getByRole('button', { name: 'Send registration email' }),
+      screen.getByRole('button', { name: 'Start registration email' }),
     );
     expect(screen.getByText(/without marking them registered/)).toBeVisible();
     await fireEvent.change(screen.getByLabelText('Event'), {
@@ -419,7 +419,7 @@ describe('CommunicationsManager recall boundary', () => {
     render(TestedCommunicationsManager);
     await screen.findByText('No Wall announcements have been published.');
     await fireEvent.click(
-      screen.getByRole('button', { name: 'Send registration email' }),
+      screen.getByRole('button', { name: 'Start registration email' }),
     );
     await fireEvent.change(screen.getByLabelText('Registration for'), {
       target: { value: 'season' },
