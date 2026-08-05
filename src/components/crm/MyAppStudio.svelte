@@ -244,6 +244,9 @@
   }
 
   onMount(() => {
+    const handlePreviewInputRelease = (event: MouseEvent) => {
+      if (event.target !== previewFrame) setPreviewInputActive(false);
+    };
     const handlePreviewReady = (event: MessageEvent) => {
       if (
         !previewBaseUrl
@@ -269,10 +272,12 @@
         // Ignore unrelated or malformed cross-window messages.
       }
     };
+    window.addEventListener('mousemove', handlePreviewInputRelease, true);
     window.addEventListener('message', handlePreviewReady);
     return () => {
       clearPreviewDraftRetries();
       setPreviewInputActive(false);
+      window.removeEventListener('mousemove', handlePreviewInputRelease, true);
       window.removeEventListener('message', handlePreviewReady);
     };
   });

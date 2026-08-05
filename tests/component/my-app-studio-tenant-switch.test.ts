@@ -280,7 +280,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     expect(document.documentElement).toHaveClass('crm-ui-preview-input-active');
     expect(document.body).toHaveClass('crm-ui-preview-input-active');
 
-    await fireEvent.mouseLeave(preview);
+    await fireEvent.mouseMove(document.body);
 
     expect(document.documentElement).not.toHaveClass('crm-ui-preview-input-active');
     expect(document.body).not.toHaveClass('crm-ui-preview-input-active');
