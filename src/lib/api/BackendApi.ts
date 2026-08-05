@@ -588,7 +588,7 @@ export interface CrmAuditEventRecord {
   timestamp: string | null;
 }
 
-interface RequestOptions {
+export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   query?: Record<string, string | number | boolean | null | undefined>;
   body?: unknown;
@@ -823,6 +823,10 @@ export class BackendApi {
     this.fetchImplementation = dependencies.fetch ?? globalThis.fetch.bind(globalThis);
     this.timeoutMs = dependencies.timeoutMs ?? 20_000;
     this.createRequestId = dependencies.createRequestId ?? defaultRequestId;
+  }
+
+  request<T>(path: string, options: RequestOptions = {}) {
+    return this.send<T>(path, options);
   }
 
   private async send<T>(

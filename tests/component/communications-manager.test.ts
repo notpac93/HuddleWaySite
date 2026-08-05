@@ -18,8 +18,10 @@ import {
 } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  createRegistrationInviteLink: vi.fn(),
   getDocs: vi.fn(),
   recallMessage: vi.fn(),
+  sendRegistrationEmail: vi.fn(),
   sendMessageBatch: vi.fn(),
 }));
 
@@ -55,6 +57,13 @@ vi.mock('../../src/lib/api/backendClient', () => ({
   },
 }));
 
+vi.mock('../../src/lib/api/RegistrationOutreachApi', () => ({
+  registrationOutreachApi: {
+    createInvite: mocks.createRegistrationInviteLink,
+    sendEmail: mocks.sendRegistrationEmail,
+  },
+}));
+
 vi.mock('../../src/lib/services/DataStore', async () => {
   const { writable } = await import('svelte/store');
   return {
@@ -69,6 +78,7 @@ vi.mock('../../src/lib/services/DataStore', async () => {
 
 import { tenantIdStore } from '../../src/lib/authStore';
 import { backendClient } from '../../src/lib/api/backendClient';
+import { registrationOutreachApi } from '../../src/lib/api/RegistrationOutreachApi';
 import { BackendApiError } from '../../src/lib/api/BackendApi';
 import CommunicationsManager from '../../src/components/crm/CommunicationsManager.svelte';
 
@@ -119,7 +129,9 @@ describe('CommunicationsManager recall boundary', () => {
   beforeEach(() => {
     tenants.set('tenant-a');
     mocks.getDocs.mockReset();
+    mocks.createRegistrationInviteLink.mockReset();
     mocks.recallMessage.mockReset();
+    mocks.sendRegistrationEmail.mockReset();
     mocks.sendMessageBatch.mockReset();
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
@@ -293,6 +305,153 @@ describe('CommunicationsManager recall boundary', () => {
       }),
     ]);
     expect(await screen.findByText('Announcement published and notification sent to 2 registered devices.')).toBeVisible();
+  });
+
+  it('emails a temporary event registration page to deduped recipients', async () => {
+    mocks.getDocs.mockResolvedValueOnce(emptySnapshot());
+    mocks.createRegistrationInviteLink.mockResolvedValueOnce({
+      linkId: 'registration-link-1',
+      tenantId: 'tenant-a',
+      targetType: 'event',
+      targetId: 'event-1',
+      eventId: 'event-1',
+      displayTitle: 'Summer Showcase',
+      registrationKind: 'free',
+      priceCents: 0,
+      currency: 'USD',
+      recipientCount: 2,
+      url: 'https://app.example.test/register?token=opaque',
+      expiresAt: '2026-08-27T20:00:00.000Z',
+      idempotentReplay: false,
+      requestId: 'link-request',
+    });
+    mocks.sendRegistrationEmail.mockResolvedValueOnce({
+      success: true,
+      tenantId: 'tenant-a',
+      communicationId: 'communication-1',
+      audienceMode: 'direct',
+      recipientCount: 2,
+      sentCount: 2,
+      sentRecipients: ['family@example.com', 'second@example.com'],
+      failedCount: 0,
+      failures: [],
+      suppressedCount: 0,
+      requestId: 'email-request',
+    });
+    render(TestedCommunicationsManager);
+    await screen.findByText('No Wall announcements have been published.');
+
+    await fireEvent.click(
+      screen.getByRole('button', { name: 'Send registration email' }),
+    );
+    expect(screen.getByText(/without marking them registered/)).toBeVisible();
+    await fireEvent.change(screen.getByLabelText('Event'), {
+      target: { value: 'event-1' },
+    });
+    await fireEvent.input(screen.getByLabelText('Recipient emails'), {
+      target: {
+        value: 'Family@example.com\nfamily@example.com\nsecond@example.com',
+      },
+    });
+    await fireEvent.input(screen.getByLabelText('Message'), {
+      target: { value: 'Registration is open.' },
+    });
+    const sendButton = screen.getByRole('button', {
+      name: 'Create link and send email',
+    });
+    expect(sendButton).toBeEnabled();
+    await fireEvent.click(sendButton);
+
+    await waitFor(() => {
+      expect(registrationOutreachApi.createInvite).toHaveBeenCalledTimes(1);
+      expect(registrationOutreachApi.sendEmail).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.createRegistrationInviteLink).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: 'tenant-a',
+        targetType: 'event',
+        targetId: 'event-1',
+        eventId: 'event-1',
+        recipientEmails: ['family@example.com', 'second@example.com'],
+      }),
+    );
+    expect(mocks.sendRegistrationEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        registrationUrl: 'https://app.example.test/register?token=opaque',
+        registrationLabel: 'Register free',
+        amountCents: 0,
+      }),
+    );
+    expect(await screen.findByText(/2 registration emails sent/)).toBeVisible();
+  });
+
+  it('creates a season invitation without trusting a client-selected event', async () => {
+    mocks.getDocs.mockResolvedValueOnce(emptySnapshot());
+    mocks.createRegistrationInviteLink.mockResolvedValueOnce({
+      linkId: 'registration-link-season',
+      tenantId: 'tenant-a',
+      targetType: 'season',
+      targetId: 'season-1',
+      eventId: 'season-registration-event',
+      displayTitle: 'Summer 2026',
+      registrationKind: 'paid',
+      priceCents: 12500,
+      currency: 'USD',
+      recipientCount: 1,
+      url: 'https://app.example.test/register?token=season-opaque',
+      expiresAt: '2026-08-27T20:00:00.000Z',
+      idempotentReplay: false,
+      requestId: 'season-link-request',
+    });
+    mocks.sendRegistrationEmail.mockResolvedValueOnce({
+      success: true,
+      tenantId: 'tenant-a',
+      communicationId: 'communication-season',
+      audienceMode: 'direct',
+      recipientCount: 1,
+      sentCount: 1,
+      sentRecipients: ['family@example.com'],
+      failedCount: 0,
+      failures: [],
+      suppressedCount: 0,
+      requestId: 'season-email-request',
+    });
+    render(TestedCommunicationsManager);
+    await screen.findByText('No Wall announcements have been published.');
+    await fireEvent.click(
+      screen.getByRole('button', { name: 'Send registration email' }),
+    );
+    await fireEvent.change(screen.getByLabelText('Registration for'), {
+      target: { value: 'season' },
+    });
+    await fireEvent.change(screen.getByLabelText('Season'), {
+      target: { value: 'season-1' },
+    });
+    await fireEvent.input(screen.getByLabelText('Recipient emails'), {
+      target: { value: 'family@example.com' },
+    });
+    await fireEvent.input(screen.getByLabelText('Message'), {
+      target: { value: 'Season registration is open.' },
+    });
+    await fireEvent.click(screen.getByRole('button', {
+      name: 'Create link and send email',
+    }));
+
+    await waitFor(() => {
+      expect(mocks.createRegistrationInviteLink).toHaveBeenCalledWith(
+        expect.objectContaining({
+          targetType: 'season',
+          targetId: 'season-1',
+        }),
+      );
+    });
+    expect(mocks.createRegistrationInviteLink.mock.calls[0][0]).not.toHaveProperty('eventId');
+    expect(mocks.sendRegistrationEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        registrationLabel: 'Register and pay',
+        amountCents: 12500,
+      }),
+    );
   });
 
   it('explains when the tenant has no registered notification devices', async () => {

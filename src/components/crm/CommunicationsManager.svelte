@@ -10,6 +10,7 @@
   import { db } from '../../lib/firebase';
   import { tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
+  import { registrationOutreachApi } from '../../lib/api/RegistrationOutreachApi';
   import { eventsStore, seasonsStore } from '../../lib/services/DataStore';
   import {
     BackendApiError,
@@ -33,9 +34,11 @@
   };
 
   type AttachmentScope = 'all' | 'event' | 'season';
+  type ComposerKind = 'announcement' | 'registration_email';
 
   const SUBJECT_MAX_LENGTH = 200;
   const BODY_MAX_LENGTH = 4_000;
+  const REGISTRATION_RECIPIENT_LIMIT = 400;
 
   let messages: WallMessage[] = [];
   let isAdding = false;
@@ -48,6 +51,8 @@
 
   let subject = '';
   let body = '';
+  let composerKind: ComposerKind = 'announcement';
+  let registrationRecipientInput = '';
   let teamId = 'program';
   let attachmentScope: AttachmentScope = 'all';
   let selectedEventId = '';
@@ -68,6 +73,8 @@
     .map((event) => ({
       id: String(event.id || '').trim(),
       title: String(event.title || event.name || event.id || 'Untitled event').trim(),
+      priceCents: Number.parseInt(String(event.priceCents || 0), 10) || 0,
+      currency: String(event.currency || 'USD').trim().toUpperCase() || 'USD',
     }))
     .filter((event) => event.id)
     .sort((a, b) => a.title.localeCompare(b.title));
@@ -88,14 +95,27 @@
           attachmentLabel(message),
         ].some((value) => value?.toLocaleLowerCase().includes(normalizedSearch)))
     : messages;
+  $: registrationRecipientResult = parseRecipientEmails(registrationRecipientInput);
+  $: registrationTargetId = attachmentScope === 'season'
+    ? selectedSeasonId
+    : selectedEventId;
   $: postIsValid =
-    teamId === 'program'
-    && body.trim().length > 0
-    && body.trim().length <= BODY_MAX_LENGTH
-    && subject.trim().length <= SUBJECT_MAX_LENGTH
-    && (attachmentScope === 'all'
-      || (attachmentScope === 'event' && Boolean(selectedEventId))
-      || (attachmentScope === 'season' && Boolean(selectedSeasonId)));
+    composerKind === 'announcement'
+      ? teamId === 'program'
+        && body.trim().length > 0
+        && body.trim().length <= BODY_MAX_LENGTH
+        && subject.trim().length <= SUBJECT_MAX_LENGTH
+        && (attachmentScope === 'all'
+          || (attachmentScope === 'event' && Boolean(selectedEventId))
+          || (attachmentScope === 'season' && Boolean(selectedSeasonId)))
+      : body.trim().length > 0
+        && body.trim().length <= BODY_MAX_LENGTH
+        && subject.trim().length <= SUBJECT_MAX_LENGTH
+        && ['event', 'season'].includes(attachmentScope)
+        && Boolean(registrationTargetId)
+        && registrationRecipientResult.invalidCount === 0
+        && registrationRecipientResult.emails.length > 0
+        && registrationRecipientResult.emails.length <= REGISTRATION_RECIPIENT_LIMIT;
   $: canPublish = postIsValid;
   $: {
     const signature = JSON.stringify({
@@ -105,6 +125,8 @@
       attachmentScope,
       selectedEventId,
       selectedSeasonId,
+      composerKind,
+      registrationRecipientInput,
     });
     if (signature !== postPayloadSignature && submitState !== 'loading') {
       postPayloadSignature = signature;
@@ -144,11 +166,38 @@
   function resetComposer() {
     subject = '';
     body = '';
+    composerKind = 'announcement';
+    registrationRecipientInput = '';
     teamId = 'program';
     attachmentScope = 'all';
     selectedEventId = '';
     selectedSeasonId = '';
     submitState = 'idle';
+  }
+
+  function openComposer(kind: ComposerKind) {
+    resetComposer();
+    composerKind = kind;
+    attachmentScope = kind === 'registration_email' ? 'event' : 'all';
+    isAdding = true;
+  }
+
+  function parseRecipientEmails(value: string) {
+    const emails = new Set<string>();
+    let invalidCount = 0;
+    for (const rawEntry of value.split(/[\s,;]+/)) {
+      const email = rawEntry.trim().toLocaleLowerCase();
+      if (!email) continue;
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 320) {
+        invalidCount += 1;
+        continue;
+      }
+      emails.add(email);
+    }
+    return {
+      emails: [...emails].sort(),
+      invalidCount,
+    };
   }
 
   function handleAttachmentScopeChange() {
@@ -331,6 +380,86 @@
     }
   }
 
+  async function handleRegistrationEmail() {
+    if (submitState === 'loading' || !canPublish) return;
+    const tenantId = $tenantIdStore;
+    const generation = tenantGeneration;
+    if (!tenantId) {
+      submitState = 'error';
+      operationMessage = 'Select an organization before sending.';
+      return;
+    }
+
+    const targetType = attachmentScope === 'season' ? 'season' : 'event';
+    const targetId = targetType === 'season'
+      ? selectedSeasonId
+      : selectedEventId;
+    const selectedEvent = eventOptions.find((event) => event.id === selectedEventId);
+    const selectedSeason = seasonOptions.find((season) => season.id === selectedSeasonId);
+    const targetTitle = targetType === 'season'
+      ? selectedSeason?.title || 'Season registration'
+      : selectedEvent?.title || 'Event registration';
+    const recipientEmails = registrationRecipientResult.emails;
+
+    submitState = 'loading';
+    operationMessage = 'Creating a temporary registration page…';
+    operationRequestId = '';
+    try {
+      const invite = await registrationOutreachApi.createInvite({
+        tenantId,
+        targetType,
+        targetId,
+        ...(targetType === 'event' ? { eventId: selectedEventId } : {}),
+        recipientEmails,
+        idempotencyKey: postIdempotencyKey,
+      });
+      if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
+
+      operationMessage = `Sending ${recipientEmails.length} registration email${recipientEmails.length === 1 ? '' : 's'}…`;
+      const delivery = await registrationOutreachApi.sendEmail({
+        tenantId,
+        recipientEmails,
+        subject: subject.trim(),
+        message: body.trim(),
+        eventTitle: invite.displayTitle || targetTitle,
+        registrationUrl: invite.url,
+        registrationLabel: invite.registrationKind === 'free'
+          ? 'Register free'
+          : 'Register and pay',
+        amountCents: invite.priceCents,
+        currency: invite.currency,
+        idempotencyKey: `${postIdempotencyKey}:email`,
+      });
+      if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
+
+      submitState = delivery.failedCount > 0 ? 'error' : 'success';
+      const expiration = new Date(invite.expiresAt).toLocaleString();
+      const suppressedCopy = delivery.suppressedCount > 0
+        ? ` ${delivery.suppressedCount} opted-out recipient${delivery.suppressedCount === 1 ? ' was' : 's were'} skipped.`
+        : '';
+      operationMessage = delivery.failedCount > 0
+        ? `${delivery.sentCount} email${delivery.sentCount === 1 ? '' : 's'} sent; ${delivery.failedCount} failed.${suppressedCopy} Only the failed addresses remain in the form. The registration link closes ${expiration}.`
+        : `${delivery.sentCount} registration email${delivery.sentCount === 1 ? '' : 's'} sent.${suppressedCopy} The registration link closes ${expiration}.`;
+      operationRequestId = delivery.failedCount > 0 ? delivery.requestId : '';
+      if (delivery.failedCount > 0) {
+        registrationRecipientInput = delivery.failures
+          .map((failure) => failure.email)
+          .filter(Boolean)
+          .join('\n');
+      } else {
+        isAdding = false;
+        resetComposer();
+      }
+    } catch (error) {
+      if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
+      submitState = 'error';
+      operationMessage = error instanceof BackendApiError
+        ? error.message
+        : 'The registration email could not be sent. Check your connection and try again.';
+      operationRequestId = requestIdFrom(error);
+    }
+  }
+
   function requestRecall(message: WallMessage) {
     if (recallingMessageId) return;
     recallTarget = message;
@@ -425,16 +554,25 @@
 <div class="flex h-full flex-col space-y-6 overflow-y-auto p-4 sm:p-6">
   <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
     <div>
-      <h2 class="text-xl font-bold text-gray-900">Wall announcements</h2>
-      <p class="text-sm text-gray-500">Review announcements visible to this organization’s account holders on the app Wall.</p>
+      <h2 class="text-xl font-bold text-gray-900">Messages & registration outreach</h2>
+      <p class="text-sm text-gray-500">Publish app announcements or email a temporary registration page to families who do not have the app.</p>
     </div>
-    <button
-      type="button"
-      class="rounded-md bg-[#00a4bd] px-4 py-2 text-sm font-medium text-white hover:bg-[#008194]"
-      on:click={() => { resetComposer(); isAdding = true; }}
-    >
-      New announcement
-    </button>
+    <div class="flex flex-wrap gap-2">
+      <button
+        type="button"
+        class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        on:click={() => openComposer('announcement')}
+      >
+        New announcement
+      </button>
+      <button
+        type="button"
+        class="rounded-md bg-[#00a4bd] px-4 py-2 text-sm font-medium text-white hover:bg-[#008194]"
+        on:click={() => openComposer('registration_email')}
+      >
+        Send registration email
+      </button>
+    </div>
   </div>
 
   {#if operationMessage}
@@ -449,27 +587,41 @@
 
   {#if isAdding}
     <section class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-6" aria-labelledby="new-announcement-heading">
-      <h3 id="new-announcement-heading" class="mb-4 text-lg font-bold">Create announcement</h3>
+      <h3 id="new-announcement-heading" class="mb-4 text-lg font-bold">
+        {composerKind === 'registration_email' ? 'Send registration email' : 'Create announcement'}
+      </h3>
       <div class="space-y-4">
         <div>
           <p class="crm-ui-label">Audience</p>
           <p class="mt-1 rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
-            Only account holders in this organization can receive this announcement. Publishing sends a notification only to their registered devices.
+            {#if composerKind === 'registration_email'}
+              Paste the family email addresses below. HuddleWay creates their account-ready identities without marking them registered, then sends one temporary web link that uses the same registration form and payment rules as the app.
+            {:else}
+              Only account holders in this organization can receive this announcement. Publishing sends a notification only to their registered devices.
+            {/if}
           </p>
         </div>
         <div>
-          <label for="announcement-attachment" class="crm-ui-label">Attach announcement to</label>
+          <label for="announcement-attachment" class="crm-ui-label">
+            {composerKind === 'registration_email' ? 'Registration for' : 'Attach announcement to'}
+          </label>
           <select
             id="announcement-attachment"
             bind:value={attachmentScope}
             on:change={handleAttachmentScopeChange}
             class="mt-1 block w-full rounded-md border border-gray-300 bg-white p-2 shadow-sm focus:border-[#00a4bd] focus:ring-[#00a4bd] sm:text-sm"
           >
-            <option value="all">All organization account holders</option>
+            {#if composerKind === 'announcement'}
+              <option value="all">All organization account holders</option>
+            {/if}
             <option value="event">An event</option>
             <option value="season">A season</option>
           </select>
-          <p class="crm-ui-hint">Choose one event, one season, or leave it for everyone.</p>
+          <p class="crm-ui-hint">
+            {composerKind === 'registration_email'
+              ? 'The link closes automatically when registration, the event, or the season ends.'
+              : 'Choose one event, one season, or leave it for everyone.'}
+          </p>
         </div>
         {#if attachmentScope === 'event'}
           <div>
@@ -502,6 +654,25 @@
               {/each}
             </select>
             {#if seasonOptions.length === 0}<p class="crm-ui-hint">No seasons are available for this organization.</p>{/if}
+          </div>
+        {/if}
+        {#if composerKind === 'registration_email'}
+          <div>
+            <label for="registration-recipient-emails" class="crm-ui-label">Recipient emails</label>
+            <textarea
+              id="registration-recipient-emails"
+              bind:value={registrationRecipientInput}
+              rows="5"
+              placeholder="family@example.com&#10;another-family@example.com"
+              class="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-[#00a4bd] focus:ring-[#00a4bd] sm:text-sm"
+              aria-describedby="registration-recipient-help"
+            ></textarea>
+            <p id="registration-recipient-help" class="crm-ui-hint">
+              {registrationRecipientResult.emails.length}/{REGISTRATION_RECIPIENT_LIMIT} unique valid addresses
+              {#if registrationRecipientResult.invalidCount > 0}
+                · {registrationRecipientResult.invalidCount} invalid {registrationRecipientResult.invalidCount === 1 ? 'entry' : 'entries'}
+              {/if}
+            </p>
           </div>
         {/if}
         <div>
@@ -540,11 +711,11 @@
           <StatusButton
             type="button"
             state={submitState}
-            on:click={handleAddMessage}
+            on:click={composerKind === 'registration_email' ? handleRegistrationEmail : handleAddMessage}
             disabled={!canPublish || submitState === 'loading'}
-            idleText="Publish announcement"
-            loadingText="Publishing…"
-            successText="Published"
+            idleText={composerKind === 'registration_email' ? 'Create link and send email' : 'Publish announcement'}
+            loadingText={composerKind === 'registration_email' ? 'Preparing email…' : 'Publishing…'}
+            successText={composerKind === 'registration_email' ? 'Email sent' : 'Published'}
             class="rounded-md bg-[#00a4bd] px-4 py-2 text-sm font-medium text-white hover:bg-[#008194] disabled:opacity-50"
           />
         </div>
