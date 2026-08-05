@@ -1,15 +1,45 @@
 # CRM production deployment
 
-Status: implemented and locally rehearsed; no production deployment has been
-authorized or attempted.
+Status: two production paths are available. The protected evidence path remains
+available for regulated releases. The owner-operated path is available for this
+single-owner product and is the standard path when no independent external
+evidence service is configured.
 
 Target branch: `porkbun-huddleway-static`
 
 Production origin: `https://huddleway.com`
 
-This runbook is the REL-008 control. It promotes the exact archive created by
-the protected CRM production acceptance workflow. It never rebuilds, merges,
-or substitutes files during deployment.
+This runbook describes the REL-008 evidence path and the owner-operated
+release path. Neither rebuilds, merges, or substitutes files during deployment.
+Both promote an exact successful CRM release-gate artifact, require a known
+rollback point, and verify the public site after the push.
+
+## Single-owner production path
+
+Use `.github/workflows/crm-owner-production-deploy.yml` when the repository
+owner is the only release authority. This removes the unavailable private
+`CRM_EXTERNAL_RELEASE_EVIDENCE_JSON` prerequisite; it does not remove the
+technical release safeguards.
+
+Dispatch it from `main` with:
+
+- `website_ref`: the full SHA of the commit being released;
+- `release_run_id`: the successful CRM release-gate run for exactly that SHA;
+- `rollback_ref`: the current full `porkbun-huddleway-static` SHA; and
+- `owner_confirmation`: `APPROVE_OWNER_PRODUCTION_DEPLOYMENT`.
+
+The job checks that its own workflow source is the approved website commit,
+downloads only the matching release-gate artifact, verifies the manifest and
+the SHA-256 and size of every staged file, refuses to proceed if the static
+branch changed after approval, and makes a normal fast-forward commit. It then
+waits for the live `/admin/` page to serve the exact artifact and confirms the
+production backend health endpoint. If that verification fails after the push,
+it creates and pushes a normal Git revert only when the remote branch still
+points to its deployment commit, then confirms the previous `/admin/` artifact
+is back online. A redacted receipt is retained for 90 days.
+
+This is intentionally an explicit, auditable owner decision; it is not an
+automatic deployment from a source push.
 
 ## Required custody chain
 

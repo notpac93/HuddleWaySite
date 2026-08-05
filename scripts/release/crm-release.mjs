@@ -29,6 +29,7 @@ const exactCanonicalInputs = [
   '.github/workflows/crm-media-evidence.yml',
   '.github/workflows/crm-production-acceptance.yml',
   '.github/workflows/crm-production-deploy.yml',
+  '.github/workflows/crm-owner-production-deploy.yml',
   '.github/workflows/crm-release-gate.yml',
   '.node-version',
   'astro.config.mjs',

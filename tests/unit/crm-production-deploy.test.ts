@@ -426,4 +426,20 @@ describe('CRM production artifact promotion', () => {
       'crm-production-deploy.mjs verify-rollback-live',
     );
   });
+
+  it('keeps the owner-operated path artifact-bound, explicitly approved, and rollback-capable', async () => {
+    const workflow = await readFile(
+      resolve('.github/workflows/crm-owner-production-deploy.yml'),
+      'utf8',
+    );
+
+    expect(workflow).toContain('APPROVE_OWNER_PRODUCTION_DEPLOYMENT');
+    expect(workflow).toContain('crm-release-${{ inputs.website_ref }}');
+    expect(workflow).toContain('Manifest source commit does not match website_ref.');
+    expect(workflow).toContain('Artifact manifest mismatch: ${path}');
+    expect(workflow).toContain('Production static branch changed after owner approval.');
+    expect(workflow).toContain('git -C "$STATIC_TARGET_DIR" revert --no-edit "$DEPLOYED_COMMIT"');
+    expect(workflow).toContain('Rollback did not restore the prior live admin artifact.');
+    expect(workflow).not.toContain('git push --force');
+  });
 });
