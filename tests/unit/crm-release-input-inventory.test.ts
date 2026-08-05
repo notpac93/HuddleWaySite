@@ -21,6 +21,7 @@ describe('CRM release input inventory', () => {
       '.github/workflows/crm-media-evidence.yml',
       '.github/workflows/crm-production-acceptance.yml',
       '.github/workflows/crm-production-deploy.yml',
+      '.github/workflows/crm-owner-production-deploy.yml',
       'scripts/release/crm-external-evidence.mjs',
       'scripts/release/crm-media-evidence.mjs',
       'scripts/release/crm-production-deploy.mjs',
