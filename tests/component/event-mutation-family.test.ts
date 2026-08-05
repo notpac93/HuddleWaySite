@@ -215,7 +215,7 @@ describe('event mutation family', () => {
     );
   });
 
-  it('shows the Events CSV import control and creates an audited draft', async () => {
+  it('shows CSV format instructions before creating an audited event draft', async () => {
     backendMocks.createEventSeries.mockResolvedValue({
       success: true,
       id: 'series-import-1',
@@ -223,7 +223,15 @@ describe('event mutation family', () => {
     });
     render(TestedEventScheduler);
 
-    const input = screen.getByLabelText('Import events CSV');
+    await fireEvent.click(screen.getByRole('button', { name: 'Import events CSV' }));
+    expect(screen.getByRole('dialog', {
+      name: 'Import event drafts from CSV',
+    })).toBeVisible();
+    expect(screen.getByRole('dialog')).toHaveTextContent(
+      /title.*date.*start_time.*end_time.*team/,
+    );
+    expect(screen.getByRole('button', { name: 'Download example CSV' })).toBeVisible();
+    const input = screen.getByLabelText('Choose events CSV file');
     expect(input).toHaveAttribute('accept', '.csv,text/csv');
     const file = new File([
       'title,date,start_time,end_time,team,type,location\n'

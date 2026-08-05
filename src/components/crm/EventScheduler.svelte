@@ -66,6 +66,10 @@ import {
   let publishingSelectedDrafts = false;
   let csvImporting = false;
   let csvImportMessage = '';
+  let isCsvImportDialogOpen = false;
+
+  const eventsCsvSample = `title,date,start_time,end_time,team,type,location,notes
+Fall Tryouts,2026-08-27,18:00,20:00,general,Tryout,Santa Margarita Catholic High School,Free registration`;
 
   let activeTab = 'Upcoming'; // 'Upcoming' or 'Past'
   let teams: Record<string, string> = {};
@@ -295,6 +299,7 @@ import {
     const file = (event.currentTarget as HTMLInputElement).files?.[0];
     const tenantId = $tenantIdStore;
     if (!file || !tenantId || csvImporting) return;
+    isCsvImportDialogOpen = false;
     csvImporting = true;
     csvImportMessage = '';
     try {
@@ -326,6 +331,17 @@ import {
     } catch (caught) {
       csvImportMessage = 'Could not import every event. Check the CSV and try again.';
     } finally { csvImporting = false; }
+  }
+
+  function downloadEventsCsvSample() {
+    const url = URL.createObjectURL(new Blob([eventsCsvSample], {
+      type: 'text/csv;charset=utf-8',
+    }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'huddleway-events-import-example.csv';
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   function toggleDraftSelection(eventId: string) {
@@ -639,6 +655,39 @@ import {
   on:close={() => { isDuplicateModalOpen = false; eventToDuplicate = null; }}
 />
 
+{#if isCsvImportDialogOpen}
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="presentation">
+    <dialog open class="w-full max-w-2xl rounded-xl bg-white p-6 shadow-2xl" aria-modal="true" aria-labelledby="events-csv-import-title">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h2 id="events-csv-import-title" class="crm-ui-modal-title">Import event drafts from CSV</h2>
+          <p class="mt-1 text-sm text-gray-600">Review the format before choosing a file. Every imported event is created as a draft for your team to review and publish.</p>
+        </div>
+        <button type="button" class="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800" aria-label="Close CSV import instructions" on:click={() => isCsvImportDialogOpen = false}>×</button>
+      </div>
+
+      <div class="mt-5 rounded-lg border border-cyan-100 bg-cyan-50 p-4 text-sm text-slate-700">
+        <p><strong>Required columns:</strong> <code>title</code>, <code>date</code>, <code>start_time</code>, <code>end_time</code>, and <code>team</code>.</p>
+        <p class="mt-2"><strong>Dates and times:</strong> use <code>YYYY-MM-DD</code> and 24-hour <code>HH:MM</code> values. For a program-wide event, use <code>general</code> for <code>team</code>; otherwise use the team’s ID.</p>
+        <p class="mt-2"><strong>Optional columns:</strong> <code>type</code>, <code>location</code>, and <code>notes</code>. Upload between 1 and 200 rows at a time.</p>
+      </div>
+
+      <div class="mt-4 overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-3">
+        <pre class="text-xs leading-5 text-slate-700"><code>{eventsCsvSample}</code></pre>
+      </div>
+
+      <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <button type="button" class="crm-ui-button-secondary" on:click={() => isCsvImportDialogOpen = false}>Cancel</button>
+        <button type="button" class="crm-ui-button-secondary" on:click={downloadEventsCsvSample}>Download example CSV</button>
+        <label class="crm-ui-event-top-primary cursor-pointer text-center">
+          {csvImporting ? 'Importing…' : 'Choose CSV file'}
+          <input aria-label="Choose events CSV file" class="sr-only" type="file" accept=".csv,text/csv" disabled={csvImporting} on:change={importEventsCsv} />
+        </label>
+      </div>
+    </dialog>
+  </div>
+{/if}
+
 <div class="p-6 md:p-8 space-y-6">
   <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
     <div>
@@ -646,7 +695,7 @@ import {
       <p class="mt-1 text-sm text-gray-500">Create drafts and manage authoritative event records.</p>
     </div>
     <div class="flex flex-wrap gap-3">
-      <label class="crm-ui-button-secondary cursor-pointer">Import events CSV<input class="sr-only" type="file" accept=".csv,text/csv" disabled={csvImporting} on:change={importEventsCsv} /></label>
+      <button type="button" class="crm-ui-button-secondary" disabled={csvImporting} on:click={() => isCsvImportDialogOpen = true}>{csvImporting ? 'Importing events…' : 'Import events CSV'}</button>
       <button type="button" disabled={inlineSaveState === 'loading'} class="crm-ui-event-top-primary" on:click={() => isCreateFormOpen = true}>New event</button>
     </div>
   </div>
