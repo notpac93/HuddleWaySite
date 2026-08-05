@@ -85,6 +85,9 @@ const TestedMyAppStudio = MyAppStudio as unknown as Component;
 const tenants = tenantIdStore as Writable<string | null>;
 const configNames = new Map<string, string>();
 const configLogos = new Map<string, string>();
+const previewOrigin = process.env.PUBLIC_FIREBASE_PROJECT_ID === 'sports-team-apps'
+  ? 'https://huddleway-app-preview-prod.web.app'
+  : 'https://huddleway-app-preview-canary.web.app';
 
 function configurationSnapshot(tenantId: string) {
   return {
@@ -251,7 +254,7 @@ describe('MyAppStudio tenant preview isolation', () => {
       .find(({ payload }) =>
         payload?.configuration?.name === 'Alpha League Draft');
     expect(matchingCall).toMatchObject({
-      targetOrigin: 'https://huddleway-app-preview-canary.web.app',
+      targetOrigin: previewOrigin,
       payload: {
         type: 'huddleway.crm.preview.update',
         tenantId: 'tenant-a',
@@ -269,7 +272,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     const postMessage = vi.spyOn(preview.contentWindow!, 'postMessage');
 
     window.dispatchEvent(new MessageEvent('message', {
-      origin: 'https://huddleway-app-preview-canary.web.app',
+      origin: previewOrigin,
       source: preview.contentWindow,
       data: JSON.stringify({
         type: 'huddleway.crm.preview.ready',
@@ -280,12 +283,12 @@ describe('MyAppStudio tenant preview isolation', () => {
     await waitFor(() => {
       expect(postMessage).toHaveBeenCalledWith(
         expect.stringContaining('"name":"Alpha League"'),
-        'https://huddleway-app-preview-canary.web.app',
+        previewOrigin,
       );
     });
 
     window.dispatchEvent(new MessageEvent('message', {
-      origin: 'https://huddleway-app-preview-canary.web.app',
+      origin: previewOrigin,
       source: preview.contentWindow,
       data: JSON.stringify({
         type: 'huddleway.crm.preview.applied',

@@ -63,6 +63,9 @@ const developmentFirebase = {
   storageBucket: 'huddleway-dev.firebasestorage.app',
 };
 
+const developmentAppPreviewOrigin = 'https://huddleway-app-preview-canary.web.app';
+const productionAppPreviewOrigin = 'https://huddleway-app-preview-prod.web.app';
+
 const loopbackHosts = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
 
 function normalized(value: unknown) {
@@ -131,8 +134,10 @@ export function resolveCrmAppPreviewUrl(environment: PublicEnvironment) {
   const explicit = normalized(environment.PUBLIC_APP_PREVIEW_URL);
   const raw = explicit || (
     projectId === developmentFirebase.projectId
-      ? 'https://huddleway-app-preview-canary.web.app'
-      : ''
+      ? developmentAppPreviewOrigin
+      : projectId === productionFirebase.projectId
+        ? productionAppPreviewOrigin
+        : ''
   );
   if (!raw) return null;
 
@@ -150,7 +155,7 @@ export function resolveCrmAppPreviewUrl(environment: PublicEnvironment) {
   }
   if (
     projectId === productionFirebase.projectId
-    && parsed.hostname === 'huddleway-app-preview-canary.web.app'
+    && parsed.origin === developmentAppPreviewOrigin
   ) {
     throw new Error('Production CRM cannot embed the Dev app preview.');
   }
