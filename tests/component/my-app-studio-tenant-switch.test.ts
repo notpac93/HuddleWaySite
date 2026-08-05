@@ -164,6 +164,7 @@ function eventSnapshot(title: string) {
 async function findTenantPreview(name: string) {
   await waitFor(() => {
     expect(screen.getByLabelText('App Name')).toHaveValue(name);
+    expect(screen.getByTitle(`${name} mobile app preview`)).toBeInTheDocument();
   }, { timeout: 5000 });
   return screen.getByTitle(`${name} mobile app preview`);
 }
