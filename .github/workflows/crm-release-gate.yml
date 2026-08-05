@@ -113,6 +113,7 @@ jobs:
         with:
           name: crm-release-${{ github.sha }}
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 30
           path: |
             dist/

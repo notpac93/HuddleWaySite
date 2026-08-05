@@ -442,4 +442,15 @@ describe('CRM production artifact promotion', () => {
     expect(workflow).toContain('Rollback did not restore the prior live admin artifact.');
     expect(workflow).not.toContain('git push --force');
   });
+
+  it('retains every manifest-tracked public file in the release artifact', async () => {
+    const releaseGate = await readFile(
+      resolve('.github/workflows/crm-release-gate.yml'),
+      'utf8',
+    );
+
+    expect(releaseGate).toContain('include-hidden-files: true');
+    expect(releaseGate).toContain('dist/');
+    expect(releaseGate).toContain('.release/crm-release-manifest.json');
+  });
 });
