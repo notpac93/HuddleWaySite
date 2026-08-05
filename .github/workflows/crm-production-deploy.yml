@@ -100,7 +100,7 @@ jobs:
         run: |
           npm run test:type
           npm run test:unit
-          npm run test:component
+          npm run test:component -- --maxWorkers=1
           npm run build
           npm run check:security
           npm run check:performance
