@@ -44,6 +44,7 @@ jobs:
       RELEASE_INPUT_DIR: ${{ github.workspace }}/.release/owner-input
       STATIC_TARGET_DIR: ${{ github.workspace }}/.release/static-target
       DEPLOYMENT_PUSHED: "false"
+      NO_STATIC_CHANGE: "false"
 
     steps:
       - name: Require explicit owner approval and immutable inputs
@@ -151,13 +152,15 @@ jobs:
           sha256sum "$STATIC_TARGET_DIR/admin/index.html" | awk '{print $1}' > .release/rollback-admin-index.sha256
           rsync -a --delete "$RELEASE_INPUT_DIR/dist/" "$STATIC_TARGET_DIR/"
           git -C "$STATIC_TARGET_DIR" add -A
-          if git -C "$STATIC_TARGET_DIR" diff --cached --quiet; then
-            echo "::error::The exact release artifact produces no static deployment change."
-            exit 1
-          fi
           sha256sum "$RELEASE_INPUT_DIR/dist/admin/index.html" | awk '{print $1}' > .release/deployed-admin-index.sha256
+          if git -C "$STATIC_TARGET_DIR" diff --cached --quiet; then
+            echo "NO_STATIC_CHANGE=true" >> "$GITHUB_ENV"
+            echo "The exact release artifact is already present on the production branch."
+            exit 0
+          fi
 
       - name: Publish the exact artifact
+        if: env.NO_STATIC_CHANGE != 'true'
         run: |
           git -C "$STATIC_TARGET_DIR" config user.name "huddleway-release-bot"
           git -C "$STATIC_TARGET_DIR" config user.email "release-bot@users.noreply.github.com"
@@ -208,7 +211,7 @@ jobs:
       - name: Record redacted deployment receipt
         if: always()
         run: |
-          node -e "const fs=require('node:fs'); fs.mkdirSync('.release',{recursive:true}); fs.writeFileSync('.release/crm-owner-production-deployment.json', JSON.stringify({schemaVersion:1,websiteRef:process.env.WEBSITE_REF,releaseRunId:process.env.RELEASE_RUN_ID,rollbackRef:process.env.ROLLBACK_REF,deployedCommit:process.env.DEPLOYED_COMMIT || null,status:process.env.DEPLOYMENT_PUSHED === 'true' ? 'published_or_rolled_back' : 'not_published'},null,2)+'\\n')"
+          node -e "const fs=require('node:fs'); fs.mkdirSync('.release',{recursive:true}); fs.writeFileSync('.release/crm-owner-production-deployment.json', JSON.stringify({schemaVersion:1,websiteRef:process.env.WEBSITE_REF,releaseRunId:process.env.RELEASE_RUN_ID,rollbackRef:process.env.ROLLBACK_REF,deployedCommit:process.env.DEPLOYED_COMMIT || null,status:process.env.DEPLOYMENT_PUSHED === 'true' ? 'published_or_rolled_back' : process.env.NO_STATIC_CHANGE === 'true' ? 'verified_existing_artifact' : 'not_published'},null,2)+'\\n')"
 
       - name: Retain deployment receipt
         if: always()
