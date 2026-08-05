@@ -285,7 +285,7 @@ describe('event mutation family', () => {
 
     await openInlineEditor();
     await fireEvent.click(screen.getByRole('button', {
-      name: 'Create shareable registration link',
+      name: 'Share Link',
     }));
 
     await waitFor(() => {
@@ -297,7 +297,7 @@ describe('event mutation family', () => {
     });
     expect(screen.getByLabelText('Shareable registration link for Opening practice'))
       .toHaveValue('https://sports-team-apps.web.app/register?token=opaque-registration-token');
-    expect(screen.getByRole('button', { name: 'Copy link' })).toBeEnabled();
+    expect(screen.getAllByRole('button', { name: 'Copy link' })[0]).toBeEnabled();
   });
 
   it('does not offer a shareable link before registration is published and live', async () => {
@@ -305,9 +305,7 @@ describe('event mutation family', () => {
 
     await openInlineEditor();
 
-    expect(screen.queryByRole('button', {
-      name: 'Create shareable registration link',
-    })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Share Link' })).toBeNull();
     expect(screen.getByText('Publish this event before creating a registration link.'))
       .toBeVisible();
   });

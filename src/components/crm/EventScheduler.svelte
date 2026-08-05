@@ -32,6 +32,10 @@ import {
   export let activeTeam: string | { id?: unknown } | null = null;
   export let activeResultId: string | null = null;
   export let onTargetConsumed: (id: string) => void = () => {};
+  export let onStartRegistrationEmail: (draft: {
+    eventId: string;
+    eventTitle: string;
+  }) => void = () => {};
 
   let events: any[] = [];
   let isCreateFormOpen = false;
@@ -72,6 +76,7 @@ import {
   let shareableLinkErrors: Record<string, { message: string; requestId: string }> = {};
   let shareableLinkCopyMessage = '';
   let shareableLinkTenantId = '';
+  let shareDialogEvent: any = null;
   const shareableLinkOperationKeys = new Map<string, string>();
 
   let activeTab = 'Upcoming'; // 'Upcoming' or 'Past'
@@ -512,6 +517,7 @@ import {
         ...shareableRegistrationLinks,
         [eventId]: { url: link.url, expiresAt: link.expiresAt },
       };
+      shareDialogEvent = event;
     } catch (error: unknown) {
       if ($tenantIdStore !== tenantId) return;
       shareableLinkErrors = {
@@ -524,6 +530,15 @@ import {
     } finally {
       if ($tenantIdStore === tenantId) creatingShareableLinkForEventId = '';
     }
+  }
+
+  function startRegistrationEmailFromShareDialog() {
+    const event = shareDialogEvent;
+    onStartRegistrationEmail({
+      eventId: event.id,
+      eventTitle: event.title,
+    });
+    shareDialogEvent = null;
   }
 
   async function copyShareableRegistrationLink(eventId: string) {
@@ -718,6 +733,24 @@ import {
     inlineOperationGeneration += 1;
   });
 </script>
+
+{#if shareDialogEvent}
+  <div class="crm-ui-modal-root">
+    <div class="crm-ui-modal-shell items-center">
+      <div class="crm-ui-modal-panel-lg">
+        <div class="crm-ui-modal-body">
+          <button class="crm-ui-button-secondary float-right" on:click={() => shareDialogEvent = null}>×</button>
+          <h3 class="crm-ui-modal-title">Share {shareDialogEvent.title}</h3>
+          <p class="crm-ui-field break-all">{shareableRegistrationLinks[shareDialogEvent.id].url}</p>
+          <div class="crm-ui-between mt-5">
+            <button class="crm-ui-button-secondary" on:click={() => navigator.clipboard?.writeText(shareableRegistrationLinks[shareDialogEvent.id].url)}>Copy link</button>
+            <button class="crm-ui-button-primary" on:click={startRegistrationEmailFromShareDialog}>Send link</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
 
 {#if isCreateFormOpen}
   <CreateEventForm
@@ -936,26 +969,26 @@ import {
 
             </div>
 
-            <section class="rounded-lg border border-sky-200 bg-white p-4" aria-labelledby={`share-registration-${event.id}`}>
+            <section class="rounded-lg border border-sky-200 bg-white p-4">
               <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h5 id={`share-registration-${event.id}`} class="text-sm font-semibold text-gray-900">Share registration</h5>
-                  {#if eventRegistrationIsLive(event)}
-                    <p class="mt-1 text-sm text-gray-600">Create a temporary public link for this live registration. It closes automatically when registration or the event ends.</p>
-                  {:else}
+                  <h5 class="text-sm font-semibold text-gray-900">Share registration</h5>
+                  {#if !eventRegistrationIsLive(event)}
                     <p class="mt-1 text-sm text-gray-600">{shareableLinkAvailabilityMessage(event)}</p>
                   {/if}
                 </div>
-                {#if eventRegistrationIsLive(event) && !shareableRegistrationLinks[event.id]}
+                {#if eventRegistrationIsLive(event)}
                   <button
                     type="button"
                     class="crm-ui-button-secondary"
                     disabled={creatingShareableLinkForEventId === event.id}
-                    on:click={() => createShareableRegistrationLink(event)}
+                    on:click={() => shareableRegistrationLinks[event.id]
+                      ? (shareDialogEvent = event)
+                      : createShareableRegistrationLink(event)}
                   >
                     {creatingShareableLinkForEventId === event.id
                       ? 'Creating link…'
-                      : 'Create shareable registration link'}
+                      : 'Share Link'}
                   </button>
                 {/if}
               </div>

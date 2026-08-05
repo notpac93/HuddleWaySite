@@ -25,6 +25,11 @@
   let moduleLoadSequence = 0;
   let isTenantSwitching = false;
   let rumStarted = false;
+  let registrationEmailDraft: {
+    token: string;
+    eventId: string;
+    eventTitle: string;
+  } | null = null;
 
   const tabLoaders: Record<string, () => Promise<{ default: Component<any> }>> = {
     Dashboard: () => import('./GlobalDashboard.svelte'),
@@ -149,7 +154,10 @@
       ? { activeTeam, setActiveTeam, activeResultId, onTargetConsumed }
       : {}),
     ...(activeTab === 'Events'
-      ? { activeTeam, activeResultId, onTargetConsumed }
+      ? { activeTeam, activeResultId, onTargetConsumed, onStartRegistrationEmail }
+      : {}),
+    ...(activeTab === 'Messages'
+      ? { registrationEmailDraft }
       : {}),
     ...(activeTab === 'Financials'
       ? { activeTeam }
@@ -195,6 +203,14 @@
 
   function onTargetConsumed(id: string) {
     if (activeResultId === id) activeResultId = null;
+  }
+
+  function onStartRegistrationEmail(draft: Omit<NonNullable<typeof registrationEmailDraft>, 'token'>) {
+    registrationEmailDraft = {
+      ...draft,
+      token: `${draft.eventId}:${Date.now()}`,
+    };
+    activeTab = 'Messages';
   }
 
   function handleExitTeam() {
