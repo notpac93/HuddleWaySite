@@ -122,7 +122,11 @@ jobs:
             }
           };
           walk(root);
-          if (actual.size !== expected.size) fail('Artifact file count differs from its manifest.');
+          if (actual.size !== expected.size) {
+            const missing = [...expected.keys()].filter((path) => !actual.has(path)).slice(0, 10);
+            const unexpected = [...actual.keys()].filter((path) => !expected.has(path)).slice(0, 10);
+            fail(`Artifact file count differs from its manifest (expected ${expected.size}, found ${actual.size}; missing: ${missing.join(', ') || 'none'}; unexpected: ${unexpected.join(', ') || 'none'}).`);
+          }
           for (const [path, file] of expected) {
             const actualFile = actual.get(path);
             if (!actualFile || actualFile.size !== file.size || actualFile.sha256 !== file.sha256) fail(`Artifact manifest mismatch: ${path}`);
