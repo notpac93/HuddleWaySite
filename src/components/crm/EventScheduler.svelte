@@ -656,8 +656,8 @@ Fall Tryouts,2026-08-27,18:00,20:00,general,Tryout,Santa Margarita Catholic High
 />
 
 {#if isCsvImportDialogOpen}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="presentation">
-    <dialog open class="w-full max-w-2xl rounded-xl bg-white p-6 shadow-2xl" aria-modal="true" aria-labelledby="events-csv-import-title">
+  <div class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4" role="presentation">
+    <dialog open class="static m-0 w-full max-w-2xl rounded-xl bg-white p-6 shadow-2xl" aria-modal="true" aria-labelledby="events-csv-import-title">
       <div class="flex items-start justify-between gap-4">
         <div>
           <h2 id="events-csv-import-title" class="crm-ui-modal-title">Import event drafts from CSV</h2>
