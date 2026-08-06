@@ -19,6 +19,12 @@
   import StatusButton from './ui/StatusButton.svelte';
   import { modalFocus } from '../../lib/ui/modalFocus';
 
+  export let registrationEmailDraft: {
+    token: string;
+    eventId: string;
+    eventTitle: string;
+  } | null = null;
+
   type WallMessage = {
     id: string;
     authorName: string | null;
@@ -67,6 +73,7 @@
   const recallIdempotencyKeys = new Map<string, string>();
   let tenantGeneration = 0;
   let recallTarget: WallMessage | null = null;
+  let consumedRegistrationDraftToken = '';
 
   $: normalizedSearch = searchQuery.trim().toLocaleLowerCase();
   $: eventOptions = $eventsStore
@@ -117,6 +124,19 @@
         && registrationRecipientResult.emails.length > 0
         && registrationRecipientResult.emails.length <= REGISTRATION_RECIPIENT_LIMIT;
   $: canPublish = postIsValid;
+  $: if (
+    registrationEmailDraft
+    && registrationEmailDraft.token !== consumedRegistrationDraftToken
+  ) {
+    consumedRegistrationDraftToken = registrationEmailDraft.token;
+    resetComposer();
+    composerKind = 'registration_email';
+    attachmentScope = 'event';
+    selectedEventId = registrationEmailDraft.eventId;
+    subject = `Register for ${registrationEmailDraft.eventTitle}`;
+    body = `Complete registration for ${registrationEmailDraft.eventTitle}.`;
+    isAdding = true;
+  }
   $: {
     const signature = JSON.stringify({
       subject: subject.trim(),
@@ -428,6 +448,7 @@
           : 'Register and pay',
         amountCents: invite.priceCents,
         currency: invite.currency,
+        eventId: selectedEventId,
         idempotencyKey: `${postIdempotencyKey}:email`,
       });
       if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;

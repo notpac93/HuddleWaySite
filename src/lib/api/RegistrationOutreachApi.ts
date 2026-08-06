@@ -132,6 +132,7 @@ export class RegistrationOutreachApi {
     registrationLabel,
     amountCents,
     currency,
+    eventId,
     idempotencyKey,
   }: {
     tenantId: string;
@@ -143,6 +144,7 @@ export class RegistrationOutreachApi {
     registrationLabel: string;
     amountCents: number;
     currency: string;
+    eventId?: string;
     idempotencyKey: string;
   }) {
     const payload = await this.api.request<RegistrationEmailDeliveryResult>(
@@ -162,6 +164,7 @@ export class RegistrationOutreachApi {
             registrationLabel,
             amountCents,
             currency,
+            ...(eventId ? { eventId } : {}),
           },
         },
         idempotencyKey,
