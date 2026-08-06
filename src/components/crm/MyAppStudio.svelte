@@ -202,7 +202,7 @@
 
   function buildPreviewSrc(tenantId: string) {
     if (!previewBaseUrl || !tenantId) return '';
-    const url = new URL('/', previewBaseUrl);
+    const url = new URL(`/${previewBuild}/`, previewBaseUrl);
     url.searchParams.set('forcedTenant', tenantId);
     url.searchParams.set('crmPreview', '1');
     if (previewBuild) url.searchParams.set('preview_build', previewBuild);
