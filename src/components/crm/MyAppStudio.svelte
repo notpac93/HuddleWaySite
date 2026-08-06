@@ -5,6 +5,7 @@
   import {
     publicEnvironment,
     resolveCrmAppPreviewUrl,
+    resolveWebsiteCommit,
   } from '../../lib/config/publicEnvironment';
   import {
     BackendApiError,
@@ -46,6 +47,7 @@
   let previewDraftRetryTimers: number[] = [];
 
   const previewBaseUrl = resolveCrmAppPreviewUrl(publicEnvironment);
+  const previewBuild = resolveWebsiteCommit(publicEnvironment);
 
   let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
 
@@ -201,6 +203,7 @@
     const url = new URL('/', previewBaseUrl);
     url.searchParams.set('forcedTenant', tenantId);
     url.searchParams.set('crmPreview', '1');
+    if (previewBuild) url.searchParams.set('preview_build', previewBuild);
     return url.toString();
   }
 
