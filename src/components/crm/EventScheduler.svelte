@@ -523,22 +523,13 @@ import {
       shareableLinkErrors = {
         ...shareableLinkErrors,
         [eventId]: {
-          message: 'The shareable registration link could not be created.',
+          message: 'Could not create the registration link.',
           requestId: error instanceof BackendApiError ? error.requestId || '' : '',
         },
       };
     } finally {
       if ($tenantIdStore === tenantId) creatingShareableLinkForEventId = '';
     }
-  }
-
-  function startRegistrationEmailFromShareDialog() {
-    const event = shareDialogEvent;
-    onStartRegistrationEmail({
-      eventId: event.id,
-      eventTitle: event.title,
-    });
-    shareDialogEvent = null;
   }
 
   async function copyShareableRegistrationLink(eventId: string) {
@@ -548,9 +539,9 @@ import {
     try {
       if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
       await navigator.clipboard.writeText(link);
-      shareableLinkCopyMessage = 'Registration link copied.';
+      shareableLinkCopyMessage = 'Link copied.';
     } catch {
-      shareableLinkCopyMessage = 'Copy the registration link shown below.';
+      shareableLinkCopyMessage = 'Copy the link shown above.';
     }
   }
 
@@ -736,15 +727,21 @@ import {
 
 {#if shareDialogEvent}
   <div class="crm-ui-modal-root">
-    <div class="crm-ui-modal-shell items-center">
+    <div class="crm-ui-modal-shell">
       <div class="crm-ui-modal-panel-lg">
         <div class="crm-ui-modal-body">
-          <button class="crm-ui-button-secondary float-right" on:click={() => shareDialogEvent = null}>×</button>
+          <button class="crm-ui-button-secondary" on:click={() => shareDialogEvent = null}>×</button>
           <h3 class="crm-ui-modal-title">Share {shareDialogEvent.title}</h3>
-          <p class="crm-ui-field break-all">{shareableRegistrationLinks[shareDialogEvent.id].url}</p>
-          <div class="crm-ui-between mt-5">
+          <p class="crm-ui-field">{shareableRegistrationLinks[shareDialogEvent.id].url}</p>
+          <div class="crm-ui-between">
             <button class="crm-ui-button-secondary" on:click={() => navigator.clipboard?.writeText(shareableRegistrationLinks[shareDialogEvent.id].url)}>Copy link</button>
-            <button class="crm-ui-button-primary" on:click={startRegistrationEmailFromShareDialog}>Send link</button>
+            <button
+              class="crm-ui-button-primary"
+              on:click={() => {
+                onStartRegistrationEmail({ eventId: shareDialogEvent.id, eventTitle: shareDialogEvent.title });
+                shareDialogEvent = null;
+              }}
+            >Send link</button>
           </div>
         </div>
       </div>
