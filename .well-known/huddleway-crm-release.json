@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "releaseId": "manual-202608061356",
+  "releaseId": "manual-202608061408",
   "mode": "single-developer",
-  "websiteCommit": "43dc64f92fd48ee9e113e8d09ad0470738d6da7e",
+  "websiteCommit": "98c2980abaaf5d5d43f083a1b47800bbe81d7006",
   "backendCommit": "2baf811c6c09e6718e18085ca80f5706d2b4aa1a",
-  "rollbackArtifactSha256": "23378523515326fb2dce9829d5e11992d87caf90253f8d6c040ef597fbef410c"
+  "rollbackArtifactSha256": "95529e35685cfe7ae8900de91b15bb652410f74b9b6269a60bc7295408f7e7f0"
 }
