@@ -287,10 +287,6 @@
           <h3 class="text-xl font-semibold leading-6 text-gray-900" id="modal-title">
             Add More Dates to "{event.title}"
           </h3>
-          <p class="crm-ui-notice-card mt-2">
-            Added dates are created as drafts. Publishing requires a separate reviewed action and consumer page synchronization.
-          </p>
-
           <div class="mt-6">
             <RecurrenceSelector bind:selectedDateKeys />
           </div>

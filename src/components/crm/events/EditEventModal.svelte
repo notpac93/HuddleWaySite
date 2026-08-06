@@ -10,6 +10,7 @@
 
   export let event: any = null;
   export let teams: Record<string, string> = {};
+  export let registrationForms: any[] = [];
   export let seriesSize = 0;
   export let projectionComplete = true;
 
@@ -19,6 +20,7 @@
   let location = event ? event.location || '' : '';
   let teamId = event ? event.teamId || '' : '';
   let lifecycleStatus = event ? event.lifecycleStatus || 'draft' : 'draft';
+  let registrationFormId = event ? event.registrationFormId || '' : '';
   let imageUrl = event ? event.imageUrl || '' : '';
   let imageFile: File | null = null;
   let imageValidationMessage = '';
@@ -49,12 +51,16 @@
   let currentPayloadSignature = '';
   let operationGeneration = 0;
   const originalLifecycleStatus = lifecycleStatus;
+  const originalRegistrationFormId = registrationFormId;
   const validLifecycleStatuses = new Set(['draft', 'published', 'archived']);
   const publishConfirmationText = 'PUBLISH EVENT';
   let publishConfirmation = '';
   $: publishConfirmationRequired =
     lifecycleStatus === 'published'
     && originalLifecycleStatus !== 'published';
+  $: registrationChangeRequired = registrationFormId !== originalRegistrationFormId;
+  let registrationChangeConfirmed = false;
+  $: if (!registrationChangeRequired) registrationChangeConfirmed = false;
   $: if (!publishConfirmationRequired && publishConfirmation) {
     publishConfirmation = '';
   }
@@ -66,6 +72,7 @@
     location: location.trim(),
     teamId,
     lifecycleStatus,
+    registrationFormId,
     imageUrl: imageUrl.trim(),
     imageFile: imageFile
       ? { name: imageFile.name, type: imageFile.type, size: imageFile.size }
@@ -124,6 +131,14 @@
       errorMessage = 'Choose a valid event lifecycle status before saving.';
       return;
     }
+    if (!registrationFormId) {
+      errorMessage = 'Select a registration form before saving the event.';
+      return;
+    }
+    if (registrationChangeRequired && !registrationChangeConfirmed) {
+      errorMessage = 'Confirm the registration form change before saving.';
+      return;
+    }
     imageValidationMessage = validateImageFile(imageFile);
     if (imageValidationMessage) {
       return;
@@ -173,6 +188,7 @@
         title: title.trim(),
         location: location.trim(),
         teamId,
+        registrationFormId,
         applyToSeries: applyToSeries && Boolean(event.eventSeriesId),
       };
       if (lifecycleStatus !== originalLifecycleStatus) {
@@ -364,6 +380,31 @@
           </div>
         </div>
 
+        <div>
+          <label for="registration-form-select" class="crm-ui-label-caps">Registration Form *</label>
+          <select
+            id="registration-form-select"
+            bind:value={registrationFormId}
+            on:change={() => registrationChangeConfirmed = false}
+            class="crm-ui-input-teal"
+          >
+            <option value="" disabled>Select a registration form</option>
+            {#each registrationForms as form}
+              <option value={form.id}>{form.title}</option>
+            {/each}
+          </select>
+          {#if registrationChangeRequired}
+            <div class="mt-2 rounded-md border border-blue-200 bg-blue-50 p-2 text-xs text-blue-900">
+              <span>Existing registrations stay linked.</span>
+              {#if !registrationChangeConfirmed}
+                <button type="button" class="ml-2 crm-ui-button-secondary text-xs" on:click={() => registrationChangeConfirmed = true}>Confirm change</button>
+              {:else}
+                <span class="ml-2 font-semibold text-green-700" role="status">Confirmed.</span>
+              {/if}
+            </div>
+          {/if}
+        </div>
+
         {#if publishConfirmationRequired}
           <div class="rounded-md border border-amber-300 bg-amber-50 p-3">
             <p class="text-sm font-semibold text-amber-950">
@@ -426,6 +467,7 @@
               publishConfirmationRequired
               && publishConfirmation !== publishConfirmationText
             )
+            || (registrationChangeRequired && !registrationChangeConfirmed)
           }
           idleText="Save Event Changes"
           loadingText="Saving..."

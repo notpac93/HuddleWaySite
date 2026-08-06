@@ -62,6 +62,7 @@ vi.mock('../../src/lib/services/DataStore', async () => {
         teamId: 'team-1',
         eventSeriesId: 'series-1',
         isMultiDateSeries: false,
+        registrationFormId: 'form-1',
       },
     ]),
     registrationsStore: writable([]),
@@ -74,13 +75,16 @@ vi.mock('../../src/lib/services/DataStore', async () => {
 });
 
 vi.mock('../../src/lib/services/RegistrationService', () => ({
-    RegistrationService: {
+      RegistrationService: {
       subscribeToForms: vi.fn((
         _tenantId: string,
         onForms: (forms: unknown[]) => void,
         _onError: (error: unknown) => void,
       ) => {
-        onForms([]);
+        onForms([
+          { id: 'form-1', title: 'Event registration', status: 'Open' },
+          { id: 'form-2', title: 'Updated event registration', status: 'Open' },
+        ]);
         return () => {};
       }),
   },
@@ -128,6 +132,7 @@ const openingPractice = {
   teamId: 'team-1',
   eventSeriesId: 'series-1',
   isMultiDateSeries: false,
+  registrationFormId: 'form-1',
 };
 
 function deferred<T>() {
@@ -235,15 +240,15 @@ describe('event mutation family', () => {
     const input = screen.getByLabelText('Import events CSV');
     expect(input).toHaveAttribute('accept', '.csv,text/csv');
     const file = new File([
-      'title,date,start_time,end_time,team,type,location\n'
-      + 'Tryouts,2030-08-20,18:00,19:00,team-1,Tryout,Main Gym\n',
+      'title,date,start_time,end_time,team,registration_form_id,type,location\n'
+      + 'Tryouts,2030-08-20,18:00,19:00,team-1,form-1,Tryout,Main Gym\n',
     ], 'tryouts.csv', { type: 'text/csv' });
     // jsdom's File does not implement the browser File.text() API used by the
     // import path, so supply the native-browser equivalent for this test.
     Object.defineProperty(file, 'text', {
       value: async () =>
-        'title,date,start_time,end_time,team,type,location\n'
-        + 'Tryouts,2030-08-20,18:00,19:00,team-1,Tryout,Main Gym\n',
+        'title,date,start_time,end_time,team,registration_form_id,type,location\n'
+        + 'Tryouts,2030-08-20,18:00,19:00,team-1,form-1,Tryout,Main Gym\n',
     });
     await fireEvent.change(input, { target: { files: [file] } });
 
@@ -382,6 +387,7 @@ describe('event mutation family', () => {
     });
 
     expect(screen.getByText('4:00 PM - 5:30 PM')).toBeVisible();
+    expect(screen.queryByText(/Added dates are created as drafts/)).toBeNull();
     await fireEvent.click(
       screen.getByRole('button', { name: 'Select specific days' }),
     );
@@ -433,6 +439,7 @@ describe('event mutation family', () => {
         location: 'Field One',
         teamId: 'team-1',
         lifecycleStatus: 'draft',
+        registrationFormId: 'form-1',
       },
       teams: { 'team-1': 'Tigers' },
     });
@@ -472,6 +479,7 @@ describe('event mutation family', () => {
         location: 'Field One',
         teamId: 'team-1',
         lifecycleStatus: 'draft',
+        registrationFormId: 'form-1',
       },
       teams: { 'team-1': 'Tigers' },
     });
@@ -500,6 +508,29 @@ describe('event mutation family', () => {
       expect.objectContaining({ lifecycleStatus: 'published' }),
       'Event updated from CRM.',
       expect.stringContaining('event-update:'),
+    );
+  });
+
+  it('requires confirmation before changing an event registration form', async () => {
+    backendMocks.updateEvent.mockResolvedValue({
+      id: 'event-1',
+      eventIds: ['event-1'],
+      updatedCount: 1,
+      publicationSyncStatus: 'not_required',
+    });
+    render(TestedEventScheduler);
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    await fireEvent.change(screen.getByLabelText('Registration Form *'), {
+      target: { value: 'form-2' },
+    });
+    expect(screen.getByRole('button', { name: 'Confirm change' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Save Event Changes' })).toBeDisabled();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Confirm change' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Save Event Changes' }));
+    await waitFor(() => expect(backendMocks.updateEvent).toHaveBeenCalledTimes(1));
+    expect(backendMocks.updateEvent.mock.calls[0][2]).toEqual(
+      expect.objectContaining({ registrationFormId: 'form-2' }),
     );
   });
 

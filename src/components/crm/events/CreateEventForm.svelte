@@ -59,6 +59,7 @@
         (forms) => {
           if (loadedRegistrationTenant !== subscribedTenant) return;
           registrationForms = forms;
+          if (!selectedFormId && forms.length > 0) selectedFormId = forms[0].id;
         },
         () => {
           if (loadedRegistrationTenant !== subscribedTenant) return;
@@ -286,6 +287,11 @@
     if (selectedDateKeys.length * timeSlots.length > 200) {
       errorMessage = 'Create at most 200 event occurrences at a time.';
       currentStep = 2;
+      return;
+    }
+    if (!selectedFormId) {
+      errorMessage = 'Select or create a registration form before saving the event.';
+      currentStep = 3;
       return;
     }
     const generation = ++operationGeneration;
@@ -588,7 +594,7 @@
               <label for="event-registration-form" class="block text-sm font-medium text-gray-700 mb-1">Registration Form</label>
               <p class="text-xs text-gray-500 mb-2">Select a registration form to attach to this event, or create a new one.</p>
               <select id="event-registration-form" bind:value={selectedFormId} on:change={handleFormSelectionChange} class="crm-ui-input-teal-wide">
-                <option value="">-- No Registration Needed --</option>
+                <option value="" disabled>Select a registration form</option>
                 {#each registrationForms as form}
                   <option value={form.id}>{form.title}</option>
                 {/each}

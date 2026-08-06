@@ -1527,6 +1527,7 @@ export class BackendApi {
       endAt?: string;
       timeZone?: string;
       seasonId?: string | null;
+      registrationFormId?: string | null;
       applyToSeries?: boolean;
     },
     auditReason: string,

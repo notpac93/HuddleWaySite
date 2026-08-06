@@ -19,6 +19,7 @@ import {
   import { backendClient } from '../../lib/api/backendClient';
   import { BackendApiError, createIdempotencyKey } from '../../lib/api/BackendApi';
   import { registrationOutreachApi } from '../../lib/api/RegistrationOutreachApi';
+  import { RegistrationService } from '../../lib/services/RegistrationService';
   import { onDestroy, tick } from 'svelte';
   import CreateEventForm from './events/CreateEventForm.svelte';
   import EditEventModal from './events/EditEventModal.svelte';
@@ -81,6 +82,9 @@ import {
 
   let activeTab = 'Upcoming'; // 'Upcoming' or 'Past'
   let teams: Record<string, string> = {};
+  let registrationForms: any[] = [];
+  let loadedRegistrationTenant = '';
+  let unsubscribeRegistrationForms = () => {};
   let consumedTargetId = '';
   let exactEventRegistrationCounts: Record<string, number | null> = {};
   let exactEventCountSignature = '';
@@ -181,6 +185,23 @@ import {
       team.name || 'Team name unavailable',
     ]),
   );
+  $: if (($tenantIdStore || '') !== loadedRegistrationTenant) {
+    loadedRegistrationTenant = $tenantIdStore || '';
+    unsubscribeRegistrationForms();
+    unsubscribeRegistrationForms = () => {};
+    registrationForms = [];
+    if (loadedRegistrationTenant) {
+      const subscribedTenant = loadedRegistrationTenant;
+      unsubscribeRegistrationForms = RegistrationService.subscribeToForms(
+        subscribedTenant,
+        (forms) => {
+          if (loadedRegistrationTenant !== subscribedTenant) return;
+          registrationForms = forms;
+        },
+        () => {},
+      );
+    }
+  }
   $: selectedTeamId = activeTeam
     ? String(
         typeof activeTeam === 'object'
@@ -321,9 +342,9 @@ import {
     try {
       const csv = parseCsv(await file.text());
       const headers = csv.headers.map(normalizeCsvHeader);
-      const required = ['title', 'date', 'starttime', 'endtime', 'team'];
+      const required = ['title', 'date', 'starttime', 'endtime', 'team', 'registrationformid'];
       if (required.some((header) => !headers.includes(header)) || !csv.rows.length || csv.rows.length > 200) {
-        throw new Error('Use title, date, start_time, end_time, and team ID columns; upload 1–200 events.');
+        throw new Error('Use title, date, start_time, end_time, team ID, and registration_form_id columns; upload 1–200 events.');
       }
       const key = createIdempotencyKey('crm-event-csv-import');
       const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -339,7 +360,7 @@ import {
           location: row.location || '',
           notes: row.notes || '',
           seasonId: null,
-          registrationFormId: null,
+          registrationFormId: row.registrationformid,
           publishMode: 'draft',
         }, 'Event draft imported from CSV.', `${key}:${index}`);
       }
@@ -583,6 +604,10 @@ import {
       );
       return;
     }
+    if (!evt.registrationFormId) {
+      failInlineEdit('Select a registration form before saving the event.');
+      return;
+    }
     if (inlineEditEndTime <= inlineEditTime) {
       failInlineEdit('Event end time must be later than its start time.');
       return;
@@ -632,6 +657,7 @@ import {
         title: inlineEditTitle.trim(),
         location: inlineEditLocation.trim(),
         teamId: inlineEditTeamId,
+        registrationFormId: evt.registrationFormId,
         applyToSeries: inlineEditApplyToSeries && Boolean(evt.eventSeriesId),
       };
       if (inlineEditStatus !== originalInlineStatus) {
@@ -722,6 +748,7 @@ import {
 
   onDestroy(() => {
     inlineOperationGeneration += 1;
+    unsubscribeRegistrationForms();
   });
 </script>
 
@@ -760,6 +787,7 @@ import {
   <EditEventModal
     bind:event={editingEvent}
     {teams}
+    registrationForms={registrationForms}
     seriesSize={editingEvent.eventSeriesId
       ? events.filter((event) => event.eventSeriesId === editingEvent.eventSeriesId).length
       : 1}
@@ -898,6 +926,11 @@ import {
                 {event.location || 'Location unavailable'}
               </span>
             </div>
+            <p class="mt-2 text-xs font-medium {event.registrationFormId ? 'text-gray-500' : 'text-amber-700'}">
+              Registration:
+              {registrationForms.find((form) => String(form.id) === String(event.registrationFormId))?.title
+                || (event.registrationFormId ? 'Linked form unavailable' : 'Not linked')}
+            </p>
           </div>
 
           <div class="flex items-center gap-4">
@@ -1101,6 +1134,12 @@ import {
                     </select>
                   </div>
                 </div>
+
+                <p class="rounded-md border border-gray-200 bg-white p-3 text-sm text-gray-700">
+                  Registration form:
+                  <span class="font-semibold">{registrationForms.find((form) => String(form.id) === String(event.registrationFormId))?.title || (event.registrationFormId ? 'Linked form unavailable' : 'Not linked')}</span>
+                  <span class="ml-1 text-xs text-gray-500">Use Edit to change it.</span>
+                </p>
 
                 <div>
                   <label for={`inline-event-status-${event.id}`} class="crm-ui-label-caps-sm">Publish Status</label>
