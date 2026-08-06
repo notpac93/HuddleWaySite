@@ -13,6 +13,7 @@ const backendMocks = vi.hoisted(() => ({
   createEventSeries: vi.fn(),
   duplicateEvent: vi.fn(),
   updateEvent: vi.fn(),
+  crmOperationalPage: vi.fn(),
   uploadImageAsset: vi.fn(),
   publishImageAsset: vi.fn(),
 }));
@@ -165,6 +166,12 @@ describe('event mutation family', () => {
     registrationRecords.set([]);
     registrationScope.set(healthyScope);
     for (const mock of Object.values(backendMocks)) mock.mockReset();
+    backendMocks.crmOperationalPage.mockResolvedValue({
+      records: [
+        { id: 'form-1', title: 'Event registration' },
+        { id: 'form-2', title: 'Updated event registration' },
+      ],
+    });
     registrationOutreachMocks.createShareableLink.mockReset();
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
