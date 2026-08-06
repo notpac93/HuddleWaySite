@@ -47,7 +47,9 @@
   let previewDraftRetryTimers: number[] = [];
 
   const previewBaseUrl = resolveCrmAppPreviewUrl(publicEnvironment);
-  const previewBuild = resolveWebsiteCommit(publicEnvironment);
+  // Keep the embedded app shell cache-busted even for a manually built release
+  // that does not carry the optional website commit metadata.
+  const previewBuild = resolveWebsiteCommit(publicEnvironment) || 'crm-live';
 
   let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
 
