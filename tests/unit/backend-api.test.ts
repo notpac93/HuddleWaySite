@@ -443,7 +443,7 @@ describe('BackendApi', () => {
     );
   });
 
-  it('fails closed before fetch when required App Check is unavailable', async () => {
+  it('fails closed before fetch when a mutation cannot acquire required App Check', async () => {
     const fetchMock = vi.fn();
     const api = new BackendApi({
       baseUrl: 'https://api.example.test',
@@ -453,10 +453,40 @@ describe('BackendApi', () => {
       requireAppCheck: true,
     });
 
-    await expect(api.billingHistory('fixture-tenant')).rejects.toThrow(
+    await expect(
+      api.request('/crm/test-mutation', { method: 'POST', body: {} }),
+    ).rejects.toThrow(
       'App Check verification is required.',
     );
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps read-only requests available when App Check cannot be acquired', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      response(200, { tenantId: 'fixture-tenant', teams: [], requestId: 'read-request' }),
+    );
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'id-token',
+      getAppCheckToken: async () => {
+        throw new Error('App Check token is unavailable in this browser.');
+      },
+      requireAppCheck: true,
+    });
+
+    await expect(
+      api.request('/crm/teams', { query: { tenantId: 'fixture-tenant' } }),
+    ).resolves.toEqual({
+      tenantId: 'fixture-tenant',
+      teams: [],
+      requestId: 'read-request',
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][1].headers).toMatchObject({
+      Authorization: 'Bearer id-token',
+    });
+    expect(fetchMock.mock.calls[0][1].headers['X-Firebase-AppCheck']).toBeUndefined();
   });
 
   it('reads roster and redacted audit projections through tenant-scoped routes', async () => {

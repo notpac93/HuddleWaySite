@@ -855,6 +855,12 @@ export class BackendApi {
       }
     }
     const requestId = this.createRequestId();
+    const method = options.method ?? 'GET';
+    const requiresAppCheckForRequest =
+      method === 'POST'
+      || method === 'PUT'
+      || method === 'PATCH'
+      || method === 'DELETE';
 
     const execute = async (forceRefresh: boolean) => {
       const controller = new AbortController();
@@ -865,14 +871,19 @@ export class BackendApi {
       try {
         const token = (await this.getIdToken(forceRefresh)).trim();
         if (!token) throw new Error('An authenticated session is required.');
-        const appCheckToken = this.getAppCheckToken
-          ? (await this.getAppCheckToken(forceRefresh)).trim()
-          : '';
-        if (this.requireAppCheck && !appCheckToken) {
+        let appCheckToken = '';
+        if (this.getAppCheckToken) {
+          try {
+            appCheckToken = (await this.getAppCheckToken(forceRefresh)).trim();
+          } catch (error) {
+            if (requiresAppCheckForRequest) throw error;
+          }
+        }
+        if (this.requireAppCheck && requiresAppCheckForRequest && !appCheckToken) {
           throw new Error('App Check verification is required.');
         }
         const response = await this.fetchImplementation(url, {
-          method: options.method ?? 'GET',
+          method,
           headers: {
             Authorization: `Bearer ${token}`,
             ...(appCheckToken
