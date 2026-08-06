@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onDestroy } from 'svelte';
+  import { createEventDispatcher, onDestroy, onMount } from 'svelte';
   import { tenantIdStore } from '../../../lib/authStore';
   import { backendClient } from '../../../lib/api/backendClient';
   import { BackendApiError, createIdempotencyKey, type CrmEventOccurrenceInput } from '../../../lib/api/BackendApi';
@@ -10,7 +10,6 @@
 
   export let event: any = null;
   export let teams: Record<string, string> = {};
-  export let registrationForms: any[] = [];
   export let seriesSize = 0;
   export let projectionComplete = true;
 
@@ -50,8 +49,9 @@
   let payloadSignature = '';
   let currentPayloadSignature = '';
   let operationGeneration = 0;
+  let registrationForms: any[] = [];
   const originalLifecycleStatus = lifecycleStatus;
-  const originalRegistrationFormId = registrationFormId;
+  let originalRegistrationFormId = registrationFormId;
   const validLifecycleStatuses = new Set(['draft', 'published', 'archived']);
   const publishConfirmationText = 'PUBLISH EVENT';
   let publishConfirmation = '';
@@ -63,6 +63,17 @@
   $: if (!registrationChangeRequired) registrationChangeConfirmed = false;
   $: if (!publishConfirmationRequired && publishConfirmation) {
     publishConfirmation = '';
+  }
+  onMount(() => {
+    void backendClient.crmOperationalPage($tenantIdStore, 'registration_forms', { limit: 500 })
+      .then(({ records }) => {
+        registrationForms = records;
+      })
+      .catch(() => {});
+  });
+
+  function handleRegistrationChange() {
+    registrationChangeConfirmed = false;
   }
 
   $: currentPayloadSignature = JSON.stringify({
@@ -385,7 +396,7 @@
           <select
             id="registration-form-select"
             bind:value={registrationFormId}
-            on:change={() => registrationChangeConfirmed = false}
+            on:change={handleRegistrationChange}
             class="crm-ui-input-teal"
           >
             <option value="" disabled>Select a registration form</option>
@@ -394,12 +405,10 @@
             {/each}
           </select>
           {#if registrationChangeRequired}
-            <div class="mt-2 rounded-md border border-blue-200 bg-blue-50 p-2 text-xs text-blue-900">
-              <span>Existing registrations stay linked.</span>
+            <div class="mt-2 text-xs text-blue-900">
+              Existing registrations remain linked.
               {#if !registrationChangeConfirmed}
                 <button type="button" class="ml-2 crm-ui-button-secondary text-xs" on:click={() => registrationChangeConfirmed = true}>Confirm change</button>
-              {:else}
-                <span class="ml-2 font-semibold text-green-700" role="status">Confirmed.</span>
               {/if}
             </div>
           {/if}

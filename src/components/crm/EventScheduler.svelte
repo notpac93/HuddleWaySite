@@ -19,7 +19,6 @@ import {
   import { backendClient } from '../../lib/api/backendClient';
   import { BackendApiError, createIdempotencyKey } from '../../lib/api/BackendApi';
   import { registrationOutreachApi } from '../../lib/api/RegistrationOutreachApi';
-  import { RegistrationService } from '../../lib/services/RegistrationService';
   import { onDestroy, tick } from 'svelte';
   import CreateEventForm from './events/CreateEventForm.svelte';
   import EditEventModal from './events/EditEventModal.svelte';
@@ -82,9 +81,6 @@ import {
 
   let activeTab = 'Upcoming'; // 'Upcoming' or 'Past'
   let teams: Record<string, string> = {};
-  let registrationForms: any[] = [];
-  let loadedRegistrationTenant = '';
-  let unsubscribeRegistrationForms = () => {};
   let consumedTargetId = '';
   let exactEventRegistrationCounts: Record<string, number | null> = {};
   let exactEventCountSignature = '';
@@ -185,23 +181,6 @@ import {
       team.name || 'Team name unavailable',
     ]),
   );
-  $: if (($tenantIdStore || '') !== loadedRegistrationTenant) {
-    loadedRegistrationTenant = $tenantIdStore || '';
-    unsubscribeRegistrationForms();
-    unsubscribeRegistrationForms = () => {};
-    registrationForms = [];
-    if (loadedRegistrationTenant) {
-      const subscribedTenant = loadedRegistrationTenant;
-      unsubscribeRegistrationForms = RegistrationService.subscribeToForms(
-        subscribedTenant,
-        (forms) => {
-          if (loadedRegistrationTenant !== subscribedTenant) return;
-          registrationForms = forms;
-        },
-        () => {},
-      );
-    }
-  }
   $: selectedTeamId = activeTeam
     ? String(
         typeof activeTeam === 'object'
@@ -748,7 +727,6 @@ import {
 
   onDestroy(() => {
     inlineOperationGeneration += 1;
-    unsubscribeRegistrationForms();
   });
 </script>
 
@@ -787,7 +765,6 @@ import {
   <EditEventModal
     bind:event={editingEvent}
     {teams}
-    registrationForms={registrationForms}
     seriesSize={editingEvent.eventSeriesId
       ? events.filter((event) => event.eventSeriesId === editingEvent.eventSeriesId).length
       : 1}
@@ -927,9 +904,7 @@ import {
               </span>
             </div>
             <p class="mt-2 text-xs font-medium {event.registrationFormId ? 'text-gray-500' : 'text-amber-700'}">
-              Registration:
-              {registrationForms.find((form) => String(form.id) === String(event.registrationFormId))?.title
-                || (event.registrationFormId ? 'Linked form unavailable' : 'Not linked')}
+              Registration: {event.registrationFormId ? 'Linked' : 'Not linked'}
             </p>
           </div>
 
@@ -1134,12 +1109,6 @@ import {
                     </select>
                   </div>
                 </div>
-
-                <p class="rounded-md border border-gray-200 bg-white p-3 text-sm text-gray-700">
-                  Registration form:
-                  <span class="font-semibold">{registrationForms.find((form) => String(form.id) === String(event.registrationFormId))?.title || (event.registrationFormId ? 'Linked form unavailable' : 'Not linked')}</span>
-                  <span class="ml-1 text-xs text-gray-500">Use Edit to change it.</span>
-                </p>
 
                 <div>
                   <label for={`inline-event-status-${event.id}`} class="crm-ui-label-caps-sm">Publish Status</label>

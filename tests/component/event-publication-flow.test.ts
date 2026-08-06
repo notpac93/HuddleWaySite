@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const backendMocks = vi.hoisted(() => ({
   updateEvent: vi.fn(),
+  crmOperationalPage: vi.fn(),
 }));
 
 vi.mock('../../src/lib/api/backendClient', () => ({
@@ -69,6 +70,7 @@ describe('event publication flow', () => {
       id: 'event-1',
       updatedCount: 1,
     });
+    backendMocks.crmOperationalPage.mockResolvedValue({ records: [] });
     render(TestedEventScheduler);
 
     await fireEvent.click(
