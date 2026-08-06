@@ -22,13 +22,27 @@ const emptyCollectionProjection: CollectionProjection = {
   permissionDenied: false,
 };
 
+const projectionRefreshSignals = new Map<
+  CrmOperationalCollection,
+  () => void
+>();
+
+export function refreshOperationalCollections(
+  collectionNames: CrmOperationalCollection[],
+) {
+  for (const collectionName of collectionNames) {
+    projectionRefreshSignals.get(collectionName)?.();
+  }
+}
+
 function tenantCollectionProjectionStore(
   collectionName: CrmOperationalCollection,
 ): Readable<CollectionProjection> {
   return readable<CollectionProjection>(emptyCollectionProjection, (set) => {
     let disposed = false;
     let generation = 0;
-    const unsubscribeTenant = tenantIdStore.subscribe((tenantId) => {
+
+    const loadProjection = (tenantId: string | null) => {
       const currentGeneration = ++generation;
       set({
         ...emptyCollectionProjection,
@@ -87,12 +101,20 @@ function tenantCollectionProjectionStore(
           });
         }
       })();
+    };
+
+    projectionRefreshSignals.set(collectionName, () => {
+      loadProjection(get(tenantIdStore));
+    });
+    const unsubscribeTenant = tenantIdStore.subscribe((tenantId) => {
+      loadProjection(tenantId);
     });
 
     return () => {
       disposed = true;
       generation += 1;
       unsubscribeTenant();
+      projectionRefreshSignals.delete(collectionName);
     };
   });
 }

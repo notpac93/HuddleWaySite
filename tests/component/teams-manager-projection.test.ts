@@ -34,10 +34,12 @@ vi.mock('../../src/lib/services/DataStore', async () => {
       error: '',
       permissionDenied: false,
     }),
+    refreshOperationalCollections: vi.fn(),
   };
 });
 
 import {
+  refreshOperationalCollections,
   teamsProjectionScope,
   teamsStore,
 } from '../../src/lib/services/DataStore';
@@ -179,5 +181,10 @@ describe('TeamsManager complete projection states', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Delete Falcons?' })).toBeNull();
     });
+    expect(refreshOperationalCollections).toHaveBeenCalledWith([
+      'teams',
+      'events',
+      'seasons',
+    ]);
   });
 });

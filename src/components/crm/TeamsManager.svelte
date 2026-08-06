@@ -9,6 +9,7 @@
   import {
     teamsProjectionScope,
     teamsStore,
+    refreshOperationalCollections,
   } from '../../lib/services/DataStore';
   import CreateTeamForm from './teams/CreateTeamForm.svelte';
 
@@ -62,6 +63,7 @@
         `Delete ${teamName} and archive its linked team content.`,
         deleteOperationKey || createIdempotencyKey('team-delete'),
       );
+      refreshOperationalCollections(['teams', 'events', 'seasons']);
       pendingDeleteTeam = null;
       deleteState = 'idle';
       deleteOperationKey = '';
@@ -109,30 +111,32 @@
       disabled={deleteState === 'loading'}
       on:click={cancelDelete}
     ></button>
-    <span class="crm-ui-modal-spacer" aria-hidden="true">&#8203;</span>
-    <div class="relative z-10 inline-block w-full max-w-md overflow-hidden rounded-lg bg-white text-left align-bottom shadow-xl sm:my-8 sm:align-middle">
-      <div class="px-6 pb-4 pt-5">
-        <h3 id="delete-team-title" class="text-lg font-semibold text-gray-900">Delete {pendingDeleteTeam.name}?</h3>
-        <p class="mt-2 text-sm text-gray-600">
-          This removes the team page and navigation entry, archives linked events and messages, and keeps historical season records intact.
-        </p>
-        {#if deleteError}
-          <p class="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700" role="alert">{deleteError}</p>
-        {/if}
-      </div>
-      <div class="flex flex-col-reverse gap-3 bg-gray-50 px-6 py-4 sm:flex-row sm:justify-end">
-        <button
-          type="button"
-          class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-wait disabled:opacity-50"
-          disabled={deleteState === 'loading'}
-          on:click={cancelDelete}
-        >Cancel</button>
-        <button
-          type="button"
-          class="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-wait disabled:opacity-50"
-          disabled={deleteState === 'loading'}
-          on:click={confirmDelete}
-        >{deleteState === 'loading' ? 'Deleting…' : deleteState === 'error' ? 'Retry Delete' : 'Delete Team'}</button>
+    <div class="crm-ui-modal-shell">
+      <span class="crm-ui-modal-spacer" aria-hidden="true">&#8203;</span>
+      <div class="relative z-10 inline-block w-full max-w-md overflow-hidden rounded-lg bg-white text-left align-bottom shadow-xl sm:my-8 sm:align-middle">
+        <div class="px-6 pb-4 pt-5">
+          <h3 id="delete-team-title" class="text-lg font-semibold text-gray-900">Delete {pendingDeleteTeam.name}?</h3>
+          <p class="mt-2 text-sm text-gray-600">
+            This removes the team page and navigation entry, archives linked events and messages, and keeps historical season records intact.
+          </p>
+          {#if deleteError}
+            <p class="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700" role="alert">{deleteError}</p>
+          {/if}
+        </div>
+        <div class="flex flex-col-reverse gap-3 bg-gray-50 px-6 py-4 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-wait disabled:opacity-50"
+            disabled={deleteState === 'loading'}
+            on:click={cancelDelete}
+          >Cancel</button>
+          <button
+            type="button"
+            class="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-wait disabled:opacity-50"
+            disabled={deleteState === 'loading'}
+            on:click={confirmDelete}
+          >{deleteState === 'loading' ? 'Deleting…' : deleteState === 'error' ? 'Retry Delete' : 'Delete Team'}</button>
+        </div>
       </div>
     </div>
   </div>
