@@ -44,6 +44,7 @@ vi.mock('../../src/lib/services/DataStore', async () => {
         teamId: 'team-1',
         eventSeriesId: 'series-1',
         isMultiDateSeries: false,
+        registrationFormId: 'form-1',
       },
     ]),
     registrationsStore: writable([]),
