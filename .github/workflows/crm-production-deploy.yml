@@ -136,13 +136,13 @@ jobs:
 
       - name: Verify the published site and backend
         run: |
+          # Static-host propagation can take longer than the initial publish.
           node scripts/release/crm-single-developer-deploy.mjs verify-live \
             --origin "$HUDDLEWAY_PRODUCTION_ORIGIN" \
             --backend-health-url "$HUDDLEWAY_BACKEND_HEALTH_URL" \
             --website-commit "$HUDDLEWAY_WEBSITE_REF" \
             --backend-commit "$HUDDLEWAY_BACKEND_CONTRACT_REF" \
             --out "$DEPLOYMENT_RECEIPT_PATH" \
-            # Static-host propagation can take longer than the initial publish.
             --attempts 36 \
             --interval-ms 5000
 
