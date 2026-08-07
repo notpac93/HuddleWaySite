@@ -472,15 +472,15 @@ import {
 
   function shareableLinkAvailabilityMessage(event: any) {
     if (event.lifecycleStatus !== 'published') {
-      return 'Publish this event before creating a registration link.';
+      return 'Publish this event before sharing.';
     }
     if (event.isRegistrationEnabled !== true) {
-      return 'Attach and publish a registration form before creating a registration link.';
+      return 'Link a published registration form first.';
     }
     if (event.isVisible !== true) {
-      return 'Make this published event visible before creating a registration link.';
+      return 'Make this event visible before sharing.';
     }
-    return 'Registration is no longer live for this event.';
+    return 'Registration is no longer live.';
   }
 
   function shareableLinkExpirationLabel(expiresAt: string) {
@@ -525,7 +525,7 @@ import {
       shareableLinkErrors = {
         ...shareableLinkErrors,
         [eventId]: {
-          message: 'Could not create the registration link.',
+          message: 'Could not create the link.',
           requestId: error instanceof BackendApiError ? error.requestId || '' : '',
         },
       };
@@ -543,14 +543,8 @@ import {
       await navigator.clipboard.writeText(link);
       shareableLinkCopyMessage = 'Link copied.';
     } catch {
-      shareableLinkCopyMessage = 'Copy the link shown above.';
+      shareableLinkCopyMessage = 'Copy the link above.';
     }
-  }
-
-  function openDuplicateModal(event: any) {
-    if (inlineSaveState === 'loading') return;
-    eventToDuplicate = { ...event };
-    isDuplicateModalOpen = true;
   }
 
   async function saveInlineEdit(evt: any) {
@@ -967,22 +961,12 @@ import {
         {#if expandedEventId === event.id}
           <div class="border-t border-gray-200 bg-slate-50 p-6 space-y-4">
             <fieldset disabled={inlineSaveState === 'loading'} class="m-0 min-w-0 space-y-4 border-0 p-0">
-            <div class="crm-ui-between">
-              <h4 class="text-sm font-bold text-gray-900 uppercase">Editor</h4>
-
-            </div>
-
             <section class="rounded-lg border border-sky-200 bg-white p-4">
               <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  {#if !eventRegistrationIsLive(event)}
-                    <p class="mt-1 text-sm text-gray-600">{shareableLinkAvailabilityMessage(event)}</p>
-                  {/if}
-                </div>
-                  <button
-                    class="crm-ui-button-secondary"
-                    on:click={() => editingEvent = event}
-                  >Registration</button>
+                {#if !eventRegistrationIsLive(event)}
+                  <p class="text-sm text-gray-600">{shareableLinkAvailabilityMessage(event)}</p>
+                {/if}
+                <button class="crm-ui-button-secondary" on:click={() => editingEvent = event}>Registration</button>
                 {#if eventRegistrationIsLive(event)}
                   <button
                     type="button"
