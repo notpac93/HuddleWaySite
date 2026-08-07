@@ -12,6 +12,10 @@ const authMocks = vi.hoisted(() => ({
   emailCredential: vi.fn((email: string, password: string) => ({ email, password })),
 }));
 
+const backendMocks = vi.hoisted(() => ({
+  request: vi.fn(),
+}));
+
 vi.mock('firebase/auth', () => ({
   updateProfile: authMocks.updateProfile,
   updatePassword: authMocks.updatePassword,
@@ -25,20 +29,30 @@ vi.mock('../../src/lib/authStore', async () => {
   const { writable } = await import('svelte/store');
   return {
     userStore: writable(null),
+    activeTenantRole: writable('owner'),
+    tenantIdStore: writable('tenant-a'),
   };
 });
 
+vi.mock('../../src/lib/api/backendClient', () => ({
+  backendClient: backendMocks,
+}));
+
 vi.mock('../../src/lib/firebase', () => ({ auth: { name: 'test-auth' } }));
 
-import { userStore } from '../../src/lib/authStore';
+import { activeTenantRole, tenantIdStore, userStore } from '../../src/lib/authStore';
 import SettingsManager from '../../src/components/crm/SettingsManager.svelte';
+import StripeConnectManager from '../../src/components/crm/StripeConnectManager.svelte';
 
 const TestedSettingsManager = SettingsManager as unknown as Component;
+const TestedStripeConnectManager = StripeConnectManager as unknown as Component;
 const users = userStore as Writable<{
   uid: string;
   displayName: string | null;
   email: string | null;
 } | null>;
+const activeRoles = activeTenantRole as Writable<string | null>;
+const tenants = tenantIdStore as Writable<string>;
 
 describe('SettingsManager profile persistence', () => {
   beforeEach(() => {
@@ -48,6 +62,16 @@ describe('SettingsManager profile persistence', () => {
     authMocks.reauthenticate.mockReset();
     authMocks.verifyBeforeUpdateEmail.mockReset();
     authMocks.emailCredential.mockClear();
+    backendMocks.request.mockReset();
+    backendMocks.request.mockImplementation((path: string) => path.endsWith('/status') ? Promise.resolve({
+      connected: false,
+      stripeAccountId: null,
+      chargesEnabled: false,
+      payoutsEnabled: false,
+      requirementsDueCount: 0,
+    }) : Promise.resolve({}));
+    activeRoles.set('owner');
+    tenants.set('tenant-a');
     vi.spyOn(console, 'error').mockImplementation(() => {});
     users.set({
       uid: 'owner-a',
@@ -229,5 +253,59 @@ describe('SettingsManager profile persistence', () => {
     expect(screen.getByRole('button', { name: 'Change Password' })).toBeDisabled();
     expect(authMocks.reauthenticate).not.toHaveBeenCalled();
     expect(authMocks.updatePassword).not.toHaveBeenCalled();
+  });
+
+  it('surfaces the tenant Stripe connection when no account is connected', async () => {
+    render(TestedStripeConnectManager);
+
+    expect(await screen.findByText('Not connected')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Connect Stripe' })).toBeEnabled();
+    expect(screen.getByText(/same tenant connection for paid registration checkout/i)).toBeVisible();
+    expect(backendMocks.request).toHaveBeenCalledWith('/stripe/connect/status', { query: { tenantId: 'tenant-a' } });
+  });
+
+  it('starts the existing tenant onboarding workflow from Settings', async () => {
+    backendMocks.request.mockImplementation((path: string) => path.endsWith('/account-link')
+      ? Promise.resolve({ onboardingUrl: 'https://connect.stripe.com/setup/test' })
+      : Promise.resolve({
+        connected: false,
+        stripeAccountId: null,
+        chargesEnabled: false,
+        payoutsEnabled: false,
+        requirementsDueCount: 0,
+      }));
+    vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    render(TestedStripeConnectManager);
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'Connect Stripe' }));
+    await waitFor(() =>
+      expect(backendMocks.request).toHaveBeenCalledWith('/stripe/connect/account-link', { method: 'POST', body: { tenantId: 'tenant-a' }}),
+    );
+    expect(window.open).toHaveBeenCalledWith(
+      'https://connect.stripe.com/setup/test',
+      '_blank',
+      'noopener,noreferrer',
+    );
+  });
+
+  it('shows tenant management and disconnect controls for a connected account', async () => {
+    backendMocks.request.mockImplementation((path: string) => path.endsWith('/status')
+      ? Promise.resolve({
+        connected: true,
+        stripeAccountId: 'acct_1234567890',
+        chargesEnabled: true,
+        payoutsEnabled: true,
+        requirementsDueCount: 0,
+      })
+      : Promise.resolve({ disconnected: true }));
+    render(TestedStripeConnectManager);
+
+    expect(await screen.findByText('Ready for paid events')).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Confirm disconnect' }));
+    await waitFor(() =>
+      expect(backendMocks.request).toHaveBeenCalledWith('/stripe/connect/account', { method: 'DELETE', body: { tenantId: 'tenant-a' }}),
+    );
+    expect(await screen.findByText('Not connected')).toBeVisible();
   });
 });

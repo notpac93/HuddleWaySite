@@ -41,7 +41,6 @@
   function isValidEmail(value: string) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
   }
-
   function profileErrorMessage(error: unknown, emailChange = false) {
     const code = String((error as { code?: unknown })?.code || '');
     if (code.includes('requires-recent-login')) {
@@ -257,6 +256,12 @@
         </div>
       </form>
     </div>
+
+    <iframe
+      src="/admin/stripe/"
+      title="Stripe payments settings"
+      class="mt-6 w-full min-h-[430px] border-0"
+    ></iframe>
 
     <div class="max-w-3xl mt-6 bg-white shadow rounded-lg p-6">
       <h3 class="text-lg leading-6 font-medium text-gray-900">Change Password</h3>

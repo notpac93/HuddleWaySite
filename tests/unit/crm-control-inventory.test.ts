@@ -24,6 +24,7 @@ const reviewedControlCounts: Record<string, number> = {
   'MediaManager.svelte': 2,
   'MyAppStudio.svelte': 10,
   'SettingsManager.svelte': 6,
+  'StripeConnectManager.svelte': 7,
   'SetupWorkflow.svelte': 11,
   'StaffManager.svelte': 14,
   'TeamsManager.svelte': 7,
@@ -117,13 +118,14 @@ describe('exhaustive CRM control inventory', () => {
     );
 
     expect(actual).toEqual(reviewedControlCounts);
-    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(410);
+    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(417);
   });
 
   it('keeps every inventoried CRM component reachable from a production entry point', () => {
     const roots = [
       join(crmRoot, 'CrmApp.svelte'),
       join(crmRoot, 'SetupWorkflow.svelte'),
+      join(crmRoot, 'StripeConnectManager.svelte'),
     ];
     const reachable = new Set<string>();
     const pending = [...roots];

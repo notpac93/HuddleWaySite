@@ -1,0 +1,8 @@
+---
+import CrmLayout from '../../layouts/CrmLayout.astro';
+import StripeConnectManager from '../../components/crm/StripeConnectManager.svelte';
+---
+
+<CrmLayout title="Stripe payments settings - HuddleWay">
+  <StripeConnectManager client:load />
+</CrmLayout>
