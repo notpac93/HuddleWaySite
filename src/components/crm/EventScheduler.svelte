@@ -171,7 +171,8 @@ import {
             notes: data.notes || '',
             seasonId: data.seasonId || null,
             registrationFormId: data.registrationFormId || null,
-            isRegistrationEnabled: data.isRegistrationEnabled === true,
+            isRegistrationEnabled:
+              data.isRegistrationEnabled === true || Boolean(data.registrationFormId),
             isVisible: data.isVisible === true,
           };
   }

@@ -401,7 +401,7 @@
           >
             <option value="" disabled>Select a registration form</option>
             {#each registrationForms as form}
-              <option value={form.id}>{form.title}</option>
+              <option value={form.id}>{form.title || form.name || 'Registration form'}</option>
             {/each}
           </select>
           {#if registrationChangeRequired}
