@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "releaseId": "github-run-31215345194",
+  "releaseId": "github-run-31215888217",
   "mode": "single-developer",
   "websiteCommit": "332e18b3980b226da37628eada20ccbfb1d16bbe",
   "backendCommit": "f410744ce7d992376ff0173d59f0f024896fabb1",
-  "rollbackArtifactSha256": "91ed2c0c48adae019e12223523381351327c4cb0bc377416632974502f879c03"
+  "rollbackArtifactSha256": "cab3b4c517b334cb54337f5db40020e95b945feb999a071702491b8c9e9a1e3d"
 }
