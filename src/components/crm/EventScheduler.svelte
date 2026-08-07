@@ -24,7 +24,6 @@ import {
   import EditEventModal from './events/EditEventModal.svelte';
   import DuplicateEventModal from './events/DuplicateEventModal.svelte';
   import EventRegistrantsModal from './events/EventRegistrantsModal.svelte';
-  import { RegistrationService } from '../../lib/services/RegistrationService';
   import StatusButton from './ui/StatusButton.svelte';
   import ImageFilePicker from './ui/ImageFilePicker.svelte';
   import { validateImageFile } from '../../lib/media/imageUpload';
@@ -53,7 +52,6 @@ import {
   let inlineEditDate = '';
   let inlineEditTime = '16:00';
   let inlineEditEndTime = '18:00';
-  let inlineEditRegistrationFormId = '';
   let inlineEditApplyToSeries = false;
   let inlineImageFile: File | null = null;
   let inlineImageValidationMessage = '';
@@ -68,16 +66,10 @@ import {
   let currentInlinePayloadSignature = '';
   let inlineOperationGeneration = 0;
   let originalInlineStatus = '';
-  let originalInlineRegistrationFormId = '';
-  let inlineRegistrationChangeConfirmed = false;
-  let registrationForms: any[] = [];
-  let registrationFormsLoading = false;
-  let registrationFormsError = '';
-  let loadedRegistrationTenant = '';
-  let unsubscribeRegistrationForms = () => {};
   let inlinePublishConfirmation = '';
   let selectedDraftEventIds = new Set<string>();
   let publishingSelectedDrafts = false;
+
   let csvImporting = false;
   let csvImportMessage = '';
   let creatingShareableLinkForEventId = '';
@@ -214,43 +206,6 @@ import {
     creatingShareableLinkForEventId = '';
   }
 
-  $: if (($tenantIdStore || '') !== loadedRegistrationTenant) {
-    loadedRegistrationTenant = $tenantIdStore || '';
-    unsubscribeRegistrationForms();
-    unsubscribeRegistrationForms = () => {};
-    registrationForms = [];
-    registrationFormsError = '';
-    registrationFormsLoading = Boolean(loadedRegistrationTenant);
-    if (loadedRegistrationTenant) {
-      const subscribedTenant = loadedRegistrationTenant;
-      unsubscribeRegistrationForms = RegistrationService.subscribeToForms(
-        subscribedTenant,
-        (forms) => {
-          if (loadedRegistrationTenant !== subscribedTenant) return;
-          registrationForms = forms;
-          registrationFormsLoading = false;
-        },
-        () => {
-          if (loadedRegistrationTenant !== subscribedTenant) return;
-          registrationFormsLoading = false;
-          registrationFormsError = 'Registration forms could not be loaded.';
-        },
-      );
-    }
-  }
-
-  $: activeRegistrationForms = registrationForms.filter((form) =>
-    ['active', 'open'].includes(String(form.rawStatus || form.status || '').toLowerCase()),
-  );
-  function registrationFormLabel(formId: string | null | undefined) {
-    if (!formId) return 'Not linked';
-    const form = registrationForms.find((candidate) => candidate.id === formId);
-    return form?.title || form?.name || 'Linked';
-  }
-  $: inlineRegistrationChangeRequired =
-    inlineEditRegistrationFormId !== originalInlineRegistrationFormId;
-  $: if (!inlineRegistrationChangeRequired) inlineRegistrationChangeConfirmed = false;
-
   // Sort past events descending (newest past event first)
   $: pastEvents = events
     .filter(e => e.dateObj && e.dateObj < now)
@@ -290,8 +245,6 @@ import {
     inlineEditLocation,
     inlineEditTeamId,
     inlineEditStatus,
-    inlineEditRegistrationFormId,
-    inlineRegistrationChangeConfirmed,
     inlineEditDate,
     inlineEditTime,
     inlineEditEndTime,
@@ -485,9 +438,6 @@ import {
       inlineEditTeamId = evt.teamId || 'general';
       inlineEditStatus = evt.lifecycleStatus || 'published';
       originalInlineStatus = evt.lifecycleStatus || '';
-      inlineEditRegistrationFormId = evt.registrationFormId || '';
-      originalInlineRegistrationFormId = evt.registrationFormId || '';
-      inlineRegistrationChangeConfirmed = false;
       inlineEditDate = evt.dateObj
         ? localDateKey(new Date(evt.dateObj))
         : '';
@@ -635,14 +585,6 @@ import {
       );
       return;
     }
-    if (!inlineEditRegistrationFormId) {
-      failInlineEdit('Select a registration form before saving the event.');
-      return;
-    }
-    if (inlineRegistrationChangeRequired && !inlineRegistrationChangeConfirmed) {
-      failInlineEdit('Confirm the registration form change before saving.');
-      return;
-    }
     if (inlineEditEndTime <= inlineEditTime) {
       failInlineEdit('Event end time must be later than its start time.');
       return;
@@ -692,7 +634,7 @@ import {
         title: inlineEditTitle.trim(),
         location: inlineEditLocation.trim(),
         teamId: inlineEditTeamId,
-        registrationFormId: inlineEditRegistrationFormId,
+        registrationFormId: evt.registrationFormId,
         applyToSeries: inlineEditApplyToSeries && Boolean(evt.eventSeriesId),
       };
       if (inlineEditStatus !== originalInlineStatus) {
@@ -783,7 +725,6 @@ import {
 
   onDestroy(() => {
     inlineOperationGeneration += 1;
-    unsubscribeRegistrationForms();
   });
 </script>
 
@@ -961,7 +902,7 @@ import {
               </span>
             </div>
             <p class="mt-2 text-xs font-medium {event.registrationFormId ? 'text-gray-500' : 'text-amber-700'}">
-              Registration: {registrationFormLabel(event.registrationFormId)}
+              Registration: {event.registrationFormId ? 'Linked' : 'Not linked'}
             </p>
           </div>
 
@@ -1027,59 +968,22 @@ import {
           <div class="border-t border-gray-200 bg-slate-50 p-6 space-y-4">
             <fieldset disabled={inlineSaveState === 'loading'} class="m-0 min-w-0 space-y-4 border-0 p-0">
             <div class="crm-ui-between">
-              <h4 class="text-sm font-bold text-gray-900 uppercase tracking-wider">Inline Event Editor & Media Controls</h4>
+              <h4 class="text-sm font-bold text-gray-900 uppercase">Editor</h4>
 
             </div>
 
             <section class="rounded-lg border border-sky-200 bg-white p-4">
-              <div class="mb-4">
-                <label for={`inline-event-registration-form-${event.id}`} class="crm-ui-label-caps-sm">Registration Form *</label>
-                <select
-                  id={`inline-event-registration-form-${event.id}`}
-                  aria-label="Registration Form *"
-                  bind:value={inlineEditRegistrationFormId}
-                  on:change={() => inlineRegistrationChangeConfirmed = false}
-                  class="crm-ui-select-teal mt-1"
-                >
-                  <option value="" disabled>Select a registration form</option>
-                  {#each activeRegistrationForms as form (form.id)}
-                    <option value={form.id}>{form.title || form.name || 'Registration form'}</option>
-                  {/each}
-                  {#if inlineEditRegistrationFormId && !activeRegistrationForms.some((form) => form.id === inlineEditRegistrationFormId)}
-                    <option value={inlineEditRegistrationFormId}>Current form unavailable</option>
-                  {/if}
-                </select>
-                {#if registrationFormsLoading}
-                  <p class="mt-2 text-xs text-gray-600" role="status">Loading available registration forms…</p>
-                {:else if registrationFormsError}
-                  <p class="mt-2 text-xs text-red-700" role="alert">{registrationFormsError}</p>
-                {:else if activeRegistrationForms.length === 0}
-                  <p class="mt-2 text-xs text-amber-800" role="status">No active registration forms are available. Create or publish one from Registrations first.</p>
-                {/if}
-                {#if inlineRegistrationChangeRequired}
-                  <div class="mt-2 text-xs text-blue-900">
-                    Existing registrations remain linked to this event.
-                    {#if !inlineRegistrationChangeConfirmed}
-                      <button
-                        type="button"
-                        class="ml-2 crm-ui-button-secondary text-xs"
-                        on:click={() => inlineRegistrationChangeConfirmed = true}
-                      >Confirm change</button>
-                    {/if}
-                  </div>
-                {/if}
-              </div>
-
               <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h5 class="text-sm font-semibold text-gray-900">Share registration</h5>
-                  {#if inlineRegistrationChangeRequired}
-                    <p class="mt-1 text-sm text-gray-600">Save and confirm the new registration form before creating a registration link.</p>
-                  {:else if !eventRegistrationIsLive(event)}
+                  {#if !eventRegistrationIsLive(event)}
                     <p class="mt-1 text-sm text-gray-600">{shareableLinkAvailabilityMessage(event)}</p>
                   {/if}
                 </div>
-                {#if eventRegistrationIsLive(event) && !inlineRegistrationChangeRequired}
+                  <button
+                    class="crm-ui-button-secondary"
+                    on:click={() => editingEvent = event}
+                  >Registration</button>
+                {#if eventRegistrationIsLive(event)}
                   <button
                     type="button"
                     class="crm-ui-button-secondary"
@@ -1290,7 +1194,6 @@ import {
                     publishConfirmationRequired
                     && inlinePublishConfirmation !== publishConfirmationText
                   )
-                  || (inlineRegistrationChangeRequired && !inlineRegistrationChangeConfirmed)
                 }
                 idleText="Save Event Changes"
                 loadingText="Saving Changes..."

@@ -76,18 +76,18 @@ vi.mock('../../src/lib/services/DataStore', async () => {
 });
 
 vi.mock('../../src/lib/services/RegistrationService', () => ({
-      RegistrationService: {
-      subscribeToForms: vi.fn((
-        _tenantId: string,
-        onForms: (forms: unknown[]) => void,
-        _onError: (error: unknown) => void,
-      ) => {
-        onForms([
-          { id: 'form-1', title: 'Event registration', status: 'Open' },
-          { id: 'form-2', title: 'Updated event registration', status: 'Open' },
-        ]);
-        return () => {};
-      }),
+  RegistrationService: {
+    subscribeToForms: vi.fn((
+      _tenantId: string,
+      onForms: (forms: unknown[]) => void,
+      _onError: (error: unknown) => void,
+    ) => {
+      onForms([
+        { id: 'form-1', title: 'Event registration', status: 'Open' },
+        { id: 'form-2', title: 'Updated event registration', status: 'Open' },
+      ]);
+      return () => {};
+    }),
   },
 }));
 
@@ -168,8 +168,8 @@ describe('event mutation family', () => {
     for (const mock of Object.values(backendMocks)) mock.mockReset();
     backendMocks.crmOperationalPage.mockResolvedValue({
       records: [
-        { id: 'form-1', title: 'Event registration' },
-        { id: 'form-2', title: 'Updated event registration' },
+        { id: 'form-1', title: 'Event registration', status: 'active' },
+        { id: 'form-2', title: 'Updated event registration', status: 'active' },
       ],
     });
     registrationOutreachMocks.createShareableLink.mockReset();
@@ -320,32 +320,6 @@ describe('event mutation family', () => {
     expect(screen.queryByRole('button', { name: 'Share Link' })).toBeNull();
     expect(screen.getByText('Publish this event before creating a registration link.'))
       .toBeVisible();
-  });
-
-  it('shows available registration forms in the inline editor and confirms swaps', async () => {
-    backendMocks.updateEvent.mockResolvedValue({
-      id: 'event-1',
-      eventIds: ['event-1'],
-      updatedCount: 1,
-      publicationSyncStatus: 'not_required',
-    });
-    render(TestedEventScheduler);
-
-    await openInlineEditor();
-    const registrationSelect = screen.getByLabelText('Registration Form *');
-    expect(registrationSelect).toHaveValue('form-1');
-    expect(screen.getByRole('option', { name: 'Updated event registration' })).toBeVisible();
-
-    await fireEvent.change(registrationSelect, { target: { value: 'form-2' } });
-    expect(screen.getByRole('button', { name: 'Confirm change' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Save Event Changes' })).toBeDisabled();
-
-    await fireEvent.click(screen.getByRole('button', { name: 'Confirm change' }));
-    await fireEvent.click(screen.getByRole('button', { name: 'Save Event Changes' }));
-    await waitFor(() => expect(backendMocks.updateEvent).toHaveBeenCalledTimes(1));
-    expect(backendMocks.updateEvent.mock.calls[0][2]).toEqual(
-      expect.objectContaining({ registrationFormId: 'form-2' }),
-    );
   });
 
   it('locks create controls and invalidates the response when tenant scope changes', async () => {
