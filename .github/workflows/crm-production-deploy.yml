@@ -142,7 +142,8 @@ jobs:
             --website-commit "$HUDDLEWAY_WEBSITE_REF" \
             --backend-commit "$HUDDLEWAY_BACKEND_CONTRACT_REF" \
             --out "$DEPLOYMENT_RECEIPT_PATH" \
-            --attempts 12 \
+            # Static-host propagation can take longer than the initial publish.
+            --attempts 36 \
             --interval-ms 5000
 
       - name: Publish deployment receipt
