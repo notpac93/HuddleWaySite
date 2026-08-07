@@ -279,7 +279,11 @@ describe('SettingsManager profile persistence', () => {
 
     await fireEvent.click(await screen.findByRole('button', { name: 'Connect Stripe' }));
     await waitFor(() =>
-      expect(backendMocks.request).toHaveBeenCalledWith('/stripe/connect/account-link', { method: 'POST', body: { tenantId: 'tenant-a' }}),
+      expect(backendMocks.request).toHaveBeenCalledWith('/stripe/connect/account-link', expect.objectContaining({
+        method: 'POST',
+        body: { tenantId: 'tenant-a' },
+        idempotencyKey: expect.stringMatching(/^stripe-connect-onboarding:/),
+      })),
     );
     expect(window.open).toHaveBeenCalledWith(
       'https://connect.stripe.com/setup/test',

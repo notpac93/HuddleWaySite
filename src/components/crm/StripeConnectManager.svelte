@@ -1,6 +1,7 @@
 <script lang="ts">
   import { activeTenantRole, tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
+  import { createIdempotencyKey } from '../../lib/api/BackendApi';
 
   type StripeConnectStatus = {
     connected: boolean;
@@ -72,7 +73,13 @@
 
   function connect() {
     if (!$tenantIdStore || !canManage || busy) return;
-    void run(() => backendClient.request<StripeActionResult>('/stripe/connect/account-link', { method: 'POST', body: { tenantId: $tenantIdStore } }));
+    const tenantId = $tenantIdStore;
+    const idempotencyKey = createIdempotencyKey('stripe-connect-onboarding');
+    void run(() => backendClient.request<StripeActionResult>('/stripe/connect/account-link', {
+      method: 'POST',
+      body: { tenantId },
+      idempotencyKey,
+    }));
   }
 
   async function dashboard() {
