@@ -322,6 +322,32 @@ describe('event mutation family', () => {
       .toBeVisible();
   });
 
+  it('shows available registration forms in the inline editor and confirms swaps', async () => {
+    backendMocks.updateEvent.mockResolvedValue({
+      id: 'event-1',
+      eventIds: ['event-1'],
+      updatedCount: 1,
+      publicationSyncStatus: 'not_required',
+    });
+    render(TestedEventScheduler);
+
+    await openInlineEditor();
+    const registrationSelect = screen.getByLabelText('Registration Form *');
+    expect(registrationSelect).toHaveValue('form-1');
+    expect(screen.getByRole('option', { name: 'Updated event registration' })).toBeVisible();
+
+    await fireEvent.change(registrationSelect, { target: { value: 'form-2' } });
+    expect(screen.getByRole('button', { name: 'Confirm change' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Save Event Changes' })).toBeDisabled();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Confirm change' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Save Event Changes' }));
+    await waitFor(() => expect(backendMocks.updateEvent).toHaveBeenCalledTimes(1));
+    expect(backendMocks.updateEvent.mock.calls[0][2]).toEqual(
+      expect.objectContaining({ registrationFormId: 'form-2' }),
+    );
+  });
+
   it('locks create controls and invalidates the response when tenant scope changes', async () => {
     const pending = deferred<void>();
     backendMocks.createEventSeries.mockReturnValue(pending.promise);
