@@ -318,7 +318,7 @@ describe('event mutation family', () => {
     await openInlineEditor();
 
     expect(screen.queryByRole('button', { name: 'Share Link' })).toBeNull();
-    expect(screen.getByText('Publish this event before creating a registration link.'))
+    expect(screen.getByText('Publish this event before sharing.'))
       .toBeVisible();
   });
 
