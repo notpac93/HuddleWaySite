@@ -7,6 +7,7 @@
     connected: boolean;
     chargesEnabled: boolean;
     payoutsEnabled: boolean;
+    reconnectRequired?: boolean;
   };
   type StripeActionResult = {
     onboardingUrl?: string;
@@ -142,9 +143,9 @@
         <span class="rounded-full px-2.5 py-1 {ready ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}">{ready ? 'Ready for paid events' : status.connected ? 'Setup required' : 'Not connected'}</span>
         {#if status.connected}<span class="rounded-full bg-white/80 px-2.5 py-1 text-gray-700">Account connected</span>{/if}
       </div>
-      <p class="mt-3 text-sm {ready ? 'text-green-800' : 'text-amber-800'}">{ready ? 'The app can use this account for paid registrations.' : status.connected ? 'Finish Stripe setup before enabling paid registration checkout.' : 'Connect Stripe when this organization needs paid registrations.'}</p>
+      <p class="mt-3 text-sm {ready ? 'text-green-800' : 'text-amber-800'}">{ready ? 'The app can use this account for paid registrations.' : status.connected ? 'Finish Stripe setup before enabling paid registration checkout.' : status.reconnectRequired ? 'The saved Stripe account belongs to a different Stripe mode. Reconnect to replace it with a production account.' : 'Connect Stripe when this organization needs paid registrations.'}</p>
       <div class="mt-4 flex flex-wrap gap-2">
-        <button type="button" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50" disabled={busy} on:click={connect}>{status.connected ? 'Finish Stripe setup' : 'Connect Stripe'}</button>
+        <button type="button" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50" disabled={busy} on:click={connect}>{status.connected ? 'Finish Stripe setup' : status.reconnectRequired ? 'Reconnect Stripe' : 'Connect Stripe'}</button>
         <button type="button" class="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50" disabled={!status.connected || busy} on:click={dashboard}>Manage in Stripe</button>
         <button type="button" class="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50" disabled={busy} on:click={refresh}>Check status</button>
         {#if status.connected}<button type="button" class="rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50" disabled={busy} on:click={disconnect}>Disconnect</button>{/if}

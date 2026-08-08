@@ -292,6 +292,31 @@ describe('SettingsManager profile persistence', () => {
     );
   });
 
+  it('offers reconnect when the saved tenant account belongs to another Stripe mode', async () => {
+    backendMocks.request.mockImplementation((path: string) => path.endsWith('/status')
+      ? Promise.resolve({
+        connected: false,
+        reconnectRequired: true,
+        chargesEnabled: false,
+        payoutsEnabled: false,
+      })
+      : Promise.resolve({ onboardingUrl: 'https://connect.stripe.com/setup/reconnect' }));
+    vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    render(TestedStripeConnectManager);
+
+    expect(await screen.findByText(/different Stripe mode/i)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Reconnect Stripe' })).toBeEnabled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Reconnect Stripe' }));
+    await waitFor(() => expect(backendMocks.request).toHaveBeenCalledWith(
+      '/stripe/connect/account-link',
+      expect.objectContaining({
+        method: 'POST',
+        body: { tenantId: 'tenant-a' },
+        idempotencyKey: expect.stringMatching(/^stripe-connect-onboarding:/),
+      }),
+    ));
+  });
+
   it('shows tenant management and disconnect controls for a connected account', async () => {
     backendMocks.request.mockImplementation((path: string) => path.endsWith('/status')
       ? Promise.resolve({
