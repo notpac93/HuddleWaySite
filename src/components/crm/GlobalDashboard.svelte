@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Component } from 'svelte';
+  import { onDestroy } from 'svelte';
   import {
     financialProjectionScope,
     transactionsStore,
@@ -15,12 +16,27 @@
   let quickActionLoadError = '';
   let dashboardSummary = {
     loading: false,
+    hasData: false,
     counts: { registrations: 0, teams: 0, events: 0 },
     recentRegistrations: [] as Array<Record<string, unknown> & { id: string }>,
     error: '',
   };
   let loadedDashboardTenant = '';
   let dashboardSummaryGeneration = 0;
+  let dashboardRetryTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const dashboardRetryDelays = [150, 450];
+
+  function clearDashboardRetryTimer() {
+    if (dashboardRetryTimer === null) return;
+    clearTimeout(dashboardRetryTimer);
+    dashboardRetryTimer = null;
+  }
+
+  function isRecoverableDashboardError(error: unknown) {
+    const status = Number((error as { status?: unknown } | null)?.status || 0);
+    return status === 0 || status === 408 || status === 425 || status === 429 || status >= 500;
+  }
 
   async function openCreateEvent() {
     quickActionLoadError = '';
@@ -55,59 +71,82 @@
     $activeTenantRole === 'owner'
     || $activeTenantRole === 'platform_admin';
   $: canManageTenant = isOwner || $activeTenantRole === 'editor';
-  async function loadDashboardSummary(tenantId: string) {
+  async function loadDashboardSummary(tenantId: string, retryAttempt = 0) {
     const generation = ++dashboardSummaryGeneration;
     dashboardSummary = {
       loading: true,
-      counts: { registrations: 0, teams: 0, events: 0 },
-      recentRegistrations: [],
+      hasData: dashboardSummary.hasData,
+      counts: dashboardSummary.counts,
+      recentRegistrations: dashboardSummary.recentRegistrations,
       error: '',
     };
     try {
       const summary = await backendClient.crmDashboardSummary(tenantId);
       if (generation !== dashboardSummaryGeneration) return;
+      clearDashboardRetryTimer();
       dashboardSummary = {
         loading: false,
+        hasData: true,
         counts: summary.counts,
         recentRegistrations: summary.recentRegistrations,
         error: '',
       };
-    } catch {
+    } catch (error) {
       if (generation !== dashboardSummaryGeneration) return;
+      if (
+        isRecoverableDashboardError(error)
+        && retryAttempt < dashboardRetryDelays.length
+      ) {
+        dashboardRetryTimer = setTimeout(() => {
+          dashboardRetryTimer = null;
+          void loadDashboardSummary(tenantId, retryAttempt + 1);
+        }, dashboardRetryDelays[retryAttempt]);
+        return;
+      }
       dashboardSummary = {
         loading: false,
-        counts: { registrations: 0, teams: 0, events: 0 },
-        recentRegistrations: [],
+        hasData: dashboardSummary.hasData,
+        counts: dashboardSummary.counts,
+        recentRegistrations: dashboardSummary.recentRegistrations,
         error: 'Organization metrics could not be loaded.',
       };
     }
   }
 
+  function retryDashboardSummary() {
+    clearDashboardRetryTimer();
+    if ($tenantIdStore) void loadDashboardSummary($tenantIdStore);
+  }
+
   $: if ($tenantIdStore !== loadedDashboardTenant) {
     loadedDashboardTenant = $tenantIdStore || '';
     if (loadedDashboardTenant) {
+      clearDashboardRetryTimer();
       void loadDashboardSummary(loadedDashboardTenant);
     } else {
+      clearDashboardRetryTimer();
       dashboardSummaryGeneration += 1;
       dashboardSummary = {
         loading: false,
+        hasData: false,
         counts: { registrations: 0, teams: 0, events: 0 },
         recentRegistrations: [],
         error: '',
       };
     }
   }
+  onDestroy(clearDashboardRetryTimer);
   $: operationalLoading = dashboardSummary.loading;
   $: operationalError = dashboardSummary.error;
-  $: totalPlayers = operationalLoading || operationalError
-    ? '—'
-    : String(dashboardSummary.counts.registrations);
-  $: activeTeams = operationalLoading || operationalError
-    ? '—'
-    : String(dashboardSummary.counts.teams);
-  $: totalEvents = operationalLoading || operationalError
-    ? '—'
-    : String(dashboardSummary.counts.events);
+  $: totalPlayers = dashboardSummary.hasData
+    ? String(dashboardSummary.counts.registrations)
+    : '—';
+  $: activeTeams = dashboardSummary.hasData
+    ? String(dashboardSummary.counts.teams)
+    : '—';
+  $: totalEvents = dashboardSummary.hasData
+    ? String(dashboardSummary.counts.events)
+    : '—';
 
   // Keep totals separated by currency and format integer minor units only.
   $: revenueTotals = Array.from($transactionsStore.reduce((totals, transaction) => {
@@ -178,9 +217,23 @@
       Loading organization metrics…
     </p>
   {:else if operationalError}
-    <p class="crm-ui-danger" role="alert">
-      {operationalError} Metrics and recent records are unavailable.
-    </p>
+    <div class="crm-ui-danger flex flex-wrap items-center justify-between gap-3" role="alert">
+      <span>
+        {operationalError}
+        {#if dashboardSummary.hasData}
+          Showing the last successful dashboard data while the connection recovers.
+        {:else}
+          Metrics and recent records are unavailable.
+        {/if}
+      </span>
+      <button
+        type="button"
+        class="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-50"
+        on:click={retryDashboardSummary}
+      >
+        Try again
+      </button>
+    </div>
   {/if}
 
   <!-- KPI Cards -->
@@ -317,7 +370,7 @@
           {/each}
           {#if operationalLoading}
             <li><div class="px-4 py-12 text-center text-sm text-gray-500">Loading registrations…</div></li>
-          {:else if operationalError}
+          {:else if operationalError && recentRegistrations.length === 0}
             <li><div class="px-4 py-12 text-center text-sm text-red-700">{operationalError}</div></li>
           {:else if recentRegistrations.length === 0}
             <li>
