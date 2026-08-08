@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/svelte';
 import type { Component } from 'svelte';
 import type { Writable } from 'svelte/store';
@@ -320,6 +321,44 @@ describe('event mutation family', () => {
     expect(screen.queryByRole('button', { name: 'Share Link' })).toBeNull();
     expect(screen.getByText('Publish this event before sharing.'))
       .toBeVisible();
+  });
+
+  it('keeps published events first and moves archived events to Past Events', async () => {
+    eventRecords.set([
+      {
+        ...openingPractice,
+        id: 'draft-event',
+        title: 'Draft event',
+        lifecycleStatus: 'draft',
+        date: '2030-08-10T16:00:00.000Z',
+      },
+      {
+        ...openingPractice,
+        id: 'archived-event',
+        title: 'Archived event',
+        lifecycleStatus: 'archived',
+        date: '2030-08-11T16:00:00.000Z',
+      },
+      {
+        ...openingPractice,
+        id: 'published-event',
+        title: 'Published event',
+        lifecycleStatus: 'published',
+        date: '2030-08-12T16:00:00.000Z',
+      },
+    ]);
+    render(TestedEventScheduler);
+
+    const upcomingTitles = screen
+      .getAllByRole('article')
+      .map((article) => within(article).getByRole('heading', { level: 3 }).textContent);
+    expect(upcomingTitles).toEqual(['Published event', 'Draft event']);
+    expect(screen.queryByText('Archived event')).toBeNull();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Past Events' }));
+    const pastArticle = screen.getByRole('article');
+    expect(within(pastArticle).getByRole('heading', { level: 3 })).toHaveTextContent('Archived event');
+    expect(within(pastArticle).getByText('Archived')).toBeVisible();
   });
 
   it('locks create controls and invalidates the response when tenant scope changes', async () => {

@@ -89,6 +89,7 @@ import {
   let exactEventCountLoading = false;
   let exactEventCountError = '';
   const eventLifecycleStatuses = new Set(['draft', 'published', 'archived']);
+  const eventLifecycleStatusOrder = 'published,draft,status_unavailable,archived';
   const MAX_SERIES_UPDATE_COUNT = 400;
   const publishConfirmationText = 'PUBLISH EVENT';
 
@@ -108,6 +109,19 @@ import {
       hour: 'numeric',
       minute: '2-digit',
     });
+  }
+
+  function compareEventsByStatusThenDate(
+    a: any,
+    b: any,
+    direction: 1 | -1,
+  ) {
+    const statusOrder = eventLifecycleStatusOrder.indexOf(a.lifecycleStatus)
+      - eventLifecycleStatusOrder.indexOf(b.lifecycleStatus);
+    if (statusOrder !== 0) return statusOrder;
+    if (!a.dateObj) return 1;
+    if (!b.dateObj) return -1;
+    return direction * (a.dateObj - b.dateObj);
   }
 
   function mapEvent(data: any) {
@@ -207,19 +221,14 @@ import {
     creatingShareableLinkForEventId = '';
   }
 
-  // Sort past events descending (newest past event first)
   $: pastEvents = events
-    .filter(e => e.dateObj && e.dateObj < now)
-    .sort((a, b) => b.dateObj - a.dateObj);
+    .filter(e => e.lifecycleStatus === 'archived' || (e.dateObj && e.dateObj < now))
+    .sort((a, b) => compareEventsByStatusThenDate(a, b, -1));
 
-  // Sort upcoming events ascending (soonest event first)
   $: upcomingEvents = events
+    .filter(e => e.lifecycleStatus !== 'archived')
     .filter(e => !e.dateObj || e.dateObj >= now)
-    .sort((a, b) => {
-      if (!a.dateObj) return 1;
-      if (!b.dateObj) return -1;
-      return a.dateObj - b.dateObj;
-    });
+    .sort((a, b) => compareEventsByStatusThenDate(a, b, 1));
 
   $: visibleEvents = activeTab === 'Upcoming' ? upcomingEvents : pastEvents;
   $: selectedDraftEvents = events.filter((event) => selectedDraftEventIds.has(event.id) && event.lifecycleStatus === 'draft');
@@ -232,9 +241,11 @@ import {
     );
   }
   $: exactEventCountIncomplete =
-    exactEventCountLoading
-    || visibleEvents.some((event) =>
-      typeof exactEventRegistrationCounts[event.id] !== 'number'
+    !exactEventCountLoading
+    && (
+      visibleEvents.some((event) =>
+        typeof exactEventRegistrationCounts[event.id] !== 'number'
+      )
     );
   $: publishConfirmationRequired =
     inlineEditStatus === 'published'
@@ -798,7 +809,7 @@ import {
   {/if}
   {#if exactEventCountIncomplete}
     <p class="crm-ui-notice-card" role="status">
-      Exact event registration counts are loading or unavailable. The participant list remains safely limited to {$registrationsProjectionScope.limit} loaded records.
+      Exact event registration counts are unavailable. The participant list remains safely limited to {$registrationsProjectionScope.limit} loaded records.
     </p>
   {/if}
   {#if malformedEventCount > 0}

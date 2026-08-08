@@ -60,6 +60,16 @@ describe('CRM interaction hardening source evidence', () => {
     expect(crmStyles).toContain('xl:overflow-y-auto');
   });
 
+  it('keeps event count warnings out of the loading state and separates lifecycle tabs', () => {
+    const events = source('EventScheduler.svelte');
+
+    expect(events).toContain('!exactEventCountLoading');
+    expect(events).toContain("event.lifecycleStatus === 'archived'");
+    expect(events).toContain("e.lifecycleStatus !== 'archived'");
+    expect(events).toContain("event.lifecycleStatus === 'archived' ? 'Archived' : 'Draft'");
+    expect(events).not.toContain('Exact event registration counts are loading or unavailable.');
+  });
+
   it('keeps every CRM modal panel above its backdrop', () => {
     const modalComponents = [
       'CrmShell.svelte',
