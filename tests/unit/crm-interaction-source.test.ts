@@ -39,7 +39,7 @@ describe('CRM interaction hardening source evidence', () => {
     expect(studio).toContain("primaryColor,");
     expect(studio).toContain("secondaryColor,");
     expect(studio).toContain("tertiaryColor,");
-    expect(studio).toContain('gap-6 py-4 xl:gap-3 xl:py-2');
+    expect(studio).toContain('gap-6 py-4 xl:gap-4 xl:py-3');
     expect(crmStyles).toMatch(
       /\.crm-ui-studio-toolbar\s*\{\s*@apply flex max-w-full flex-wrap items-center/,
     );
