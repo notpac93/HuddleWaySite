@@ -284,7 +284,7 @@ describe('BackendApi', () => {
   it('keeps the same idempotency key across an authorization retry', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(response(403, { error: 'refresh required' }))
+      .mockResolvedValueOnce(response(401, { error: 'refresh required' }))
       .mockResolvedValueOnce(
         response(200, {
           invoice: validDirectInvoice(),
@@ -408,10 +408,10 @@ describe('BackendApi', () => {
     });
   });
 
-  it('sends and refreshes App Check with the authenticated retry', async () => {
+  it('sends and refreshes App Check after an authentication retry', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(response(403, { error: 'refresh required' }))
+      .mockResolvedValueOnce(response(401, { error: 'refresh required' }))
       .mockResolvedValueOnce(
         response(200, {
           tenantId: 'fixture-tenant',
@@ -904,7 +904,7 @@ describe('BackendApi', () => {
   it('recalls a message with one stable idempotency key', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(response(403, { error: 'refresh required' }))
+      .mockResolvedValueOnce(response(401, { error: 'refresh required' }))
       .mockResolvedValueOnce(
         response(200, {
           success: true,
@@ -1166,7 +1166,7 @@ describe('BackendApi', () => {
     };
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(response(403, { error: 'refresh required' }))
+      .mockResolvedValueOnce(response(401, { error: 'refresh required' }))
       .mockResolvedValueOnce(response(200, result));
     const api = new BackendApi({
       baseUrl: 'https://api.example.test',

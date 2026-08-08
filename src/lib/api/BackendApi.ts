@@ -918,7 +918,11 @@ export class BackendApi {
     let result;
     try {
       result = await execute(false);
-      if ([401, 403].includes(result.response.status)) {
+      // A 403 is an authorization decision, not an expired credential. Do not
+      // force-refresh Firebase/App Check after it: a rejected App Check token
+      // can be throttled by Firebase and the retry masks the real 403 with a
+      // misleading appCheck/throttled error.
+      if (result.response.status === 401) {
         result = await execute(true);
       }
     } catch (error) {
