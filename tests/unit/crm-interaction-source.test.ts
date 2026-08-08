@@ -43,7 +43,13 @@ describe('CRM interaction hardening source evidence', () => {
       /\.crm-ui-studio-toolbar\s*\{\s*@apply flex max-w-full flex-wrap items-center/,
     );
     expect(crmStyles).toMatch(
-      /\.crm-ui-studio-preview\s*\{\s*@apply relative flex min-h-\[44rem\][^}]*p-3 sm:p-4/,
+      /\.crm-ui-studio-preview\s*\{\s*@apply relative order-1 flex min-h-\[44rem\][^}]*p-3 sm:p-4/,
+    );
+    expect(crmStyles).toMatch(
+      /\.crm-ui-studio-editor\s*\{\s*@apply[^}]*order-2[^}]*xl:order-none/,
+    );
+    expect(crmStyles).toMatch(
+      /\.crm-ui-studio-preview\s*\{\s*@apply[^}]*order-1[^}]*xl:order-none/,
     );
   });
 

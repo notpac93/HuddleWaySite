@@ -142,7 +142,7 @@
   .crm-ui-shell-search-loading { @apply fixed inset-0 z-50 flex items-start justify-center bg-gray-500/75 px-4 pt-16; }
   .crm-ui-shell-search-loading-card { @apply rounded-lg bg-white px-6 py-5 text-sm font-medium text-gray-700 shadow-xl; }
   .crm-ui-studio-root { @apply flex h-full min-w-0 flex-col overflow-y-auto bg-[#f8fafc] xl:flex-row xl:overflow-hidden; }
-  .crm-ui-studio-editor { @apply z-10 flex w-full min-w-0 flex-col overflow-hidden border-r border-gray-200 bg-white shadow-sm xl:h-full xl:w-5/12; }
+  .crm-ui-studio-editor { @apply z-10 order-2 flex w-full min-w-0 flex-col overflow-hidden border-r border-gray-200 bg-white shadow-sm xl:order-none xl:h-full xl:w-5/12; }
   .crm-ui-studio-loading { @apply mx-6 mt-4 rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700; }
   .crm-ui-studio-error { @apply mx-6 mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800; }
   .crm-ui-studio-warning { @apply mx-6 mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900; }
@@ -151,7 +151,7 @@
   .crm-ui-studio-module-row { @apply flex items-center justify-between border-t border-gray-100 pt-4 first:border-t-0 first:pt-0; }
   .crm-ui-studio-actions { @apply flex items-center justify-end space-x-4 border-t border-gray-200 bg-white p-3; }
   .crm-ui-studio-publish { @apply rounded-md px-4 py-2 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50; }
-  .crm-ui-studio-preview { @apply relative flex min-h-[44rem] w-full min-w-0 flex-col overflow-y-auto bg-gray-100 p-3 sm:p-4 xl:h-full xl:w-7/12; overscroll-behavior: auto; touch-action: auto; }
+  .crm-ui-studio-preview { @apply relative order-1 flex min-h-[44rem] w-full min-w-0 flex-col overflow-y-auto bg-gray-100 p-3 sm:p-4 xl:order-none xl:h-full xl:w-7/12; overscroll-behavior: auto; touch-action: auto; }
   .crm-ui-studio-toolbar-wrap { @apply z-20 flex justify-end; }
   .crm-ui-studio-toolbar { @apply flex max-w-full flex-wrap items-center justify-end gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-sm; }
   .crm-ui-studio-color-controls { @apply border-l border-gray-200 pl-3; }
