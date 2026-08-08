@@ -661,7 +661,7 @@
       </div>
     </div>
 
-    <div class="flex flex-1 flex-col items-center justify-start gap-2 py-1">
+    <div class="flex flex-1 flex-col items-center justify-start gap-6 py-4 xl:gap-3 xl:py-2">
       <p class="z-10 text-xs font-medium text-gray-600">
         Live mobile preview · 375 × 812{previewDraftSyncState === 'synced' ? ' · Synced' : ''}
       </p>
