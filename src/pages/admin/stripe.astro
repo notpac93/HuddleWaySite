@@ -1,8 +1,17 @@
 ---
-import CrmLayout from '../../layouts/CrmLayout.astro';
-import StripeConnectManager from '../../components/crm/StripeConnectManager.svelte';
+const destination = '/admin/';
 ---
 
-<CrmLayout title="Stripe payments settings - HuddleWay">
-  <StripeConnectManager client:load />
-</CrmLayout>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="refresh" content={`0;url=${destination}`}>
+    <title>Stripe payments settings - HuddleWay</title>
+  </head>
+  <body>
+    <p>Stripe payments settings are now available from the CRM Settings page.</p>
+    <p><a href={destination}>Open CRM Settings</a></p>
+    <script>window.location.replace('/admin/');</script>
+  </body>
+</html>

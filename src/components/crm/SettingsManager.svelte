@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import {
     EmailAuthProvider,
     reauthenticateWithCredential,
@@ -9,8 +10,14 @@
   } from 'firebase/auth';
   import { userStore } from '../../lib/authStore';
   import { auth } from '../../lib/firebase';
-  import StripeConnectManager from './StripeConnectManager.svelte';
   import StatusButton from './ui/StatusButton.svelte';
+
+  type StripeConnectManagerComponent = typeof import('./StripeConnectManager.svelte').default;
+  let StripeConnectManager: StripeConnectManagerComponent | null = null;
+
+  onMount(async () => {
+    StripeConnectManager = (await import('./StripeConnectManager.svelte')).default;
+  });
 
   let loadedUserId = '';
   let displayName = '';
@@ -259,7 +266,13 @@
     </div>
 
     <div class="mt-6">
-      <StripeConnectManager />
+      {#if StripeConnectManager}
+        <svelte:component this={StripeConnectManager} />
+      {:else}
+        <div class="max-w-3xl rounded-lg bg-white p-6 shadow" aria-busy="true">
+          <p class="text-sm text-gray-500">Loading Stripe connection settings...</p>
+        </div>
+      {/if}
     </div>
 
     <div class="max-w-3xl mt-6 bg-white shadow rounded-lg p-6">
