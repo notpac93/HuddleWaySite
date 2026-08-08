@@ -48,9 +48,9 @@
   onDestroy(releasePreview);
 </script>
 
-<div class={compact ? 'flex min-w-0 items-center gap-3' : 'space-y-2'}>
+<div class={compact ? 'flex min-w-0 items-center gap-4' : 'space-y-2'}>
   <label for={inputId} class="crm-ui-label-caps whitespace-nowrap">{label}</label>
-  <div class={compact ? 'flex min-w-0 items-center gap-2' : 'flex items-center gap-4'}>
+  <div class={compact ? 'flex min-w-0 items-center gap-3' : 'flex items-center gap-4'}>
     <div class={compact ? 'h-12 w-14 shrink-0 overflow-hidden rounded-md border border-gray-300 bg-slate-900' : 'h-20 w-24 shrink-0 overflow-hidden rounded-lg border border-gray-300 bg-slate-900'}>
       {#if previewUrl}
         <img

@@ -153,9 +153,9 @@
   .crm-ui-studio-publish { @apply rounded-md px-4 py-2 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50; }
   .crm-ui-studio-preview { @apply relative order-1 flex min-h-[44rem] w-full min-w-0 flex-col overflow-y-auto bg-gray-100 p-3 sm:p-4 xl:order-none xl:h-full xl:w-7/12; overscroll-behavior: auto; touch-action: auto; }
   .crm-ui-studio-toolbar-wrap { @apply z-20 flex justify-end; }
-  .crm-ui-studio-toolbar { @apply flex max-w-full flex-wrap items-center justify-end gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-sm; }
-  .crm-ui-studio-color-controls { @apply border-l border-gray-200 pl-3; }
-  .crm-ui-studio-color-item { @apply flex items-center gap-2; }
+  .crm-ui-studio-toolbar { @apply flex max-w-full flex-wrap items-center justify-end gap-4 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm; }
+  .crm-ui-studio-color-controls { @apply border-l border-gray-200 pl-4; }
+  .crm-ui-studio-color-item { @apply flex items-center gap-3; }
   .crm-ui-studio-logo { @apply flex h-12 w-12 items-center justify-center overflow-hidden rounded border border-gray-200 bg-white; }
   .crm-ui-studio-color-swatch { @apply relative h-8 w-8 cursor-pointer overflow-hidden rounded-full border-2 border-white shadow-inner ring-1 ring-gray-200; }
   .crm-ui-studio-color-picker { @apply absolute inset-[-10px] z-10 m-0 h-12 w-12 cursor-pointer p-0 opacity-0; }

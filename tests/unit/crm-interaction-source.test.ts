@@ -43,6 +43,11 @@ describe('CRM interaction hardening source evidence', () => {
       /\.crm-ui-studio-toolbar\s*\{\s*@apply flex max-w-full flex-wrap items-center/,
     );
     expect(crmStyles).toMatch(
+      /\.crm-ui-studio-toolbar\s*\{\s*@apply[^}]*gap-4[^}]*px-4 py-3/,
+    );
+    expect(crmStyles).toContain('.crm-ui-studio-color-controls { @apply border-l border-gray-200 pl-4; }');
+    expect(crmStyles).toContain('.crm-ui-studio-color-item { @apply flex items-center gap-3; }');
+    expect(crmStyles).toMatch(
       /\.crm-ui-studio-preview\s*\{\s*@apply relative order-1 flex min-h-\[44rem\][^}]*p-3 sm:p-4/,
     );
     expect(crmStyles).toMatch(
