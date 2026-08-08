@@ -31,6 +31,22 @@ describe('CRM interaction hardening source evidence', () => {
     expect(studio).toContain('aria-pressed={tab.enabled}');
   });
 
+  it('keeps the live app preview visible beside compact brand controls', () => {
+    const studio = source('MyAppStudio.svelte');
+
+    expect(studio).toContain('class="crm-ui-studio-toolbar-wrap"');
+    expect(studio).toContain('compact');
+    expect(studio).toContain("primaryColor,");
+    expect(studio).toContain("secondaryColor,");
+    expect(studio).toContain("tertiaryColor,");
+    expect(crmStyles).toMatch(
+      /\.crm-ui-studio-toolbar\s*\{\s*@apply flex max-w-full flex-wrap items-center/,
+    );
+    expect(crmStyles).toMatch(
+      /\.crm-ui-studio-preview\s*\{\s*@apply relative flex min-h-\[44rem\][^}]*p-3 sm:p-4/,
+    );
+  });
+
   it('keeps every CRM modal panel above its backdrop', () => {
     const modalComponents = [
       'CrmShell.svelte',

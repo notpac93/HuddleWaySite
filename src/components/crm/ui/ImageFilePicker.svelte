@@ -12,6 +12,7 @@
   export let selectedFile: File | null = null;
   export let validationMessage = '';
   export let disabled = false;
+  export let compact = false;
 
   let selectedPreviewUrl = '';
 
@@ -47,10 +48,10 @@
   onDestroy(releasePreview);
 </script>
 
-<div class="space-y-2">
-  <label for={inputId} class="crm-ui-label-caps">{label}</label>
-  <div class="flex items-center gap-4">
-    <div class="h-20 w-24 shrink-0 overflow-hidden rounded-lg border border-gray-300 bg-slate-900">
+<div class={compact ? 'flex min-w-0 items-center gap-3' : 'space-y-2'}>
+  <label for={inputId} class="crm-ui-label-caps whitespace-nowrap">{label}</label>
+  <div class={compact ? 'flex min-w-0 items-center gap-2' : 'flex items-center gap-4'}>
+    <div class={compact ? 'h-12 w-14 shrink-0 overflow-hidden rounded-md border border-gray-300 bg-slate-900' : 'h-20 w-24 shrink-0 overflow-hidden rounded-lg border border-gray-300 bg-slate-900'}>
       {#if previewUrl}
         <img
           src={previewUrl}
@@ -73,7 +74,7 @@
         on:change={handleFileChange}
         class="block w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50"
       />
-      <p class="mt-1 text-xs text-gray-500">PNG, JPG, GIF, or WebP · 10 MB maximum.</p>
+      <p class={compact ? 'hidden' : 'mt-1 text-xs text-gray-500'}>PNG, JPG, GIF, or WebP · 10 MB maximum.</p>
       {#if selectedFile && !validationMessage}
         <p class="mt-1 truncate text-xs font-medium text-gray-700">Selected: {selectedFile.name}</p>
       {/if}

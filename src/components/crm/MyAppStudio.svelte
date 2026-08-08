@@ -474,18 +474,18 @@
 
   <!-- Left Pane: Configuration Form -->
   <div class="crm-ui-studio-editor">
-    <div class="px-8 pt-6 pb-4 border-b border-gray-200">
+    <div class="px-6 pt-4 pb-3 border-b border-gray-200">
       <h1 class="crm-ui-page-title">My App</h1>
-      <p class="text-sm text-gray-500 mt-1">Preview changes here, then publish them to your family app.</p>
+      <p class="mt-1 text-xs text-gray-500">Preview changes here, then publish them to your family app.</p>
     </div>
 
-    <div class="flex border-b border-gray-200 px-6 pt-2">
+    <div class="flex border-b border-gray-200 px-5 pt-1">
       {#each tabs as tab}
         <button
           type="button"
           disabled={submitState === 'loading'}
           aria-pressed={activeTab === tab}
-          class="px-4 py-2 text-sm font-medium border-b-2 transition-colors {activeTab !== tab ? 'border-transparent text-gray-500 hover:text-gray-700' : ''}"
+          class="px-3 py-2 text-sm font-medium border-b-2 transition-colors {activeTab !== tab ? 'border-transparent text-gray-500 hover:text-gray-700' : ''}"
           style={activeTab === tab ? `border-color: ${primaryColor}; color: ${primaryColor};` : ''}
           on:click={() => activeTab = tab}
         >
@@ -525,9 +525,9 @@
       </div>
     {/if}
 
-    <div class="flex-1 overflow-y-auto p-8 bg-gray-50/50">
+    <div class="flex-1 overflow-y-auto p-5 bg-gray-50/50">
       {#if activeTab === 'Branding'}
-        <div class="space-y-6">
+        <div class="space-y-4">
 
 
           <div>
@@ -545,7 +545,7 @@
 
         </div>
       {:else if activeTab === 'Pages'}
-        <div class="space-y-6">
+        <div class="space-y-4">
           <div class="crm-ui-studio-modules">
             <h3 class="text-sm font-medium text-gray-900 mb-4">Active Modules</h3>
 
@@ -607,7 +607,7 @@
     <div class="absolute inset-0 opacity-5" style="background-image: radial-gradient(#00a4bd 1px, transparent 1px); background-size: 20px 20px;"></div>
 
     <!-- Top Right: Logo Upload & Colors -->
-    <div class="flex justify-end mb-6 z-20">
+    <div class="crm-ui-studio-toolbar-wrap">
       <div class="crm-ui-studio-toolbar">
         <ImageFilePicker
           inputId="studio-logo-image"
@@ -617,13 +617,14 @@
           bind:selectedFile={logoFile}
           bind:validationMessage={logoValidationMessage}
           disabled={submitState === 'loading'}
+          compact
         />
 
-        <div class="border-l border-gray-200 pl-6">
+        <div class="crm-ui-studio-color-controls">
           <p class="crm-ui-label-caps">Brand Colors</p>
-          <div class="flex flex-wrap gap-4">
+          <div class="flex flex-wrap items-center gap-2">
             <!-- Primary Color -->
-            <div class="flex flex-col space-y-1">
+            <div class="crm-ui-studio-color-item">
               <div class="flex items-center space-x-2">
                 <div class="crm-ui-studio-color-swatch">
                   <input type="color" bind:value={primaryColor} aria-label="Primary brand color" disabled={submitState === 'loading'} class="crm-ui-studio-color-picker" />
@@ -634,7 +635,7 @@
               <input type="text" bind:value={primaryColor} aria-label="Primary brand color hex value" maxlength="7" pattern={'^#[0-9a-fA-F]{6}$'} disabled={submitState === 'loading'} class="crm-ui-studio-color-hex" style="outline-color: {primaryColor}" />
             </div>
             <!-- Secondary Color -->
-            <div class="flex flex-col space-y-1">
+            <div class="crm-ui-studio-color-item">
               <div class="flex items-center space-x-2">
                 <div class="crm-ui-studio-color-swatch">
                   <input type="color" bind:value={secondaryColor} aria-label="Secondary brand color" disabled={submitState === 'loading'} class="crm-ui-studio-color-picker" />
@@ -645,7 +646,7 @@
               <input type="text" bind:value={secondaryColor} aria-label="Secondary brand color hex value" maxlength="7" pattern={'^#[0-9a-fA-F]{6}$'} disabled={submitState === 'loading'} class="crm-ui-studio-color-hex" style="outline-color: {primaryColor}" />
             </div>
             <!-- Tertiary Color -->
-            <div class="flex flex-col space-y-1">
+            <div class="crm-ui-studio-color-item">
               <div class="flex items-center space-x-2">
                 <div class="crm-ui-studio-color-swatch">
                   <input type="color" bind:value={tertiaryColor} aria-label="Tertiary brand color" disabled={submitState === 'loading'} class="crm-ui-studio-color-picker" />
@@ -660,7 +661,7 @@
       </div>
     </div>
 
-    <div class="flex flex-1 flex-col items-center justify-start gap-3 py-4">
+    <div class="flex flex-1 flex-col items-center justify-start gap-2 py-1">
       <p class="z-10 text-xs font-medium text-gray-600">
         Live mobile preview · 375 × 812{previewDraftSyncState === 'synced' ? ' · Synced' : ''}
       </p>
