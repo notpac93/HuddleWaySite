@@ -173,13 +173,13 @@
       <span>
         {dashboardSummary.error}
         {#if dashboardSummary.hasData}
-          Saved data.
+          Saved.
         {:else}
           Metrics and recent records are unavailable.
         {/if}
       </span>
       <button
-        class="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-50"
+        class="rounded border px-3 py-2"
         on:click={retryDashboardSummary}
       >
         Try again
