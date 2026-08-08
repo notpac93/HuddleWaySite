@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { Component } from 'svelte';
-  import { onDestroy } from 'svelte';
   import {
     financialProjectionScope,
     transactionsStore,
@@ -23,20 +22,6 @@
   };
   let loadedDashboardTenant = '';
   let dashboardSummaryGeneration = 0;
-  let dashboardRetryTimer: ReturnType<typeof setTimeout> | null = null;
-
-  const dashboardRetryDelays = [150, 450];
-
-  function clearDashboardRetryTimer() {
-    if (dashboardRetryTimer === null) return;
-    clearTimeout(dashboardRetryTimer);
-    dashboardRetryTimer = null;
-  }
-
-  function isRecoverableDashboardError(error: unknown) {
-    const status = Number((error as { status?: unknown } | null)?.status || 0);
-    return status === 0 || status === 408 || status === 425 || status === 429 || status >= 500;
-  }
 
   async function openCreateEvent() {
     quickActionLoadError = '';
@@ -71,60 +56,39 @@
     $activeTenantRole === 'owner'
     || $activeTenantRole === 'platform_admin';
   $: canManageTenant = isOwner || $activeTenantRole === 'editor';
-  async function loadDashboardSummary(tenantId: string, retryAttempt = 0) {
+  async function loadDashboardSummary(tenantId: string) {
     const generation = ++dashboardSummaryGeneration;
-    dashboardSummary = {
-      loading: true,
-      hasData: dashboardSummary.hasData,
-      counts: dashboardSummary.counts,
-      recentRegistrations: dashboardSummary.recentRegistrations,
-      error: '',
-    };
+    dashboardSummary = { ...dashboardSummary, loading: true, error: '' };
     try {
       const summary = await backendClient.crmDashboardSummary(tenantId);
       if (generation !== dashboardSummaryGeneration) return;
-      clearDashboardRetryTimer();
       dashboardSummary = {
+        ...dashboardSummary,
         loading: false,
         hasData: true,
         counts: summary.counts,
         recentRegistrations: summary.recentRegistrations,
         error: '',
       };
-    } catch (error) {
+    } catch {
       if (generation !== dashboardSummaryGeneration) return;
-      if (
-        isRecoverableDashboardError(error)
-        && retryAttempt < dashboardRetryDelays.length
-      ) {
-        dashboardRetryTimer = setTimeout(() => {
-          dashboardRetryTimer = null;
-          void loadDashboardSummary(tenantId, retryAttempt + 1);
-        }, dashboardRetryDelays[retryAttempt]);
-        return;
-      }
       dashboardSummary = {
+        ...dashboardSummary,
         loading: false,
-        hasData: dashboardSummary.hasData,
-        counts: dashboardSummary.counts,
-        recentRegistrations: dashboardSummary.recentRegistrations,
         error: 'Organization metrics could not be loaded.',
       };
     }
   }
 
   function retryDashboardSummary() {
-    clearDashboardRetryTimer();
     if ($tenantIdStore) void loadDashboardSummary($tenantIdStore);
   }
 
   $: if ($tenantIdStore !== loadedDashboardTenant) {
     loadedDashboardTenant = $tenantIdStore || '';
     if (loadedDashboardTenant) {
-      clearDashboardRetryTimer();
       void loadDashboardSummary(loadedDashboardTenant);
     } else {
-      clearDashboardRetryTimer();
       dashboardSummaryGeneration += 1;
       dashboardSummary = {
         loading: false,
@@ -135,18 +99,6 @@
       };
     }
   }
-  onDestroy(clearDashboardRetryTimer);
-  $: operationalLoading = dashboardSummary.loading;
-  $: operationalError = dashboardSummary.error;
-  $: totalPlayers = dashboardSummary.hasData
-    ? String(dashboardSummary.counts.registrations)
-    : '—';
-  $: activeTeams = dashboardSummary.hasData
-    ? String(dashboardSummary.counts.teams)
-    : '—';
-  $: totalEvents = dashboardSummary.hasData
-    ? String(dashboardSummary.counts.events)
-    : '—';
 
   // Keep totals separated by currency and format integer minor units only.
   $: revenueTotals = Array.from($transactionsStore.reduce((totals, transaction) => {
@@ -212,22 +164,21 @@
       </p>
     {/if}
   </div>
-  {#if operationalLoading}
-    <p class="rounded-md border border-gray-200 bg-white p-3 text-sm text-gray-600" role="status">
-      Loading organization metrics…
+  {#if dashboardSummary.loading}
+    <p class="rounded-md border border-gray-200 bg-white p-3 text-sm text-gray-600">
+      Loading
     </p>
-  {:else if operationalError}
-    <div class="crm-ui-danger flex flex-wrap items-center justify-between gap-3" role="alert">
+  {:else if dashboardSummary.error}
+    <div class="crm-ui-danger flex flex-wrap items-center justify-between" role="alert">
       <span>
-        {operationalError}
+        {dashboardSummary.error}
         {#if dashboardSummary.hasData}
-          Showing the last successful dashboard data while the connection recovers.
+          Saved data.
         {:else}
           Metrics and recent records are unavailable.
         {/if}
       </span>
       <button
-        type="button"
         class="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-50"
         on:click={retryDashboardSummary}
       >
@@ -290,7 +241,7 @@
             <dl>
               <dt class="text-sm font-medium text-gray-500 truncate">Registration Records</dt>
               <dd>
-                <div class="crm-ui-subtitle">{totalPlayers}</div>
+                <div class="crm-ui-subtitle">{dashboardSummary.hasData ? dashboardSummary.counts.registrations : '—'}</div>
               </dd>
             </dl>
           </div>
@@ -311,7 +262,7 @@
             <dl>
               <dt class="text-sm font-medium text-gray-500 truncate">Teams</dt>
               <dd>
-                <div class="crm-ui-subtitle">{activeTeams}</div>
+                <div class="crm-ui-subtitle">{dashboardSummary.hasData ? dashboardSummary.counts.teams : '—'}</div>
               </dd>
             </dl>
           </div>
@@ -332,7 +283,7 @@
             <dl>
               <dt class="text-sm font-medium text-gray-500 truncate">Events Managed</dt>
               <dd>
-                <div class="crm-ui-subtitle">{totalEvents}</div>
+                <div class="crm-ui-subtitle">{dashboardSummary.hasData ? dashboardSummary.counts.events : '—'}</div>
               </dd>
             </dl>
           </div>
@@ -368,10 +319,10 @@
               </div>
             </li>
           {/each}
-          {#if operationalLoading}
+          {#if dashboardSummary.loading}
             <li><div class="px-4 py-12 text-center text-sm text-gray-500">Loading registrations…</div></li>
-          {:else if operationalError && recentRegistrations.length === 0}
-            <li><div class="px-4 py-12 text-center text-sm text-red-700">{operationalError}</div></li>
+          {:else if dashboardSummary.error && recentRegistrations.length === 0}
+            <li><div class="px-4 py-12 text-center text-sm text-red-700">{dashboardSummary.error}</div></li>
           {:else if recentRegistrations.length === 0}
             <li>
               <div class="px-4 py-12 text-center sm:px-6 text-gray-500 text-sm">
