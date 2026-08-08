@@ -333,7 +333,7 @@
     </nav>
 
     <div class="crm-ui-shell-account">
-      <div class="flex items-center {isSidebarHovered ? 'justify-between' : 'justify-center'}">
+      <div class="flex {isSidebarHovered ? 'items-center justify-between' : 'flex-col items-center gap-2'}">
         <button
           type="button"
           class="flex items-center text-left disabled:cursor-default"
@@ -357,7 +357,7 @@
         </button>
         <button
           type="button"
-          class="crm-ui-shell-signout-icon {isSidebarHovered ? '' : 'absolute bottom-3 right-2'}"
+          class="crm-ui-shell-signout-icon"
           on:click={() => showLogoutModal = true}
           aria-label="Sign out"
           title="Sign out"
