@@ -48,7 +48,7 @@ describe('CRM interaction hardening source evidence', () => {
     expect(crmStyles).toContain('.crm-ui-studio-color-controls { @apply border-l border-gray-200 pl-4; }');
     expect(crmStyles).toContain('.crm-ui-studio-color-item { @apply flex items-center gap-3; }');
     expect(crmStyles).toMatch(
-      /\.crm-ui-studio-preview\s*\{\s*@apply relative order-1 flex min-h-\[44rem\][^}]*p-3 sm:p-4/,
+      /\.crm-ui-studio-preview\s*\{\s*@apply relative order-1 flex flex-none min-h-\[44rem\][^}]*overflow-visible[^}]*p-3 pb-8 sm:p-4/,
     );
     expect(crmStyles).toMatch(
       /\.crm-ui-studio-editor\s*\{\s*@apply[^}]*order-2[^}]*xl:order-none/,
@@ -56,6 +56,7 @@ describe('CRM interaction hardening source evidence', () => {
     expect(crmStyles).toMatch(
       /\.crm-ui-studio-preview\s*\{\s*@apply[^}]*order-1[^}]*xl:order-none/,
     );
+    expect(crmStyles).toContain('xl:overflow-y-auto');
   });
 
   it('keeps every CRM modal panel above its backdrop', () => {
