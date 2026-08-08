@@ -322,6 +322,7 @@ describe('SettingsManager profile persistence', () => {
       ? Promise.resolve({
         connected: true,
         stripeAccountId: 'acct_1234567890',
+        detailsSubmitted: true,
         chargesEnabled: true,
         payoutsEnabled: true,
         requirementsDueCount: 0,
@@ -336,5 +337,23 @@ describe('SettingsManager profile persistence', () => {
       expect(backendMocks.request).toHaveBeenCalledWith('/stripe/connect/account', { method: 'DELETE', body: { tenantId: 'tenant-a' }}),
     );
     expect(await screen.findByText('Not connected')).toBeVisible();
+  });
+
+  it('does not label an account connected while Stripe onboarding is incomplete', async () => {
+    backendMocks.request.mockImplementation((path: string) => path.endsWith('/status')
+      ? Promise.resolve({
+        connected: true,
+        stripeAccountId: 'acct_incomplete',
+        detailsSubmitted: false,
+        chargesEnabled: false,
+        payoutsEnabled: false,
+        requirementsDueCount: 1,
+      })
+      : Promise.resolve({}));
+    render(TestedStripeConnectManager);
+
+    expect(await screen.findByText('Setup required')).toBeVisible();
+    expect(screen.queryByText('Account connected')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Finish Stripe setup' })).toBeEnabled();
   });
 });

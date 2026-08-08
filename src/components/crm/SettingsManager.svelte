@@ -9,6 +9,7 @@
   } from 'firebase/auth';
   import { userStore } from '../../lib/authStore';
   import { auth } from '../../lib/firebase';
+  import StripeConnectManager from './StripeConnectManager.svelte';
   import StatusButton from './ui/StatusButton.svelte';
 
   let loadedUserId = '';
@@ -257,11 +258,9 @@
       </form>
     </div>
 
-    <iframe
-      src="/admin/stripe/"
-      title="Stripe payments settings"
-      class="mt-6 w-full min-h-[430px] border-0"
-    ></iframe>
+    <div class="mt-6">
+      <StripeConnectManager />
+    </div>
 
     <div class="max-w-3xl mt-6 bg-white shadow rounded-lg p-6">
       <h3 class="text-lg leading-6 font-medium text-gray-900">Change Password</h3>

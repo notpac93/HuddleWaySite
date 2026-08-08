@@ -5,6 +5,7 @@
 
   type StripeConnectStatus = {
     connected: boolean;
+    detailsSubmitted?: boolean;
     chargesEnabled: boolean;
     payoutsEnabled: boolean;
     reconnectRequired?: boolean;
@@ -137,18 +138,19 @@
       <button type="button" class="mt-3 rounded-md border border-red-300 px-3 py-2 font-medium hover:bg-red-100" on:click={refresh}>Retry status</button>
     </div>
   {:else if status}
-    {@const ready = status.connected && status.chargesEnabled && status.payoutsEnabled}
+    {@const accountFound = status.connected}
+    {@const ready = status.detailsSubmitted === true && status.chargesEnabled && status.payoutsEnabled}
     <div class="mt-5 rounded-md border {ready ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'} p-4">
       <div class="flex flex-wrap items-center gap-2 text-sm font-medium">
         <span class="rounded-full px-2.5 py-1 {ready ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}">{ready ? 'Ready for paid events' : status.connected ? 'Setup required' : 'Not connected'}</span>
-        {#if status.connected}<span class="rounded-full bg-white/80 px-2.5 py-1 text-gray-700">Account connected</span>{/if}
+        {#if ready}<span class="rounded-full bg-white/80 px-2.5 py-1 text-gray-700">Account connected</span>{/if}
       </div>
       <p class="mt-3 text-sm {ready ? 'text-green-800' : 'text-amber-800'}">{ready ? 'The app can use this account for paid registrations.' : status.connected ? 'Finish Stripe setup before enabling paid registration checkout.' : status.reconnectRequired ? 'The saved Stripe account belongs to a different Stripe mode. Reconnect to replace it with a production account.' : 'Connect Stripe when this organization needs paid registrations.'}</p>
       <div class="mt-4 flex flex-wrap gap-2">
-        <button type="button" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50" disabled={busy} on:click={connect}>{status.connected ? 'Finish Stripe setup' : status.reconnectRequired ? 'Reconnect Stripe' : 'Connect Stripe'}</button>
-        <button type="button" class="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50" disabled={!status.connected || busy} on:click={dashboard}>Manage in Stripe</button>
+        <button type="button" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50" disabled={busy} on:click={connect}>{accountFound ? 'Finish Stripe setup' : status.reconnectRequired ? 'Reconnect Stripe' : 'Connect Stripe'}</button>
+        <button type="button" class="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50" disabled={!accountFound || busy} on:click={dashboard}>Manage in Stripe</button>
         <button type="button" class="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50" disabled={busy} on:click={refresh}>Check status</button>
-        {#if status.connected}<button type="button" class="rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50" disabled={busy} on:click={disconnect}>Disconnect</button>{/if}
+        {#if accountFound}<button type="button" class="rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50" disabled={busy} on:click={disconnect}>Disconnect</button>{/if}
       </div>
       {#if errorMessage}<p class="mt-3 text-sm text-red-700" role="alert">{errorMessage}</p>{/if}
     </div>
