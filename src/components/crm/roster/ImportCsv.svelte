@@ -12,7 +12,7 @@
   import { onDestroy } from 'svelte';
 
   export let activeTeam = null;
-  export let teams = [];
+  export let teams: any[] = [];
 
   let csvFile: File | null = null;
   let importStatus = '';

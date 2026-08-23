@@ -9,12 +9,12 @@
   import StatusButton from '../ui/StatusButton.svelte';
   import { createEventDispatcher, onDestroy } from 'svelte';
 
-  export let players = [];
-  export let setActiveTeam = () => {};
+  export let players: any[] = [];
+  export let setActiveTeam = (team: any) => {};
   export let activeResultId: string | null = null;
   export let onTargetConsumed: (id: string) => void = () => {};
-  export let allTeams = [];
-  export let allSeasons = [];
+  export let allTeams: any[] = [];
+  export let allSeasons: any[] = [];
   export let loading = false;
   export let error = '';
   export let truncated = false;
@@ -25,7 +25,7 @@
   let statusFilter = '';
   let showAdvancedFilters = false;
 
-  let selectedPlayerIds = [];
+  let selectedPlayerIds: any[] = [];
   let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
   let bulkSelectedTeam = '';
   let operationMessage = '';

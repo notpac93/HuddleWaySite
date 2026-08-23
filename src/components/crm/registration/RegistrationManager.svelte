@@ -7,9 +7,9 @@
   import CreateRegistrationForm from './CreateRegistrationForm.svelte';
   import { downloadCsv } from '../../../lib/ui/csvExport';
 
-  let forms = [];
-  let participants = [];
-  let connectedEvents = [];
+  let forms: any[] = [];
+  let participants: any[] = [];
+  let connectedEvents: any[] = [];
   let isLoadingForms = true;
   let isLoadingParticipants = false;
   let formsError = '';
@@ -25,11 +25,11 @@
   let activeTab: 'Active' | 'Retired' | 'Needs Review' = 'Active';
   let searchQuery = '';
 
-  let selectedFormId = null;
-  let selectedForm = null;
+  let selectedFormId: any = null;
+  let selectedForm: any = null;
 
   let isCreateFormOpen = false;
-  let editingForm = null;
+  let editingForm: any = null;
 
   let unsubscribeForms = () => {};
 

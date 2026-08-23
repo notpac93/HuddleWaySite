@@ -1,5 +1,7 @@
 <script lang="ts">
   import { tick, type Component } from 'svelte';
+  import { signOut } from 'firebase/auth';
+  import { auth } from '../../lib/firebase';
   import { getToken as getAppCheckToken } from 'firebase/app-check';
   import {
     activeTenantRole,
@@ -16,7 +18,7 @@
   import CrmShell from './CrmShell.svelte';
 
   let activeTab = 'Dashboard';
-  let activeTeam = null;
+  let activeTeam: any = null;
   let activeResultId: string | null = null;
   let activeComponent: Component<any> | null = null;
   let requestedTab = '';
@@ -187,7 +189,7 @@
         : '',
     }));
   }
-  function setActiveTeam(team) {
+  function setActiveTeam(team: any) {
     activeResultId = null;
     activeTeam = team;
     activeTab = 'Rostering'; // default tab for a team
@@ -232,9 +234,23 @@
   <Login />
 {:else if $authErrorStore}
   <div class="min-h-screen flex items-center justify-center bg-gray-50 p-6">
-    <div class="max-w-lg rounded-lg border border-red-200 bg-white p-8 shadow">
+    <div class="max-w-lg rounded-lg border border-red-200 bg-white p-8 shadow text-center">
       <h1 class="text-xl font-semibold text-gray-900">Access could not be verified</h1>
       <p class="mt-2 text-sm text-red-700">{$authErrorStore}</p>
+      <div class="mt-6 flex justify-center gap-3">
+        <button
+          type="button"
+          class="rounded-md bg-[#00a4bd] px-4 py-2 text-sm font-medium text-white shadow hover:bg-[#008194]"
+          on:click={async () => {
+            try {
+              await signOut(auth);
+            } catch {}
+            authErrorStore.set('');
+          }}
+        >
+          Sign out & try again
+        </button>
+      </div>
     </div>
   </div>
 {:else if (

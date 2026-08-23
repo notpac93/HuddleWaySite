@@ -223,7 +223,7 @@
           tenantId,
           imageReservationId,
           'event',
-          updatedEvent.eventIds,
+          updatedEvent.eventIds || [],
           'Synchronize the verified event cover with event publication state.',
           `${uploadedImage ? imageUploadKey : idempotencyKey}:publish`,
         );

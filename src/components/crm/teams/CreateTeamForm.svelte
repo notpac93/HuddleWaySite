@@ -8,8 +8,8 @@
 
   const dispatch = createEventDispatcher();
 
-  export let team = null;
-  export let parentTeam = null;
+  export let team: any = null;
+  export let parentTeam: any = null;
 
   let name = team ? team.name : '';
   let description = team ? team.description || '' : '';

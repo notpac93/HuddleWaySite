@@ -337,7 +337,7 @@
           tenantId,
           uploadedImage.reservationId,
           'event',
-          createdEvent.eventIds,
+          createdEvent.eventIds || [],
           'Bind the verified event cover to the created event series.',
           `${imageUploadKey}:publish`,
         );

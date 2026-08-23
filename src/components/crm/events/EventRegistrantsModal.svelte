@@ -5,7 +5,7 @@
   import { registrationDisplayRecord } from '../../../lib/ui/registrationDisplay';
 
   export let event = null;
-  export let registrations = [];
+  export let registrations: any[] = [];
   export let onClose = () => {};
   export let incomplete = false;
   export let exactCount: number | null = null;

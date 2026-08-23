@@ -12,7 +12,7 @@
   } from '../../lib/services/DataStore';
   import CreateTeamForm from './teams/CreateTeamForm.svelte';
 
-  export let setActiveTeam = () => {};
+  export let setActiveTeam: (team: any) => void = () => {};
   export let activeResultId: string | null = null;
   export let onTargetConsumed: (id: string) => void = () => {};
 

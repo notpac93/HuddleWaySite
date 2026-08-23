@@ -1,5 +1,5 @@
 <script lang="ts">
-  export type BreadcrumbItem = {
+  type BreadcrumbItem = {
     label: string;
     current?: boolean;
     onSelect?: () => void;

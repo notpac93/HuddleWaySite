@@ -228,12 +228,11 @@
               typeof data.teamId === 'string' && data.teamId
                 ? data.teamId
                 : null,
-            attachmentScope:
-              data.attachmentScope === 'event' || data.eventId
+            attachmentScope: (data.attachmentScope === 'event' || data.eventId
                 ? 'event'
                 : data.attachmentScope === 'season' || data.seasonId
                   ? 'season'
-                  : 'all',
+                  : 'all') as "all" | "event" | "season",
             eventId: typeof data.eventId === 'string' && data.eventId.trim()
               ? data.eventId.trim()
               : null,

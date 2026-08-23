@@ -64,7 +64,7 @@
     } catch (e) {
       console.error('Activity could not be loaded.');
       if (generation !== loadGeneration || $tenantIdStore !== tenantId) return;
-      if (e instanceof BackendApiError) requestId = e.requestId;
+      if (e instanceof BackendApiError) requestId = e.requestId || '';
       const message =
         e instanceof BackendApiError && e.status === 403
           ? 'You do not have permission to view organization activity.'

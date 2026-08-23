@@ -3,14 +3,14 @@
   import { DataStore, transactionsStore, invoicesStore, refundsStore, eventsStore } from '../../../lib/services/DataStore';
   import DataTable from '../DataTable.svelte';
 
-  export let forms = [];
+  export let forms: any[] = [];
   export let isLoadingForms = true;
   export let activeTab = 'Active';
   export let error = '';
 
   const dispatch = createEventDispatcher();
 
-  function openFormDetails(form) {
+  function openFormDetails(form: any) {
     dispatch('select', form);
   }
 
@@ -21,7 +21,7 @@
     $eventsStore,
   ];
 
-  function getFinancials(formId) {
+  function getFinancials(formId: string) {
     return DataStore.getRegistrationFormFinancials(formId);
   }
 
@@ -38,13 +38,21 @@
     return formatMoney(row[key], row.financialCurrency);
   }
 
-  $: filteredForms = (financialProjection, forms.filter((form) =>
-      activeTab === 'Active'
-        ? form.status === 'Open'
-        : activeTab === 'Retired'
-          ? form.status === 'Closed'
-          : form.status !== 'Open' && form.status !== 'Closed'
-    ).map(form => {
+  let filteredForms: any[] = [];
+  $: {
+    financialProjection;
+    filteredForms = forms.filter((form: any) => {
+      const lifecycleStatus = String(form.rawStatus || form.status || '')
+        .trim()
+        .toLowerCase();
+      if (activeTab === 'Active') {
+        return lifecycleStatus === 'active' || lifecycleStatus === 'open';
+      }
+      if (activeTab === 'Retired') {
+        return lifecycleStatus === 'archived' || lifecycleStatus === 'closed';
+      }
+      return !['active', 'open', 'archived', 'closed'].includes(lifecycleStatus);
+    }).map((form: any) => {
       const fin = getFinancials(form.id);
       return {
         ...form,
@@ -55,7 +63,8 @@
         financialRecordCount: fin.financialRecordCount,
         financialScopeReason: fin.scopeReason,
       };
-    }));
+    });
+  }
 </script>
 
 <div class="mt-4">

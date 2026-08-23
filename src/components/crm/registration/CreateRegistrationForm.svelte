@@ -16,7 +16,7 @@
 
   const dispatch = createEventDispatcher();
 
-  export let form = null;
+  export let form: any = null;
 
   // Step 1: Basics
   let title = form ? form.title || form.name : '';
@@ -222,7 +222,7 @@
     errorMessage = '';
     successMessage = '';
     try {
-      const data = {
+      const data: any = {
         title: title.trim(),
         description: description.trim(),
         fields: legacyFlagsFromSections(sections),

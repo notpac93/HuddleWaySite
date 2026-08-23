@@ -1,14 +1,14 @@
 <script lang="ts">
   import CreateTeamForm from '../teams/CreateTeamForm.svelte';
 
-  export let teams = [];
+  export let teams: any[] = [];
   export let parentTeam = null;
   export let setActiveTeam = () => {};
   export let loading = false;
   export let error = '';
 
   let showEditTeam = false;
-  let editingTeam = null;
+  let editingTeam: any = null;
   let searchTerm = '';
 
   $: sourceTeams = Array.isArray(teams) ? teams : [];

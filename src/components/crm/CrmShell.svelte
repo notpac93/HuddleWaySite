@@ -9,8 +9,8 @@
   import CrmBreadcrumbs from './CrmBreadcrumbs.svelte';
 
   export let activeTab = 'Dashboard';
-  export let tabs = [];
-  export let activeTeam = null;
+  export let tabs: any[] = [];
+  export let activeTeam: any = null;
   export let onExitTeam = () => {};
   export let activeResultId: string | null = null;
   export let onSwitchTenant: (tenantId: string) => void | Promise<void> = (tenantId) => {
@@ -29,7 +29,7 @@
   let logoutError = '';
 
   let isSidebarHovered = false;
-  let hoverTimeout;
+  let hoverTimeout: any;
 
   function handleSidebarMouseEnter() {
     clearTimeout(hoverTimeout);
@@ -57,7 +57,7 @@
     }
   }
 
-  async function switchTenant(tenant) {
+  async function switchTenant(tenant: any) {
     showOrgSwitcher = false;
     showGlobalSearch = false;
     showMobileMenu = false;
@@ -67,7 +67,7 @@
   }
 
   let appName = 'HuddleWay';
-  let logoUrl = null;
+  let logoUrl: string | null = null;
   const defaultLogoUrl = '/logo.webp';
   let resolvedLogoUrl = defaultLogoUrl;
   let brandingState: 'idle' | 'ready' | 'missing' | 'error' | 'permission' = 'idle';
@@ -79,7 +79,7 @@
     clearTimeout(hoverTimeout);
   });
 
-  function resolveLogoUrl(value) {
+  function resolveLogoUrl(value: any) {
     const candidate = typeof value === 'string' ? value.trim() : '';
     if (!candidate || candidate === 'null' || candidate === 'undefined') {
       return defaultLogoUrl;
@@ -94,7 +94,7 @@
     return candidate;
   }
 
-  function handleLogoError(event) {
+  function handleLogoError(event: Event) {
     const image = event.currentTarget;
     if (image && image.getAttribute('src') !== defaultLogoUrl) {
       image.src = defaultLogoUrl;
@@ -143,7 +143,7 @@
     }
   }
 
-  function setActiveTab(tab) {
+  function setActiveTab(tab: any) {
     activeResultId = null;
     activeTab = tab;
     showMobileMenu = false;
@@ -333,16 +333,16 @@
     </nav>
 
     <div class="crm-ui-shell-account">
-      <div class="flex items-center {isSidebarHovered ? 'justify-between' : 'justify-center'}">
+      <div class="flex items-center w-full {isSidebarHovered ? 'justify-between' : 'justify-center'}">
         <button
           type="button"
-          class="flex items-center text-left disabled:cursor-default"
+          class="flex items-center text-left disabled:cursor-default {isSidebarHovered ? 'flex-1 min-w-0 mr-2' : ''}"
           disabled={!isSidebarHovered}
           aria-label="Switch organization"
           aria-expanded={showOrgSwitcher}
           on:click={() => showOrgSwitcher = !showOrgSwitcher}
         >
-          <span class="crm-ui-shell-avatar">
+          <span class="crm-ui-shell-avatar shrink-0">
             C
           </span>
           <span class="ml-3 flex-1 min-w-0 transition-opacity duration-300 {isSidebarHovered ? 'opacity-100' : 'opacity-0 hidden w-0 overflow-hidden'}">
@@ -357,7 +357,7 @@
         </button>
         <button
           type="button"
-          class="crm-ui-shell-signout-icon {isSidebarHovered ? '' : 'absolute bottom-3 right-2'}"
+          class="crm-ui-shell-signout-icon shrink-0 {isSidebarHovered ? 'block' : 'hidden'}"
           on:click={() => showLogoutModal = true}
           aria-label="Sign out"
           title="Sign out"

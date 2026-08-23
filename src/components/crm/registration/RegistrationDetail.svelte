@@ -3,9 +3,9 @@
   import { DataStore, transactionsStore, invoicesStore, refundsStore, eventsStore } from '../../../lib/services/DataStore';
   import { downloadCsv } from '../../../lib/ui/csvExport';
 
-  export let selectedForm = null;
-  export let participants = [];
-  export let connectedEvents = [];
+  export let selectedForm: any = null;
+  export let participants: any[] = [];
+  export let connectedEvents: any[] = [];
   export let isLoadingParticipants = false;
   export let error = '';
   export let participantsTruncated = false;

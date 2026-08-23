@@ -86,7 +86,7 @@
     if (!currency) return totals;
     totals.set(currency, (totals.get(currency) || 0) + amount);
     return totals;
-  }, new Map<string, number>()).entries());
+  }, new Map<string, number>()).entries()) as [string, number][];
   $: invalidRevenueRecords = $transactionsStore.filter((transaction) =>
     transaction.status === 'succeeded'
     && (

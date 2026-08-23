@@ -1,6 +1,6 @@
 import { derived, get, writable } from 'svelte/store';
 import { auth } from './firebase';
-import { onAuthStateChanged, type User } from 'firebase/auth';
+import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
 import {
   AuthService,
   type TenantAccess,
@@ -46,7 +46,12 @@ if (typeof window !== 'undefined') {
             : tenants[0] ?? null,
         );
       } catch {
-        console.error('Could not load administrator access.');
+        console.error('Could not load administrator access. Logging out.');
+        try {
+          await signOut(auth);
+        } catch {
+          // Ignore sign out errors
+        }
         authErrorStore.set(
           'Your organization access could not be verified. Refresh or sign in again.',
         );
