@@ -597,7 +597,7 @@
               <div>
                 <h3 class="text-sm font-medium text-gray-900">App tabs</h3>
                 <p class="mt-1 text-xs text-gray-500">
-                  The permanent name identifies the tab's purpose. Change only the display name families see.
+                  The permanent name identifies the tab's purpose. You can rename the tab families see.
                 </p>
               </div>
               <span
@@ -621,14 +621,11 @@
                     <h4 class="text-sm font-semibold text-gray-900">
                       {permanentTabName(tab)}
                     </h4>
-                    <label for={`studio-tab-name-${tab.key}`} class="block text-xs font-medium text-gray-600">
-                      Display name
-                    </label>
                     <input
                       id={`studio-tab-name-${tab.key}`}
                       type="text"
                       bind:value={tab.label}
-                      aria-label={`Display name for ${permanentTabName(tab)}`}
+                      aria-label={`Tab name for ${permanentTabName(tab)}`}
                       maxlength="80"
                       disabled={submitState === 'loading'}
                       class="mt-1 w-full max-w-xs rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none"

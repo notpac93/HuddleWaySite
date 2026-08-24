@@ -319,7 +319,7 @@ describe('MyAppStudio tenant preview isolation', () => {
 
     await fireEvent.click(await screen.findByRole('button', { name: 'Pages' }));
     expect(screen.getByText('5 of 5 active')).toBeVisible();
-    await fireEvent.input(screen.getByLabelText('Display name for Home'), {
+    await fireEvent.input(screen.getByLabelText('Tab name for Home'), {
       target: { value: 'Start' },
     });
     await fireEvent.click(screen.getByRole('button', { name: 'Hide Teams tab' }));
@@ -360,12 +360,12 @@ describe('MyAppStudio tenant preview isolation', () => {
     render(TestedMyAppStudio);
 
     await fireEvent.click(await screen.findByRole('button', { name: 'Pages' }));
-    expect(screen.getAllByLabelText(/Display name for/)).toHaveLength(5);
+    expect(screen.getAllByLabelText(/Tab name for/)).toHaveLength(5);
     expect(screen.getByRole('heading', { name: 'Teams' })).toBeVisible();
-    expect(screen.getByLabelText('Display name for Teams')).toHaveValue('Esports');
+    expect(screen.getByLabelText('Tab name for Teams')).toHaveValue('Esports');
     expect(screen.queryByRole('heading', { name: 'Esports' })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Events' })).toBeVisible();
-    expect(screen.getByLabelText('Display name for Events')).toHaveValue('Events');
+    expect(screen.getByLabelText('Tab name for Events')).toHaveValue('Events');
     expect(screen.queryByText(/Route:/)).toBeNull();
     expect(screen.getByRole('button', { name: 'Hide Events tab' })).toHaveAttribute(
       'aria-pressed',
