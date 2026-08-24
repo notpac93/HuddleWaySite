@@ -165,7 +165,7 @@
       draftLines = [newDraftLine()];
       draftKeySignature = '';
     } else if (row?.kind === 'direct_invoice') {
-      void loadLedger();
+      void prepareInvoiceDetails();
     }
   }
 
@@ -224,6 +224,54 @@
       requestId = '';
     }
     return fallback;
+  }
+
+  async function prepareInvoiceDetails() {
+    if (
+      directInvoice?.accountingReconciliationRequired !== true
+      || !ownerAuthorized
+      || !tenantId
+    ) {
+      await loadLedger();
+      return;
+    }
+    const requestedTenantId = tenantId;
+    const requestedInvoiceId = directInvoice.id;
+    const generation = ++ledgerGeneration;
+    ledgerState = 'loading';
+    ledgerError = '';
+    try {
+      const reconciled = await backendClient.reconcileDirectInvoice(
+        requestedTenantId,
+        requestedInvoiceId,
+        'Refresh authoritative Stripe totals before viewing this legacy invoice.',
+      );
+      if (
+        generation !== ledgerGeneration
+        || !open
+        || tenantId !== requestedTenantId
+        || (row?.recordId || row?.id) !== requestedInvoiceId
+      ) return;
+      workingInvoice = reconciled;
+      dispatch('changed', {
+        invoice: reconciled,
+        kind: 'direct_invoice',
+        id: requestedInvoiceId,
+      });
+      await loadLedger();
+    } catch (error) {
+      if (
+        generation !== ledgerGeneration
+        || !open
+        || tenantId !== requestedTenantId
+        || (row?.recordId || row?.id) !== requestedInvoiceId
+      ) return;
+      ledgerState = 'error';
+      ledgerError = errorMessage(
+        error,
+        'Stripe totals could not be reconciled safely. Refunds remain disabled until the provider record is complete.',
+      );
+    }
   }
 
   async function loadLedger() {

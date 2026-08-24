@@ -19,6 +19,7 @@ const backendMocks = vi.hoisted(() => ({
   refundDirectInvoice: vi.fn(),
   refundTransaction: vi.fn(),
   createDirectInvoice: vi.fn(),
+  reconcileDirectInvoice: vi.fn(),
 }));
 
 vi.mock('../../src/lib/api/backendClient', () => ({
@@ -76,6 +77,8 @@ function invoice(
     lastPaymentAt: null,
     lastRefundAt: null,
     issueError: null,
+    accountingReconciliationRequired: false,
+    accountingReconciledAt: null,
     ...overrides,
   };
 }
@@ -149,6 +152,45 @@ function ledger(record: DirectInvoiceRecord) {
 describe('financial mutation drawer', () => {
   beforeEach(() => {
     for (const mock of Object.values(backendMocks)) mock.mockReset();
+  });
+
+  it('reconciles a legacy paid invoice before enabling its refund workflow', async () => {
+    const legacy = invoice({
+      status: 'paid',
+      amountPaidCents: 10_000,
+      amountRefundedCents: 0,
+      amountDueCents: 0,
+      accountingReconciliationRequired: true,
+    });
+    const reconciled = invoice({
+      status: 'paid',
+      amountPaidCents: 10_000,
+      amountRefundedCents: 0,
+      amountDueCents: 0,
+      accountingReconciliationRequired: false,
+      accountingReconciledAt: '2026-08-24T10:00:00.000Z',
+    });
+    backendMocks.reconcileDirectInvoice.mockResolvedValue(reconciled);
+    backendMocks.directInvoiceLedger.mockResolvedValue(ledger(reconciled));
+
+    render(TestedTransactionDetails, {
+      open: true,
+      row: invoiceRow(legacy),
+      createMode: false,
+      tenantId: 'fixture-tenant',
+      ownerAuthorized: true,
+    });
+
+    await screen.findByRole('button', { name: 'Refund invoice payment' });
+    expect(backendMocks.reconcileDirectInvoice).toHaveBeenCalledWith(
+      'fixture-tenant',
+      'invoice-1',
+      expect.stringContaining('Stripe totals'),
+    );
+    expect(backendMocks.directInvoiceLedger).toHaveBeenCalledWith(
+      'fixture-tenant',
+      'invoice-1',
+    );
   });
 
   it('previews and submits an offline payment once with audit and idempotency evidence', async () => {

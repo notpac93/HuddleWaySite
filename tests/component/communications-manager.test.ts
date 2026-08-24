@@ -19,6 +19,8 @@ import {
 
 const mocks = vi.hoisted(() => ({
   createRegistrationInviteLink: vi.fn(),
+  adminInboxThreads: vi.fn(),
+  replyAdminInbox: vi.fn(),
   getDocs: vi.fn(),
   recallMessage: vi.fn(),
   sendRegistrationEmail: vi.fn(),
@@ -52,6 +54,8 @@ vi.mock('../../src/lib/authStore', async () => {
 
 vi.mock('../../src/lib/api/backendClient', () => ({
   backendClient: {
+    adminInboxThreads: mocks.adminInboxThreads,
+    replyAdminInbox: mocks.replyAdminInbox,
     recallMessage: mocks.recallMessage,
     sendMessageBatch: mocks.sendMessageBatch,
   },
@@ -129,6 +133,15 @@ describe('CommunicationsManager recall boundary', () => {
   beforeEach(() => {
     tenants.set('tenant-a');
     mocks.getDocs.mockReset();
+    mocks.adminInboxThreads.mockReset();
+    mocks.adminInboxThreads.mockResolvedValue({
+      success: true,
+      tenantId: 'tenant-a',
+      threads: [],
+      truncated: false,
+      requestId: 'inbox-request',
+    });
+    mocks.replyAdminInbox.mockReset();
     mocks.createRegistrationInviteLink.mockReset();
     mocks.recallMessage.mockReset();
     mocks.sendRegistrationEmail.mockReset();

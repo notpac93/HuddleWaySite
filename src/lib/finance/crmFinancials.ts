@@ -256,6 +256,7 @@ export function directInvoiceActions(
   const refunded = safeMinorUnits(invoice.amountRefundedCents);
   const refundableCents =
     paid !== null && refunded !== null ? Math.max(0, paid - refunded) : 0;
+  const requiresReconciliation = invoice.accountingReconciliationRequired === true;
   const issueEnabled = ['draft', 'issuing'].includes(status);
   const remindEnabled =
     ['open', 'past_due'].includes(status)
@@ -267,7 +268,8 @@ export function directInvoiceActions(
   const refundEnabled =
     ['paid', 'partially_refunded'].includes(status)
     && refundableCents > 0
-    && Boolean(invoice.stripeInvoiceId);
+    && Boolean(invoice.stripeInvoiceId)
+    && !requiresReconciliation;
   const voidEnabled = [
     'draft',
     'issuing',
@@ -297,7 +299,9 @@ export function directInvoiceActions(
       enabled: refundEnabled,
       reason: refundEnabled
         ? ''
-        : 'Processor refunds require a reconciled paid invoice with a refundable balance.',
+        : requiresReconciliation
+          ? 'Refresh Stripe totals before refunding this legacy invoice.'
+          : 'Processor refunds require a reconciled paid invoice with a refundable balance.',
     },
     void: {
       enabled: voidEnabled,

@@ -60,6 +60,8 @@ function validDirectInvoice() {
     lastPaymentAt: null,
     lastRefundAt: null,
     issueError: null,
+    accountingReconciliationRequired: false,
+    accountingReconciledAt: null,
   };
 }
 
@@ -81,6 +83,86 @@ function validAppConfiguration() {
 }
 
 describe('BackendApi', () => {
+  it('loads and replies to tenant-scoped consumer admin inbox threads', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response(200, {
+        success: true,
+        tenantId: 'fixture-tenant',
+        threads: [{
+          id: 'thread-1',
+          consumerEmail: 'family@example.test',
+          consumerName: 'Family One',
+          threadRecipientEmail: 'coach@example.test',
+          subject: 'Question',
+          lastMessageAt: '2026-08-24T10:00:00.000Z',
+          messages: [{
+            id: 'message-1',
+            direction: 'consumer',
+            senderName: 'Family One',
+            subject: 'Question',
+            message: 'When is practice?',
+            createdAt: '2026-08-24T10:00:00.000Z',
+            requestId: 'source-request',
+            deliveryProvider: 'resend',
+          }],
+        }],
+        truncated: false,
+        requestId: 'list-request',
+      }))
+      .mockResolvedValueOnce(response(200, {
+        success: true,
+        tenantId: 'fixture-tenant',
+        replyId: 'reply-1',
+        senderAddress: 'coach@example.test',
+        requestId: 'reply-request',
+      }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+    });
+
+    await expect(api.adminInboxThreads('fixture-tenant')).resolves.toMatchObject({
+      threads: [{ id: 'thread-1' }],
+    });
+    await expect(api.replyAdminInbox({
+      tenantId: 'fixture-tenant',
+      consumerEmail: 'family@example.test',
+      threadRecipientEmail: 'coach@example.test',
+      subject: 'Re: Question',
+      message: 'Practice starts at six.',
+      requestId: 'source-request',
+    })).resolves.toMatchObject({ replyId: 'reply-1' });
+    expect(String(fetchMock.mock.calls[0][0])).toContain(
+      '/admin/inbox/threads?tenantId=fixture-tenant',
+    );
+  });
+
+  it('reconciles one tenant invoice through the provider-backed command', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(response(200, {
+      success: true,
+      tenantId: 'fixture-tenant',
+      invoice: validDirectInvoice(),
+      requestId: 'reconcile-request',
+    }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+    });
+    await expect(api.reconcileDirectInvoice(
+      'fixture-tenant',
+      'invoice-1',
+      'Refresh provider totals.',
+    )).resolves.toMatchObject({ id: 'invoice-1' });
+    const request = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(request.method).toBe('POST');
+    expect(JSON.parse(String(request.body))).toMatchObject({
+      tenantId: 'fixture-tenant',
+      auditReason: 'Refresh provider totals.',
+    });
+  });
+
   it('imports roster participants through the tenant-scoped idempotent route', async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(response(201, {
       tenantId: 'fixture-tenant',

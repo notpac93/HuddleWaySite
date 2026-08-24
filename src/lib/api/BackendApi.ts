@@ -136,6 +136,8 @@ export interface DirectInvoiceRecord {
   lastPaymentAt: string | null;
   lastRefundAt: string | null;
   issueError: string | null;
+  accountingReconciliationRequired: boolean;
+  accountingReconciledAt: string | null;
 }
 
 export interface BillingHistory {
@@ -144,6 +146,27 @@ export interface BillingHistory {
   payments: Array<Record<string, unknown>>;
   invoices: Array<Record<string, unknown>>;
   requestId?: string;
+}
+
+export interface AdminInboxMessage {
+  id: string;
+  direction: 'consumer' | 'admin';
+  senderName: string;
+  subject: string;
+  message: string;
+  createdAt: string | null;
+  requestId: string | null;
+  deliveryProvider: string | null;
+}
+
+export interface AdminInboxThread {
+  id: string;
+  consumerEmail: string;
+  consumerName: string | null;
+  threadRecipientEmail: string;
+  subject: string;
+  lastMessageAt: string | null;
+  messages: AdminInboxMessage[];
 }
 
 export type TenantOperationsEnvironment = 'all' | 'development' | 'production';
@@ -785,6 +808,13 @@ function directInvoiceFromEnvelope(
       !== Number(invoice.subtotalCents)
         - Number(invoice.discountCents)
         + Number(invoice.taxCents)
+    || invoice.lineItems.reduce(
+      (sum, line) => sum + Number(
+        line.amountCents ?? line.quantity * line.unitAmountCents,
+      ),
+      0,
+    ) !== Number(invoice.subtotalCents)
+    || typeof invoice.accountingReconciliationRequired !== 'boolean'
   ) {
     invalidBackendResponse(payload);
   }
@@ -2119,6 +2149,24 @@ export class BackendApi {
     );
   }
 
+  async reconcileDirectInvoice(
+    tenantId: string,
+    invoiceId: string,
+    auditReason: string,
+  ) {
+    const payload = await this.send<{ invoice: DirectInvoiceRecord }>(
+      `/admin/direct-invoices/${encodeURIComponent(invoiceId)}/reconcile`,
+      {
+        method: 'POST',
+        body: { tenantId, auditReason },
+      },
+    );
+    return directInvoiceFromEnvelope(
+      payload as unknown as Record<string, unknown>,
+      invoiceId,
+    );
+  }
+
   async directInvoiceLedger(tenantId: string, invoiceId: string) {
     const payload = await this.send<{
       tenantId: string;
@@ -2313,7 +2361,7 @@ export class BackendApi {
     messages: Array<Record<string, unknown>>,
     idempotencyKey: string,
   ) {
-    return this.send<{
+    const payload = await this.send<{
       success: boolean;
       sendId: string;
       messageCount: number;
@@ -2339,6 +2387,113 @@ export class BackendApi {
       body: { tenantId, messages },
       idempotencyKey,
     });
+    const notificationCounts = [
+      'requestedMessageCount',
+      'sentMessageCount',
+      'failedMessageCount',
+      'noRecipientMessageCount',
+      'replayedMessageCount',
+      'eligibleAccountCount',
+      'eligibleDeviceCount',
+      'successCount',
+      'failureCount',
+    ] as const;
+    if (
+      payload.success !== true
+      || !String(payload.sendId || '').trim()
+      || !String(payload.requestId || '').trim()
+      || payload.notifications?.scope !== 'tenant_account_holders'
+      || payload.notifications?.topic !== null
+      || notificationCounts.some(
+        (field) =>
+          !Number.isSafeInteger(payload.notifications?.[field])
+          || Number(payload.notifications?.[field]) < 0,
+      )
+    ) {
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
+    }
+    return payload;
+  }
+
+  async adminInboxThreads(tenantId: string) {
+    const payload = await this.send<{
+      success: boolean;
+      tenantId: string;
+      threads: AdminInboxThread[];
+      truncated: boolean;
+      requestId: string;
+    }>('/admin/inbox/threads', { query: { tenantId } });
+    assertTenantEnvelope(
+      payload as unknown as Record<string, unknown>,
+      tenantId,
+    );
+    if (
+      payload.success !== true
+      || !Array.isArray(payload.threads)
+      || typeof payload.truncated !== 'boolean'
+      || !String(payload.requestId || '').trim()
+      || payload.threads.some(
+        (thread) =>
+          !String(thread.id || '').trim()
+          || !String(thread.consumerEmail || '').trim()
+          || !Array.isArray(thread.messages)
+          || thread.messages.some(
+            (message) =>
+              !String(message.id || '').trim()
+              || !['consumer', 'admin'].includes(message.direction)
+              || !String(message.message || '').trim(),
+          ),
+      )
+    ) {
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
+    }
+    return payload;
+  }
+
+  async replyAdminInbox({
+    tenantId,
+    consumerEmail,
+    threadRecipientEmail,
+    subject,
+    message,
+    requestId,
+  }: {
+    tenantId: string;
+    consumerEmail: string;
+    threadRecipientEmail: string;
+    subject: string;
+    message: string;
+    requestId?: string | null;
+  }) {
+    const payload = await this.send<{
+      success: boolean;
+      tenantId: string;
+      replyId: string;
+      senderAddress: string;
+      requestId: string;
+    }>('/admin/inbox/reply', {
+      method: 'POST',
+      body: {
+        tenantId,
+        consumerEmail,
+        threadRecipientEmail,
+        subject,
+        message,
+        requestId: requestId || null,
+      },
+    });
+    assertTenantEnvelope(
+      payload as unknown as Record<string, unknown>,
+      tenantId,
+    );
+    if (
+      payload.success !== true
+      || !String(payload.replyId || '').trim()
+      || !String(payload.requestId || '').trim()
+    ) {
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
+    }
+    return payload;
   }
 
   recallMessage(

@@ -18,6 +18,7 @@
   } from '../../lib/api/BackendApi';
   import StatusButton from './ui/StatusButton.svelte';
   import { modalFocus } from '../../lib/ui/modalFocus';
+  import ConsumerAdminInbox from './ConsumerAdminInbox.svelte';
 
   export let registrationEmailDraft: {
     token: string;
@@ -742,6 +743,8 @@
       </div>
     </section>
   {/if}
+
+  <ConsumerAdminInbox />
 
   <section class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" aria-labelledby="wall-announcements-heading">
     <div class="border-b border-gray-200 p-4">

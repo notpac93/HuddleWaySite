@@ -129,6 +129,8 @@ function invoice(
     lastPaymentAt: null,
     lastRefundAt: null,
     issueError: null,
+    accountingReconciliationRequired: false,
+    accountingReconciledAt: null,
     ...overrides,
   };
 }
