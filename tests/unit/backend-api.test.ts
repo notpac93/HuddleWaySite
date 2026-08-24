@@ -1612,6 +1612,24 @@ describe('BackendApi', () => {
         requestId: 'ledger-wrong-invoice',
       },
     ],
+    [
+      'a provider ledger whose minor-unit equations do not reconcile',
+      (api: BackendApi) => api.directInvoiceLedger('fixture-tenant', 'invoice-1'),
+      {
+        tenantId: 'fixture-tenant',
+        invoice: validDirectInvoice(),
+        events: [], payments: [], refunds: [],
+        providerAccounting: {
+          source: 'stripe_balance_transactions', currency: 'USD',
+          chargeGrossCents: 123, chargeFeeCents: 34, chargeNetCents: 90,
+          refundGrossCents: -1, refundFeeCents: 0, refundNetCents: -1,
+          settledNetCents: 89,
+        },
+        truncated: { events: false, payments: false, refunds: false },
+        limits: { events: 500, payments: 100, refunds: 100 },
+        requestId: 'ledger-invalid-provider-accounting',
+      },
+    ],
   ])('fails closed for %s', async (_label, request, payload) => {
     const api = new BackendApi({
       baseUrl: 'https://api.example.test',

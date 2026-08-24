@@ -140,6 +140,39 @@ export interface DirectInvoiceRecord {
   accountingReconciledAt: string | null;
 }
 
+export interface DirectInvoiceProviderAccounting {
+  source: 'stripe_balance_transactions';
+  currency: string;
+  chargeGrossCents: number;
+  chargeFeeCents: number;
+  chargeNetCents: number;
+  refundGrossCents: number;
+  refundFeeCents: number;
+  refundNetCents: number;
+  settledNetCents: number;
+}
+
+function validDirectInvoiceProviderAccounting(
+  value: DirectInvoiceProviderAccounting | null,
+) {
+  if (value === null) return true;
+  if (!value || value.source !== 'stripe_balance_transactions') return false;
+  const fields = [
+    value.chargeGrossCents,
+    value.chargeFeeCents,
+    value.chargeNetCents,
+    value.refundGrossCents,
+    value.refundFeeCents,
+    value.refundNetCents,
+    value.settledNetCents,
+  ];
+  return /^[A-Z]{3}$/.test(value.currency)
+    && fields.every(Number.isSafeInteger)
+    && value.chargeGrossCents - value.chargeFeeCents === value.chargeNetCents
+    && value.refundGrossCents - value.refundFeeCents === value.refundNetCents
+    && value.chargeNetCents + value.refundNetCents === value.settledNetCents;
+}
+
 export interface BillingHistory {
   tenantId: string | null;
   scope: 'tenant' | 'all_tenants';
@@ -2174,6 +2207,7 @@ export class BackendApi {
       events: Array<Record<string, unknown>>;
       payments: Array<Record<string, unknown>>;
       refunds: Array<Record<string, unknown>>;
+      providerAccounting: DirectInvoiceProviderAccounting | null;
       truncated: {
         events: boolean;
         payments: boolean;
@@ -2206,6 +2240,7 @@ export class BackendApi {
         (limit) => !Number.isSafeInteger(limit) || limit < 1,
       )
       || !String(payload.requestId || '').trim()
+      || !validDirectInvoiceProviderAccounting(payload.providerAccounting)
     ) {
       invalidBackendResponse(
         payload as unknown as Record<string, unknown>,
@@ -2380,6 +2415,7 @@ export class BackendApi {
         eligibleDeviceCount: number;
         successCount: number;
         failureCount: number;
+        providerErrorCodes: Record<string, number>;
       };
       requestId: string;
     }>('/admin/messages/batch', {
@@ -2408,6 +2444,13 @@ export class BackendApi {
         (field) =>
           !Number.isSafeInteger(payload.notifications?.[field])
           || Number(payload.notifications?.[field]) < 0,
+      )
+      || !payload.notifications?.providerErrorCodes
+      || Object.entries(payload.notifications.providerErrorCodes).some(
+        ([code, count]) =>
+          !/^messaging\/[a-z0-9-]+$/.test(code)
+          || !Number.isSafeInteger(count)
+          || count < 0,
       )
     ) {
       invalidBackendResponse(payload as unknown as Record<string, unknown>);

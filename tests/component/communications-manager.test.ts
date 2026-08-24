@@ -125,6 +125,7 @@ function notificationSummary(overrides: Record<string, unknown> = {}) {
     eligibleDeviceCount: 2,
     successCount: 2,
     failureCount: 0,
+    providerErrorCodes: {},
     ...overrides,
   };
 }

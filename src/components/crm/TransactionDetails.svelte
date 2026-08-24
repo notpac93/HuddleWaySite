@@ -5,6 +5,7 @@
     BackendApiError,
     createIdempotencyKey,
     type DirectInvoiceRecord,
+    type DirectInvoiceProviderAccounting,
   } from '../../lib/api/BackendApi';
   import { backendClient } from '../../lib/api/backendClient';
   import {
@@ -50,6 +51,7 @@
         events: FinanceRecord[];
         payments: FinanceRecord[];
         refunds: FinanceRecord[];
+        providerAccounting: DirectInvoiceProviderAccounting | null;
         truncated: {
           events: boolean;
           payments: boolean;
@@ -907,6 +909,16 @@
               {:else if ledgerState === 'error'}
                 <div class="crm-ui-danger mt-2" role="alert">{ledgerError}{#if requestId}<span class="block text-xs">Support request: {requestId}</span>{/if}</div>
               {:else if ledger && ledger.events.length + ledger.payments.length + ledger.refunds.length > 0}
+                {#if ledger.providerAccounting}
+                  <dl class="mt-2 grid gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm sm:grid-cols-2" aria-label="Stripe-authoritative accounting">
+                    <div><dt class="text-gray-500">Charge gross</dt><dd class="font-semibold">{formatMinorUnits(ledger.providerAccounting.chargeGrossCents, ledger.providerAccounting.currency)}</dd></div>
+                    <div><dt class="text-gray-500">Processor fees</dt><dd class="font-semibold">{formatMinorUnits(ledger.providerAccounting.chargeFeeCents, ledger.providerAccounting.currency)}</dd></div>
+                    <div><dt class="text-gray-500">Charge net</dt><dd class="font-semibold">{formatMinorUnits(ledger.providerAccounting.chargeNetCents, ledger.providerAccounting.currency)}</dd></div>
+                    <div><dt class="text-gray-500">Refund gross</dt><dd class="font-semibold">{formatMinorUnits(ledger.providerAccounting.refundGrossCents, ledger.providerAccounting.currency)}</dd></div>
+                    <div><dt class="text-gray-500">Refund fee adjustment</dt><dd class="font-semibold">{formatMinorUnits(ledger.providerAccounting.refundFeeCents, ledger.providerAccounting.currency)}</dd></div>
+                    <div><dt class="text-gray-500">Settled net</dt><dd class="font-semibold">{formatMinorUnits(ledger.providerAccounting.settledNetCents, ledger.providerAccounting.currency)}</dd></div>
+                  </dl>
+                {/if}
                 {#if ledger.truncated.events || ledger.truncated.payments || ledger.truncated.refunds}
                   <p class="mt-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status">
                     This ledger is incomplete. Limits: {ledger.limits.events} events, {ledger.limits.payments} payments, and {ledger.limits.refunds} refunds.
@@ -920,6 +932,9 @@
                         <time class="crm-ui-hint-xs">{dateLabel(entry.createdAt || entry.receivedAt)}</time>
                       </div>
                       <p class="mt-1 text-gray-600">{humanizeStatus(entry.status)}{#if safeMinorUnits(entry.amountCents) !== null} · {formatMinorUnits(entry.amountCents, entry.currency || directInvoice.currency)}{/if}</p>
+                      {#if safeMinorUnits(entry.grossCents) !== null && safeMinorUnits(entry.feeCents) !== null && safeMinorUnits(entry.netCents) !== null}
+                        <p class="mt-1 text-xs text-gray-500">Gross {formatMinorUnits(entry.grossCents, entry.currency || directInvoice.currency)} · Fee {formatMinorUnits(entry.feeCents, entry.currency || directInvoice.currency)} · Net {formatMinorUnits(entry.netCents, entry.currency || directInvoice.currency)}</p>
+                      {/if}
                     </li>
                   {/each}
                 </ul>

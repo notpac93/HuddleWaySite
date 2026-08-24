@@ -143,6 +143,7 @@ function ledger(record: DirectInvoiceRecord) {
     events: [],
     payments: [],
     refunds: [],
+    providerAccounting: null,
     truncated: { events: false, payments: false, refunds: false },
     limits: { events: 100, payments: 100, refunds: 100 },
     requestId: 'ledger-request',
@@ -303,6 +304,38 @@ describe('financial mutation drawer', () => {
       'fixture-tenant',
       'invoice-1',
     );
+  });
+
+  it('renders exact Stripe-authoritative gross, fees, refund, and settled net', async () => {
+    const record = invoice({
+      status: 'partially_refunded',
+      totalCents: 123,
+      amountPaidCents: 123,
+      amountRefundedCents: 1,
+      amountDueCents: 0,
+    });
+    backendMocks.directInvoiceLedger.mockResolvedValue({
+      ...ledger(record),
+      payments: [{ id: 'payment-1', type: 'provider_payment', status: 'succeeded', amountCents: 123, grossCents: 123, feeCents: 34, netCents: 89, currency: 'USD' }],
+      refunds: [{ id: 'refund-1', type: 'provider_refund', status: 'succeeded', amountCents: 1, grossCents: -1, feeCents: 0, netCents: -1, currency: 'USD' }],
+      providerAccounting: {
+        source: 'stripe_balance_transactions', currency: 'USD',
+        chargeGrossCents: 123, chargeFeeCents: 34, chargeNetCents: 89,
+        refundGrossCents: -1, refundFeeCents: 0, refundNetCents: -1,
+        settledNetCents: 88,
+      },
+    });
+    render(TestedTransactionDetails, {
+      open: true,
+      row: invoiceRow(record),
+      createMode: false,
+      tenantId: 'fixture-tenant',
+      ownerAuthorized: true,
+    });
+    const accounting = await screen.findByText('Charge gross');
+    expect(accounting).toBeInTheDocument();
+    expect(screen.getByText('$0.88')).toBeInTheDocument();
+    expect(screen.getAllByText('-$0.01').length).toBeGreaterThan(0);
   });
 
   it('keeps an idempotency key for an unchanged retry and rotates it when the payment payload changes', async () => {

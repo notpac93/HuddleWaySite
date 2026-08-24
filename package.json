@@ -12,6 +12,7 @@
     "dev": "astro dev",
     "start": "astro dev",
     "build": "astro build",
+    "build:stage-canary": "node scripts/build-crm-stage-canary.mjs",
     "preview": "astro preview",
     "check": "astro check",
     "check:performance": "node scripts/check-crm-performance.mjs",
