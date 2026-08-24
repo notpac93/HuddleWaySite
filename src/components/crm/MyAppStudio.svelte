@@ -59,6 +59,24 @@
     { key: 'schedule', pageId: 'schedule_page', route: '/schedule', label: 'Schedule', enabled: true },
   ];
   const maxActiveTabs = 5;
+  const missingTabPriority = ['events', 'home', 'messaging', 'schedule', 'teams'];
+
+  function completeFiveTabSlots(tabs: NavigationTabDraft[]) {
+    const completed = tabs.map((tab) => ({ ...tab }));
+    for (const key of missingTabPriority) {
+      if (completed.length >= maxActiveTabs) break;
+      const candidate = initialTabs.find((tab) => tab.key === key);
+      if (
+        candidate
+        && !completed.some(
+          (tab) => tab.key === candidate.key || tab.route === candidate.route,
+        )
+      ) {
+        completed.push({ ...candidate });
+      }
+    }
+    return completed;
+  }
 
   function buildConfigSignature() {
     return JSON.stringify({
@@ -350,6 +368,8 @@
         appName = configuration.name;
         logoUrl = configuration.logoUrl;
         tabsConfig = configuration.navigationTabs.map((tab) => ({ ...tab }));
+        loadedConfigSignature = buildConfigSignature();
+        tabsConfig = completeFiveTabSlots(tabsConfig);
       } else {
         primaryColor = '';
         secondaryColor = '';
@@ -358,8 +378,8 @@
         logoUrl = null;
         // Defaults are offered only after the backend confirms initialize mode.
         tabsConfig = initialTabs.map((tab) => ({ ...tab }));
+        loadedConfigSignature = buildConfigSignature();
       }
-      loadedConfigSignature = buildConfigSignature();
       configLoadState = 'ready';
     } catch (e) {
       console.error('App configuration load failed.');

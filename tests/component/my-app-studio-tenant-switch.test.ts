@@ -109,6 +109,34 @@ function configurationSnapshot(tenantId: string) {
           label: 'Home',
           enabled: true,
         },
+        {
+          key: 'teams',
+          pageId: 'teams_page',
+          route: '/teams',
+          label: 'Teams',
+          enabled: true,
+        },
+        {
+          key: 'events',
+          pageId: 'events_page',
+          route: '/events',
+          label: 'Events',
+          enabled: true,
+        },
+        {
+          key: 'messaging',
+          pageId: 'board_page',
+          route: '/messaging',
+          label: 'Board',
+          enabled: true,
+        },
+        {
+          key: 'schedule',
+          pageId: 'schedule_page',
+          route: '/schedule',
+          label: 'Schedule',
+          enabled: true,
+        },
       ],
     },
     requestId: `request-${tenantId}`,
@@ -314,6 +342,32 @@ describe('MyAppStudio tenant preview isolation', () => {
       expect.any(String),
       expect.any(String),
     );
+  });
+
+  it('completes a four-tab tenant with an editable fifth Events tab', async () => {
+    appMocks.appConfiguration.mockImplementation(async (tenantId: string) => ({
+      ...configurationSnapshot(tenantId),
+      configuration: {
+        ...configurationSnapshot(tenantId).configuration,
+        navigationTabs: [
+          { key: 'home', pageId: 'home_page', route: '/', label: 'Home', enabled: true },
+          { key: 'esports', pageId: 'esports_page', route: '/esports', label: 'Esports', enabled: true },
+          { key: 'schedule', pageId: 'schedule_page', route: '/schedule', label: 'Schedule', enabled: true },
+          { key: 'messaging', pageId: 'board_page', route: '/messaging', label: 'Board', enabled: true },
+        ],
+      },
+    }));
+    render(TestedMyAppStudio);
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'Pages' }));
+    expect(screen.getAllByLabelText(/Tab name for/)).toHaveLength(5);
+    expect(screen.getByLabelText('Tab name for events')).toHaveValue('Events');
+    expect(screen.getByRole('button', { name: 'Hide Events tab' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByText('5 of 5 active')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Publish App' })).toBeEnabled();
   });
 
   it('blocks publication when more than five app tabs are active', async () => {
