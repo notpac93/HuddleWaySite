@@ -1,8 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 
 const projectId = 'demo-huddleway-crm';
-const authBaseUrl = 'http://127.0.0.1:9099';
-const firestoreBaseUrl = 'http://127.0.0.1:8080';
+const authBaseUrl = `http://127.0.0.1:${process.env.PLAYWRIGHT_AUTH_EMULATOR_PORT ?? '9099'}`;
+const firestoreBaseUrl = `http://127.0.0.1:${process.env.PLAYWRIGHT_FIRESTORE_EMULATOR_PORT ?? '8080'}`;
 const password = 'FixturePass123!';
 const crmTabs = [
   'Dashboard',

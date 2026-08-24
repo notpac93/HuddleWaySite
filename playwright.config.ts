@@ -5,6 +5,20 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:4337';
 const parsedBaseURL = new URL(baseURL);
 const loopbackHosts = new Set(['127.0.0.1', 'localhost', '::1']);
 const backendRoot = process.env.HUDDLEWAY_BACKEND_ROOT ?? resolve(process.cwd(), '..');
+const authEmulatorPort = process.env.PLAYWRIGHT_AUTH_EMULATOR_PORT ?? '9099';
+const firestoreEmulatorPort =
+  process.env.PLAYWRIGHT_FIRESTORE_EMULATOR_PORT ?? '8080';
+const firebaseConfigPath =
+  process.env.PLAYWRIGHT_FIREBASE_CONFIG ?? resolve(backendRoot, 'firebase.json');
+
+for (const [name, value] of [
+  ['PLAYWRIGHT_AUTH_EMULATOR_PORT', authEmulatorPort],
+  ['PLAYWRIGHT_FIRESTORE_EMULATOR_PORT', firestoreEmulatorPort],
+]) {
+  if (!/^\d{2,5}$/.test(value)) {
+    throw new Error(`${name} must be a numeric TCP port. Received: ${value}`);
+  }
+}
 
 if (!loopbackHosts.has(parsedBaseURL.hostname)) {
   throw new Error(
@@ -54,17 +68,17 @@ export default defineConfig({
         PUBLIC_FIREBASE_APP_CHECK_ENABLED: 'false',
         PUBLIC_FIREBASE_APP_CHECK_SITE_KEY: '',
         PUBLIC_FIREBASE_USE_EMULATORS: 'true',
-        PUBLIC_FIREBASE_AUTH_EMULATOR_URL: 'http://127.0.0.1:9099',
+        PUBLIC_FIREBASE_AUTH_EMULATOR_URL: `http://127.0.0.1:${authEmulatorPort}`,
         PUBLIC_FIRESTORE_EMULATOR_HOST: '127.0.0.1',
-        PUBLIC_FIRESTORE_EMULATOR_PORT: '8080',
+        PUBLIC_FIRESTORE_EMULATOR_PORT: firestoreEmulatorPort,
       },
     },
     {
       command:
-        `npx --yes firebase-tools@15.23.0 emulators:start --only auth,firestore --project demo-huddleway-crm --config ${resolve(backendRoot, 'firebase.json')}`,
+        `npx --yes firebase-tools@15.23.0 emulators:start --only auth,firestore --project demo-huddleway-crm --config ${JSON.stringify(firebaseConfigPath)}`,
       cwd: backendRoot,
       url:
-        'http://127.0.0.1:9099/emulator/v1/projects/demo-huddleway-crm/config',
+        `http://127.0.0.1:${authEmulatorPort}/emulator/v1/projects/demo-huddleway-crm/config`,
       reuseExistingServer: true,
       timeout: 120_000,
     },
