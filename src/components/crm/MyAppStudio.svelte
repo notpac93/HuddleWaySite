@@ -54,12 +54,12 @@
   const initialTabs = [
     { key: 'home', pageId: 'home_page', route: '/', label: 'Home', enabled: true },
     { key: 'teams', pageId: 'teams_page', route: '/teams', label: 'Teams', enabled: true },
-    { key: 'events', pageId: 'events_page', route: '/events', label: 'Events', enabled: true },
-    { key: 'messaging', pageId: 'board_page', route: '/messaging', label: 'Board', enabled: true },
     { key: 'schedule', pageId: 'schedule_page', route: '/schedule', label: 'Schedule', enabled: true },
+    { key: 'messaging', pageId: 'board_page', route: '/messaging', label: 'Board', enabled: true },
+    { key: 'events', pageId: 'events_page', route: '/events', label: 'Events', enabled: true },
   ];
   const maxActiveTabs = 5;
-  const missingTabPriority = ['events', 'home', 'messaging', 'schedule', 'teams'];
+  const missingTabPriority = ['home', 'teams', 'schedule', 'messaging', 'events'];
   const permanentTabNames: Record<string, string> = {
     home: 'Home',
     teams: 'Teams',
@@ -86,8 +86,12 @@
     for (const key of missingTabPriority) {
       if (completed.length >= maxActiveTabs) break;
       const candidate = initialTabs.find((tab) => tab.key === key);
+      const alreadyHasTeamsPurpose = key === 'teams' && completed.some(
+        (tab) => permanentTabName(tab) === 'Teams',
+      );
       if (
         candidate
+        && !alreadyHasTeamsPurpose
         && !completed.some(
           (tab) => tab.key === candidate.key || tab.route === candidate.route,
         )

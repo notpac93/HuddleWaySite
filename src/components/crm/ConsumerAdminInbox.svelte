@@ -24,6 +24,11 @@
   let replyRequestId = '';
   let generation = 0;
 
+  function lastMessageText(thread: AdminInboxThread) {
+    const count = thread.messages.length;
+    return count > 0 ? thread.messages[count - 1]?.message || '' : '';
+  }
+
   $: selectedThread = threads.find((thread) => thread.id === selectedThreadId) || null;
   $: normalizedSearch = search.trim().toLocaleLowerCase();
   $: visibleThreads = normalizedSearch
@@ -31,7 +36,7 @@
         thread.consumerName,
         thread.consumerEmail,
         thread.subject,
-        thread.messages.at(-1)?.message,
+        lastMessageText(thread),
       ].some((value) => String(value || '').toLocaleLowerCase().includes(normalizedSearch)))
     : threads;
   $: replyIsValid = Boolean(

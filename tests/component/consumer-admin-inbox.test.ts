@@ -130,4 +130,42 @@ describe('ConsumerAdminInbox', () => {
     expect(screen.queryByText('family-a@example.com')).toBeNull();
     expect(mocks.adminInboxThreads).toHaveBeenLastCalledWith('tenant-b');
   });
+
+  it('renders the deployed inbox response shape with a null consumer name and survives reload', async () => {
+    const deployedShape = {
+      ...thread('a'),
+      consumerName: null,
+      messages: [
+        {
+          ...thread('a').messages[0],
+          senderName: 'Account holder',
+        },
+        {
+          id: 'reply-a',
+          direction: 'admin' as const,
+          senderName: 'Program admin',
+          subject: 'Re: Schedule question',
+          message: 'Practice starts at six.',
+          createdAt: '2026-08-24T10:01:00.000Z',
+          requestId: 'request-reply-a',
+          deliveryProvider: 'resend',
+        },
+      ],
+    };
+    mocks.adminInboxThreads.mockResolvedValue({
+      success: true,
+      tenantId: 'tenant-a',
+      threads: [deployedShape],
+      truncated: false,
+      requestId: 'request-list-a',
+    });
+
+    const first = render(TestedInbox);
+    expect(await screen.findByText('Account holder')).toBeVisible();
+    expect(screen.getByText('family-a@example.com')).toBeVisible();
+    first.unmount();
+    render(TestedInbox);
+    expect(await screen.findByText('family-a@example.com')).toBeVisible();
+    expect(mocks.adminInboxThreads).toHaveBeenCalledTimes(2);
+  });
 });
