@@ -53,7 +53,7 @@
 
   const initialTabs = [
     { key: 'home', pageId: 'home_page', route: '/', label: 'Home', enabled: true },
-    { key: 'teams', pageId: 'teams_page', route: '/teams', label: 'Team', enabled: true },
+    { key: 'teams', pageId: 'teams_page', route: '/teams', label: 'Teams', enabled: true },
     { key: 'events', pageId: 'events_page', route: '/events', label: 'Events', enabled: true },
     { key: 'messaging', pageId: 'board_page', route: '/messaging', label: 'Board', enabled: true },
     { key: 'schedule', pageId: 'schedule_page', route: '/schedule', label: 'Schedule', enabled: true },
@@ -62,8 +62,7 @@
   const missingTabPriority = ['events', 'home', 'messaging', 'schedule', 'teams'];
   const permanentTabNames: Record<string, string> = {
     home: 'Home',
-    teams: 'Team',
-    esports: 'Esports',
+    teams: 'Teams',
     events: 'Events',
     messaging: 'Board',
     schedule: 'Schedule',
@@ -76,11 +75,10 @@
   function permanentTabName(tab: NavigationTabDraft) {
     const knownName = permanentTabNames[tab.key];
     if (knownName) return knownName;
-    return tab.key
-      .split(/[-_]/)
-      .filter(Boolean)
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(' ') || 'App tab';
+    // Legacy tenant configurations used a team-specific key and route for the
+    // Teams slot. All other supported system purposes are named above, so an
+    // unrecognized content tab is the tenant's Teams tab—not a tenant brand.
+    return 'Teams';
   }
 
   function completeFiveTabSlots(tabs: NavigationTabDraft[]) {

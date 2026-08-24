@@ -322,7 +322,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     await fireEvent.input(screen.getByLabelText('Display name for Home'), {
       target: { value: 'Start' },
     });
-    await fireEvent.click(screen.getByRole('button', { name: 'Hide Team tab' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Hide Teams tab' }));
     expect(screen.getByText('4 of 5 active')).toBeVisible();
     await fireEvent.click(screen.getByRole('button', { name: 'Publish App' }));
 
@@ -344,14 +344,14 @@ describe('MyAppStudio tenant preview isolation', () => {
     );
   });
 
-  it('completes a four-tab tenant with an editable fifth Events tab', async () => {
+  it('uses tenant-neutral permanent names for legacy team tabs', async () => {
     appMocks.appConfiguration.mockImplementation(async (tenantId: string) => ({
       ...configurationSnapshot(tenantId),
       configuration: {
         ...configurationSnapshot(tenantId).configuration,
         navigationTabs: [
           { key: 'home', pageId: 'home_page', route: '/', label: 'Home', enabled: true },
-          { key: 'esports', pageId: 'esports_page', route: '/esports', label: 'Esports', enabled: true },
+          { key: 'esports', pageId: 'esports_page', route: '/team-esports', label: 'Esports', enabled: true },
           { key: 'schedule', pageId: 'schedule_page', route: '/schedule', label: 'Schedule', enabled: true },
           { key: 'messaging', pageId: 'board_page', route: '/messaging', label: 'Board', enabled: true },
         ],
@@ -361,6 +361,9 @@ describe('MyAppStudio tenant preview isolation', () => {
 
     await fireEvent.click(await screen.findByRole('button', { name: 'Pages' }));
     expect(screen.getAllByLabelText(/Display name for/)).toHaveLength(5);
+    expect(screen.getByRole('heading', { name: 'Teams' })).toBeVisible();
+    expect(screen.getByLabelText('Display name for Teams')).toHaveValue('Esports');
+    expect(screen.queryByRole('heading', { name: 'Esports' })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Events' })).toBeVisible();
     expect(screen.getByLabelText('Display name for Events')).toHaveValue('Events');
     expect(screen.queryByText(/Route:/)).toBeNull();
