@@ -135,7 +135,7 @@
               </label>
               <div class="text-sm">
                 <div class="flex flex-wrap justify-end gap-x-3 gap-y-1">
-                  <button type="button" class="font-medium text-[#00a4bd] hover:text-[#008194]" on:click={() => { view = 'reset'; errorMessage = ''; successMessage = ''; }}>
+                  <button type="button" class="crm-auth-link" on:click={() => { view = 'reset'; errorMessage = ''; successMessage = ''; }}>
                     Forgot your password?
                   </button>
                 </div>
@@ -184,7 +184,7 @@
 
           <div>
             <button type="submit" disabled={isLoading}
-              class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#00a4bd] hover:bg-[#008194] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00a4bd] disabled:opacity-50">
+              class="crm-auth-button-primary">
               {isLoading ? 'Signing in...' : 'Sign in'}
             </button>
           </div>
@@ -194,7 +194,7 @@
           </p>
           <button
             type="button"
-            class="w-full rounded-md border border-[#00a4bd] px-4 py-2 text-sm font-medium text-[#008194] hover:bg-cyan-50"
+            class="crm-auth-button-secondary"
             on:click={() => { view = 'signup'; errorMessage = ''; successMessage = ''; password = ''; }}
           >
             Create free admin account
@@ -251,7 +251,7 @@
           <button
             type="submit"
             disabled={isLoading}
-            class="w-full rounded-md bg-[#00a4bd] px-4 py-2 text-sm font-medium text-white shadow hover:bg-[#008194] disabled:opacity-50"
+            class="crm-auth-button-primary"
           >
             {isLoading ? 'Creating account…' : 'Create free admin account'}
           </button>
@@ -294,7 +294,7 @@
 
           <div>
             <button type="submit" disabled={isLoading}
-              class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#00a4bd] hover:bg-[#008194] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00a4bd] disabled:opacity-50">
+              class="crm-auth-button-primary">
               {isLoading ? 'Sending...' : 'Send reset link'}
             </button>
           </div>
