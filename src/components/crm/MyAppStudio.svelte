@@ -21,7 +21,9 @@
   let secondaryColor = '';
   let tertiaryColor = '';
   let appName = '';
-  let tabsConfig = [];
+  type NavigationTabDraft = CrmAppConfiguration['navigationTabs'][number];
+
+  let tabsConfig: NavigationTabDraft[] = [];
   let logoUrl = null;
   let logoFile: File | null = null;
   let logoPreviewDataUrl: string | null = null;
@@ -56,6 +58,7 @@
     { key: 'messaging', pageId: 'board_page', route: '/messaging', label: 'Board', enabled: true },
     { key: 'schedule', pageId: 'schedule_page', route: '/schedule', label: 'Schedule', enabled: true },
   ];
+  const maxActiveTabs = 5;
 
   function buildConfigSignature() {
     return JSON.stringify({
@@ -104,16 +107,18 @@
     && /^#[0-9a-fA-F]{6}$/.test(tertiaryColor)
     && tabsConfig.length > 0
     && tabsConfig.length <= 12
+    && tabsConfig.filter((tab) => tab.enabled).length <= maxActiveTabs
     && new Set(tabsConfig.map((tab) => tab.key)).size === tabsConfig.length
     && tabsConfig.every(
       (tab) =>
         tab.key
         && tab.pageId
-        && tab.label
+        && tab.label.trim()
         && tab.label.length <= 80
         && tab.route?.startsWith('/')
         && !tab.route.startsWith('//'),
     );
+  $: activeTabCount = tabsConfig.filter((tab) => tab.enabled).length;
   $: canPublish =
     configLoadState === 'ready'
     && Boolean(configVersionToken)
@@ -138,7 +143,10 @@
       secondaryColor,
       tertiaryColor,
       logoUrl: logoPreviewDataUrl || logoUrl,
-      navigationTabs: tabsConfig.map((tab) => ({ ...tab })),
+      navigationTabs: tabsConfig.map((tab) => ({
+        ...tab,
+        label: tab.label.trim(),
+      })),
     },
   });
   $: previewSrc = buildPreviewSrc(String($tenantIdStore || ''));
@@ -398,7 +406,10 @@
         secondaryColor,
         tertiaryColor,
         logoUrl,
-        navigationTabs: tabsConfig.map((tab) => ({ ...tab })),
+        navigationTabs: tabsConfig.map((tab) => ({
+          ...tab,
+          label: tab.label.trim(),
+        })),
       };
       const submittedSignature = JSON.stringify({
         appName: configuration.name,
@@ -542,13 +553,44 @@
       {:else if activeTab === 'Pages'}
         <div class="space-y-6">
           <div class="crm-ui-studio-modules">
-            <h3 class="text-sm font-medium text-gray-900 mb-4">Active Modules</h3>
+            <div class="mb-4 flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <h3 class="text-sm font-medium text-gray-900">App tabs</h3>
+                <p class="mt-1 text-xs text-gray-500">
+                  Rename each tab and choose whether it appears in the family app.
+                </p>
+              </div>
+              <span
+                class="rounded-full px-2.5 py-1 text-xs font-medium {activeTabCount > maxActiveTabs ? 'bg-red-100 text-red-800' : 'bg-emerald-50 text-emerald-800'}"
+                aria-live="polite"
+              >
+                {activeTabCount} of {maxActiveTabs} active
+              </span>
+            </div>
+
+            {#if activeTabCount > maxActiveTabs}
+              <p class="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-800" role="alert">
+                The app can show up to five tabs. Turn off at least {activeTabCount - maxActiveTabs} tab{activeTabCount - maxActiveTabs === 1 ? '' : 's'} before publishing.
+              </p>
+            {/if}
 
             <div class="space-y-4">
               {#each tabsConfig as tab (tab.key)}
                 <div class="crm-ui-studio-module-row">
-                  <div>
-                    <p class="text-sm font-medium text-gray-700">{tab.label}</p>
+                  <div class="min-w-0 flex-1 pr-4">
+                    <label for={`studio-tab-name-${tab.key}`} class="block text-xs font-medium text-gray-600">
+                      Tab name
+                    </label>
+                    <input
+                      id={`studio-tab-name-${tab.key}`}
+                      type="text"
+                      bind:value={tab.label}
+                      aria-label={`Tab name for ${tab.key}`}
+                      maxlength="80"
+                      disabled={submitState === 'loading'}
+                      class="mt-1 w-full max-w-xs rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none"
+                      style="outline-color: {primaryColor}"
+                    />
                     <p class="crm-ui-hint-xs">Route: {tab.route}</p>
                   </div>
                   <button
@@ -556,7 +598,7 @@
                     disabled={submitState === 'loading'}
                     class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {tab.enabled ? '' : 'bg-gray-200'}"
                     style={tab.enabled ? `background-color: ${primaryColor};` : ''}
-                    aria-label={`${tab.enabled ? 'Disable' : 'Enable'} ${tab.label} module`}
+                    aria-label={`${tab.enabled ? 'Hide' : 'Show'} ${tab.label.trim() || tab.key} tab`}
                     aria-pressed={tab.enabled}
                     on:click={() => { tab.enabled = !tab.enabled; tabsConfig = tabsConfig; }}
                   >
@@ -566,7 +608,7 @@
               {/each}
 
               {#if tabsConfig.length === 0}
-                <p class="text-sm text-gray-500">No modules found for this program.</p>
+                <p class="text-sm text-gray-500">No app tabs are configured for this program.</p>
               {/if}
             </div>
           </div>
@@ -589,7 +631,7 @@
     </div>
     <p class="px-4 pb-3 text-right text-xs text-gray-500">
       {#if configLoadState !== 'ready'}Publishing waits for an authoritative configuration load.
-      {:else if !configIsValid}Provide an app name, valid six-digit hex colors, and valid modules.
+      {:else if !configIsValid}Provide an app name, valid six-digit hex colors, non-empty tab names, and no more than five active tabs.
       {:else if !isDirty}No unpublished changes.
       {:else if !configVersionToken}Publishing waits for a backend version token.
       {:else}Ready to publish reviewed changes.{/if}

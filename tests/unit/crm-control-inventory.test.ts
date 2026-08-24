@@ -22,7 +22,7 @@ const reviewedControlCounts: Record<string, number> = {
   'InviteStaffModal.svelte': 6,
   'Login.svelte': 13,
   'MediaManager.svelte': 2,
-  'MyAppStudio.svelte': 10,
+  'MyAppStudio.svelte': 11,
   'SettingsManager.svelte': 6,
   'SetupWorkflow.svelte': 11,
   'StaffManager.svelte': 14,
@@ -117,7 +117,7 @@ describe('exhaustive CRM control inventory', () => {
     );
 
     expect(actual).toEqual(reviewedControlCounts);
-    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(408);
+    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(409);
   });
 
   it('keeps every inventoried CRM component reachable from a production entry point', () => {

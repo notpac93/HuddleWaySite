@@ -266,6 +266,85 @@ describe('MyAppStudio tenant preview isolation', () => {
     expect(appMocks.publishAppConfiguration).not.toHaveBeenCalled();
   });
 
+  it('renames and hides app tabs through the published navigation contract', async () => {
+    let navigationTabs = [
+      { key: 'home', pageId: 'home_page', route: '/', label: 'Home', enabled: true },
+      { key: 'teams', pageId: 'teams_page', route: '/teams', label: 'Teams', enabled: true },
+      { key: 'events', pageId: 'events_page', route: '/events', label: 'Events', enabled: true },
+      { key: 'messaging', pageId: 'board_page', route: '/messaging', label: 'Board', enabled: true },
+      { key: 'schedule', pageId: 'schedule_page', route: '/schedule', label: 'Schedule', enabled: true },
+    ];
+    appMocks.appConfiguration.mockImplementation(async (tenantId: string) => ({
+      ...configurationSnapshot(tenantId),
+      configuration: {
+        ...configurationSnapshot(tenantId).configuration,
+        navigationTabs,
+      },
+    }));
+    appMocks.publishAppConfiguration.mockImplementationOnce(
+      async (_tenantId: string, data: { navigationTabs: typeof navigationTabs }) => {
+        navigationTabs = data.navigationTabs;
+        return publishResult();
+      },
+    );
+    render(TestedMyAppStudio);
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'Pages' }));
+    expect(screen.getByText('5 of 5 active')).toBeVisible();
+    await fireEvent.input(screen.getByLabelText('Tab name for home'), {
+      target: { value: 'Start' },
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Hide Teams tab' }));
+    expect(screen.getByText('4 of 5 active')).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Publish App' }));
+
+    expect(
+      await screen.findByText(
+        'App configuration published and reloaded from the server.',
+      ),
+    ).toBeVisible();
+    expect(appMocks.publishAppConfiguration).toHaveBeenCalledWith(
+      'tenant-a',
+      expect.objectContaining({
+        navigationTabs: expect.arrayContaining([
+          expect.objectContaining({ key: 'home', label: 'Start', enabled: true }),
+          expect.objectContaining({ key: 'teams', label: 'Teams', enabled: false }),
+        ]),
+      }),
+      expect.any(String),
+      expect.any(String),
+    );
+  });
+
+  it('blocks publication when more than five app tabs are active', async () => {
+    appMocks.appConfiguration.mockImplementation(async (tenantId: string) => ({
+      ...configurationSnapshot(tenantId),
+      configuration: {
+        ...configurationSnapshot(tenantId).configuration,
+        navigationTabs: [
+          { key: 'home', pageId: 'home_page', route: '/', label: 'Home', enabled: true },
+          { key: 'teams', pageId: 'teams_page', route: '/teams', label: 'Teams', enabled: true },
+          { key: 'events', pageId: 'events_page', route: '/events', label: 'Events', enabled: true },
+          { key: 'messaging', pageId: 'board_page', route: '/messaging', label: 'Board', enabled: true },
+          { key: 'schedule', pageId: 'schedule_page', route: '/schedule', label: 'Schedule', enabled: true },
+          { key: 'staff', pageId: 'staff_page', route: '/staff', label: 'Staff', enabled: true },
+        ],
+      },
+    }));
+    render(TestedMyAppStudio);
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'Pages' }));
+    expect(screen.getByText('6 of 5 active')).toBeVisible();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The app can show up to five tabs.',
+    );
+    expect(screen.getByRole('button', { name: 'Publish App' })).toBeDisabled();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Hide Staff tab' }));
+    expect(screen.getByText('5 of 5 active')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Publish App' })).toBeEnabled();
+  });
+
   it('resends the authoritative draft after the selected tenant preview is ready', async () => {
     render(TestedMyAppStudio);
     const preview = await findTenantPreview('Alpha League') as HTMLIFrameElement;

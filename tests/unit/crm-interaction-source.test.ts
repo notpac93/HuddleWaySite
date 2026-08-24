@@ -24,10 +24,12 @@ describe('CRM interaction hardening source evidence', () => {
     expect(media).toContain('role="alert"');
   });
 
-  it('names module toggles and exposes their current pressed state', () => {
+  it('names app-tab toggles and exposes their current pressed state', () => {
     const studio = source('MyAppStudio.svelte');
 
-    expect(studio).toContain("`${tab.enabled ? 'Disable' : 'Enable'} ${tab.label} module`");
+    expect(studio).toContain(
+      "`${tab.enabled ? 'Hide' : 'Show'} ${tab.label.trim() || tab.key} tab`",
+    );
     expect(studio).toContain('aria-pressed={tab.enabled}');
   });
 
