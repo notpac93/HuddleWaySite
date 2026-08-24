@@ -63,6 +63,8 @@
     showMobileMenu = false;
     showLogoutModal = false;
     activeResultId = null;
+    if (activeTeam) onExitTeam();
+    activeTab = String(tabs[0]?.name || 'Dashboard');
     await onSwitchTenant(tenant);
   }
 
@@ -336,11 +338,13 @@
       <div class="flex items-center w-full {isSidebarHovered ? 'justify-between' : 'justify-center'}">
         <button
           type="button"
-          class="flex items-center text-left disabled:cursor-default {isSidebarHovered ? 'flex-1 min-w-0 mr-2' : ''}"
-          disabled={!isSidebarHovered}
+          class="flex items-center text-left {isSidebarHovered ? 'flex-1 min-w-0 mr-2' : ''}"
           aria-label="Switch organization"
           aria-expanded={showOrgSwitcher}
-          on:click={() => showOrgSwitcher = !showOrgSwitcher}
+          on:click={() => {
+            isSidebarHovered = true;
+            showOrgSwitcher = !showOrgSwitcher;
+          }}
         >
           <span class="crm-ui-shell-avatar shrink-0">
             C
@@ -368,7 +372,7 @@
         </button>
       </div>
 
-      {#if showOrgSwitcher && $availableTenants.length > 0 && isSidebarHovered}
+      {#if showOrgSwitcher && $availableTenants.length > 0}
         <div class="crm-ui-shell-org-menu">
           {#each $availableTenants as tenant}
             <button

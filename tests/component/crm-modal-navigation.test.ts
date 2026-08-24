@@ -137,6 +137,7 @@ describe('CRM modal stacking and navigation', () => {
 
   it('routes accessible player, team, and event search results and retains each ID', async () => {
     render(TestedCrmShellSearchHarness);
+
     const currentTab = screen.getByRole('status', { name: 'current tab' });
     const currentResultId = screen.getByRole('status', {
       name: 'current result id',
@@ -204,6 +205,29 @@ describe('CRM modal stacking and navigation', () => {
       .mockResolvedValueOnce(undefined);
     render(TestedCrmShellSearchHarness);
 
+    await fireEvent.click(screen.getByRole('button', { name: 'Roster' }));
+    expect(screen.getByRole('status', { name: 'current tab' })).toHaveTextContent(
+      'Roster',
+    );
+
+    await fireEvent.click(
+      screen.getByRole('button', { name: 'Switch organization' }),
+    );
+    await fireEvent.click(
+      screen.getByRole('button', { name: 'Organization ID: tenant-b' }),
+    );
+    let currentTenant: string | null = null;
+    let unsubscribe = tenants.subscribe((value) => {
+      currentTenant = value;
+    });
+    unsubscribe();
+    expect(currentTenant).toBe('tenant-b');
+    expect(screen.getByRole('status', { name: 'current tab' })).toHaveTextContent(
+      'Activity',
+    );
+
+    tenants.set('tenant-a');
+
     await fireEvent.click(
       screen.getByRole('button', { name: 'Open navigation menu' }),
     );
@@ -212,8 +236,7 @@ describe('CRM modal stacking and navigation', () => {
         name: 'Organization ID: tenant-b',
       }),
     );
-    let currentTenant: string | null = null;
-    const unsubscribe = tenants.subscribe((value) => {
+    unsubscribe = tenants.subscribe((value) => {
       currentTenant = value;
     });
     unsubscribe();

@@ -1017,6 +1017,7 @@ describe('BackendApi', () => {
         id: 'fixture-tenant',
         mode: 'update',
         versionToken: 'version-after',
+        publicationSyncStatus: 'succeeded',
         configuration,
         requestId: 'configuration-publish',
       }));

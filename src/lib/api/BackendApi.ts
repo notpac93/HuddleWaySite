@@ -1999,6 +1999,9 @@ export class BackendApi {
       payload.id !== tenantId
       || payload.mode !== 'update'
       || !String(payload.versionToken || '').trim()
+      || !['succeeded', 'deferred'].includes(
+        String(payload.publicationSyncStatus || ''),
+      )
       || !isValidAppConfiguration(payload.configuration)
     ) {
       invalidBackendResponse(
