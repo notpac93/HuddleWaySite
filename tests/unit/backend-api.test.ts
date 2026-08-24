@@ -3,6 +3,7 @@ import {
   BackendApi,
   BackendApiError,
 } from '../../src/lib/api/BackendApi';
+import { RegistrationOutreachApi } from '../../src/lib/api/RegistrationOutreachApi';
 
 function response(
   status: number,
@@ -1628,6 +1629,91 @@ describe('BackendApi', () => {
       status: 502,
       code: 'invalid_backend_response',
       requestId: 'export-wrong-resource',
+    });
+  });
+
+  it('creates a scoped registration link and sends it through the protected email route', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(201, {
+        linkId: 'registration_link_1',
+        tenantId: 'fixture-tenant',
+        targetType: 'event',
+        targetId: 'event-1',
+        eventId: 'event-1',
+        displayTitle: 'Fall Tryouts',
+        registrationKind: 'paid',
+        priceCents: 2500,
+        currency: 'USD',
+        recipientCount: 1,
+        url: 'https://app.example.test/register?token=opaque',
+        expiresAt: '2026-08-27T20:00:00.000Z',
+        idempotentReplay: false,
+        requestId: 'link-request',
+      }))
+      .mockResolvedValueOnce(response(200, {
+        success: true,
+        tenantId: 'fixture-tenant',
+        communicationId: 'communication-1',
+        audienceMode: 'direct',
+        recipientCount: 1,
+        sentCount: 1,
+        sentRecipients: ['family@example.com'],
+        failedCount: 0,
+        failures: [],
+        suppressedCount: 0,
+        requestId: 'email-request',
+      }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+    });
+    const outreachApi = new RegistrationOutreachApi(api);
+
+    const invite = await outreachApi.createInvite({
+      tenantId: 'fixture-tenant',
+      targetType: 'event',
+      targetId: 'event-1',
+      eventId: 'event-1',
+      recipientEmails: ['family@example.com'],
+      idempotencyKey: 'registration-link:stable',
+    });
+    await expect(outreachApi.sendEmail({
+      tenantId: 'fixture-tenant',
+      recipientEmails: ['family@example.com'],
+      subject: 'Register now',
+      message: 'Tryouts are open.',
+      eventTitle: invite.displayTitle,
+      registrationUrl: invite.url,
+      registrationLabel: 'Register and pay',
+      amountCents: invite.priceCents,
+      currency: invite.currency,
+      idempotencyKey: 'registration-email:stable',
+    })).resolves.toMatchObject({ sentCount: 1 });
+
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      'https://api.example.test/admin/registration-links',
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      tenantId: 'fixture-tenant',
+      targetType: 'event',
+      targetId: 'event-1',
+      eventId: 'event-1',
+      recipientEmails: ['family@example.com'],
+      operationKey: 'registration-link:stable',
+    });
+    expect(String(fetchMock.mock.calls[1][0])).toBe(
+      'https://api.example.test/communications/one-way-email',
+    );
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
+      tenantId: 'fixture-tenant',
+      audience: { mode: 'direct', emails: ['family@example.com'] },
+      communication: {
+        registrationUrl: 'https://app.example.test/register?token=opaque',
+        registrationLabel: 'Register and pay',
+        amountCents: 2500,
+      },
     });
   });
 

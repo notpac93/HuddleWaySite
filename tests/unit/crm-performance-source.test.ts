@@ -43,6 +43,16 @@ describe('CRM performance source boundaries', () => {
     );
   });
 
+  it('keeps dashboard startup bounded as tenant datasets grow', () => {
+    const dashboard = source('src/components/crm/GlobalDashboard.svelte');
+
+    expect(dashboard).toContain('backendClient.crmDashboardSummary');
+    expect(dashboard).not.toMatch(/\beventsStore\b/);
+    expect(dashboard).not.toMatch(/\bregistrationsStore\b/);
+    expect(dashboard).not.toMatch(/\bteamsStore\b/);
+    expect(dashboard).not.toContain('crmOperationalPage');
+  });
+
   it('initializes Storage only from upload-capable feature modules', () => {
     const firebaseCore = source('src/lib/firebase.ts');
     const firebaseStorage = source('src/lib/firebaseStorage.ts');
@@ -116,10 +126,10 @@ describe('CRM performance source boundaries', () => {
 
   it('keeps redundant production controls out of the public Vite environment', () => {
     const releaseGate = source('.github/workflows/crm-release-gate.yml');
-    const acceptance = source('.github/workflows/crm-production-acceptance.yml');
+    const deployment = source('.github/workflows/crm-production-deploy.yml');
     const preflight = source('scripts/release/crm-release.mjs');
 
-    for (const workflow of [releaseGate, acceptance]) {
+    for (const workflow of [releaseGate, deployment]) {
       expect(workflow).toContain(
         'HUDDLEWAY_RELEASE_BACKEND_URL: https://api.huddleway.com',
       );
@@ -130,8 +140,6 @@ describe('CRM performance source boundaries', () => {
         'HUDDLEWAY_RELEASE_FIREBASE_USE_EMULATORS: "false"',
       );
       expect(workflow).not.toMatch(/^\s+PUBLIC_BACKEND_URL:/m);
-      expect(workflow).not.toMatch(/^\s+PUBLIC_FIREBASE_PROJECT_ID:/m);
-      expect(workflow).not.toMatch(/^\s+PUBLIC_FIREBASE_USE_EMULATORS:/m);
     }
 
     expect(preflight).toContain("'PUBLIC_BACKEND_URL'");

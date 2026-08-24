@@ -34,8 +34,6 @@
     "release:quarantine": "node scripts/release/crm-release.mjs quarantine",
     "release:manifest": "node scripts/release/crm-release.mjs manifest",
     "release:verify": "node scripts/release/crm-release.mjs verify",
-    "release:acceptance": "node scripts/release/crm-external-evidence.mjs accept --manifest .release/crm-release-manifest.json --out .release/crm-production-acceptance.json",
-    "release:acceptance:verify": "node scripts/release/crm-external-evidence.mjs verify --manifest .release/crm-release-manifest.json --receipt .release/crm-production-acceptance.json",
     "release:evidence:probe-media": "node scripts/release/crm-media-evidence.mjs",
     "release:deploy:inventory": "node scripts/release/crm-production-deploy.mjs inventory",
     "release:deploy:stage": "node scripts/release/crm-production-deploy.mjs stage",

@@ -1,36 +1,22 @@
-name: CRM production deployment
+name: CRM single-developer production deployment
 
 on:
   workflow_dispatch:
     inputs:
-      acceptance_run_id:
-        description: Successful CRM production acceptance workflow run ID
-        required: true
-        type: string
       website_ref:
-        description: Full accepted HuddleWaySite commit SHA
+        description: Full reviewed HuddleWaySite commit SHA
         required: true
         type: string
       backend_contract_ref:
-        description: Full accepted HuddleWay backend contract commit SHA
+        description: Full reviewed HuddleWay backend commit SHA
         required: true
         type: string
-      external_evidence_sha256:
-        description: SHA-256 of the privately approved external evidence JSON
-        required: true
-        type: string
-      accepted_archive_sha256:
-        description: SHA-256 of crm-production-accepted.tar.gz
-        required: true
-        type: string
-      rollback_ref:
-        description: Current porkbun-huddleway-static commit approved for rollback
+      release_note:
+        description: Short reason for this production deployment
         required: true
         type: string
 
 permissions:
-  actions: read
-  attestations: read
   contents: write
 
 concurrency:
@@ -39,282 +25,151 @@ concurrency:
 
 jobs:
   deploy:
-    name: Promote accepted archive without rebuilding
+    name: Build, publish, and verify CRM
     runs-on: ubuntu-latest
     timeout-minutes: 35
     environment:
       name: crm-production-deployment
       url: https://huddleway.com/admin/
     env:
-      HUDDLEWAY_DEPLOY_TARGET: porkbun-huddleway-static
-      HUDDLEWAY_PRODUCTION_ORIGIN: https://huddleway.com
-      HUDDLEWAY_BACKEND_HEALTH_URL: https://api.huddleway.com/health
-      HUDDLEWAY_ACCEPTANCE_RUN_ID: ${{ inputs.acceptance_run_id }}
       HUDDLEWAY_WEBSITE_REF: ${{ inputs.website_ref }}
       HUDDLEWAY_BACKEND_CONTRACT_REF: ${{ inputs.backend_contract_ref }}
-      HUDDLEWAY_EXTERNAL_EVIDENCE_SHA256: ${{ inputs.external_evidence_sha256 }}
-      HUDDLEWAY_ACCEPTED_ARCHIVE_SHA256: ${{ inputs.accepted_archive_sha256 }}
-      HUDDLEWAY_ROLLBACK_REF: ${{ inputs.rollback_ref }}
-      ACCEPTED_DOWNLOAD_DIR: ${{ github.workspace }}/.release/download
+      HUDDLEWAY_RELEASE_NOTE: ${{ inputs.release_note }}
+      HUDDLEWAY_PRODUCTION_ORIGIN: https://huddleway.com
+      HUDDLEWAY_BACKEND_HEALTH_URL: https://api.huddleway.com/health
       STATIC_TARGET_DIR: ${{ github.workspace }}/.release/static-target
-      DEPLOYMENT_PLAN_PATH: ${{ github.workspace }}/.release/crm-production-deployment-plan.json
-      DEPLOYMENT_RECEIPT_PATH: ${{ github.workspace }}/.release/crm-production-deployment.json
-      ROLLBACK_RECEIPT_PATH: ${{ github.workspace }}/.release/crm-production-rollback.json
-      DEPLOYMENT_PUSHED: "false"
+      DEPLOYMENT_PLAN_PATH: ${{ github.workspace }}/.release/single-developer-deployment-plan.json
+      DEPLOYMENT_RECEIPT_PATH: ${{ github.workspace }}/.release/single-developer-deployment.json
 
     steps:
-      - name: Require immutable accepted inputs
+      - name: Require exact reviewed commits
         run: |
-          if [[ ! "$HUDDLEWAY_ACCEPTANCE_RUN_ID" =~ ^[1-9][0-9]{5,19}$ ]]; then
-            echo "::error::acceptance_run_id must be a GitHub Actions run ID."
-            exit 1
-          fi
-          for value in \
-            "$HUDDLEWAY_WEBSITE_REF" \
-            "$HUDDLEWAY_BACKEND_CONTRACT_REF" \
-            "$HUDDLEWAY_ROLLBACK_REF"
-          do
+          for value in "$HUDDLEWAY_WEBSITE_REF" "$HUDDLEWAY_BACKEND_CONTRACT_REF"; do
             if [[ ! "$value" =~ ^[0-9a-fA-F]{40}$ ]]; then
-              echo "::error::Website, backend, and rollback refs must be full commit SHAs."
-              exit 1
-            fi
-          done
-          for value in \
-            "$HUDDLEWAY_EXTERNAL_EVIDENCE_SHA256" \
-            "$HUDDLEWAY_ACCEPTED_ARCHIVE_SHA256"
-          do
-            if [[ ! "$value" =~ ^[0-9a-fA-F]{64}$ ]]; then
-              echo "::error::Evidence and archive inputs must be SHA-256 digests."
+              echo "::error::Website and backend refs must be full commit SHAs."
               exit 1
             fi
           done
           if [[ "${GITHUB_SHA,,}" != "${HUDDLEWAY_WEBSITE_REF,,}" ]]; then
-            echo "::error::Dispatch this workflow from the exact accepted website commit."
+            echo "::error::Dispatch this workflow from the exact website commit."
             exit 1
           fi
 
-      - name: Check out the exact accepted deployment implementation
+      - name: Check out the reviewed website source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ inputs.website_ref }}
           fetch-depth: 1
 
+      - name: Check out the authoritative backend contract
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: notpac93/HuddleWay
+          ref: ${{ inputs.backend_contract_ref }}
+          path: .release-input/HuddleWay
+          fetch-depth: 1
+          token: ${{ secrets.HUDDLEWAY_BACKEND_READ_TOKEN || github.token }}
+
       - name: Set up pinned Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .node-version
+          cache: npm
 
-      - name: Download the protected accepted artifact
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
-        with:
-          name: crm-production-accepted-${{ inputs.website_ref }}
-          path: ${{ env.ACCEPTED_DOWNLOAD_DIR }}
-          github-token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          run-id: ${{ inputs.acceptance_run_id }}
+      - name: Set up pinned npm
+        run: npm install --global npm@11.5.2
 
-      - name: Verify archive digest and signed provenance
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run single-developer release checks
         env:
-          GH_TOKEN: ${{ github.token }}
+          HUDDLEWAY_RELEASE_ENVIRONMENT: production-candidate
+          HUDDLEWAY_BACKEND_ROOT: ${{ github.workspace }}/.release-input/HuddleWay
+          HUDDLEWAY_RELEASE_BACKEND_URL: https://api.huddleway.com
+          HUDDLEWAY_RELEASE_FIREBASE_PROJECT_ID: sports-team-apps
+          HUDDLEWAY_RELEASE_FIREBASE_USE_EMULATORS: "false"
+          HUDDLEWAY_BACKEND_CONTRACT_REF: ${{ inputs.backend_contract_ref }}
+          PUBLIC_FIREBASE_PROJECT_ID: sports-team-apps
+          PUBLIC_FIREBASE_USE_EMULATORS: "false"
+          PUBLIC_FIREBASE_APP_CHECK_ENABLED: "true"
+          PUBLIC_FIREBASE_APP_CHECK_SITE_KEY: ${{ secrets.PUBLIC_FIREBASE_APP_CHECK_SITE_KEY }}
+          HUDDLEWAY_FIREBASE_APP_CHECK_SITE_KEY_SHA256: ${{ vars.HUDDLEWAY_FIREBASE_APP_CHECK_SITE_KEY_SHA256 }}
+          PUBLIC_WEBSITE_COMMIT: ${{ inputs.website_ref }}
+          CI: "true"
         run: |
-          archive="$ACCEPTED_DOWNLOAD_DIR/crm-production-accepted.tar.gz"
-          checksum_file="$ACCEPTED_DOWNLOAD_DIR/crm-production-accepted.tar.gz.sha256"
-          bundle="$ACCEPTED_DOWNLOAD_DIR/crm-production-accepted.attestation.json"
-          for path in "$archive" "$checksum_file" "$bundle"; do
-            if [[ ! -f "$path" || -L "$path" ]]; then
-              echo "::error::Accepted artifact file is missing or unsafe: $path"
-              exit 1
-            fi
-          done
-          recorded="$(awk 'NR == 1 { print tolower($1) }' "$checksum_file")"
-          if [[ "$recorded" != "${HUDDLEWAY_ACCEPTED_ARCHIVE_SHA256,,}" ]]; then
-            echo "::error::Published checksum does not match the approved archive hash."
-            exit 1
-          fi
-          printf '%s  %s\n' \
-            "${HUDDLEWAY_ACCEPTED_ARCHIVE_SHA256,,}" \
-            "$archive" | sha256sum -c -
-          gh attestation verify "$archive" \
-            --bundle "$bundle" \
-            --repo "$GITHUB_REPOSITORY" \
-            --signer-workflow \
-              "$GITHUB_REPOSITORY/.github/workflows/crm-production-acceptance.yml" \
-            --source-digest "${HUDDLEWAY_WEBSITE_REF,,}" \
-            --deny-self-hosted-runners \
-            --format json \
-            > .release/crm-production-attestation-verification.json
+          npm run test:type
+          npm run test:unit
+          npm run test:component -- --maxWorkers=1
+          npm run build
+          npm run check:security
+          npm run check:performance
 
-      - name: Check out the exact approved rollback target
+      - name: Check out the current production branch
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: porkbun-huddleway-static
           path: .release/static-target
-          fetch-depth: 2
+          fetch-depth: 1
           persist-credentials: true
 
-      - name: Require unchanged production branch
+      - name: Stage the built static site
         run: |
-          actual="$(git -C "$STATIC_TARGET_DIR" rev-parse HEAD)"
-          if [[ "$actual" != "${HUDDLEWAY_ROLLBACK_REF,,}" ]]; then
-            echo "::error::Production branch changed after rollback approval."
-            exit 1
-          fi
-
-      - name: Stage the exact accepted static tree
-        run: |
-          node scripts/release/crm-production-deploy.mjs stage \
-            --archive "$ACCEPTED_DOWNLOAD_DIR/crm-production-accepted.tar.gz" \
-            --archive-sha256 "$HUDDLEWAY_ACCEPTED_ARCHIVE_SHA256" \
-            --external-evidence-sha256 "$HUDDLEWAY_EXTERNAL_EVIDENCE_SHA256" \
+          node scripts/release/crm-single-developer-deploy.mjs stage \
+            --source dist \
+            --target "$STATIC_TARGET_DIR" \
             --website-commit "$HUDDLEWAY_WEBSITE_REF" \
             --backend-commit "$HUDDLEWAY_BACKEND_CONTRACT_REF" \
-            --target-directory "$STATIC_TARGET_DIR" \
-            --expected-rollback-ref "$HUDDLEWAY_ROLLBACK_REF" \
-            --deployment-id "github-run-${GITHUB_RUN_ID}" \
+            --release-id "github-run-${GITHUB_RUN_ID}" \
             --out "$DEPLOYMENT_PLAN_PATH"
           git -C "$STATIC_TARGET_DIR" add -A
-          if git -C "$STATIC_TARGET_DIR" diff --cached --quiet; then
-            echo "::error::Accepted artifact produces no production tree change."
-            exit 1
-          fi
-
-      - name: Commit and publish the fast-forward deployment
-        run: |
-          git -C "$STATIC_TARGET_DIR" config user.name "huddleway-release-bot"
-          git -C "$STATIC_TARGET_DIR" config user.email "release-bot@users.noreply.github.com"
+          git -C "$STATIC_TARGET_DIR" config user.name "huddleway-single-developer"
+          git -C "$STATIC_TARGET_DIR" config user.email "single-developer@users.noreply.github.com"
           git -C "$STATIC_TARGET_DIR" commit \
-            -m "Deploy accepted CRM ${HUDDLEWAY_WEBSITE_REF:0:12}" \
-            -m "Accepted-archive-sha256: ${HUDDLEWAY_ACCEPTED_ARCHIVE_SHA256,,}" \
-            -m "Acceptance-run: ${HUDDLEWAY_ACCEPTANCE_RUN_ID}"
-          deployed_commit="$(git -C "$STATIC_TARGET_DIR" rev-parse HEAD)"
-          git -C "$STATIC_TARGET_DIR" push \
-            origin "HEAD:refs/heads/$HUDDLEWAY_DEPLOY_TARGET"
-          {
-            echo "HUDDLEWAY_DEPLOYED_COMMIT=$deployed_commit"
-            echo "DEPLOYMENT_PUSHED=true"
-          } >> "$GITHUB_ENV"
-          echo "deployed_commit=$deployed_commit" >> "$GITHUB_OUTPUT"
+            -m "Deploy CRM ${HUDDLEWAY_WEBSITE_REF:0:12}" \
+            -m "Backend: ${HUDDLEWAY_BACKEND_CONTRACT_REF}" \
+            -m "Reason: ${HUDDLEWAY_RELEASE_NOTE}"
+          echo "HUDDLEWAY_DEPLOYED_COMMIT=$(git -C "$STATIC_TARGET_DIR" rev-parse HEAD)" >> "$GITHUB_ENV"
 
-      - name: Require remote branch to match the deployment
-        run: |
-          for attempt in {1..10}; do
-            remote="$(
-              git -C "$STATIC_TARGET_DIR" ls-remote \
-                origin "refs/heads/$HUDDLEWAY_DEPLOY_TARGET" |
-                awk 'NR == 1 { print $1 }'
-            )"
-            if [[ "$remote" == "$HUDDLEWAY_DEPLOYED_COMMIT" ]]; then
-              exit 0
-            fi
-            sleep 3
-          done
-          echo "::error::Remote production branch did not reach the deployment commit."
-          exit 1
+      - name: Publish the production branch
+        run: git -C "$STATIC_TARGET_DIR" push origin HEAD:refs/heads/porkbun-huddleway-static
 
-      - name: Verify live files, routes, CDN policy, and backend health
+      - name: Verify the published site and backend
         run: |
-          node scripts/release/crm-production-deploy.mjs verify-live \
-            --manifest "$ACCEPTED_DOWNLOAD_DIR/crm-release-manifest.json" \
-            --acceptance "$ACCEPTED_DOWNLOAD_DIR/crm-production-acceptance.json" \
-            --plan "$DEPLOYMENT_PLAN_PATH" \
-            --external-evidence-sha256 "$HUDDLEWAY_EXTERNAL_EVIDENCE_SHA256" \
-            --archive-sha256 "$HUDDLEWAY_ACCEPTED_ARCHIVE_SHA256" \
-            --deployed-commit "$HUDDLEWAY_DEPLOYED_COMMIT" \
+          node scripts/release/crm-single-developer-deploy.mjs verify-live \
             --origin "$HUDDLEWAY_PRODUCTION_ORIGIN" \
             --backend-health-url "$HUDDLEWAY_BACKEND_HEALTH_URL" \
+            --website-commit "$HUDDLEWAY_WEBSITE_REF" \
+            --backend-commit "$HUDDLEWAY_BACKEND_CONTRACT_REF" \
+            --out "$DEPLOYMENT_RECEIPT_PATH" \
             --attempts 12 \
-            --interval-ms 15000 \
-            --out "$DEPLOYMENT_RECEIPT_PATH"
+            --interval-ms 5000
 
-      - name: Roll back automatically when post-deploy verification fails
-        if: failure() && env.DEPLOYMENT_PUSHED == 'true'
-        run: |
-          current="$(git -C "$STATIC_TARGET_DIR" rev-parse HEAD)"
-          if [[ "$current" != "$HUDDLEWAY_DEPLOYED_COMMIT" ]]; then
-            echo "::error::Local deployment checkout changed; refusing automatic rollback."
-            exit 1
-          fi
-          remote="$(
-            git -C "$STATIC_TARGET_DIR" ls-remote \
-              origin "refs/heads/$HUDDLEWAY_DEPLOY_TARGET" |
-              awk 'NR == 1 { print $1 }'
-          )"
-          if [[ "$remote" != "$HUDDLEWAY_DEPLOYED_COMMIT" ]]; then
-            echo "::error::Remote deployment changed; refusing automatic rollback."
-            exit 1
-          fi
-          git -C "$STATIC_TARGET_DIR" revert --no-edit "$HUDDLEWAY_DEPLOYED_COMMIT"
-          rollback_artifact="$(
-            node -e \
-              "const p=require(process.env.DEPLOYMENT_PLAN_PATH);process.stdout.write(p.rollback.artifactSha256)"
-          )"
-          node scripts/release/crm-production-deploy.mjs inventory \
-            --directory "$STATIC_TARGET_DIR" \
-            --expected-sha256 "$rollback_artifact"
-          rollback_commit="$(git -C "$STATIC_TARGET_DIR" rev-parse HEAD)"
-          git -C "$STATIC_TARGET_DIR" push \
-            origin "HEAD:refs/heads/$HUDDLEWAY_DEPLOY_TARGET"
-          remote_after="$(
-            git -C "$STATIC_TARGET_DIR" ls-remote \
-              origin "refs/heads/$HUDDLEWAY_DEPLOY_TARGET" |
-              awk 'NR == 1 { print $1 }'
-          )"
-          if [[ "$remote_after" != "$rollback_commit" ]]; then
-            echo "::error::Remote production branch did not accept the rollback commit."
-            exit 1
-          fi
-          node scripts/release/crm-production-deploy.mjs verify-rollback-live \
-            --directory "$STATIC_TARGET_DIR" \
-            --plan "$DEPLOYMENT_PLAN_PATH" \
-            --failed-deployed-commit "$HUDDLEWAY_DEPLOYED_COMMIT" \
-            --rollback-commit "$rollback_commit" \
-            --origin "$HUDDLEWAY_PRODUCTION_ORIGIN" \
-            --backend-health-url "$HUDDLEWAY_BACKEND_HEALTH_URL" \
-            --attempts 12 \
-            --interval-ms 15000 \
-            --out "$ROLLBACK_RECEIPT_PATH"
-
-      - name: Publish successful deployment evidence
-        if: success()
+      - name: Publish deployment receipt
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: crm-production-deployment-${{ github.run_id }}
-          if-no-files-found: error
-          retention-days: 90
-          path: |
-            .release/crm-production-attestation-verification.json
-            .release/crm-production-deployment-plan.json
-            .release/crm-production-deployment.json
-
-      - name: Publish failed deployment and rollback evidence
-        if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: crm-production-deployment-failure-${{ github.run_id }}
+          name: crm-single-developer-deployment-${{ github.run_id }}
           if-no-files-found: warn
-          retention-days: 90
+          retention-days: 30
           path: |
-            .release/crm-production-attestation-verification.json
-            .release/crm-production-deployment-plan.json
-            .release/crm-production-rollback.json
+            .release/single-developer-deployment-plan.json
+            .release/single-developer-deployment.json
 
       - name: Write deployment summary
         if: always()
         run: |
           {
-            echo "## CRM production deployment"
+            echo "## CRM single-developer production deployment"
             echo
             echo "- Website commit: \`${HUDDLEWAY_WEBSITE_REF}\`"
-            echo "- Backend commit: \`${HUDDLEWAY_BACKEND_CONTRACT_REF}\`"
-            echo "- Accepted archive SHA-256: \`${HUDDLEWAY_ACCEPTED_ARCHIVE_SHA256}\`"
-            echo "- Rollback source: \`${HUDDLEWAY_ROLLBACK_REF}\`"
+            echo "- Backend contract: \`${HUDDLEWAY_BACKEND_CONTRACT_REF}\`"
+            echo "- Production commit: \`${HUDDLEWAY_DEPLOYED_COMMIT:-not published}\`"
+            echo "- Release note: ${HUDDLEWAY_RELEASE_NOTE}"
             if [[ -f "$DEPLOYMENT_RECEIPT_PATH" ]]; then
-              node -e \
-                'const r=require(process.env.DEPLOYMENT_RECEIPT_PATH);console.log("- Deployed commit: `"+r.deployedCommit+"`");console.log("- Deployment receipt: `"+r.deploymentSha256+"`")'
-            elif [[ -f "$ROLLBACK_RECEIPT_PATH" ]]; then
-              node -e \
-                'const r=require(process.env.ROLLBACK_RECEIPT_PATH);console.log("- Automatic rollback commit: `"+r.rollbackCommit+"`");console.log("- Rollback receipt: `"+r.rollbackSha256+"`")'
+              echo "- Live verification: passed"
             else
-              echo "- Deployment: not accepted; inspect the failed gate above"
+              echo "- Live verification: failed or not completed"
+              echo "- Manual rollback: revert the production commit shown above on porkbun-huddleway-static"
             fi
           } >> "$GITHUB_STEP_SUMMARY"

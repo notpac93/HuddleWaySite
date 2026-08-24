@@ -550,6 +550,18 @@ export interface CrmOperationalPage {
   requestId: string;
 }
 
+export interface CrmDashboardSummary {
+  schemaVersion: 'crm_dashboard_summary_v1';
+  tenantId: string;
+  counts: {
+    registrations: number;
+    teams: number;
+    events: number;
+  };
+  recentRegistrations: Array<Record<string, unknown> & { id: string }>;
+  requestId: string;
+}
+
 export interface RosterParticipantImportRow {
   rowNumber: number;
   formData: Record<string, string>;
@@ -588,7 +600,7 @@ export interface CrmAuditEventRecord {
   timestamp: string | null;
 }
 
-interface RequestOptions {
+export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   query?: Record<string, string | number | boolean | null | undefined>;
   body?: unknown;
@@ -823,6 +835,10 @@ export class BackendApi {
     this.fetchImplementation = dependencies.fetch ?? globalThis.fetch.bind(globalThis);
     this.timeoutMs = dependencies.timeoutMs ?? 20_000;
     this.createRequestId = dependencies.createRequestId ?? defaultRequestId;
+  }
+
+  request<T>(path: string, options: RequestOptions = {}) {
+    return this.send<T>(path, options);
   }
 
   private async send<T>(
@@ -1157,6 +1173,30 @@ export class BackendApi {
       invalidBackendResponse(
         payload as unknown as Record<string, unknown>,
       );
+    }
+    return payload;
+  }
+
+  async crmDashboardSummary(tenantId: string) {
+    const payload = await this.send<CrmDashboardSummary>(
+      '/admin/crm/dashboard-summary',
+      { query: { tenantId } },
+    );
+    assertTenantEnvelope(payload as unknown as Record<string, unknown>, tenantId);
+    if (
+      payload.schemaVersion !== 'crm_dashboard_summary_v1'
+      || !payload.counts
+      || ['registrations', 'teams', 'events'].some((key) =>
+        !Number.isSafeInteger(payload.counts[key as keyof typeof payload.counts])
+        || payload.counts[key as keyof typeof payload.counts] < 0,
+      )
+      || !Array.isArray(payload.recentRegistrations)
+      || payload.recentRegistrations.some(
+        (record) => !record || typeof record !== 'object' || !String(record.id || '').trim(),
+      )
+      || !String(payload.requestId || '').trim()
+    ) {
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
   }

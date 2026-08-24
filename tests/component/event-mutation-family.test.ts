@@ -17,8 +17,16 @@ const backendMocks = vi.hoisted(() => ({
   publishImageAsset: vi.fn(),
 }));
 
+const registrationOutreachMocks = vi.hoisted(() => ({
+  createShareableLink: vi.fn(),
+}));
+
 vi.mock('../../src/lib/api/backendClient', () => ({
   backendClient: backendMocks,
+}));
+
+vi.mock('../../src/lib/api/RegistrationOutreachApi', () => ({
+  registrationOutreachApi: registrationOutreachMocks,
 }));
 
 vi.mock('../../src/lib/authStore', async () => {
@@ -152,6 +160,7 @@ describe('event mutation family', () => {
     registrationRecords.set([]);
     registrationScope.set(healthyScope);
     for (const mock of Object.values(backendMocks)) mock.mockReset();
+    registrationOutreachMocks.createShareableLink.mockReset();
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
@@ -259,6 +268,46 @@ describe('event mutation family', () => {
       expect.stringMatching(/^crm-event-csv-import:/),
     );
     expect(await screen.findByText('1 event drafts created.')).toBeVisible();
+  });
+
+  it('creates a shareable registration link only for a live published registration', async () => {
+    eventRecords.set([{
+      ...openingPractice,
+      lifecycleStatus: 'published',
+      isVisible: true,
+      isRegistrationEnabled: true,
+    }]);
+    registrationOutreachMocks.createShareableLink.mockResolvedValue({
+      url: 'https://sports-team-apps.web.app/register?token=opaque-registration-token',
+      expiresAt: '2030-08-10T18:00:00.000Z',
+    });
+    render(TestedEventScheduler);
+
+    await openInlineEditor();
+    await fireEvent.click(screen.getByRole('button', {
+      name: 'Share Link',
+    }));
+
+    await waitFor(() => {
+      expect(registrationOutreachMocks.createShareableLink).toHaveBeenCalledWith({
+        tenantId: 'tenant-a',
+        eventId: 'event-1',
+        idempotencyKey: expect.stringMatching(/^event-shareable-registration-link:/),
+      });
+    });
+    expect(screen.getByLabelText('Shareable registration link for Opening practice'))
+      .toHaveValue('https://sports-team-apps.web.app/register?token=opaque-registration-token');
+    expect(screen.getAllByRole('button', { name: 'Copy link' })[0]).toBeEnabled();
+  });
+
+  it('does not offer a shareable link before registration is published and live', async () => {
+    render(TestedEventScheduler);
+
+    await openInlineEditor();
+
+    expect(screen.queryByRole('button', { name: 'Share Link' })).toBeNull();
+    expect(screen.getByText('Publish this event before creating a registration link.'))
+      .toBeVisible();
   });
 
   it('locks create controls and invalidates the response when tenant scope changes', async () => {

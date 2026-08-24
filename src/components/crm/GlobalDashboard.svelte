@@ -1,16 +1,11 @@
 <script lang="ts">
   import type { Component } from 'svelte';
   import {
-    eventsStore,
-    eventsProjectionScope,
     financialProjectionScope,
-    registrationsProjectionScope,
-    registrationsStore,
-    teamsProjectionScope,
-    teamsStore,
     transactionsStore,
   } from '../../lib/services/DataStore';
-  import { activeTenantRole } from '../../lib/authStore';
+  import { activeTenantRole, tenantIdStore } from '../../lib/authStore';
+  import { backendClient } from '../../lib/api/backendClient';
   import { registrationDisplayRecord } from '../../lib/ui/registrationDisplay';
 
   let showCreateEventModal = false;
@@ -18,6 +13,14 @@
   let CreateEventFormComponent: Component<any> | null = null;
   let InviteStaffModalComponent: Component<any> | null = null;
   let quickActionLoadError = '';
+  let dashboardSummary = {
+    loading: false,
+    counts: { registrations: 0, teams: 0, events: 0 },
+    recentRegistrations: [] as Array<Record<string, unknown> & { id: string }>,
+    error: '',
+  };
+  let loadedDashboardTenant = '';
+  let dashboardSummaryGeneration = 0;
 
   async function openCreateEvent() {
     quickActionLoadError = '';
@@ -52,28 +55,59 @@
     $activeTenantRole === 'owner'
     || $activeTenantRole === 'platform_admin';
   $: canManageTenant = isOwner || $activeTenantRole === 'editor';
-  $: operationalLoading =
-    $registrationsProjectionScope.loading
-    || $teamsProjectionScope.loading
-    || $eventsProjectionScope.loading;
-  $: operationalError =
-    $registrationsProjectionScope.error
-    || $teamsProjectionScope.error
-    || $eventsProjectionScope.error;
+  async function loadDashboardSummary(tenantId: string) {
+    const generation = ++dashboardSummaryGeneration;
+    dashboardSummary = {
+      loading: true,
+      counts: { registrations: 0, teams: 0, events: 0 },
+      recentRegistrations: [],
+      error: '',
+    };
+    try {
+      const summary = await backendClient.crmDashboardSummary(tenantId);
+      if (generation !== dashboardSummaryGeneration) return;
+      dashboardSummary = {
+        loading: false,
+        counts: summary.counts,
+        recentRegistrations: summary.recentRegistrations,
+        error: '',
+      };
+    } catch {
+      if (generation !== dashboardSummaryGeneration) return;
+      dashboardSummary = {
+        loading: false,
+        counts: { registrations: 0, teams: 0, events: 0 },
+        recentRegistrations: [],
+        error: 'Organization metrics could not be loaded.',
+      };
+    }
+  }
+
+  $: if ($tenantIdStore !== loadedDashboardTenant) {
+    loadedDashboardTenant = $tenantIdStore || '';
+    if (loadedDashboardTenant) {
+      void loadDashboardSummary(loadedDashboardTenant);
+    } else {
+      dashboardSummaryGeneration += 1;
+      dashboardSummary = {
+        loading: false,
+        counts: { registrations: 0, teams: 0, events: 0 },
+        recentRegistrations: [],
+        error: '',
+      };
+    }
+  }
+  $: operationalLoading = dashboardSummary.loading;
+  $: operationalError = dashboardSummary.error;
   $: totalPlayers = operationalLoading || operationalError
     ? '—'
-    : String($registrationsStore.length);
+    : String(dashboardSummary.counts.registrations);
   $: activeTeams = operationalLoading || operationalError
     ? '—'
-    : String($teamsStore.length);
-  $: visibleEvents = $eventsStore.filter((event) =>
-    event.isDeleted !== true
-    && event.isVisible !== false
-    && String(event.lifecycleStatus || '').toLowerCase() === 'published'
-  );
+    : String(dashboardSummary.counts.teams);
   $: totalEvents = operationalLoading || operationalError
     ? '—'
-    : String(visibleEvents.length);
+    : String(dashboardSummary.counts.events);
 
   // Keep totals separated by currency and format integer minor units only.
   $: revenueTotals = Array.from($transactionsStore.reduce((totals, transaction) => {
@@ -118,23 +152,8 @@
       : date.toLocaleDateString();
   }
 
-  function timestampMilliseconds(value: any) {
-    const candidate = value?.toMillis?.();
-    if (Number.isFinite(candidate)) return candidate;
-    const parsed = value instanceof Date ? value : value ? new Date(value) : null;
-    return parsed && !Number.isNaN(parsed.getTime())
-      ? parsed.getTime()
-      : Number.NEGATIVE_INFINITY;
-  }
-
   // Recent activity from authoritative registration records.
-  $: recentRegistrations = [...$registrationsStore]
-    .sort((a, b) => {
-      const dateA = timestampMilliseconds(a.createdAt);
-      const dateB = timestampMilliseconds(b.createdAt);
-      return dateB - dateA;
-    })
-    .slice(0, 5)
+  $: recentRegistrations = dashboardSummary.recentRegistrations
     .map((registration) => ({
       ...registrationDisplayRecord(
         String(registration.id || ''),
@@ -219,7 +238,6 @@
               <dt class="text-sm font-medium text-gray-500 truncate">Registration Records</dt>
               <dd>
                 <div class="crm-ui-subtitle">{totalPlayers}</div>
-                {#if $registrationsProjectionScope.truncated}<div class="text-xs text-amber-700">Limited projection; exact count unavailable</div>{/if}
               </dd>
             </dl>
           </div>
@@ -241,7 +259,6 @@
               <dt class="text-sm font-medium text-gray-500 truncate">Teams</dt>
               <dd>
                 <div class="crm-ui-subtitle">{activeTeams}</div>
-                {#if $teamsProjectionScope.truncated}<div class="text-xs text-amber-700">Limited projection; exact count unavailable</div>{/if}
               </dd>
             </dl>
           </div>
@@ -263,7 +280,6 @@
               <dt class="text-sm font-medium text-gray-500 truncate">Events Managed</dt>
               <dd>
                 <div class="crm-ui-subtitle">{totalEvents}</div>
-                {#if $eventsProjectionScope.truncated}<div class="text-xs text-amber-700">Limited projection; exact count unavailable</div>{/if}
               </dd>
             </dl>
           </div>
@@ -279,9 +295,6 @@
         <h3 class="crm-ui-modal-title">
           Recent Registrations
         </h3>
-        {#if $registrationsProjectionScope.truncated}
-          <p class="mt-1 text-xs text-gray-500">Showing the most recent records available to this dashboard preview. Older records remain available in the Registrations workspace.</p>
-        {/if}
       </div>
       <div class="bg-white overflow-hidden sm:rounded-md">
         <ul class="divide-y divide-gray-200">
@@ -302,10 +315,10 @@
               </div>
             </li>
           {/each}
-          {#if $registrationsProjectionScope.loading}
+          {#if operationalLoading}
             <li><div class="px-4 py-12 text-center text-sm text-gray-500">Loading registrations…</div></li>
-          {:else if $registrationsProjectionScope.error}
-            <li><div class="px-4 py-12 text-center text-sm text-red-700">{$registrationsProjectionScope.error}</div></li>
+          {:else if operationalError}
+            <li><div class="px-4 py-12 text-center text-sm text-red-700">{operationalError}</div></li>
           {:else if recentRegistrations.length === 0}
             <li>
               <div class="px-4 py-12 text-center sm:px-6 text-gray-500 text-sm">

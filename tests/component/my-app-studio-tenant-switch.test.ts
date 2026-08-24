@@ -85,6 +85,9 @@ const TestedMyAppStudio = MyAppStudio as unknown as Component;
 const tenants = tenantIdStore as Writable<string | null>;
 const configNames = new Map<string, string>();
 const configLogos = new Map<string, string>();
+const previewOrigin = process.env.PUBLIC_FIREBASE_PROJECT_ID === 'sports-team-apps'
+  ? 'https://huddleway-app-preview-prod.web.app'
+  : 'https://huddleway-app-preview-canary.web.app';
 
 function configurationSnapshot(tenantId: string) {
   return {
@@ -161,6 +164,14 @@ function eventSnapshot(title: string) {
   };
 }
 
+async function findTenantPreview(name: string) {
+  await waitFor(() => {
+    expect(screen.getByLabelText('App Name')).toHaveValue(name);
+    expect(screen.getByTitle(`${name} mobile app preview`)).toBeInTheDocument();
+  }, { timeout: 5000 });
+  return screen.getByTitle(`${name} mobile app preview`);
+}
+
 describe('MyAppStudio tenant preview isolation', () => {
   beforeEach(() => {
     snapshotSubscriptions.length = 0;
@@ -205,9 +216,7 @@ describe('MyAppStudio tenant preview isolation', () => {
 
   it('rebuilds the Flutter preview URL when the selected tenant changes', async () => {
     render(TestedMyAppStudio);
-    const alphaPreview = await screen.findByTitle(
-      'Alpha League mobile app preview',
-    );
+    const alphaPreview = await findTenantPreview('Alpha League');
     expect(alphaPreview).toHaveAttribute(
       'src',
       expect.stringContaining('forcedTenant=tenant-a'),
@@ -216,9 +225,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     await act(async () => {
       tenants.set('tenant-b');
     });
-    const betaPreview = await screen.findByTitle(
-      'Beta League mobile app preview',
-    );
+    const betaPreview = await findTenantPreview('Beta League');
     expect(betaPreview).toHaveAttribute(
       'src',
       expect.stringContaining('forcedTenant=tenant-b'),
@@ -228,9 +235,7 @@ describe('MyAppStudio tenant preview isolation', () => {
 
   it('streams unsaved branding changes to the selected tenant preview', async () => {
     render(TestedMyAppStudio);
-    const preview = await screen.findByTitle(
-      'Alpha League mobile app preview',
-    ) as HTMLIFrameElement;
+    const preview = await findTenantPreview('Alpha League') as HTMLIFrameElement;
     const postMessage = vi.spyOn(preview.contentWindow!, 'postMessage');
 
     await fireEvent.load(preview);
@@ -249,7 +254,7 @@ describe('MyAppStudio tenant preview isolation', () => {
       .find(({ payload }) =>
         payload?.configuration?.name === 'Alpha League Draft');
     expect(matchingCall).toMatchObject({
-      targetOrigin: 'https://huddleway-app-preview-canary.web.app',
+      targetOrigin: previewOrigin,
       payload: {
         type: 'huddleway.crm.preview.update',
         tenantId: 'tenant-a',
@@ -263,13 +268,11 @@ describe('MyAppStudio tenant preview isolation', () => {
 
   it('resends the authoritative draft after the selected tenant preview is ready', async () => {
     render(TestedMyAppStudio);
-    const preview = await screen.findByTitle(
-      'Alpha League mobile app preview',
-    ) as HTMLIFrameElement;
+    const preview = await findTenantPreview('Alpha League') as HTMLIFrameElement;
     const postMessage = vi.spyOn(preview.contentWindow!, 'postMessage');
 
     window.dispatchEvent(new MessageEvent('message', {
-      origin: 'https://huddleway-app-preview-canary.web.app',
+      origin: previewOrigin,
       source: preview.contentWindow,
       data: JSON.stringify({
         type: 'huddleway.crm.preview.ready',
@@ -280,12 +283,12 @@ describe('MyAppStudio tenant preview isolation', () => {
     await waitFor(() => {
       expect(postMessage).toHaveBeenCalledWith(
         expect.stringContaining('"name":"Alpha League"'),
-        'https://huddleway-app-preview-canary.web.app',
+        previewOrigin,
       );
     });
 
     window.dispatchEvent(new MessageEvent('message', {
-      origin: 'https://huddleway-app-preview-canary.web.app',
+      origin: previewOrigin,
       source: preview.contentWindow,
       data: JSON.stringify({
         type: 'huddleway.crm.preview.applied',
