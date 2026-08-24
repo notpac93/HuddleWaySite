@@ -41,6 +41,17 @@ describe('Login safe interaction states', () => {
     authMocks.signOut.mockReset();
   });
 
+  it('uses the HuddleWay logo and branded background treatment', () => {
+    render(TestedLogin);
+
+    expect(screen.getByRole('img', { name: 'HuddleWay' })).toHaveAttribute(
+      'src',
+      '/logo.webp',
+    );
+    expect(screen.getByTestId('huddleway-background-logo')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Admin Portal' })).toBeVisible();
+  });
+
   it('offers free self-service signup and maps raw sign-in failures safely', async () => {
     authMocks.signIn.mockRejectedValue(
       Object.assign(new Error('Firebase: user-not-found for secret@example.test'), {

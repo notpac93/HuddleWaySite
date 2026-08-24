@@ -92,17 +92,18 @@
   }
 </script>
 
-<div class="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-  <div class="sm:mx-auto sm:w-full sm:max-w-md">
-    <div class="flex justify-center text-primary-600">
-      <svg class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-      </svg>
+<div class="crm-auth-shell min-h-screen flex flex-col justify-center px-4 py-12 sm:px-6 lg:px-8">
+  <div class="crm-auth-watermark" data-testid="huddleway-background-logo" aria-hidden="true"></div>
+  <div class="relative z-10 sm:mx-auto sm:w-full sm:max-w-md">
+    <div class="flex justify-center">
+      <div class="crm-auth-brand-mark">
+        <img src="/logo.webp" alt="HuddleWay" class="h-20 w-20 rounded-[1.35rem] object-cover shadow-xl" />
+      </div>
     </div>
-    <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+    <h2 class="mt-6 text-center text-3xl font-extrabold text-white">
       Admin Portal
     </h2>
-    <p class="mt-2 text-center text-sm text-gray-600">
+    <p class="mt-2 text-center text-sm font-medium text-blue-100">
       {#if view === 'login'}
         Sign in to manage your organization
       {:else if view === 'signup'}
@@ -113,8 +114,8 @@
     </p>
   </div>
 
-  <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-    <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+  <div class="relative z-10 mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+    <div class="crm-auth-card bg-white px-4 py-8 shadow-2xl sm:rounded-2xl sm:px-10">
       {#if view === 'login'}
         <form class="space-y-6" on:submit|preventDefault={handleLogin}>
           <div>
