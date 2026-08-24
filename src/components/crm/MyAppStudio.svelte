@@ -60,6 +60,28 @@
   ];
   const maxActiveTabs = 5;
   const missingTabPriority = ['events', 'home', 'messaging', 'schedule', 'teams'];
+  const permanentTabNames: Record<string, string> = {
+    home: 'Home',
+    teams: 'Team',
+    esports: 'Esports',
+    events: 'Events',
+    messaging: 'Board',
+    schedule: 'Schedule',
+    resources: 'Resources',
+    staff: 'Staff',
+    account: 'Account',
+    contact: 'Contact',
+  };
+
+  function permanentTabName(tab: NavigationTabDraft) {
+    const knownName = permanentTabNames[tab.key];
+    if (knownName) return knownName;
+    return tab.key
+      .split(/[-_]/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ') || 'App tab';
+  }
 
   function completeFiveTabSlots(tabs: NavigationTabDraft[]) {
     const completed = tabs.map((tab) => ({ ...tab }));
@@ -577,7 +599,7 @@
               <div>
                 <h3 class="text-sm font-medium text-gray-900">App tabs</h3>
                 <p class="mt-1 text-xs text-gray-500">
-                  Rename each tab and choose whether it appears in the family app.
+                  The permanent name identifies the tab's purpose. Change only the display name families see.
                 </p>
               </div>
               <span
@@ -598,27 +620,29 @@
               {#each tabsConfig as tab (tab.key)}
                 <div class="crm-ui-studio-module-row">
                   <div class="min-w-0 flex-1 pr-4">
+                    <h4 class="text-sm font-semibold text-gray-900">
+                      {permanentTabName(tab)}
+                    </h4>
                     <label for={`studio-tab-name-${tab.key}`} class="block text-xs font-medium text-gray-600">
-                      Tab name
+                      Display name
                     </label>
                     <input
                       id={`studio-tab-name-${tab.key}`}
                       type="text"
                       bind:value={tab.label}
-                      aria-label={`Tab name for ${tab.key}`}
+                      aria-label={`Display name for ${permanentTabName(tab)}`}
                       maxlength="80"
                       disabled={submitState === 'loading'}
                       class="mt-1 w-full max-w-xs rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none"
                       style="outline-color: {primaryColor}"
                     />
-                    <p class="crm-ui-hint-xs">Route: {tab.route}</p>
                   </div>
                   <button
                     type="button"
                     disabled={submitState === 'loading'}
                     class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {tab.enabled ? '' : 'bg-gray-200'}"
                     style={tab.enabled ? `background-color: ${primaryColor};` : ''}
-                    aria-label={`${tab.enabled ? 'Hide' : 'Show'} ${tab.label.trim() || tab.key} tab`}
+                    aria-label={`${tab.enabled ? 'Hide' : 'Show'} ${permanentTabName(tab)} tab`}
                     aria-pressed={tab.enabled}
                     on:click={() => { tab.enabled = !tab.enabled; tabsConfig = tabsConfig; }}
                   >
