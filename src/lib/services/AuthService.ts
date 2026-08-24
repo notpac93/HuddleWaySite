@@ -161,17 +161,18 @@ export function parseCanonicalTenantAccess(
 
 export class AuthService {
   static async fetchAuthorization(user: User): Promise<CrmAuthorization> {
-    const [userDocSnap, tokenResult, canonicalMemberships] = await Promise.all([
+    const [userDocSnap, canonicalMemberships] = await Promise.all([
       getDoc(doc(db, 'users', user.uid)),
-      user.getIdTokenResult(),
       getDocs(query(
         collection(db, 'tenant_memberships'),
         where('uid', '==', user.uid),
       )),
     ]);
     const data = userDocSnap.exists() ? userDocSnap.data() : {};
-    const claims = tokenResult.claims as Record<string, unknown>;
-    const tenantOperationsRole = resolveTenantOperationsRole(claims, data);
+    // Match the backend's revocation boundary: platform-wide access must be
+    // present in the live user document. A stale ID-token claim must never
+    // keep another organization's tenant visible after access is revoked.
+    const tenantOperationsRole = resolveTenantOperationsRole(data);
     const isPlatformAdmin = tenantOperationsRole === 'platform_admin';
     return {
       tenantAccess: isPlatformAdmin

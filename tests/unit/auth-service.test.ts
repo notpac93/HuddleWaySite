@@ -86,4 +86,15 @@ describe('tenant operations access parsing', () => {
   it('does not grant operations access to a tenant owner', () => {
     expect(resolveTenantOperationsRole({ role: 'owner' })).toBeNull();
   });
+
+  it('does not infer platform access from ordinary tenant ownership fields', () => {
+    expect(resolveTenantOperationsRole({
+      role: 'owner',
+      tenantId: 'tenant-a',
+      tenantRoles: {
+        'tenant-a': 'owner',
+        'tenant-b': 'owner',
+      },
+    })).toBeNull();
+  });
 });

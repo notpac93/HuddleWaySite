@@ -270,6 +270,22 @@ describe('RegistrationManager projection and detail lifecycle', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
+  it('renders a healthy empty state instead of a registration load error', async () => {
+    render(TestedRegistrationManager);
+
+    await act(async () => {
+      subscriptions[0].next([]);
+    });
+
+    expect(
+      screen.getByText('No registration forms are available in this view.'),
+    ).toBeVisible();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Retry loading forms' }),
+    ).toBeNull();
+  });
+
   it('retries a permission-denied detail, applies live form updates, and backs out if removed', async () => {
     serviceMocks.fetchRegistrationDetailPage
       .mockRejectedValueOnce({ code: 'firestore/permission-denied' })
