@@ -50,7 +50,7 @@ describe('CRM release input inventory', () => {
   it('includes the backend route authority and every backend contract/test module', async () => {
     const backendRoot = resolve(
       process.env.HUDDLEWAY_BACKEND_ROOT
-        ?? resolve(process.cwd(), '../../HuddleWay'),
+        ?? resolve(process.cwd(), '..'),
     );
     const inputs = await backendContractInputs(backendRoot);
 

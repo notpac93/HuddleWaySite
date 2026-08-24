@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:4337';
 const parsedBaseURL = new URL(baseURL);
 const loopbackHosts = new Set(['127.0.0.1', 'localhost', '::1']);
-const backendRoot = process.env.HUDDLEWAY_BACKEND_ROOT ?? resolve(process.cwd(), '../../HuddleWay');
+const backendRoot = process.env.HUDDLEWAY_BACKEND_ROOT ?? resolve(process.cwd(), '..');
 
 if (!loopbackHosts.has(parsedBaseURL.hostname)) {
   throw new Error(

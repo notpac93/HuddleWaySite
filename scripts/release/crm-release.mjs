@@ -1032,7 +1032,7 @@ async function main() {
       const backendRoot =
         options['backend-root']
         ?? process.env.HUDDLEWAY_BACKEND_ROOT
-        ?? resolve(repositoryRoot, '../../HuddleWay');
+        ?? resolve(repositoryRoot, '..');
       console.log(JSON.stringify(
         await createCandidateReviewScope(backendRoot),
         null,
