@@ -153,11 +153,16 @@ export class RegistrationService {
         .filter((id): id is string => typeof id === 'string' && Boolean(id)),
     );
     const participants = registrations
-      .filter((registration) =>
-        registration.formId === formId
-        || (typeof registration.eventId === 'string'
-          && eventIds.has(registration.eventId)),
-      )
+      .filter((registration) => {
+        const formSubmission = registration.formSubmission
+          && typeof registration.formSubmission === 'object'
+          ? registration.formSubmission as Record<string, unknown>
+          : null;
+        return registration.formId === formId
+          || formSubmission?.formId === formId
+          || (typeof registration.eventId === 'string'
+            && eventIds.has(registration.eventId));
+      })
       .map((registration) => registrationDisplayRecord(
         registration.id,
         registration,

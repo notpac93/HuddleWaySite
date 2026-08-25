@@ -72,4 +72,28 @@ describe('Registration form financial summaries', () => {
     expect(screen.getAllByText('$0.00')[0]).toBeVisible();
     expect(screen.queryByText('Loading…')).not.toBeInTheDocument();
   });
+
+  it('does not describe a free registration form as having no records', () => {
+    dataMocks.getRegistrationFormFinancials.mockReturnValue({
+      totalCollected: 0,
+      totalBalance: 0,
+      totalsAvailable: true,
+      currency: null,
+      financialRecordCount: 0,
+      scopeReason: 'No charge was required.',
+    });
+    render(TestedFormsTable, {
+      forms: [{
+        id: 'free-form',
+        name: 'Rookie Registration',
+        status: 'Open',
+        program: 'Program-wide',
+      }],
+      isLoadingForms: false,
+      activeTab: 'Active',
+    });
+
+    expect(screen.getAllByText('No financial activity')).toHaveLength(4);
+    expect(screen.queryByText('No records')).not.toBeInTheDocument();
+  });
 });

@@ -185,6 +185,7 @@ describe('RegistrationDetail table interactions', () => {
     expect(screen.getByText('Date unavailable')).toBeVisible();
     expect(screen.getByText('Currency unavailable')).toBeVisible();
     expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('No financial activity')).toHaveLength(4);
     expect(
       screen.getByLabelText('Select Malformed Registration'),
     ).toBeDisabled();

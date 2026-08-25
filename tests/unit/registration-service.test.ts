@@ -127,6 +127,8 @@ describe('RegistrationService authenticated backend projections', () => {
         {
           id: 'registration-1',
           eventId: 'event-1',
+          formId: 'form-a',
+          formSubmission: { formId: 'form-a', sections: [] },
           participantSummary: { fullName: ' Player One ' },
           payerSummary: { email: 'guardian@example.test' },
           userId: 'user-1',
@@ -154,6 +156,44 @@ describe('RegistrationService authenticated backend projections', () => {
       eventId: 'event-1',
     });
     expect(result.participants.records[0]).not.toHaveProperty('formData');
+    expect(apiMocks.crmOperationalPage).toHaveBeenNthCalledWith(
+      2,
+      'tenant-a',
+      'registrations',
+      { limit: 100, cursor: undefined },
+    );
+  });
+
+  it('correlates a canonical form submission without trusting another tenant page', async () => {
+    apiMocks.crmOperationalPage
+      .mockResolvedValueOnce(page('events', []))
+      .mockResolvedValueOnce(page('registrations', [
+        {
+          id: 'canonical-registration',
+          formId: 'form-a',
+          formSubmission: { formId: 'form-a', sections: [] },
+          participantSummary: { fullName: 'Canonical Player' },
+          payerSummary: { email: 'guardian@example.test' },
+        },
+        {
+          id: 'different-form',
+          formId: 'form-b',
+          participantSummary: { fullName: 'Other Player' },
+        },
+      ]));
+
+    const result = await RegistrationService.fetchRegistrationDetailPage(
+      'tenant-a',
+      'form-a',
+    );
+    expect(result.participants.records.map((record) => record.id)).toEqual([
+      'canonical-registration',
+    ]);
+    expect(apiMocks.crmOperationalPage).toHaveBeenCalledWith(
+      'tenant-a',
+      'registrations',
+      { limit: 100, cursor: undefined },
+    );
   });
 
   it('propagates backend failures instead of returning a fake empty result', async () => {
