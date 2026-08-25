@@ -7,6 +7,11 @@ import {
   type TenantOperationsRole,
   type TenantRole,
 } from './services/AuthService';
+import {
+  clearCrmContext,
+  readCrmContext,
+  resolveAuthorizedTenant,
+} from './crm/crmContextPersistence';
 
 export const userStore = writable<User | null>(null);
 export const tenantIdStore = writable<string | null>(null);
@@ -34,17 +39,25 @@ if (typeof window !== 'undefined') {
         const access = authorization.tenantAccess;
         const tenants = access.map((entry) => entry.tenantId);
         const currentTenant = get(tenantIdStore);
+        const persistedContext = readCrmContext(user.uid);
+        const restoredTenant = resolveAuthorizedTenant(
+          tenants,
+          currentTenant,
+          persistedContext,
+        );
+        if (
+          persistedContext
+          && !tenants.includes(persistedContext.tenantId)
+        ) {
+          clearCrmContext(user.uid);
+        }
         tenantAccessStore.set(access);
         canViewTenantOperationsStore.set(
           authorization.canViewTenantOperations,
         );
         tenantOperationsRoleStore.set(authorization.tenantOperationsRole);
         availableTenants.set(tenants);
-        tenantIdStore.set(
-          currentTenant && tenants.includes(currentTenant)
-            ? currentTenant
-            : tenants[0] ?? null,
-        );
+        tenantIdStore.set(restoredTenant);
       } catch {
         console.error('Could not load administrator access. Logging out.');
         try {

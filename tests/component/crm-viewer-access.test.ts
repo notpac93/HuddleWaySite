@@ -82,6 +82,10 @@ import {
   userStore,
 } from '../../src/lib/authStore';
 import CrmApp from '../../src/components/crm/CrmApp.svelte';
+import {
+  readCrmContext,
+  writeCrmContext,
+} from '../../src/lib/crm/crmContextPersistence';
 
 const TestedCrmApp = CrmApp as unknown as Component;
 const role = activeTenantRole as Writable<string | null>;
@@ -97,6 +101,8 @@ const authLoading = isAuthLoading as Writable<boolean>;
 
 describe('CrmApp authentication, role, module, and tenant boundaries', () => {
   beforeEach(() => {
+    localStorage.clear();
+    window.history.replaceState({}, '', '/admin/?release=test');
     role.set('viewer');
     authError.set(null);
     tenantChoices.set(['tenant-viewer']);
@@ -201,5 +207,64 @@ describe('CrmApp authentication, role, module, and tenant boundaries', () => {
     expect(
       screen.getAllByRole('button', { name: 'Dashboard' })[0],
     ).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('restores the selected authorized organization page after a hard reload', async () => {
+    role.set('owner');
+    tenants.set('release-club');
+    tenantChoices.set(['eagle', 'release-club']);
+    user.set({
+      uid: 'owner-user',
+      emailVerified: true,
+      getIdToken: vi.fn(async () => 'test-token'),
+    });
+    writeCrmContext('owner-user', {
+      tenantId: 'release-club',
+      page: 'Financials',
+    });
+    window.history.replaceState(
+      {},
+      '',
+      '/admin/?release=test&financeView=Invoices',
+    );
+
+    render(TestedCrmApp);
+
+    await waitFor(() => {
+      expect(
+        screen.getAllByRole('button', { name: 'Financials' })[0],
+      ).toHaveAttribute('aria-current', 'page');
+    });
+    expect(readCrmContext('owner-user')).toEqual({
+      tenantId: 'release-club',
+      page: 'Financials',
+    });
+    expect(new URL(window.location.href).searchParams.get('financeView'))
+      .toBe('Invoices');
+  });
+
+  it('fails closed to Dashboard for stale tenant and unauthorized page state', async () => {
+    writeCrmContext('viewer-user', {
+      tenantId: 'secret-tenant',
+      page: 'Financials',
+    });
+    window.history.replaceState(
+      {},
+      '',
+      '/admin/?release=test&crmPage=Financials&financeView=Invoices',
+    );
+
+    render(TestedCrmApp);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Dashboard' }),
+      ).toHaveAttribute('aria-current', 'page');
+    });
+    expect(readCrmContext('viewer-user')).toEqual({
+      tenantId: 'tenant-viewer',
+      page: 'Dashboard',
+    });
+    expect(screen.queryByRole('button', { name: 'Financials' })).toBeNull();
   });
 });

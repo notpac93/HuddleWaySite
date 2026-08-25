@@ -14,6 +14,11 @@
   } from '../../lib/authStore';
   import { appCheck } from '../../lib/firebase';
   import { startCrmRumCapture } from '../../lib/performance/crmRum';
+  import {
+    readCrmContext,
+    resolveAuthorizedPage,
+    writeCrmContext,
+  } from '../../lib/crm/crmContextPersistence';
   import Login from './Login.svelte';
   import CrmShell from './CrmShell.svelte';
 
@@ -27,6 +32,7 @@
   let moduleLoadSequence = 0;
   let isTenantSwitching = false;
   let rumStarted = false;
+  let restoredContextKey = '';
   let registrationEmailDraft: {
     token: string;
     eventId: string;
@@ -147,6 +153,38 @@
         : activeTeam
           ? visibleTeamTabs
           : tenantTabsWithOperations;
+  $: contextKey =
+    $userStore?.uid && $tenantIdStore
+      ? `${$userStore.uid}:${$tenantIdStore}`
+      : '';
+  $: if (
+    canViewCrm
+    && contextKey
+    && currentTabs.length > 0
+    && restoredContextKey !== contextKey
+  ) {
+    const allowedPages = currentTabs.map((tab) => tab.name);
+    const persistedContext = readCrmContext($userStore?.uid);
+    activeTab = resolveAuthorizedPage(
+      persistedContext,
+      $tenantIdStore,
+      allowedPages,
+    );
+    activeResultId = null;
+    restoredContextKey = contextKey;
+  }
+  $: contextReady = Boolean(contextKey && restoredContextKey === contextKey);
+  $: if (
+    contextReady
+    && $userStore?.uid
+    && $tenantIdStore
+    && currentTabs.some((tab) => tab.name === activeTab)
+  ) {
+    writeCrmContext($userStore.uid, {
+      tenantId: $tenantIdStore,
+      page: activeTab,
+    });
+  }
   $: activeComponentProps = {
     ...(activeTab === 'Teams'
       ? { activeTeam, setActiveTeam, activeResultId, onTargetConsumed }
@@ -174,6 +212,7 @@
   }
   $: if (
     canViewCrm
+    && contextReady
     && !isTenantSwitching
     && $userStore
     && ($tenantIdStore || activeTab === 'Tenant Operations')
