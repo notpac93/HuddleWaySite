@@ -61,6 +61,14 @@ export interface DirectInvoiceActions {
 }
 
 const CURRENCY_PATTERN = /^[A-Z]{3}$/;
+export function persistedDirectInvoice(
+  value: unknown,
+  invoices: DirectInvoiceRecord[],
+): DirectInvoiceRecord | null {
+  const id = String(value || '').trim();
+  if (!/^[A-Za-z0-9_-]{1,200}$/.test(id)) return null;
+  return id ? invoices.find((invoice) => invoice.id === id) ?? null : null;
+}
 
 export function safeMinorUnits(value: unknown): number | null {
   if (value === null || value === undefined || value === '') return null;

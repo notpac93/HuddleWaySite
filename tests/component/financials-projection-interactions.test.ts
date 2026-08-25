@@ -172,6 +172,11 @@ describe('Financials projection and controls', () => {
 
   it('does not request financial records for a viewer and loads when owner authorization arrives', async () => {
     roles.set('viewer');
+    window.history.replaceState(
+      {},
+      '',
+      '/admin/crm?financeView=Invoices&financeInvoice=invoice-1',
+    );
     render(TestedFinancials);
 
     expect(
@@ -179,6 +184,8 @@ describe('Financials projection and controls', () => {
     ).toBeInTheDocument();
     expect(backendMocks.financialOverview).not.toHaveBeenCalled();
     expect(backendMocks.directInvoicePage).not.toHaveBeenCalled();
+    expect(new URL(window.location.href).searchParams.has('financeInvoice'))
+      .toBe(false);
 
     roles.set('owner');
     expect(await screen.findByText('HW-invoice-1')).toBeInTheDocument();
@@ -187,6 +194,38 @@ describe('Financials projection and controls', () => {
       'tenant-a',
       { limit: 200, cursor: undefined },
     );
+  });
+
+  it('restores a tenant-scoped invoice detail from the hard-reload URL', async () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/admin/crm?financeView=Invoices&financeInvoice=invoice-1',
+    );
+    render(TestedFinancials);
+
+    expect(
+      await screen.findByRole('dialog', { name: 'HW-invoice-1' }),
+    ).toBeInTheDocument();
+    expect(new URL(window.location.href).searchParams.get('financeInvoice'))
+      .toBe('invoice-1');
+  });
+
+  it('clears a stale or cross-tenant invoice detail id after scoped loading', async () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/admin/crm?financeView=Invoices&financeInvoice=invoice-from-tenant-b',
+    );
+    render(TestedFinancials);
+
+    expect(await screen.findByText('HW-invoice-1')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(new URL(window.location.href).searchParams.has('financeInvoice'))
+        .toBe(false);
+    });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
   });
 
   it('retains the current projection during refresh and ignores the old tenant result', async () => {
@@ -340,7 +379,7 @@ describe('Financials projection and controls', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
     expect(
-      screen.getByText(/Direct invoices, refunds, disputes, and payouts/i),
+      screen.getByText(/Records without trustworthy team scope are hidden/i),
     ).toBeInTheDocument();
     expect(screen.queryByText('HW-invoice-1')).not.toBeInTheDocument();
     expect(

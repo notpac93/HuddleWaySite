@@ -5,6 +5,7 @@ import {
   formatMinorUnits,
   parseMajorUnitInput,
   parsePercentToBasisPoints,
+  persistedDirectInvoice,
   reconcileDeposit,
   refundableCoreTransactionCents,
   summarizeFinancialsByCurrency,
@@ -63,6 +64,13 @@ function invoice(
 }
 
 describe('CRM financial view-model contracts', () => {
+  it('restores only a bounded invoice id in the tenant-scoped projection', () => {
+    const invoices = [invoice({ id: 'invoice_active' })];
+    expect(persistedDirectInvoice('invoice_active', invoices)).toBe(invoices[0]);
+    expect(persistedDirectInvoice('../invoice_active', invoices)).toBeNull();
+    expect(persistedDirectInvoice('invoice_other_tenant', invoices)).toBeNull();
+  });
+
   it('parses major-unit input without floating-point persistence', () => {
     expect(parseMajorUnitInput('0.50')).toBe(50);
     expect(parseMajorUnitInput('12')).toBe(1_200);

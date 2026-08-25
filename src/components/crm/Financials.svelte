@@ -15,6 +15,7 @@
     dateLabel,
     formatMinorUnits,
     humanizeStatus,
+    persistedDirectInvoice,
     reconcileDeposit,
     safeCurrency,
     safeMinorUnits,
@@ -167,6 +168,7 @@
     page = 1;
     detailsOpen = false;
     selectedRow = null;
+    syncUrl();
     createMode = false;
     resetExportState();
   }
@@ -239,6 +241,7 @@
   onMount(() => {
     hydrateUrl();
     hydratedFromUrl = true;
+    if (!ownerAuthorized || detailsOpen) syncUrl();
   });
 
   onDestroy(() => {
@@ -261,7 +264,7 @@
     } else {
       loadRequestId = '';
     }
-    return 'Financial records could not be loaded. Retry or contact support if the problem continues.';
+    return 'Financial records could not be loaded. Retry or contact support.';
   }
 
   function resetExportState() {
@@ -312,6 +315,7 @@
       directInvoicesIncomplete = directInvoiceProjection.incomplete;
       lastLoadedAt = new Date();
       loadState = 'ready';
+      restoreInvoiceDetail();
     } catch (error) {
       if (
         sequence !== loadSequence
@@ -896,6 +900,7 @@
     selectedRow = row;
     createMode = false;
     detailsOpen = true;
+    syncUrl();
   }
 
   function openCreateInvoice() {
@@ -908,6 +913,28 @@
     detailsOpen = false;
     createMode = false;
     selectedRow = null;
+    syncUrl();
+  }
+
+  function restoreInvoiceDetail() {
+    const requested = typeof window === 'undefined'
+      ? ''
+      : new URL(window.location.href).searchParams.get('financeInvoice');
+    if (!requested) return;
+    const invoice = !teamId && ownerAuthorized
+      ? persistedDirectInvoice(requested, directInvoices)
+      : null;
+    if (invoice) {
+      activeView = 'Invoices';
+      selectedRow = directInvoiceRow(invoice);
+      createMode = false;
+      detailsOpen = true;
+      syncUrl();
+      return;
+    }
+    detailsOpen = false;
+    selectedRow = null;
+    syncUrl();
   }
 
   function selectedInvoiceIds(
@@ -1014,7 +1041,7 @@
         exportRequestId = '';
       }
       exportMessage =
-        'The invoice export could not be created. Retry or contact support if the problem continues.';
+        'The invoice export could not be created. Retry or contact support.';
     }
   }
 
@@ -1132,7 +1159,7 @@
       );
     } catch {
       savedViewMessage =
-        'This view could not be saved in this browser. Check browser storage settings and try again.';
+        'This view could not be saved in this browser. Check storage settings.';
       return;
     }
     savedViews = nextSavedViews;
@@ -1175,7 +1202,7 @@
       );
     } catch {
       savedViewMessage =
-        'This view could not be deleted from browser storage. Check browser storage settings and try again.';
+        'This view could not be deleted. Check storage settings.';
       return;
     }
     savedViews = nextSavedViews;
@@ -1187,17 +1214,22 @@
     if (!hydratedFromUrl || typeof window === 'undefined') return;
     const url = new URL(window.location.href);
     url.searchParams.set('financeView', activeView);
-    if (searchQuery) url.searchParams.set('financeQ', searchQuery);
-    else url.searchParams.delete('financeQ');
-    if (statusFilter) url.searchParams.set('financeStatus', statusFilter);
-    else url.searchParams.delete('financeStatus');
-    if (currencyFilter) {
-      url.searchParams.set('financeCurrency', currencyFilter);
-    } else url.searchParams.delete('financeCurrency');
-    if (fromDate) url.searchParams.set('financeFrom', fromDate);
-    else url.searchParams.delete('financeFrom');
-    if (toDate) url.searchParams.set('financeTo', toDate);
-    else url.searchParams.delete('financeTo');
+    for (const [key, value] of [
+      ['financeQ', searchQuery],
+      ['financeStatus', statusFilter],
+      ['financeCurrency', currencyFilter],
+      ['financeFrom', fromDate],
+      ['financeTo', toDate],
+    ]) {
+      if (value) url.searchParams.set(key, value);
+      else url.searchParams.delete(key);
+    }
+    const invoiceId = detailsOpen && selectedRow?.kind === 'direct_invoice'
+      ? selectedRow.recordId
+      : '';
+    if (invoiceId && !teamId) {
+      url.searchParams.set('financeInvoice', invoiceId);
+    } else url.searchParams.delete('financeInvoice');
     window.history.replaceState({}, '', url);
   }
 
@@ -1212,6 +1244,7 @@
     currencyFilter = params.get('financeCurrency') || '';
     fromDate = params.get('financeFrom') || '';
     toDate = params.get('financeTo') || '';
+    if (ownerAuthorized && loadState === 'ready') restoreInvoiceDetail();
   }
 </script>
 
@@ -1249,7 +1282,7 @@
   {#if !ownerAuthorized || loadState === 'permission'}
     <div class="m-4 rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950 sm:m-6" role="alert">
       <h2 class="font-semibold">Owner permission required</h2>
-      <p class="mt-1">Financial projections and mutations are restricted to organization owners. No financial records were requested for this role.</p>
+      <p class="mt-1">Financial data is restricted to organization owners. No records were requested.</p>
       {#if loadError}<p class="mt-2">{loadError}</p>{/if}
       {#if loadRequestId}<p class="mt-1 text-xs">Support request: {loadRequestId}</p>{/if}
     </div>
@@ -1268,7 +1301,7 @@
     <div class="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
       {#if teamId}
         <div class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950" role="status">
-          Direct invoices, refunds, disputes, and payouts do not expose a trustworthy team scope in the current backend projection, so those records are hidden here. Switch to organization scope to manage them; transaction and core-invoice rows remain limited to team ID {teamId}.
+          Records without trustworthy team scope are hidden. Switch to organization scope; transaction and core-invoice rows remain limited to team {teamId}.
         </div>
       {/if}
 
@@ -1276,7 +1309,7 @@
         <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950" role="alert">
           <p class="font-semibold">Loaded scope may be incomplete</p>
           <ul class="mt-1 list-disc space-y-1 pl-5">{#each truncationWarnings as warning}<li>{warning}</li>{/each}</ul>
-          <p class="mt-2">Totals and client-side filters cover only the returned projection. No full-scope claim or export is made.</p>
+          <p class="mt-2">Totals and filters cover only returned records.</p>
         </div>
       {/if}
 
