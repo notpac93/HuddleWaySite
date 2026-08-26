@@ -1,0 +1,84 @@
+<section class="content-section content-section--calculator" aria-labelledby="savings-calculator-title">
+  <div class="savings-calculator">
+    <div class="savings-calculator__intro">
+      <p class="section-intro__eyebrow">Your Numbers</p>
+      <h2 id="savings-calculator-title">See what $0/month could save you.</h2>
+      <p>Enter what your program pays today. Change the example to match your actual software bill.</p>
+    </div>
+
+    <div class="savings-calculator__grid">
+      <form class="savings-calculator__form" data-savings-form>
+        <label>
+          <span>Current monthly software cost</span>
+          <span class="savings-calculator__input-wrap">
+            <span aria-hidden="true">$</span>
+            <input type="number" min="0" step="1" value="300" inputmode="decimal" data-monthly-cost />
+          </span>
+        </label>
+
+        <label>
+          <span>Yearly seats and add-ons</span>
+          <span class="savings-calculator__input-wrap">
+            <span aria-hidden="true">$</span>
+            <input type="number" min="0" step="1" value="0" inputmode="decimal" data-annual-addons />
+          </span>
+        </label>
+
+        <label>
+          <span>Show my savings over</span>
+          <select data-savings-years>
+            <option value="1">1 year</option>
+            <option value="3">3 years</option>
+            <option value="5" selected>5 years</option>
+          </select>
+        </label>
+      </form>
+
+      <div class="savings-calculator__result" aria-live="polite">
+        <p class="savings-calculator__result-label">Potential recurring software savings</p>
+        <output class="savings-calculator__amount" data-savings-output>$18,000</output>
+        <div class="savings-calculator__math">
+          <span>Your current software spend</span>
+          <strong data-current-spend>$18,000</strong>
+          <span>HuddleWay monthly software cost</span>
+          <strong>$0</strong>
+        </div>
+        <p class="savings-calculator__note">Estimate based on the costs you enter. Payment-processing and transaction fees are separate. This is not a guaranteed savings result.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  const formatter = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  });
+
+  document.querySelectorAll('[data-savings-form]').forEach((form) => {
+    if (!(form instanceof HTMLFormElement)) return;
+
+    const monthlyInput = form.querySelector('[data-monthly-cost]');
+    const annualInput = form.querySelector('[data-annual-addons]');
+    const yearsInput = form.querySelector('[data-savings-years]');
+    const calculator = form.closest('.savings-calculator');
+    const savingsOutput = calculator?.querySelector('[data-savings-output]');
+    const currentSpendOutput = calculator?.querySelector('[data-current-spend]');
+
+    const updateSavings = () => {
+      const monthly = monthlyInput instanceof HTMLInputElement ? Number(monthlyInput.value) || 0 : 0;
+      const annual = annualInput instanceof HTMLInputElement ? Number(annualInput.value) || 0 : 0;
+      const years = yearsInput instanceof HTMLSelectElement ? Number(yearsInput.value) || 1 : 1;
+      const currentSpend = Math.max(0, (monthly * 12 + annual) * years);
+      const formatted = formatter.format(currentSpend);
+
+      if (savingsOutput instanceof HTMLOutputElement) savingsOutput.value = formatted;
+      if (currentSpendOutput instanceof HTMLElement) currentSpendOutput.textContent = formatted;
+    };
+
+    form.addEventListener('input', updateSavings);
+    form.addEventListener('change', updateSavings);
+    updateSavings();
+  });
+</script>

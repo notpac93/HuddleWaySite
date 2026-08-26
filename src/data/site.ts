@@ -136,18 +136,18 @@ const mockupAsset = (fileName: string, alt: string, fit: 'contain' | 'cover' = '
 
 export const siteMeta = {
   name: 'HuddleWay',
-  title: 'HuddleWay | Branded App for Youth Sports',
+  title: 'HuddleWay | $0/Month Sports Program Software',
   description:
-    'HuddleWay gives youth sports programs a branded experience for supported registration, connected-account payments, schedules, and updates.',
+    'Run your sports program for $0/month with registration, payments, schedules, updates, and your brand in one app.',
   footerBlurb:
-    'Built for youth sports programs that want branded, connected registration, payment, schedule, and update workflows.',
+    'Save money. Save time. Look professional. Run your sports program for $0/month in one branded app.',
 
 };
 
 export const navigation: Link[] = [
   { label: 'Home', href: withBase('/') },
   { label: 'Features', href: withBase('/features') },
-  { label: 'Savings', href: withBase('/savings') },
+  { label: 'Pricing & Savings', href: withBase('/savings') },
   { label: 'Setup FAQ', href: withBase('/setup-faq') },
 ];
 
@@ -158,22 +158,22 @@ export const trustLinks: Link[] = [
 ];
 
 export const primaryCta: CallToAction = {
-  label: 'Download App',
+  label: 'Start Free',
   href: 'https://apps.apple.com/us/app/huddleway-admin/id6761773042',
   prompt: 'app-store-choice',
 };
 
 export const appStorePrompt: AppStorePrompt = {
-  title: 'Choose your app',
-  body: 'Are you Administrator or Family?',
+  title: 'How will you use HuddleWay?',
+  body: 'Choose whether you run a program or are joining as a family.',
   admin: {
-    label: 'Administrator',
+    label: 'Run a Program',
     href: 'https://apps.apple.com/us/app/huddleway-admin/id6761773042',
-    note: 'Open the HuddleWay Admin app in the App Store.',
+    note: 'Open HuddleWay for program owners in the App Store.',
   },
   family: {
-    label: 'Family',
-    note: 'Family App Store link coming soon.',
+    label: 'Join as a Family',
+    note: 'The family App Store link is coming soon.',
   },
   dismissLabel: 'Not now',
 };
@@ -197,18 +197,20 @@ export const homePage = {
   pageName: 'home',
   title: siteMeta.title,
   description:
-    'Branded program experience for supported registration, connected-account payments, schedules, and updates.',
+    'Run your sports program for $0/month. Save money, save time, and look professional with one branded app.',
   hero: {
     eyebrow: 'For Youth Sports Programs',
-    title: 'A branded app for youth sports programs.',
-    body: 'Bring supported registration, connected-account payments, schedules, and updates into a branded program experience.',
+    price: '$0',
+    cadence: '/month',
+    title: 'to run your sports program.',
+    promise: 'Save money. Save time. Look professional.',
+    body: 'Registration, payments, schedules, and updates—all in one branded app.',
   },
-  heroPill: 'Built around your program and its configured workflows.',
+  heroPill: 'For clubs, leagues, camps, and training programs.',
   quickChecks: [
-    'Youth sports',
-    'Free admin setup',
-    'Connected payments',
-    'Your brand',
+    'No monthly software bill',
+    '$1 maximum HuddleWay fee',
+    'No ads',
   ],
   heroVisuals: [
     {
@@ -227,37 +229,37 @@ export const homePage = {
     },
   ] satisfies PreviewMockup[],
   adminAnimations: {
-    eyebrow: 'HuddleWay Admin',
-    title: 'Explore the HuddleWay Admin experience.',
+    eyebrow: 'See It In Action',
+    title: 'Run your program from one place.',
     videos: [
       {
-        title: 'HuddleWay Admin for iOS',
-        body: 'See the administrator experience for configuring schedules, registration, payments, and updates. Availability depends on the program and released app version.',
+        title: 'HuddleWay for program owners',
+        body: 'Manage schedules, registration, payments, and updates from one clear workspace. Availability depends on your program and released app version.',
         src: '/mockups/admin/huddleway-admin-new-ios-app.mp4',
         label: 'HuddleWay Admin new iOS app deployment animation.',
       },
     ] satisfies DeploymentAnimation[],
   },
   results: {
-    title: 'What your program gets',
-    body: 'Free administration. Connected payment records. Your program’s brand.',
+    title: 'Save money. Save time. Look professional.',
+    body: 'The three things that matter most when you run a sports program.',
     cards: [
       {
-        value: 'Built for',
-        title: 'Clubs, camps, leagues, and training businesses',
-        body: 'Use HuddleWay when your youth sports program needs one clear app for clients and families.',
+        value: '$0/month',
+        title: 'Keep more of what you earn',
+        body: 'Run your program without adding another recurring software bill.',
         tone: 'brand',
       },
       {
-        value: 'Payment model',
-        title: 'Connected-account processing',
-        body: 'Supported payment flows use the program’s connected Stripe account. Pricing, processor fees, payout timing, and availability depend on the program’s agreement and configuration.',
+        value: 'One place',
+        title: 'Spend less time on busywork',
+        body: 'Keep registration, payments, schedules, and updates together.',
         tone: 'field',
       },
       {
-        value: 'Your logo',
-        title: 'Makes the app easier to trust',
-        body: 'Swap in your brand so people recognize your program.',
+        value: 'Your brand',
+        title: 'Look professional from day one',
+        body: 'Give families one polished place with your logo, colors, and program information.',
         tone: 'accent',
       },
     ] satisfies ResultCard[],
@@ -276,7 +278,7 @@ export const homePage = {
       },
       {
         title: 'Invite families and clients',
-        body: 'Once the program and app release are approved, share the supported registration, payment, schedule, and update paths.',
+        body: 'Once your program is ready, invite families to register, pay, check schedules, and get updates.',
       },
     ] satisfies Step[],
   },
@@ -301,7 +303,7 @@ export const homePage = {
       },
       {
         title: 'Reach people in a cleaner place',
-        body: 'Post updates alongside configured schedules and offers in the family app.',
+        body: 'Post updates alongside schedules and offers in the family app.',
       },
     ] satisfies Card[],
     note: 'Branded for your program and built for repeat use.',
@@ -314,9 +316,9 @@ export const homePage = {
     } satisfies PreviewMockup,
   },
   cta: {
-    eyebrow: 'See The Fit',
-    title: 'Put your youth sports program in one clean app',
-    body: 'If your team wants branded registration, connected-account payments, and clearer family communication, start here.',
+    eyebrow: 'Start At $0/Month',
+    title: 'Run your program without another monthly bill',
+    body: 'Save money, save time, and give families a professional experience they can trust.',
   },
 };
 
@@ -324,7 +326,7 @@ export const featuresPage = {
   pageName: 'features',
   title: 'Features | Youth Sports Program App | HuddleWay',
   description:
-    'See how HuddleWay connects supported branding, registration, connected-account payment, schedule, and update workflows.',
+    'See how HuddleWay brings your brand, registration, payments, schedules, and updates into one clear app.',
   hero: {
     eyebrow: 'How HuddleWay Works',
     title: 'What your youth sports program can run inside HuddleWay.',
@@ -333,7 +335,7 @@ export const featuresPage = {
   },
   overview: {
     title: 'What HuddleWay actually helps you do',
-    body: 'Answer the first practical questions fast: who it is for, what families can do, and what your team controls.',
+    body: 'See what your team can run and what families can do in one place.',
     cards: [
       {
         value: 'Built for',
@@ -344,13 +346,13 @@ export const featuresPage = {
       {
         value: 'Families can',
         title: 'Register, pay, and stay updated',
-        body: 'Give people one branded starting point for schedules, eligible payment steps, updates, and next actions.',
+        body: 'Give people one branded starting point for schedules, payments, updates, and next steps.',
         tone: 'field',
       },
       {
         value: 'Your team controls',
-        title: 'Brand, content, and workflow',
-        body: 'Update supported pages, events, fees, and announcements through the configured admin workflows.',
+        title: 'Brand, content, and activity',
+        body: 'Update pages, events, fees, and announcements from one place.',
         tone: 'accent',
       },
     ] satisfies ResultCard[],
@@ -385,7 +387,7 @@ export const featuresPage = {
       operatorTitle: 'Your team can',
       operatorItems: [
         'Update dates, fees, age groups, and locations in one place',
-        'Publish the current configured offer from a supported admin flow',
+        'Publish your current offer when it is ready',
       ],
       familyTitle: 'Families can',
       familyItems: [
@@ -404,7 +406,7 @@ export const featuresPage = {
       id: 'schedules',
       title: 'Events and schedules',
       body: 'Keep event times, locations, and changes in one place people can check fast.',
-      benefit: 'One configured place to publish the current schedule.',
+      benefit: 'One place to publish the current schedule.',
       operatorTitle: 'Your team can',
       operatorItems: [
         'Post event dates and schedule changes',
@@ -425,13 +427,13 @@ export const featuresPage = {
     },
     {
       id: 'registration',
-      title: 'Registration and connected-account payments',
+      title: 'Registration and payments',
       body: 'Let families register and pay your program in a cleaner branded flow.',
-      benefit: 'A clearer supported path from registration to payment.',
+      benefit: 'A clearer path from registration to payment.',
       operatorTitle: 'Your team can',
       operatorItems: [
         'Set pricing and payment expectations clearly',
-        'Collect eligible program payments through the configured connected-account flow',
+        'Collect program payments through your connected Stripe account',
       ],
       familyTitle: 'Families can',
       familyItems: [
@@ -449,12 +451,12 @@ export const featuresPage = {
     {
       id: 'communication',
       title: 'Updates people will actually see',
-      body: 'Post supported reminders, changes, and next steps in the branded family app feed.',
-      benefit: 'One branded place for supported announcements and changes.',
+      body: 'Post reminders, changes, and next steps in the branded family app.',
+      benefit: 'One branded place for announcements and changes.',
       operatorTitle: 'Your team can',
       operatorItems: [
         'Share reminders and changes in one branded place',
-        'Keep the current announcement visible in the configured app feed',
+        'Keep the current announcement easy to find',
       ],
       familyTitle: 'Families can',
       familyItems: [
@@ -494,9 +496,8 @@ export const featuresPage = {
     },
   ] satisfies FeatureSection[],
   proof: {
-    title: 'Built for the workflows youth programs repeat',
-    body:
-      'HuddleWay is for programs that need branded presentation, connected payment workflows, and simpler day-to-day communication.',
+    title: 'Built for the work youth programs repeat',
+    body: 'HuddleWay is for programs that want their own brand, simpler payments, and easier day-to-day communication.',
   },
   cta: {
     eyebrow: 'Feature Tour',
@@ -508,50 +509,50 @@ export const featuresPage = {
 
 export const savingsPage = {
   pageName: 'savings',
-  title: 'Savings | Fewer Tools for Sports Programs | HuddleWay',
+  title: 'Pricing & Savings | $0/Month | HuddleWay',
   description:
-    'See how HuddleWay can help youth sports programs connect supported registration, payment, schedule, and communication workflows in a branded experience.',
+    'See how a $0/month HuddleWay software bill can save your sports program money and time while helping it look professional.',
   hero: {
-    eyebrow: 'Program Payments And Operations',
-    title: 'Keep the payment path and family path cleaner.',
-    body:
-      'HuddleWay connects supported program workflows and uses a configured Stripe connected account for eligible payment paths.',
+    eyebrow: 'Simple Pricing',
+    price: '$0/month',
+    title: 'Run your program without a software bill.',
+    body: 'Save money, save time, and give families one professional place to register, pay, see schedules, and get updates.',
   },
   snapshot: {
-    title: 'Payment terms should be clear before launch.',
-    body: 'Creating and administering a program is free. Platform pricing, processor fees, payout timing, refunds, disputes, and supported payment methods apply only to configured payment flows and depend on the approved agreement and Stripe configuration.',
+    title: '$1 is the most HuddleWay earns on a payment.',
+    body: 'There is no recurring HuddleWay software subscription. When money is collected through a qualifying HuddleWay payment, the HuddleWay fee never exceeds $1. Standard processing fees and payment terms are separate.',
   },
   comparison: {
-    title: 'What gets simpler when everything stays connected',
-    body: 'Compare scattered tools with one branded app for registration, payments, schedules, and updates.',
-    beforeLabel: 'Without HuddleWay',
+    title: 'A simpler way to run the business',
+    body: 'Compare another monthly software bill with one branded app that starts at $0/month.',
+    beforeLabel: 'The usual way',
     beforeItems: [
       {
-        title: 'Families ask where to go',
-        body: 'Details, schedule, and payment live in different places.',
+        title: 'Pay before the season starts',
+        body: 'Monthly subscriptions and add-ons cost money before a family registers.',
       },
       {
-        title: 'Payment confirmation is separate',
-        body: 'Your team double-checks another system to see what is complete.',
+        title: 'Jump between tools',
+        body: 'Registration, payments, schedules, and messages live in different places.',
       },
       {
-        title: 'Brand disappears mid-flow',
-        body: 'The next step looks disconnected from your program.',
+        title: 'Look like everyone else',
+        body: 'Families see a generic experience instead of your program.',
       },
     ] satisfies CompareItem[],
-    afterLabel: 'With HuddleWay',
+    afterLabel: 'The HuddleWay way',
     afterItems: [
       {
-        title: 'One place to act',
-        body: 'People can review details, register, and start eligible payment steps from one branded program flow.',
+        title: 'Start at $0/month',
+        body: 'Run your program without a recurring HuddleWay software subscription.',
       },
       {
-        title: 'Connected payment records',
-        body: 'Eligible payment flows use the program’s configured Stripe connected account and remain subject to the approved pricing and payout terms.',
+        title: 'Keep everything together',
+        body: 'Give your team and families one clear place to get things done.',
       },
       {
-        title: 'Brand stays visible',
-        body: 'Logo, colors, and program context stay attached to the next step.',
+        title: 'Put your name on it',
+        body: 'Your logo, colors, and program information stay front and center.',
       },
     ] satisfies CompareItem[],
   },
@@ -563,10 +564,10 @@ export const savingsPage = {
     asset: mockupAsset('admin/3.png', 'Angled admin staff management screen for team operations.'),
   } satisfies PreviewMockup,
   spotlight: {
-    eyebrow: 'Why It Sticks',
-    title: 'A familiar place for people to return to.',
-    body: 'When clients and families can register, start eligible payment steps, and check updates in one recognizable app, your team can reduce repeated handoffs.',
-    chips: ['Connected pay', 'Branded app', 'Clear updates'],
+    eyebrow: 'The Three Big Benefits',
+    title: 'Spend less. Do less. Look professional.',
+    body: 'HuddleWay gives business owners a lower-cost, easier way to run the program while giving families a polished experience they can trust.',
+    chips: ['Save money', 'Save time', 'Your brand'],
     badges: ['Your program', 'One path'],
     mockup: {
       label: 'Team view',
@@ -577,13 +578,13 @@ export const savingsPage = {
     } satisfies PreviewMockup,
   },
   timeBack: {
-    title: 'Where time comes back',
-    body: 'Use HuddleWay to centralize supported admin workflows while keeping the payment flow explicit.',
+    title: 'Less busywork. More time for the program.',
+    body: 'Put the work your team repeats most often into one place.',
     cards: [
       {
         title: 'Announcements',
         before: 'Same update, several channels.',
-        after: 'Post once to the configured in-app announcements feed.',
+        after: 'Post once in HuddleWay.',
         tag: 'Less repeat posting',
         tone: 'brand',
         icon: 'announce',
@@ -615,10 +616,9 @@ export const savingsPage = {
     ] satisfies SavingsCard[],
   },
   consolidation: {
-    title: 'One stack instead of several handoffs.',
-    body:
-      'The value is simpler upkeep, stronger brand recognition, and a configured connected-account payment path.',
-    leftTitle: 'Teams often patch together',
+    title: 'Replace a pile of tools with one clear app.',
+    body: 'Spend less time maintaining software and give families one place they can recognize.',
+    leftTitle: 'What programs patch together',
     leftItems: [
       {
         title: 'Messages',
@@ -639,20 +639,18 @@ export const savingsPage = {
     ] satisfies ToolItem[],
     rightTitle: 'HuddleWay keeps together',
     rightItems: [
-      'Program pages, branding, and offer details',
-      'Registration and payment flow',
+      'Program pages, your brand, and offers',
+      'Registration and payments',
       'Schedules, updates, and reminders',
-      'A client and family app people recognize',
-      'A simpler admin rhythm',
+      'One family app people recognize',
+      'A simpler way to run the program',
     ],
-    note:
-      'Payment availability, fees, and payout timing depend on the approved agreement and connected-account configuration.',
+    note: 'Payment processing fees, availability, and payout timing depend on your Stripe setup and payment terms.',
   },
   cta: {
-    eyebrow: 'Simplify The Workflow',
-    title: 'See if the workflow is worth simplifying',
-    body:
-      'Start with the area that creates the most confusion: registration, payments, schedules, or updates.',
+    eyebrow: 'Start At $0/Month',
+    title: 'Stop paying just to run your program',
+    body: 'Save money, save time, and look professional with one branded app.',
   },
 };
 
@@ -660,7 +658,7 @@ export const setupFaqPage = {
   pageName: 'setup-faq',
   title: 'Setup FAQ | Launch Your Program App | HuddleWay',
   description:
-    'Setup FAQ for youth sports programs considering branded registration, connected-account payments, schedules, and updates.',
+    'Simple answers about HuddleWay pricing, setup, payments, schedules, updates, and branding for sports programs.',
   hero: {
     eyebrow: 'Setup FAQ',
     title: 'Know if HuddleWay fits your youth sports program.',
@@ -739,18 +737,17 @@ export const setupFaqPage = {
       bullets: [
         'Recognize the program immediately',
         'See schedules, updates, pricing, and next steps in one place',
-        'Start registration and eligible payment steps from one configured flow',
+        'Register and make payments from one clear place',
       ],
     },
   },
   trust: {
     title: 'The practical questions people ask next',
-    body:
-      'Admin setup is free. If the program will collect payments, confirm processor fees, payout timing, supported payment methods, and program configuration before inviting families.',
+    body: 'Your recurring HuddleWay software cost is $0/month. If you collect payments, review processing fees, payout timing, and payment options before inviting families.',
     cards: [
       {
-        title: 'Connected-account payments',
-        body: 'Supported program payment flows use the configured Stripe connected account.',
+        title: '$1 maximum HuddleWay fee',
+        body: 'The HuddleWay fee never exceeds $1 on a qualifying payment. Standard processing fees are separate.',
         tone: 'brand',
       },
       {
@@ -760,7 +757,7 @@ export const setupFaqPage = {
       },
       {
         title: 'Ready before launch',
-        body: 'Check the family preview before you share it so the configured path is clear.',
+        body: 'Check the family preview before you share it so every next step is clear.',
         tone: 'accent',
       },
     ] satisfies Card[],
@@ -772,23 +769,25 @@ export const setupFaqPage = {
         'HuddleWay is built for youth sports programs, including clubs, camps, leagues, and training businesses that want one branded app for registration, payments, schedules, and updates.',
     },
     {
-      question: 'What does my team have to do before launch?',
+      question: 'How much does HuddleWay cost my program?',
       answer:
-        'Create a free administrator account, add your logo and program details, set the registration flow, then review what families will see before you share it. Connecting Stripe is optional and only needed if the program chooses to collect payments.',
+        'Your recurring HuddleWay software cost is $0/month. When you collect a qualifying payment through HuddleWay, the HuddleWay fee never exceeds $1. Standard payment-processing fees and your program’s payment terms are separate.',
     },
     {
       question: 'What should families expect?',
-      answer: 'Families should expect one branded app where they can review the program, see schedules and updates, understand the next step, and use the configured connected-account payment flow when needed.',
+      answer: 'Families get one branded app where they can review the program, see schedules and updates, understand the next step, and make payments when needed.',
     },
     {
       question: 'How do payments work?',
-      answer:
-        'Creating and administering a program is free. Supported participant-payment flows use the program’s configured Stripe connected account; platform and processor fees, payout timing, refunds, disputes, and available payment methods must be confirmed in the approved program agreement before launch.',
+      answer: 'Payments are processed through your connected Stripe account. The HuddleWay fee never exceeds $1 on a qualifying payment. Standard Stripe processing fees, refunds, disputes, payout timing, and available payment methods are separate.',
+    },
+    {
+      question: 'Does HuddleWay show ads?',
+      answer: 'No. HuddleWay does not show third-party ads in its current iOS apps.',
     },
     {
       question: 'Can I use HuddleWay across multiple teams or divisions?',
-      answer:
-        'HuddleWay supports tenant-scoped teams, seasons, events, registrations, and roster assignments. Confirm any division hierarchy, household management, or cross-team reporting requirement during setup because those are not represented as universal standalone records in the current release contract.',
+      answer: 'HuddleWay supports teams, seasons, events, registrations, and roster assignments within your program. If you need a special division structure, household setup, or cross-team report, confirm that requirement during setup.',
     },
     {
       question: 'What should I review before launch?',

@@ -530,10 +530,203 @@ h3 {
 
 .hero--home h1 {
   font-family: 'Sora Variable', sans-serif;
-  font-size: clamp(3.3rem, 8vw, 5.8rem);
   font-weight: 700;
   letter-spacing: -0.08em;
   line-height: 0.96;
+}
+
+.hero__price-heading {
+  display: grid;
+  justify-items: center;
+  gap: 0.45rem;
+}
+
+.hero__price-line {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  line-height: 0.78;
+}
+
+.hero__price {
+  font-size: clamp(6.2rem, 11vw, 9.6rem);
+}
+
+.hero__cadence {
+  margin: 0 0 0.7rem 0.2rem;
+  font-size: clamp(1.15rem, 2.2vw, 1.65rem);
+  letter-spacing: -0.05em;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.hero__price-title {
+  max-width: 12ch;
+  font-size: clamp(2rem, 4.2vw, 3.5rem);
+  line-height: 1;
+}
+
+.hero__promise {
+  margin: 0;
+  color: white;
+  font-family: 'Sora Variable', sans-serif;
+  font-size: clamp(1.15rem, 2.1vw, 1.45rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.hero__fine-print {
+  max-width: 38rem;
+  margin: -0.25rem 0 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.savings-price {
+  margin: 0;
+  color: var(--brand);
+  font-family: 'Sora Variable', sans-serif;
+  font-size: clamp(4.8rem, 10vw, 8.5rem);
+  font-weight: 750;
+  letter-spacing: -0.1em;
+  line-height: 0.82;
+}
+
+.content-section--calculator {
+  padding-top: 3rem;
+}
+
+.savings-calculator {
+  display: grid;
+  gap: 2rem;
+  padding: clamp(1.5rem, 4vw, 3rem);
+  border: 1px solid rgba(52, 111, 243, 0.16);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(80, 130, 255, 0.15), transparent 34%),
+    linear-gradient(145deg, #ffffff, #eef4ff);
+  box-shadow: var(--shadow-card);
+}
+
+.savings-calculator__intro {
+  display: grid;
+  gap: 0.7rem;
+  max-width: 48rem;
+}
+
+.savings-calculator__intro h2 {
+  font-family: 'Sora Variable', sans-serif;
+  font-size: clamp(2rem, 4vw, 3.6rem);
+  letter-spacing: -0.07em;
+  line-height: 1;
+}
+
+.savings-calculator__intro p:last-child {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.savings-calculator__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 1.25rem;
+}
+
+.savings-calculator__form,
+.savings-calculator__result {
+  display: grid;
+  gap: 1rem;
+  padding: 1.4rem;
+  border-radius: var(--radius-md);
+}
+
+.savings-calculator__form {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.savings-calculator__form label {
+  display: grid;
+  gap: 0.45rem;
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.savings-calculator__input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0 0.9rem;
+  border: 1px solid rgba(21, 37, 64, 0.18);
+  border-radius: 0.9rem;
+  background: white;
+  font-size: 1.05rem;
+}
+
+.savings-calculator__form input,
+.savings-calculator__form select {
+  width: 100%;
+  min-height: 3rem;
+  border: 1px solid rgba(21, 37, 64, 0.18);
+  border-radius: 0.9rem;
+  background: white;
+  color: var(--ink);
+  font: inherit;
+}
+
+.savings-calculator__form input {
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+}
+
+.savings-calculator__form select {
+  padding: 0 0.9rem;
+}
+
+.savings-calculator__input-wrap:focus-within,
+.savings-calculator__form select:focus-visible {
+  outline: 3px solid rgba(52, 111, 243, 0.22);
+  border-color: var(--brand);
+}
+
+.savings-calculator__result {
+  align-content: center;
+  background: linear-gradient(140deg, #10244f, #174ec7);
+  color: white;
+}
+
+.savings-calculator__result-label {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.76);
+  font-weight: 650;
+}
+
+.savings-calculator__amount {
+  font-family: 'Sora Variable', sans-serif;
+  font-size: clamp(3.4rem, 8vw, 6.8rem);
+  font-weight: 750;
+  letter-spacing: -0.1em;
+  line-height: 0.9;
+}
+
+.savings-calculator__math {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.savings-calculator__math span {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.savings-calculator__note {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.76rem;
+  line-height: 1.5;
 }
 
 .hero--home .hero__eyebrow {
@@ -2255,7 +2448,8 @@ h3 {
   .site-footer__grid,
   .feature-block,
   .feature-detail-grid,
-  .card-grid--three {
+  .card-grid--three,
+  .savings-calculator__grid {
     grid-template-columns: 1fr;
   }
 
@@ -2498,6 +2692,26 @@ h3 {
   .page--home .hero--home .hero__lede {
     margin-inline: auto;
     max-width: 19rem;
+  }
+
+  .hero__price {
+    font-size: clamp(5.4rem, 24vw, 7.4rem);
+  }
+
+  .hero__cadence {
+    margin-bottom: 0.45rem;
+  }
+
+  .hero__price-title {
+    font-size: clamp(1.9rem, 10vw, 2.8rem);
+  }
+
+  .hero__promise {
+    max-width: 17rem;
+  }
+
+  .savings-calculator__amount {
+    font-size: clamp(3.1rem, 18vw, 5rem);
   }
 
   .page--home .hero--home .hero__signal-list {

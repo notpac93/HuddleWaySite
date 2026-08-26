@@ -8,6 +8,8 @@ import SectionIntro from '../components/SectionIntro.astro';
 import { homePage, primaryCta, secondaryCta } from '../data/site';
 
 const { hero, heroPill, quickChecks, heroVisuals, adminAnimations, results, steps, stepsVisual, showcase, cta } = homePage;
+const homePrimaryCta = { ...primaryCta, label: 'Start Free' };
+const homeSecondaryCta = { label: 'See How It Works', href: '#how-it-works' };
 ---
 
 <BaseLayout title={homePage.title} description={homePage.description} pageName={homePage.pageName}>
@@ -26,14 +28,22 @@ const { hero, heroPill, quickChecks, heroVisuals, adminAnimations, results, step
           </span>
           <span>{heroPill}</span>
         </div>
-        <h1>{hero.title}</h1>
+        <h1 class="hero__price-heading">
+          <span class="hero__price-line">
+            <span class="hero__price">{hero.price}</span>
+            <span class="hero__cadence">{hero.cadence}</span>
+          </span>
+          <span class="hero__price-title">{hero.title}</span>
+        </h1>
+        <p class="hero__promise">{hero.promise}</p>
         <p class="hero__lede">{hero.body}</p>
         <ul class="hero__signal-list">
           {quickChecks.map((item) => (
             <li>{item}</li>
           ))}
         </ul>
-        <CtaCluster primary={primaryCta} secondary={secondaryCta} />
+        <CtaCluster primary={homePrimaryCta} secondary={homeSecondaryCta} />
+        <p class="hero__fine-print">No recurring HuddleWay software subscription. Payment and processing fees apply when money is collected through HuddleWay.</p>
       </div>
 
       <div class="hero__device hero__device--right">
@@ -74,7 +84,7 @@ const { hero, heroPill, quickChecks, heroVisuals, adminAnimations, results, step
   </section>
 
   <section class="content-section">
-    <SectionIntro eyebrow="Real Results" title={results.title} body={results.body} align="center" />
+    <SectionIntro eyebrow="Three Big Benefits" title={results.title} body={results.body} align="center" />
     <div class="result-grid">
       {results.cards.map((card) => (
         <article class={`result-card result-card--${card.tone ?? 'brand'}`}>
@@ -104,7 +114,7 @@ const { hero, heroPill, quickChecks, heroVisuals, adminAnimations, results, step
     </div>
   </section>
 
-  <section class="content-section content-section--tint">
+  <section class="content-section content-section--tint" id="how-it-works">
     <SectionIntro eyebrow="How It Works" title={steps.title} body={steps.body} align="center" />
     <div class="process-showcase">
       <div class="process-grid">
