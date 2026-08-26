@@ -58,7 +58,7 @@ describe('CRM release language contract', () => {
     expect(setup).toContain('Skip payment setup');
     expect(app).toContain('Organization setup is managed by HuddleWay');
     expect(app).not.toContain("import('./SetupWorkflow.svelte')");
-    expect(marketing).toContain('Creating and administering a program is free.');
+    expect(marketing).toContain('Your recurring HuddleWay software cost is $0/month.');
 
     for (const text of [login, setup, app, marketing]) {
       expect(text).not.toMatch(
