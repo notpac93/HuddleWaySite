@@ -6,7 +6,6 @@
   } from '../../lib/services/DataStore';
   import { activeTenantRole, tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
-  import { registrationDisplayRecord } from '../../lib/ui/registrationDisplay';
 
   let showCreateEventModal = false;
   let showAddStaffModal = false;
@@ -110,25 +109,25 @@
     : String(dashboardSummary.counts.events);
 
   // Keep totals separated by currency and format integer minor units only.
-  $: revenueTotals = Array.from($transactionsStore.reduce((totals, transaction) => {
+  $: revenueProjection = $transactionsStore.reduce((projection, transaction) => {
+    if (transaction.status !== 'succeeded') return projection;
     const amount = Number(transaction.grossAmount);
-    if (transaction.status !== 'succeeded' || !Number.isSafeInteger(amount)) return totals;
     const currency = typeof transaction.currency === 'string'
       && /^[A-Za-z]{3}$/.test(transaction.currency.trim())
       ? transaction.currency.trim().toUpperCase()
       : '';
-    if (!currency) return totals;
-    totals.set(currency, (totals.get(currency) || 0) + amount);
-    return totals;
-  }, new Map<string, number>()).entries()) as [string, number][];
-  $: invalidRevenueRecords = $transactionsStore.filter((transaction) =>
-    transaction.status === 'succeeded'
-    && (
-      !Number.isSafeInteger(Number(transaction.grossAmount))
-      || typeof transaction.currency !== 'string'
-      || !/^[A-Za-z]{3}$/.test(transaction.currency.trim())
-    )
-  ).length;
+    if (!Number.isSafeInteger(amount) || !currency) {
+      projection.invalid += 1;
+      return projection;
+    }
+    projection.totals.set(
+      currency,
+      (projection.totals.get(currency) || 0) + amount,
+    );
+    return projection;
+  }, { totals: new Map<string, number>(), invalid: 0 });
+  $: revenueTotals = Array.from(revenueProjection.totals.entries()) as [string, number][];
+  $: invalidRevenueRecords = revenueProjection.invalid;
   $: revenueUnavailable =
     $financialProjectionScope.loading
     || $financialProjectionScope.truncated.transactions
@@ -152,15 +151,27 @@
       : date.toLocaleDateString();
   }
 
+  function humanText(...values: unknown[]) {
+    return values
+      .map((value) => typeof value === 'string' ? value.trim() : '')
+      .find(Boolean) || null;
+  }
+
   // Recent activity from authoritative registration records.
   $: recentRegistrations = dashboardSummary.recentRegistrations
-    .map((registration) => ({
-      ...registrationDisplayRecord(
-        String(registration.id || ''),
-        registration as Record<string, unknown>,
-      ),
-      createdAt: registration.createdAt,
-    }));
+    .map((registration) => {
+      const participant = registration.participantSummary as Record<string, unknown> || {};
+      const payer = registration.payerSummary as Record<string, unknown> || {};
+      return {
+        participantName: humanText(
+          participant.fullName,
+          participant.displayName,
+          registration.participantName,
+        ),
+        email: humanText(payer.email, registration.participantEmail),
+        createdAt: registration.createdAt,
+      };
+    });
 
 </script>
 
