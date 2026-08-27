@@ -150,7 +150,7 @@ jobs:
             exit 1
           fi
           sha256sum "$STATIC_TARGET_DIR/admin/index.html" | awk '{print $1}' > .release/rollback-admin-index.sha256
-          rsync -a --delete "$RELEASE_INPUT_DIR/dist/" "$STATIC_TARGET_DIR/"
+          rsync -a --delete --exclude='.git/' "$RELEASE_INPUT_DIR/dist/" "$STATIC_TARGET_DIR/"
           git -C "$STATIC_TARGET_DIR" add -A
           sha256sum "$RELEASE_INPUT_DIR/dist/admin/index.html" | awk '{print $1}' > .release/deployed-admin-index.sha256
           if git -C "$STATIC_TARGET_DIR" diff --cached --quiet; then

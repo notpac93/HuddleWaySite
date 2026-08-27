@@ -431,6 +431,7 @@ describe('CRM production artifact promotion', () => {
     expect(workflow).toContain('Manifest source commit does not match website_ref.');
     expect(workflow).toContain('Artifact manifest mismatch: ${path}');
     expect(workflow).toContain('Production static branch changed after owner approval.');
+    expect(workflow).toContain("rsync -a --delete --exclude='.git/'");
     expect(workflow).toContain('verified_existing_artifact');
     expect(workflow).toContain('The exact release artifact is already present on the production branch.');
     expect(workflow).toContain('git -C "$STATIC_TARGET_DIR" revert --no-edit "$DEPLOYED_COMMIT"');
