@@ -157,18 +157,20 @@
       .find(Boolean) || null;
   }
 
+  function joinedName(source: Record<string, unknown>) {
+    return [humanText(source.firstName), humanText(source.lastName)]
+      .filter(Boolean)
+      .join(' ');
+  }
+
   function humanName(record: Record<string, unknown>, person: Record<string, unknown>) {
-    const joined = (source: Record<string, unknown>) =>
-      [humanText(source.firstName), humanText(source.lastName)]
-        .filter(Boolean)
-        .join(' ');
     return humanText(
       person.fullName,
       person.displayName,
-      joined(person),
+      joinedName(person),
       record.participantName,
       record.displayName,
-      joined(record),
+      joinedName(record),
     );
   }
 
