@@ -3,6 +3,7 @@ import { backendClient } from '../api/backendClient';
 export type RosterProjectionScope = {
   truncated: {
     registrations: boolean;
+    privateRegistrations?: boolean;
     memberships: boolean;
     teams: boolean;
   };

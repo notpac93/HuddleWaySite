@@ -30,9 +30,11 @@ describe('CRM performance source boundaries', () => {
     const shell = source('src/components/crm/CrmShell.svelte');
 
     expect(crmApp).toContain("Dashboard: () => import('./GlobalDashboard.svelte')");
-    expect(crmApp).toContain("Financials: () => import('./Financials.svelte')");
+    expect(crmApp).toContain(
+      "Financials: () => import('./FinancialOperationsWorkspace.svelte')",
+    );
     expect(crmApp).not.toMatch(
-      /import\s+Financials\s+from\s+['"]\.\/Financials\.svelte['"]/,
+      /import\s+FinancialOperationsWorkspace\s+from\s+['"]\.\/FinancialOperationsWorkspace\.svelte['"]/,
     );
     expect(crmApp).not.toMatch(
       /import\s+EventScheduler\s+from\s+['"]\.\/EventScheduler\.svelte['"]/,

@@ -25,6 +25,7 @@
   let playersRequestId = '';
   let playersTruncated = {
     registrations: false,
+    privateRegistrations: false,
     memberships: false,
     teams: false,
   };
@@ -55,6 +56,7 @@
     playersRequestId = '';
     playersTruncated = {
       registrations: false,
+      privateRegistrations: false,
       memberships: false,
       teams: false,
     };

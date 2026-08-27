@@ -47,7 +47,7 @@
     Roster: () => import('./roster/RosterManager.svelte'),
     Rostering: () => import('./roster/RosterManager.svelte'),
     Events: () => import('./EventScheduler.svelte'),
-    Financials: () => import('./Financials.svelte'),
+    Financials: () => import('./FinancialOperationsWorkspace.svelte'),
     Staff: () => import('./StaffManager.svelte'),
     Media: () => import('./MediaManager.svelte'),
     'My App': () => import('./MyAppStudio.svelte'),

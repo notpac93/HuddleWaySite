@@ -7,6 +7,7 @@
   import ImageFilePicker from '../ui/ImageFilePicker.svelte';
   import { validateImageFile } from '../../../lib/media/imageUpload';
   import { modalFocus } from '../../../lib/ui/modalFocus';
+  import EventPaymentTermsEditor from '../billing/EventPaymentTermsEditor.svelte';
 
   export let event: any = null;
   export let teams: Record<string, string> = {};
@@ -22,6 +23,12 @@
   let imageUrl = event ? event.imageUrl || '' : '';
   let imageFile: File | null = null;
   let imageValidationMessage = '';
+  let price = (Number(event?.priceCents || 0) / 100).toFixed(2);
+  let paymentChoice: 'pay_in_full' | 'installments' = event?.paymentTerms?.mode === 'installments' ? 'installments' : 'pay_in_full';
+  let installmentCount = Number(event?.paymentTerms?.installmentCount || 3);
+  let installmentCadence: 'weekly' | 'monthly' = event?.paymentTerms?.cadence === 'weekly' ? 'weekly' : 'monthly';
+  let cancellationPolicy = String(event?.paymentPolicies?.cancellation?.text || '');
+  let refundPolicy = String(event?.paymentPolicies?.refund?.text || '');
   function localDateKey(date: Date) {
     return [
       date.getFullYear(),
@@ -76,6 +83,12 @@
     applyToSeries,
     auditReason: auditReason.trim(),
     publishConfirmation,
+    price,
+    paymentChoice,
+    installmentCount,
+    installmentCadence,
+    cancellationPolicy,
+    refundPolicy,
   });
   $: {
     const signature = currentPayloadSignature;
@@ -143,6 +156,15 @@
         `Type ${publishConfirmationText} before publishing this event.`;
       return;
     }
+    if (!/^\d+(\.\d{1,2})?$/.test(price.trim())) {
+      errorMessage = 'Enter a valid registration price with no more than two decimal places.';
+      return;
+    }
+    const priceCents = Math.round(Number(price) * 100);
+    if (priceCents > 0 && (!cancellationPolicy.trim() || !refundPolicy.trim())) {
+      errorMessage = 'Add the cancellation and refund policies families should see.';
+      return;
+    }
     const eventId = String(event.id);
     const generation = ++operationGeneration;
     const submittedSignature = currentPayloadSignature;
@@ -174,6 +196,18 @@
         location: location.trim(),
         teamId,
         applyToSeries: applyToSeries && Boolean(event.eventSeriesId),
+        priceCents,
+        paymentTerms: {
+          mode: paymentChoice,
+          adminChoiceConfirmed: true,
+          installmentCount: paymentChoice === 'installments' ? installmentCount : 1,
+          cadence: paymentChoice === 'installments' ? installmentCadence : null,
+          currency: 'usd',
+        },
+        paymentPolicies: priceCents > 0 ? {
+          cancellation: cancellationPolicy.trim(),
+          refund: refundPolicy.trim(),
+        } : null,
       };
       if (lifecycleStatus !== originalLifecycleStatus) {
         update.lifecycleStatus = lifecycleStatus;
@@ -292,6 +326,8 @@
             placeholder="e.g. Summer Championship Showcase"
           />
         </div>
+
+        <EventPaymentTermsEditor bind:price bind:choice={paymentChoice} bind:installmentCount bind:cadence={installmentCadence} bind:cancellationPolicy bind:refundPolicy />
 
         <!-- Date & Time -->
         <div class="grid grid-cols-3 gap-3">

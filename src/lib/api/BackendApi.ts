@@ -21,9 +21,7 @@ export interface BackendErrorPayload {
 }
 
 export type CrmImageUploadPurpose =
-  | 'branding-logo'
-  | 'season-banner'
-  | 'event-cover';
+  "branding-logo" | "season-banner" | "event-cover";
 
 export interface CrmImageUploadResult {
   tenantId: string;
@@ -32,7 +30,7 @@ export interface CrmImageUploadResult {
   contentType: string;
   sizeBytes: number;
   storageGeneration: string;
-  status: 'verified_private';
+  status: "verified_private";
   previewUrl: string;
   previewExpiresAt: string;
   idempotentReplay: boolean;
@@ -43,9 +41,9 @@ export interface CrmImagePublicationResult {
   tenantId: string;
   reservationId: string;
   publicationId: string;
-  resourceType: 'event';
+  resourceType: "event";
   resourceIds: string[];
-  status: 'draft' | 'published';
+  status: "draft" | "published";
   isVisible: boolean;
   publicUrl: string;
   idempotentReplay: boolean;
@@ -55,9 +53,9 @@ export interface CrmImagePublicationResult {
 
 function validIsoTimestamp(value: unknown): value is string {
   return (
-    typeof value === 'string'
-    && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)
-    && !Number.isNaN(Date.parse(value))
+    typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value) &&
+    !Number.isNaN(Date.parse(value))
   );
 }
 
@@ -78,7 +76,7 @@ export class BackendApiError extends Error {
     requestId?: string | null;
   }) {
     super(message);
-    this.name = 'BackendApiError';
+    this.name = "BackendApiError";
     this.status = status;
     this.code = code || null;
     this.requestId = requestId || null;
@@ -91,16 +89,16 @@ export interface DirectInvoiceRecord {
   title: string;
   memo: string | null;
   status:
-    | 'draft'
-    | 'issuing'
-    | 'open'
-    | 'partially_paid'
-    | 'paid'
-    | 'past_due'
-    | 'void'
-    | 'uncollectible'
-    | 'partially_refunded'
-    | 'refunded';
+    | "draft"
+    | "issuing"
+    | "open"
+    | "partially_paid"
+    | "paid"
+    | "past_due"
+    | "void"
+    | "uncollectible"
+    | "partially_refunded"
+    | "refunded";
   agingBucket: string;
   recipientUid: string | null;
   recipientName: string | null;
@@ -141,7 +139,7 @@ export interface DirectInvoiceRecord {
 }
 
 export interface DirectInvoiceProviderAccounting {
-  source: 'stripe_balance_transactions';
+  source: "stripe_balance_transactions";
   currency: string;
   chargeGrossCents: number;
   chargeFeeCents: number;
@@ -156,7 +154,7 @@ function validDirectInvoiceProviderAccounting(
   value: DirectInvoiceProviderAccounting | null,
 ) {
   if (value === null) return true;
-  if (!value || value.source !== 'stripe_balance_transactions') return false;
+  if (!value || value.source !== "stripe_balance_transactions") return false;
   const fields = [
     value.chargeGrossCents,
     value.chargeFeeCents,
@@ -166,16 +164,18 @@ function validDirectInvoiceProviderAccounting(
     value.refundNetCents,
     value.settledNetCents,
   ];
-  return /^[A-Z]{3}$/.test(value.currency)
-    && fields.every(Number.isSafeInteger)
-    && value.chargeGrossCents - value.chargeFeeCents === value.chargeNetCents
-    && value.refundGrossCents - value.refundFeeCents === value.refundNetCents
-    && value.chargeNetCents + value.refundNetCents === value.settledNetCents;
+  return (
+    /^[A-Z]{3}$/.test(value.currency) &&
+    fields.every(Number.isSafeInteger) &&
+    value.chargeGrossCents - value.chargeFeeCents === value.chargeNetCents &&
+    value.refundGrossCents - value.refundFeeCents === value.refundNetCents &&
+    value.chargeNetCents + value.refundNetCents === value.settledNetCents
+  );
 }
 
 export interface BillingHistory {
   tenantId: string | null;
-  scope: 'tenant' | 'all_tenants';
+  scope: "tenant" | "all_tenants";
   payments: Array<Record<string, unknown>>;
   invoices: Array<Record<string, unknown>>;
   requestId?: string;
@@ -183,7 +183,7 @@ export interface BillingHistory {
 
 export interface AdminInboxMessage {
   id: string;
-  direction: 'consumer' | 'admin';
+  direction: "consumer" | "admin";
   senderName: string;
   subject: string;
   message: string;
@@ -202,25 +202,25 @@ export interface AdminInboxThread {
   messages: AdminInboxMessage[];
 }
 
-export type TenantOperationsEnvironment = 'all' | 'development' | 'production';
-export type TenantOperationsHealth = 'healthy' | 'warning' | 'critical';
+export type TenantOperationsEnvironment = "all" | "development" | "production";
+export type TenantOperationsHealth = "healthy" | "warning" | "critical";
 
 export interface TenantOperationsFinding {
   code: string;
-  severity: 'warning' | 'critical' | 'informational';
+  severity: "warning" | "critical" | "informational";
   message: string;
-  environment?: Exclude<TenantOperationsEnvironment, 'all'>;
+  environment?: Exclude<TenantOperationsEnvironment, "all">;
   tenantId?: string;
   programName?: string;
   relatedTenantIds?: string[];
 }
 
 export interface TenantOperationsTenant {
-  environment: Exclude<TenantOperationsEnvironment, 'all'>;
+  environment: Exclude<TenantOperationsEnvironment, "all">;
   tenantId: string;
   programName: string;
-  tenantState: 'active' | 'inactive' | 'archived' | 'missing';
-  publicState: 'public' | 'hidden' | 'ineligible';
+  tenantState: "active" | "inactive" | "archived" | "missing";
+  publicState: "public" | "hidden" | "ineligible";
   health: TenantOperationsHealth;
   counts: {
     pages: number;
@@ -260,26 +260,26 @@ export interface TenantOperationsSummary {
 }
 
 export interface TenantOperationsTenantPage {
-  schemaVersion: 'tenant_operations_v1';
+  schemaVersion: "tenant_operations_v1";
   environment: TenantOperationsEnvironment;
   generatedAt: string;
   freshness: {
-    source: 'live' | 'cache';
+    source: "live" | "cache";
     generatedAt: string;
     sources?: Array<{
-      environment: Exclude<TenantOperationsEnvironment, 'all'>;
+      environment: Exclude<TenantOperationsEnvironment, "all">;
       generatedAt: string;
-      source: 'live' | 'cache';
+      source: "live" | "cache";
     }>;
   };
-  availableEnvironments: Array<Exclude<TenantOperationsEnvironment, 'all'>>;
+  availableEnvironments: Array<Exclude<TenantOperationsEnvironment, "all">>;
   summary: TenantOperationsSummary;
   tenants: TenantOperationsTenant[];
   totalFiltered: number;
   limit: number;
   hasMore: boolean;
   nextCursor: string | null;
-  actorRole: 'platform_admin' | 'platform_operations_viewer';
+  actorRole: "platform_admin" | "platform_operations_viewer";
   requestId: string;
 }
 
@@ -327,7 +327,7 @@ export interface CrmExportRequest {
   resourceId: string;
   visibleColumnIds: string[];
   selection: {
-    scope: 'explicit';
+    scope: "explicit";
     ids: string[];
   };
   filter: Record<string, unknown>;
@@ -366,7 +366,7 @@ export type CrmRegistrationFormSectionInput = {
   isActive: true;
   fields: Array<{
     id: string;
-    type: 'text' | 'email' | 'phone' | 'date' | 'dropdown' | 'yes_no';
+    type: "text" | "email" | "phone" | "date" | "dropdown" | "yes_no";
     label: string;
     required: boolean;
     placeholder: string | null;
@@ -392,7 +392,7 @@ export type CrmAppConfiguration = {
 
 export type CrmAppConfigurationSnapshot = {
   tenantId: string;
-  mode: 'initialize' | 'update';
+  mode: "initialize" | "update";
   versionToken: string;
   configuration: CrmAppConfiguration | null;
   requestId: string;
@@ -416,8 +416,8 @@ export type AdminStaffDirectory = {
   staff: Array<{
     membershipId: string;
     uid: string;
-    role: 'owner' | 'editor' | 'viewer';
-    status: 'active' | 'inactive';
+    role: "owner" | "editor" | "viewer";
+    status: "active" | "inactive";
     active: boolean;
     displayName: string | null;
     email: string | null;
@@ -428,8 +428,8 @@ export type AdminStaffDirectory = {
   pendingInvites: Array<{
     id: string;
     email: string | null;
-    role: 'editor' | 'viewer';
-    status: 'pending';
+    role: "editor" | "viewer";
+    status: "pending";
     displayName: string | null;
     createdAt: string | null;
     expiresAt: string | null;
@@ -459,7 +459,7 @@ export type FinancialPeriodRecord = {
   label: string;
   startDate: string;
   endDate: string;
-  status: 'closed' | 'reopened';
+  status: "closed" | "reopened";
   closedAt: string | null;
   reopenedAt: string | null;
   updatedAt: string | null;
@@ -476,8 +476,8 @@ type CrmResourceMutationResponse = {
   deleted?: boolean;
   storageDeleted?: boolean;
   title?: string;
-  publicationSyncStatus?: 'deferred' | 'succeeded' | 'not_required';
-  mode?: 'initialize' | 'update';
+  publicationSyncStatus?: "deferred" | "succeeded" | "not_required";
+  mode?: "initialize" | "update";
   versionToken?: string;
   configuration?: CrmAppConfiguration;
   requestId: string;
@@ -487,13 +487,13 @@ export interface AdminInviteRecord {
   id: string;
   tenantId: string;
   email: string;
-  role: 'editor' | 'viewer';
+  role: "editor" | "viewer";
   firstName: string | null;
   lastName: string | null;
   displayName: string | null;
   teamId: string | null;
-  status: 'pending' | 'accepted' | 'revoked' | 'expired';
-  deliveryStatus: 'not_attempted' | 'queued' | 'sent' | 'failed';
+  status: "pending" | "accepted" | "revoked" | "expired";
+  deliveryStatus: "not_attempted" | "queued" | "sent" | "failed";
   deliveryMessage: string | null;
   createdAt: string | null;
   expiresAt: string | null;
@@ -503,7 +503,7 @@ export interface AdminInviteRecord {
 
 export interface RosterChange {
   registrationId: string;
-  action: 'add' | 'remove';
+  action: "add" | "remove";
 }
 
 export interface RosterPreview {
@@ -532,7 +532,7 @@ export interface RosterTransferPreview {
     registrationId: string;
     membershipId: string;
     teamId: string;
-    action: 'add' | 'remove';
+    action: "add" | "remove";
   }>;
   changeSetHash: string;
   affectedTeamIds: string[];
@@ -584,19 +584,106 @@ export interface FinancialOverview {
     invoices: boolean;
     deposits: boolean;
   };
+  complete: boolean;
+  operations: FinancialOperations;
   requestId: string;
 }
 
+export type FinancialOperationView =
+  "deposits" | "transactions" | "scheduled" | "overdue" | "invoices";
+
+export interface FinancialOperationRow {
+  key: string;
+  kind: string;
+  label: string;
+  context: string;
+  amountCents: number | null;
+  currency: string | null;
+  status: string;
+  statusLabel: string;
+  date: string | null;
+  dateLabel: string;
+  detail: string;
+}
+
+export interface FinancialOperations {
+  complete: boolean;
+  generatedAt: string;
+  timeZone: string;
+  reconciliation: {
+    complete: boolean;
+    unreconciledTransactionCount: number;
+    unreconciledDepositCount: number;
+    currencyIntegrityErrorCount: number;
+  };
+  views: Record<FinancialOperationView, FinancialOperationRow[]>;
+}
+
+export interface BillingPackageRecord {
+  id: string;
+  name: string;
+  seasonId: string | null;
+  eligibleTeamIds: string[];
+  currency: string;
+  lineItems: Array<{
+    kind: "season" | "team" | "uniform" | "other";
+    code: string;
+    label: string;
+    amountCents: number;
+  }>;
+  totalCents: number;
+  paymentTerms: Record<string, unknown> | null;
+  paymentPolicies: Record<string, unknown> | null;
+  active: boolean;
+  version: number;
+}
+
+export interface ParticipantRelationshipRecord {
+  teamId: string;
+  name: string;
+  division: string;
+  role: string;
+  status: string;
+  availability: string;
+}
+
+export interface ParticipantRelationships {
+  relationships: ParticipantRelationshipRecord[];
+  options: Array<{ teamId: string; name: string; division: string }>;
+  canAssign: boolean;
+  assignmentBlockedReason: string | null;
+  requestId: string;
+}
+
+export interface ParticipantInstallmentAgreement {
+  id: string;
+  offering: Record<string, unknown>;
+  terms: Record<string, unknown>;
+  revision: number;
+  status: string;
+  providerSyncState: string;
+  billingRecoveryState: string | null;
+  pendingRevision: Record<string, unknown> | null;
+  installments: Array<{
+    number: number;
+    amountCents: number;
+    dueAt: string | null;
+    dueDate: string;
+    dueDateLabel: string;
+    status: string;
+  }>;
+}
+
 export type CrmOperationalCollection =
-  | 'events'
-  | 'registration_forms'
-  | 'registrations'
-  | 'season_registrations'
-  | 'seasons'
-  | 'teams';
+  | "events"
+  | "registration_forms"
+  | "registrations"
+  | "season_registrations"
+  | "seasons"
+  | "teams";
 
 export interface CrmOperationalPage {
-  schemaVersion: 'crm_operational_page_v1';
+  schemaVersion: "crm_operational_page_v1";
   tenantId: string;
   collection: CrmOperationalCollection;
   records: Array<Record<string, unknown> & { id: string }>;
@@ -607,7 +694,7 @@ export interface CrmOperationalPage {
 }
 
 export interface CrmDashboardSummary {
-  schemaVersion: 'crm_dashboard_summary_v1';
+  schemaVersion: "crm_dashboard_summary_v1";
   tenantId: string;
   counts: {
     registrations: number;
@@ -634,6 +721,7 @@ export interface RosterParticipantImportResult {
 
 export interface RosterPlayerRecord {
   id: string;
+  participantId: string | null;
   name: string;
   imageUrl: string | null;
   role: string;
@@ -647,17 +735,17 @@ export interface RosterPlayerRecord {
 export interface CrmAuditEventRecord {
   id: string;
   action: string;
-  actionType: 'create' | 'update' | 'delete';
+  actionType: "create" | "update" | "delete";
   actionDescription: string;
   resourceType: string;
-  outcome: 'succeeded' | 'failed' | 'partial' | 'denied';
+  outcome: "succeeded" | "failed" | "partial" | "denied";
   actorRole: string;
   actorLabel: string;
   timestamp: string | null;
 }
 
 export interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   query?: Record<string, string | number | boolean | null | undefined>;
   body?: unknown;
   idempotencyKey?: string;
@@ -670,8 +758,7 @@ function defaultRequestId() {
 
 function safeMessage(payload: BackendErrorPayload, status: number) {
   const candidate =
-    String(payload.error || '').trim()
-    || String(payload.message || '').trim();
+    String(payload.error || "").trim() || String(payload.message || "").trim();
   return candidate || `HuddleWay request failed (${status}).`;
 }
 
@@ -679,10 +766,8 @@ function parsePayload(text: string): Record<string, unknown> | null {
   if (!text.trim()) return null;
   try {
     const value = JSON.parse(text);
-    return value
-      && typeof value === 'object'
-      && !Array.isArray(value)
-      ? value as Record<string, unknown>
+    return value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
       : null;
   } catch {
     return null;
@@ -691,13 +776,13 @@ function parsePayload(text: string): Record<string, unknown> | null {
 
 function invalidBackendResponse(
   payload: Record<string, unknown> | null,
-  message = 'The HuddleWay backend returned an invalid response.',
+  message = "The HuddleWay backend returned an invalid response.",
 ): never {
   throw new BackendApiError({
     message,
     status: 502,
-    code: 'invalid_backend_response',
-    requestId: String(payload?.requestId || '').trim() || null,
+    code: "invalid_backend_response",
+    requestId: String(payload?.requestId || "").trim() || null,
   });
 }
 
@@ -705,45 +790,41 @@ function assertTenantEnvelope(
   payload: Record<string, unknown>,
   tenantId: string,
 ) {
-  if (String(payload.tenantId || '').trim() !== tenantId) {
+  if (String(payload.tenantId || "").trim() !== tenantId) {
     invalidBackendResponse(
       payload,
-      'The HuddleWay backend response did not match the active organization.',
+      "The HuddleWay backend response did not match the active organization.",
     );
   }
 }
 
-function isValidAppConfiguration(
-  value: unknown,
-): value is CrmAppConfiguration {
+function isValidAppConfiguration(value: unknown): value is CrmAppConfiguration {
   const configuration = value as CrmAppConfiguration | null;
   const tabs = configuration?.navigationTabs;
   return Boolean(
-    configuration
-    && typeof configuration === 'object'
-    && String(configuration.name || '').trim()
-    && configuration.name.length <= 160
-    && [
+    configuration &&
+    typeof configuration === "object" &&
+    String(configuration.name || "").trim() &&
+    configuration.name.length <= 160 &&
+    [
       configuration.primaryColor,
       configuration.secondaryColor,
       configuration.tertiaryColor,
-    ].every((color) => /^#[0-9a-f]{6}$/i.test(String(color || '')))
-    && (
-      configuration.logoUrl === null
-      || /^https:\/\/[^/]/i.test(String(configuration.logoUrl || ''))
-    )
-    && Array.isArray(tabs)
-    && tabs.length <= 12
-    && new Set(tabs.map((tab) => String(tab?.key || ''))).size === tabs.length
-    && tabs.every(
+    ].every((color) => /^#[0-9a-f]{6}$/i.test(String(color || ""))) &&
+    (configuration.logoUrl === null ||
+      /^https:\/\/[^/]/i.test(String(configuration.logoUrl || ""))) &&
+    Array.isArray(tabs) &&
+    tabs.length <= 12 &&
+    new Set(tabs.map((tab) => String(tab?.key || ""))).size === tabs.length &&
+    tabs.every(
       (tab) =>
-        Boolean(String(tab?.key || '').trim())
-        && Boolean(String(tab?.pageId || '').trim())
-        && Boolean(String(tab?.label || '').trim())
-        && tab.label.length <= 80
-        && String(tab?.route || '').startsWith('/')
-        && !String(tab.route).startsWith('//')
-        && typeof tab.enabled === 'boolean',
+        Boolean(String(tab?.key || "").trim()) &&
+        Boolean(String(tab?.pageId || "").trim()) &&
+        Boolean(String(tab?.label || "").trim()) &&
+        tab.label.length <= 80 &&
+        String(tab?.route || "").startsWith("/") &&
+        !String(tab.route).startsWith("//") &&
+        typeof tab.enabled === "boolean",
     ),
   );
 }
@@ -753,36 +834,34 @@ function assertStaffDirectoryEnvelope(
   tenantId: string,
   limit: number,
 ) {
-  const roles = new Set(['owner', 'editor', 'viewer']);
-  const inviteRoles = new Set(['editor', 'viewer']);
+  const roles = new Set(["owner", "editor", "viewer"]);
+  const inviteRoles = new Set(["editor", "viewer"]);
   if (
-    payload.tenantId !== tenantId
-    || !Array.isArray(payload.staff)
-    || !Array.isArray(payload.pendingInvites)
-    || payload.staff.length > limit
-    || payload.pendingInvites.length > limit
-    || typeof payload.truncated?.staff !== 'boolean'
-    || typeof payload.truncated?.pendingInvites !== 'boolean'
-    || !String(payload.requestId || '').trim()
-    || payload.staff.some(
+    payload.tenantId !== tenantId ||
+    !Array.isArray(payload.staff) ||
+    !Array.isArray(payload.pendingInvites) ||
+    payload.staff.length > limit ||
+    payload.pendingInvites.length > limit ||
+    typeof payload.truncated?.staff !== "boolean" ||
+    typeof payload.truncated?.pendingInvites !== "boolean" ||
+    !String(payload.requestId || "").trim() ||
+    payload.staff.some(
       (staff) =>
-        !String(staff?.membershipId || '').trim()
-        || !String(staff?.uid || '').trim()
-        || !roles.has(String(staff?.role || ''))
-        || !['active', 'inactive'].includes(String(staff?.status || ''))
-        || staff.active !== (staff.status === 'active')
-        || typeof staff.emailVerified !== 'boolean',
-    )
-    || payload.pendingInvites.some(
+        !String(staff?.membershipId || "").trim() ||
+        !String(staff?.uid || "").trim() ||
+        !roles.has(String(staff?.role || "")) ||
+        !["active", "inactive"].includes(String(staff?.status || "")) ||
+        staff.active !== (staff.status === "active") ||
+        typeof staff.emailVerified !== "boolean",
+    ) ||
+    payload.pendingInvites.some(
       (invite) =>
-        !String(invite?.id || '').trim()
-        || !inviteRoles.has(String(invite?.role || ''))
-        || invite.status !== 'pending',
+        !String(invite?.id || "").trim() ||
+        !inviteRoles.has(String(invite?.role || "")) ||
+        invite.status !== "pending",
     )
   ) {
-    invalidBackendResponse(
-      payload as unknown as Record<string, unknown>,
-    );
+    invalidBackendResponse(payload as unknown as Record<string, unknown>);
   }
 }
 
@@ -792,62 +871,55 @@ function directInvoiceFromEnvelope(
 ) {
   const invoice = payload.invoice as Partial<DirectInvoiceRecord> | undefined;
   const minorUnitFields: Array<keyof DirectInvoiceRecord> = [
-    'subtotalCents',
-    'discountCents',
-    'taxRateBps',
-    'taxCents',
-    'totalCents',
-    'amountPaidCents',
-    'amountRefundedCents',
-    'amountDueCents',
-    'reminderCount',
-    'manualPaymentCount',
-    'refundCount',
+    "subtotalCents",
+    "discountCents",
+    "taxRateBps",
+    "taxCents",
+    "totalCents",
+    "amountPaidCents",
+    "amountRefundedCents",
+    "amountDueCents",
+    "reminderCount",
+    "manualPaymentCount",
+    "refundCount",
   ];
   if (
-    !invoice
-    || typeof invoice !== 'object'
-    || Array.isArray(invoice)
-    || !String(invoice.id || '').trim()
-    || (expectedInvoiceId && invoice.id !== expectedInvoiceId)
-    || !String(invoice.invoiceNumber || '').trim()
-    || !String(invoice.status || '').trim()
-    || !String(payload.requestId || '').trim()
-    || !/^[A-Z]{3}$/.test(String(invoice.currency || ''))
-    || !Array.isArray(invoice.lineItems)
-    || invoice.lineItems.some(
+    !invoice ||
+    typeof invoice !== "object" ||
+    Array.isArray(invoice) ||
+    !String(invoice.id || "").trim() ||
+    (expectedInvoiceId && invoice.id !== expectedInvoiceId) ||
+    !String(invoice.invoiceNumber || "").trim() ||
+    !String(invoice.status || "").trim() ||
+    !String(payload.requestId || "").trim() ||
+    !/^[A-Z]{3}$/.test(String(invoice.currency || "")) ||
+    !Array.isArray(invoice.lineItems) ||
+    invoice.lineItems.some(
       (line) =>
-        !line
-        || typeof line !== 'object'
-        || !String(line.description || '').trim()
-        || !Number.isSafeInteger(line.quantity)
-        || line.quantity < 1
-        || !Number.isSafeInteger(line.unitAmountCents)
-        || line.unitAmountCents < 0
-        || (
-          line.amountCents !== undefined
-          && (
-            !Number.isSafeInteger(line.amountCents)
-            || line.amountCents < 0
-          )
-        ),
-    )
-    || minorUnitFields.some(
+        !line ||
+        typeof line !== "object" ||
+        !String(line.description || "").trim() ||
+        !Number.isSafeInteger(line.quantity) ||
+        line.quantity < 1 ||
+        !Number.isSafeInteger(line.unitAmountCents) ||
+        line.unitAmountCents < 0 ||
+        (line.amountCents !== undefined &&
+          (!Number.isSafeInteger(line.amountCents) || line.amountCents < 0)),
+    ) ||
+    minorUnitFields.some(
       (field) =>
-        !Number.isSafeInteger(invoice[field])
-        || Number(invoice[field]) < 0,
-    )
-    || Number(invoice.totalCents)
-      !== Number(invoice.subtotalCents)
-        - Number(invoice.discountCents)
-        + Number(invoice.taxCents)
-    || invoice.lineItems.reduce(
-      (sum, line) => sum + Number(
-        line.amountCents ?? line.quantity * line.unitAmountCents,
-      ),
+        !Number.isSafeInteger(invoice[field]) || Number(invoice[field]) < 0,
+    ) ||
+    Number(invoice.totalCents) !==
+      Number(invoice.subtotalCents) -
+        Number(invoice.discountCents) +
+        Number(invoice.taxCents) ||
+    invoice.lineItems.reduce(
+      (sum, line) =>
+        sum + Number(line.amountCents ?? line.quantity * line.unitAmountCents),
       0,
-    ) !== Number(invoice.subtotalCents)
-    || typeof invoice.accountingReconciliationRequired !== 'boolean'
+    ) !== Number(invoice.subtotalCents) ||
+    typeof invoice.accountingReconciliationRequired !== "boolean"
   ) {
     invalidBackendResponse(payload);
   }
@@ -860,42 +932,40 @@ function assertRosterPreviewEnvelope(
 ) {
   const preview = payload.preview;
   if (
-    !preview
-    || String(preview.teamId || '').trim() !== teamId
-    || !Array.isArray(preview.changes)
-    || !Array.isArray(preview.rows)
-    || !/^[a-f0-9]{64}$/.test(String(preview.changeSetHash || ''))
-    || !Number.isSafeInteger(preview.addCount)
-    || preview.addCount < 0
-    || !Number.isSafeInteger(preview.removeCount)
-    || preview.removeCount < 0
-    || !Number.isSafeInteger(preview.noOpCount)
-    || preview.noOpCount < 0
-    || !String(payload.requestId || '').trim()
+    !preview ||
+    String(preview.teamId || "").trim() !== teamId ||
+    !Array.isArray(preview.changes) ||
+    !Array.isArray(preview.rows) ||
+    !/^[a-f0-9]{64}$/.test(String(preview.changeSetHash || "")) ||
+    !Number.isSafeInteger(preview.addCount) ||
+    preview.addCount < 0 ||
+    !Number.isSafeInteger(preview.removeCount) ||
+    preview.removeCount < 0 ||
+    !Number.isSafeInteger(preview.noOpCount) ||
+    preview.noOpCount < 0 ||
+    !String(payload.requestId || "").trim()
   ) {
-    invalidBackendResponse(
-      payload as unknown as Record<string, unknown>,
-    );
+    invalidBackendResponse(payload as unknown as Record<string, unknown>);
   }
 }
 
 export class BackendApi {
   private readonly baseUrl: string;
-  private readonly getIdToken: BackendApiDependencies['getIdToken'];
+  private readonly getIdToken: BackendApiDependencies["getIdToken"];
   private readonly getAppCheckToken:
-    | BackendApiDependencies['getAppCheckToken']
-    | null;
+    BackendApiDependencies["getAppCheckToken"] | null;
   private readonly requireAppCheck: boolean;
   private readonly fetchImplementation: BackendFetch;
   private readonly timeoutMs: number;
   private readonly createRequestId: () => string;
 
   constructor(dependencies: BackendApiDependencies) {
-    this.baseUrl = dependencies.baseUrl.replace(/\/$/, '');
+    this.baseUrl = dependencies.baseUrl.replace(/\/$/, "");
     this.getIdToken = dependencies.getIdToken;
     this.getAppCheckToken = dependencies.getAppCheckToken ?? null;
     this.requireAppCheck = dependencies.requireAppCheck === true;
-    this.fetchImplementation = dependencies.fetch ?? globalThis.fetch.bind(globalThis);
+    this.fetchImplementation =
+      dependencies.fetch ?? globalThis.fetch.bind(globalThis);
     this.timeoutMs = dependencies.timeoutMs ?? 20_000;
     this.createRequestId = dependencies.createRequestId ?? defaultRequestId;
   }
@@ -908,8 +978,8 @@ export class BackendApi {
     path: string,
     options: RequestOptions = {},
   ): Promise<T> {
-    if (!path.startsWith('/')) {
-      throw new Error('Backend request paths must begin with /.');
+    if (!path.startsWith("/")) {
+      throw new Error("Backend request paths must begin with /.");
     }
     const url = new URL(`${this.baseUrl}${path}`);
     for (const [key, value] of Object.entries(options.query ?? {})) {
@@ -927,29 +997,27 @@ export class BackendApi {
       );
       try {
         const token = (await this.getIdToken(forceRefresh)).trim();
-        if (!token) throw new Error('An authenticated session is required.');
+        if (!token) throw new Error("An authenticated session is required.");
         const appCheckToken = this.getAppCheckToken
           ? (await this.getAppCheckToken(forceRefresh)).trim()
-          : '';
+          : "";
         if (this.requireAppCheck && !appCheckToken) {
-          throw new Error('App Check verification is required.');
+          throw new Error("App Check verification is required.");
         }
         const response = await this.fetchImplementation(url, {
-          method: options.method ?? 'GET',
+          method: options.method ?? "GET",
           headers: {
             Authorization: `Bearer ${token}`,
-            ...(appCheckToken
-              ? { 'X-Firebase-AppCheck': appCheckToken }
-              : {}),
-            Accept: 'application/json',
-            'X-Request-Id': requestId,
+            ...(appCheckToken ? { "X-Firebase-AppCheck": appCheckToken } : {}),
+            Accept: "application/json",
+            "X-Request-Id": requestId,
             ...(options.body === undefined
               ? {}
-              : { 'Content-Type': 'application/json' }),
+              : { "Content-Type": "application/json" }),
             ...(options.idempotencyKey
               ? {
-                  'Idempotency-Key': options.idempotencyKey,
-                  'X-Idempotency-Key': options.idempotencyKey,
+                  "Idempotency-Key": options.idempotencyKey,
+                  "X-Idempotency-Key": options.idempotencyKey,
                 }
               : {}),
           },
@@ -957,7 +1025,7 @@ export class BackendApi {
             options.body === undefined
               ? undefined
               : JSON.stringify(options.body),
-          credentials: 'omit',
+          credentials: "omit",
           signal: controller.signal,
         });
         const payload = parsePayload(await response.text());
@@ -974,11 +1042,11 @@ export class BackendApi {
         result = await execute(true);
       }
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
+      if (error instanceof DOMException && error.name === "AbortError") {
         throw new BackendApiError({
-          message: 'The HuddleWay backend did not respond in time.',
+          message: "The HuddleWay backend did not respond in time.",
           status: 408,
-          code: 'request_timeout',
+          code: "request_timeout",
           requestId,
         });
       }
@@ -992,9 +1060,9 @@ export class BackendApi {
         status: result.response.status,
         code: payload.code,
         requestId:
-          String(payload.requestId || '').trim()
-          || result.response.headers.get('x-request-id')
-          || requestId,
+          String(payload.requestId || "").trim() ||
+          result.response.headers.get("x-request-id") ||
+          requestId,
       });
     }
     if (!result.payload || Object.keys(result.payload).length === 0) {
@@ -1007,15 +1075,15 @@ export class BackendApi {
     tenantId: string,
     file: File,
     purpose: CrmImageUploadPurpose,
-    idempotencyKey = createIdempotencyKey('image-upload'),
+    idempotencyKey = createIdempotencyKey("image-upload"),
   ): Promise<CrmImageUploadResult> {
     const digest = await globalThis.crypto.subtle.digest(
-      'SHA-256',
+      "SHA-256",
       await file.arrayBuffer(),
     );
     const sha256 = Array.from(new Uint8Array(digest))
-      .map((byte) => byte.toString(16).padStart(2, '0'))
-      .join('');
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("");
     const reservation = await this.send<{
       success: boolean;
       tenantId: string;
@@ -1025,8 +1093,8 @@ export class BackendApi {
       contentType: string;
       expiresAt: string;
       requestId: string;
-    }>('/admin/crm/images/upload-reservations', {
-      method: 'POST',
+    }>("/admin/crm/images/upload-reservations", {
+      method: "POST",
       body: {
         tenantId,
         purpose,
@@ -1039,72 +1107,76 @@ export class BackendApi {
       idempotencyKey,
     });
     if (
-      reservation.success !== true
-      || reservation.tenantId !== tenantId
-      || !/^image_upload_[a-f0-9]{40}$/.test(reservation.reservationId)
-      || !String(reservation.storagePath || '').startsWith(`private/${tenantId}/media/`)
-      || !/^https:\/\//i.test(String(reservation.uploadUrl || ''))
-      || reservation.contentType !== file.type
-      || !validIsoTimestamp(reservation.expiresAt)
-      || !String(reservation.requestId || '').trim()
+      reservation.success !== true ||
+      reservation.tenantId !== tenantId ||
+      !/^image_upload_[a-f0-9]{40}$/.test(reservation.reservationId) ||
+      !String(reservation.storagePath || "").startsWith(
+        `private/${tenantId}/media/`,
+      ) ||
+      !/^https:\/\//i.test(String(reservation.uploadUrl || "")) ||
+      reservation.contentType !== file.type ||
+      !validIsoTimestamp(reservation.expiresAt) ||
+      !String(reservation.requestId || "").trim()
     ) {
       invalidBackendResponse(
         reservation as unknown as Record<string, unknown>,
-        'The image upload reservation was invalid.',
+        "The image upload reservation was invalid.",
       );
     }
 
     let uploadResponse: Response;
     try {
       uploadResponse = await this.fetchImplementation(reservation.uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': file.type },
+        method: "PUT",
+        headers: { "Content-Type": file.type },
         body: file,
-        credentials: 'omit',
+        credentials: "omit",
       });
     } catch {
       throw new BackendApiError({
-        message: 'The selected image could not be uploaded.',
+        message: "The selected image could not be uploaded.",
         status: 503,
-        code: 'image_upload_failed',
+        code: "image_upload_failed",
         requestId: reservation.requestId,
       });
     }
     if (!uploadResponse.ok) {
       throw new BackendApiError({
-        message: 'The selected image could not be uploaded.',
+        message: "The selected image could not be uploaded.",
         status: uploadResponse.status || 503,
-        code: 'image_upload_failed',
+        code: "image_upload_failed",
         requestId: reservation.requestId,
       });
     }
 
     const completionKey = `${idempotencyKey}:complete`;
-    const completion = await this.send<CrmImageUploadResult & { success: boolean }>(
+    const completion = await this.send<
+      CrmImageUploadResult & { success: boolean }
+    >(
       `/admin/crm/images/upload-reservations/${encodeURIComponent(reservation.reservationId)}/complete`,
       {
-        method: 'POST',
+        method: "POST",
         body: { tenantId, idempotencyKey: completionKey },
         idempotencyKey: completionKey,
       },
     );
     if (
-      completion.success !== true
-      || completion.tenantId !== tenantId
-      || completion.reservationId !== reservation.reservationId
-      || completion.storagePath !== reservation.storagePath
-      || completion.contentType !== file.type
-      || completion.sizeBytes !== file.size
-      || !/^[1-9]\d{0,30}$/.test(String(completion.storageGeneration || ''))
-      || completion.status !== 'verified_private'
-      || !/^https:\/\//i.test(String(completion.previewUrl || ''))
-      || !validIsoTimestamp(completion.previewExpiresAt)
-      || typeof completion.idempotentReplay !== 'boolean'
-      || !String(completion.requestId || '').trim()
+      completion.success !== true ||
+      completion.tenantId !== tenantId ||
+      completion.reservationId !== reservation.reservationId ||
+      completion.storagePath !== reservation.storagePath ||
+      completion.contentType !== file.type ||
+      completion.sizeBytes !== file.size ||
+      !/^[1-9]\d{0,30}$/.test(String(completion.storageGeneration || "")) ||
+      completion.status !== "verified_private" ||
+      !/^https:\/\//i.test(String(completion.previewUrl || "")) ||
+      !validIsoTimestamp(completion.previewExpiresAt) ||
+      typeof completion.idempotentReplay !== "boolean" ||
+      !String(completion.requestId || "").trim()
     ) {
       invalidBackendResponse(
         completion as unknown as Record<string, unknown>,
-        'The completed image upload was invalid.',
+        "The completed image upload was invalid.",
       );
     }
     return completion;
@@ -1113,15 +1185,17 @@ export class BackendApi {
   async publishImageAsset(
     tenantId: string,
     reservationId: string,
-    resourceType: 'event',
+    resourceType: "event",
     resourceIds: string[],
     auditReason: string,
     idempotencyKey: string,
   ): Promise<CrmImagePublicationResult> {
-    const payload = await this.send<CrmImagePublicationResult & { success: boolean }>(
+    const payload = await this.send<
+      CrmImagePublicationResult & { success: boolean }
+    >(
       `/admin/crm/images/upload-reservations/${encodeURIComponent(reservationId)}/publish`,
       {
-        method: 'POST',
+        method: "POST",
         body: {
           tenantId,
           resourceType,
@@ -1133,43 +1207,43 @@ export class BackendApi {
       },
     );
     if (
-      payload.success !== true
-      || payload.tenantId !== tenantId
-      || payload.reservationId !== reservationId
-      || payload.publicationId !== reservationId
-      || payload.resourceType !== resourceType
-      || !Array.isArray(payload.resourceIds)
-      || payload.resourceIds.length !== resourceIds.length
-      || payload.resourceIds.some((id) => !resourceIds.includes(id))
-      || !['draft', 'published'].includes(payload.status)
-      || payload.isVisible !== (payload.status === 'published')
-      || !/^https?:\/\//i.test(String(payload.publicUrl || ''))
-      || typeof payload.idempotentReplay !== 'boolean'
-      || !String(payload.operationId || '').trim()
-      || !String(payload.requestId || '').trim()
+      payload.success !== true ||
+      payload.tenantId !== tenantId ||
+      payload.reservationId !== reservationId ||
+      payload.publicationId !== reservationId ||
+      payload.resourceType !== resourceType ||
+      !Array.isArray(payload.resourceIds) ||
+      payload.resourceIds.length !== resourceIds.length ||
+      payload.resourceIds.some((id) => !resourceIds.includes(id)) ||
+      !["draft", "published"].includes(payload.status) ||
+      payload.isVisible !== (payload.status === "published") ||
+      !/^https?:\/\//i.test(String(payload.publicUrl || "")) ||
+      typeof payload.idempotentReplay !== "boolean" ||
+      !String(payload.operationId || "").trim() ||
+      !String(payload.requestId || "").trim()
     ) {
       invalidBackendResponse(
         payload as unknown as Record<string, unknown>,
-        'The image publication response was invalid.',
+        "The image publication response was invalid.",
       );
     }
     return payload;
   }
 
   billingHistory(tenantId: string, limit = 100) {
-    return this.send<BillingHistory>('/admin/billing/history', {
+    return this.send<BillingHistory>("/admin/billing/history", {
       query: { tenantId, limit },
     });
   }
 
   tenantOperationsTenants({
-    environment = 'all',
-    search = '',
-    status = 'all',
-    publicState = 'all',
-    health = 'all',
+    environment = "all",
+    search = "",
+    status = "all",
+    publicState = "all",
+    health = "all",
     limit = 100,
-    cursor = '',
+    cursor = "",
     refresh = false,
   }: {
     environment?: TenantOperationsEnvironment;
@@ -1182,7 +1256,7 @@ export class BackendApi {
     refresh?: boolean;
   } = {}) {
     return this.send<TenantOperationsTenantPage>(
-      '/admin/crm/tenant-operations/tenants',
+      "/admin/crm/tenant-operations/tenants",
       {
         query: {
           environment,
@@ -1192,14 +1266,14 @@ export class BackendApi {
           health,
           limit,
           cursor,
-          refresh: refresh ? 'true' : '',
+          refresh: refresh ? "true" : "",
         },
       },
     );
   }
 
   billingRuntimeStatus(tenantId: string, limit = 20) {
-    return this.send<Record<string, unknown>>('/admin/billing/runtime-status', {
+    return this.send<Record<string, unknown>>("/admin/billing/runtime-status", {
       query: { tenantId, limit },
     });
   }
@@ -1207,13 +1281,10 @@ export class BackendApi {
   async crmOperationalPage(
     tenantId: string,
     collection: CrmOperationalCollection,
-    {
-      limit = 100,
-      cursor,
-    }: { limit?: number; cursor?: string } = {},
+    { limit = 100, cursor }: { limit?: number; cursor?: string } = {},
   ) {
     const payload = await this.send<CrmOperationalPage>(
-      '/admin/crm/operational-records',
+      "/admin/crm/operational-records",
       { query: { tenantId, collection, limit, cursor } },
     );
     assertTenantEnvelope(
@@ -1221,43 +1292,52 @@ export class BackendApi {
       tenantId,
     );
     if (
-      payload.schemaVersion !== 'crm_operational_page_v1'
-      || payload.collection !== collection
-      || !Array.isArray(payload.records)
-      || payload.records.some(
-        (record) => !record || typeof record !== 'object' || !String(record.id || '').trim(),
-      )
-      || typeof payload.hasMore !== 'boolean'
-      || (payload.hasMore && !String(payload.nextCursor || '').trim())
-      || !Number.isSafeInteger(payload.limit)
-      || payload.limit < 1
-      || !String(payload.requestId || '').trim()
+      payload.schemaVersion !== "crm_operational_page_v1" ||
+      payload.collection !== collection ||
+      !Array.isArray(payload.records) ||
+      payload.records.some(
+        (record) =>
+          !record ||
+          typeof record !== "object" ||
+          !String(record.id || "").trim(),
+      ) ||
+      typeof payload.hasMore !== "boolean" ||
+      (payload.hasMore && !String(payload.nextCursor || "").trim()) ||
+      !Number.isSafeInteger(payload.limit) ||
+      payload.limit < 1 ||
+      !String(payload.requestId || "").trim()
     ) {
-      invalidBackendResponse(
-        payload as unknown as Record<string, unknown>,
-      );
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
   }
 
   async crmDashboardSummary(tenantId: string) {
     const payload = await this.send<CrmDashboardSummary>(
-      '/admin/crm/dashboard-summary',
+      "/admin/crm/dashboard-summary",
       { query: { tenantId } },
     );
-    assertTenantEnvelope(payload as unknown as Record<string, unknown>, tenantId);
+    assertTenantEnvelope(
+      payload as unknown as Record<string, unknown>,
+      tenantId,
+    );
     if (
-      payload.schemaVersion !== 'crm_dashboard_summary_v1'
-      || !payload.counts
-      || ['registrations', 'teams', 'events'].some((key) =>
-        !Number.isSafeInteger(payload.counts[key as keyof typeof payload.counts])
-        || payload.counts[key as keyof typeof payload.counts] < 0,
-      )
-      || !Array.isArray(payload.recentRegistrations)
-      || payload.recentRegistrations.some(
-        (record) => !record || typeof record !== 'object' || !String(record.id || '').trim(),
-      )
-      || !String(payload.requestId || '').trim()
+      payload.schemaVersion !== "crm_dashboard_summary_v1" ||
+      !payload.counts ||
+      ["registrations", "teams", "events"].some(
+        (key) =>
+          !Number.isSafeInteger(
+            payload.counts[key as keyof typeof payload.counts],
+          ) || payload.counts[key as keyof typeof payload.counts] < 0,
+      ) ||
+      !Array.isArray(payload.recentRegistrations) ||
+      payload.recentRegistrations.some(
+        (record) =>
+          !record ||
+          typeof record !== "object" ||
+          !String(record.id || "").trim(),
+      ) ||
+      !String(payload.requestId || "").trim()
     ) {
       invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
@@ -1267,27 +1347,32 @@ export class BackendApi {
   async importRosterParticipants(
     tenantId: string,
     rows: RosterParticipantImportRow[],
-    batchId = createIdempotencyKey('crm-roster-participant-import'),
+    batchId = createIdempotencyKey("crm-roster-participant-import"),
   ): Promise<RosterParticipantImportResult> {
     const payload = await this.send<RosterParticipantImportResult>(
-      '/admin/roster/participants/import',
+      "/admin/roster/participants/import",
       {
-        method: 'POST',
+        method: "POST",
         body: { tenantId, rows, batchId },
         idempotencyKey: batchId,
       },
     );
-    assertTenantEnvelope(payload as unknown as Record<string, unknown>, tenantId);
+    assertTenantEnvelope(
+      payload as unknown as Record<string, unknown>,
+      tenantId,
+    );
     if (
-      typeof payload.batchId !== 'string'
-      || !payload.batchId
-      || !Number.isSafeInteger(payload.savedCount)
-      || payload.savedCount < 1
-      || !Array.isArray(payload.registrationIds)
-      || payload.registrationIds.length !== payload.savedCount
-      || payload.registrationIds.some((id) => typeof id !== 'string' || !id.trim())
-      || typeof payload.idempotentReplay !== 'boolean'
-      || !String(payload.requestId || '').trim()
+      typeof payload.batchId !== "string" ||
+      !payload.batchId ||
+      !Number.isSafeInteger(payload.savedCount) ||
+      payload.savedCount < 1 ||
+      !Array.isArray(payload.registrationIds) ||
+      payload.registrationIds.length !== payload.savedCount ||
+      payload.registrationIds.some(
+        (id) => typeof id !== "string" || !id.trim(),
+      ) ||
+      typeof payload.idempotentReplay !== "boolean" ||
+      !String(payload.requestId || "").trim()
     ) {
       invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
@@ -1295,41 +1380,175 @@ export class BackendApi {
   }
 
   async financialOverview(tenantId: string) {
-    const payload = await this.send<FinancialOverview>('/admin/crm/financial-overview', {
-      query: { tenantId },
-    });
+    const payload = await this.send<FinancialOverview>(
+      "/admin/crm/financial-overview",
+      {
+        query: { tenantId },
+      },
+    );
     assertTenantEnvelope(
       payload as unknown as Record<string, unknown>,
       tenantId,
     );
     if (
-      !Array.isArray(payload.transactions)
-      || !Array.isArray(payload.refunds)
-      || !Array.isArray(payload.invoices)
-      || !Array.isArray(payload.deposits)
-      || !payload.recordCounts
-      || typeof payload.recordCounts !== 'object'
-      || Object.values(payload.recordCounts).some(
+      !Array.isArray(payload.transactions) ||
+      !Array.isArray(payload.refunds) ||
+      !Array.isArray(payload.invoices) ||
+      !Array.isArray(payload.deposits) ||
+      !payload.recordCounts ||
+      typeof payload.recordCounts !== "object" ||
+      Object.values(payload.recordCounts).some(
         (count) => !Number.isSafeInteger(count) || count < 0,
-      )
-      || !payload.tracking
-      || typeof payload.tracking !== 'object'
-      || typeof payload.tracking.complete !== 'boolean'
-      || !Number.isSafeInteger(payload.tracking.unreconciledTransactionCount)
-      || !Number.isSafeInteger(payload.tracking.unreconciledDepositCount)
-      || !Array.isArray(payload.tracking.sourceCollections)
-      || !payload.truncated
-      || typeof payload.truncated !== 'object'
-      || Object.values(payload.truncated).some(
-        (truncated) => typeof truncated !== 'boolean',
-      )
-      || !String(payload.requestId || '').trim()
+      ) ||
+      !payload.tracking ||
+      typeof payload.tracking !== "object" ||
+      typeof payload.tracking.complete !== "boolean" ||
+      !Number.isSafeInteger(payload.tracking.unreconciledTransactionCount) ||
+      !Number.isSafeInteger(payload.tracking.unreconciledDepositCount) ||
+      !Array.isArray(payload.tracking.sourceCollections) ||
+      !payload.truncated ||
+      typeof payload.truncated !== "object" ||
+      Object.values(payload.truncated).some(
+        (truncated) => typeof truncated !== "boolean",
+      ) ||
+      typeof payload.complete !== "boolean" ||
+      !payload.operations ||
+      typeof payload.operations !== "object" ||
+      typeof payload.operations.complete !== "boolean" ||
+      !payload.operations.views ||
+      (
+        [
+          "deposits",
+          "transactions",
+          "scheduled",
+          "overdue",
+          "invoices",
+        ] as const
+      ).some((view) => !Array.isArray(payload.operations.views[view])) ||
+      !String(payload.requestId || "").trim()
     ) {
-      invalidBackendResponse(
-        payload as unknown as Record<string, unknown>,
-      );
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
+  }
+
+  async billingPackages(tenantId: string) {
+    const payload = await this.send<{
+      tenantId: string;
+      packages: BillingPackageRecord[];
+      requestId: string;
+    }>("/admin/billing-packages", { query: { tenantId } });
+    assertTenantEnvelope(
+      payload as unknown as Record<string, unknown>,
+      tenantId,
+    );
+    if (!Array.isArray(payload.packages)) {
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
+    }
+    return payload.packages;
+  }
+
+  async saveBillingPackage(
+    tenantId: string,
+    data: Record<string, unknown>,
+    idempotencyKey: string,
+    packageId?: string,
+  ) {
+    const payload = await this.send<{
+      package: BillingPackageRecord;
+      requestId: string;
+    }>(
+      packageId
+        ? `/admin/billing-packages/${encodeURIComponent(packageId)}`
+        : "/admin/billing-packages",
+      {
+        method: packageId ? "PATCH" : "POST",
+        body: { tenantId, ...data },
+        idempotencyKey,
+      },
+    );
+    if (!payload.package || !String(payload.package.id || "").trim()) {
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
+    }
+    return payload.package;
+  }
+
+  async participantRelationships(
+    tenantId: string,
+    participantId: string,
+    registrationId: string,
+  ) {
+    const payload = await this.send<ParticipantRelationships>(
+      `/admin/participants/${encodeURIComponent(participantId)}/relationships`,
+      { query: { tenantId, registrationId } },
+    );
+    if (
+      !Array.isArray(payload.relationships) ||
+      !Array.isArray(payload.options) ||
+      typeof payload.canAssign !== "boolean"
+    ) {
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
+    }
+    return payload;
+  }
+
+  async participantTechnicalDetails(
+    tenantId: string,
+    participantId: string,
+    registrationId: string,
+  ) {
+    const payload = await this.send<{
+      entries: Array<{ label: string; value: string }>;
+      requestId: string;
+    }>(
+      `/admin/participants/${encodeURIComponent(participantId)}/technical-details`,
+      { query: { tenantId, registrationId } },
+    );
+    if (!Array.isArray(payload.entries)) {
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
+    }
+    return payload;
+  }
+
+  async participantInstallmentAgreements(
+    tenantId: string,
+    participantId: string,
+  ) {
+    const payload = await this.send<{
+      agreements: ParticipantInstallmentAgreement[];
+      requestId: string;
+    }>(
+      `/admin/participants/${encodeURIComponent(participantId)}/installment-agreements`,
+      { query: { tenantId } },
+    );
+    if (!Array.isArray(payload.agreements)) {
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
+    }
+    return payload.agreements;
+  }
+
+  async proposeParticipantInstallmentRevision({
+    tenantId,
+    participantId,
+    agreementId,
+    data,
+    idempotencyKey,
+  }: {
+    tenantId: string;
+    participantId: string;
+    agreementId: string;
+    data: Record<string, unknown>;
+    idempotencyKey: string;
+  }) {
+    return this.send<Record<string, unknown>>(
+      `/admin/participants/${encodeURIComponent(participantId)}` +
+        `/installment-agreements/${encodeURIComponent(agreementId)}/revisions`,
+      {
+        method: "POST",
+        body: { tenantId, ...data },
+        idempotencyKey,
+      },
+    );
   }
 
   async rosterPlayersPage(tenantId: string, teamId?: string) {
@@ -1339,26 +1558,22 @@ export class BackendApi {
       players: RosterPlayerRecord[];
       truncated: {
         registrations: boolean;
+        privateRegistrations?: boolean;
         memberships: boolean;
         teams: boolean;
       };
       requestId: string;
-    }>(
-      '/admin/roster/players',
-      { query: { tenantId, teamId } },
-    );
+    }>("/admin/roster/players", { query: { tenantId, teamId } });
     assertTenantEnvelope(
       payload as unknown as Record<string, unknown>,
       tenantId,
     );
     if (
-      !Array.isArray(payload.players)
-      || !payload.truncated
-      || typeof payload.truncated !== 'object'
+      !Array.isArray(payload.players) ||
+      !payload.truncated ||
+      typeof payload.truncated !== "object"
     ) {
-      invalidBackendResponse(
-        payload as unknown as Record<string, unknown>,
-      );
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
   }
@@ -1380,9 +1595,9 @@ export class BackendApi {
     alsoPostPublicly?: boolean;
   }) {
     return this.send<MessageAudiencePreview>(
-      '/admin/messages/audience-preview',
+      "/admin/messages/audience-preview",
       {
-        method: 'POST',
+        method: "POST",
         body: {
           tenantId,
           emails,
@@ -1406,19 +1621,14 @@ export class BackendApi {
       nextCursor: string | null;
       limit: number;
       requestId: string;
-    }>(
-      '/admin/crm/audit-events',
-      { query: { tenantId, limit, cursor } },
-    );
+    }>("/admin/crm/audit-events", { query: { tenantId, limit, cursor } });
     if (
-      !Array.isArray(payload.events)
-      || typeof payload.truncated !== 'boolean'
-      || typeof payload.hasMore !== 'boolean'
-      || (payload.hasMore && !String(payload.nextCursor || '').trim())
+      !Array.isArray(payload.events) ||
+      typeof payload.truncated !== "boolean" ||
+      typeof payload.hasMore !== "boolean" ||
+      (payload.hasMore && !String(payload.nextCursor || "").trim())
     ) {
-      invalidBackendResponse(
-        payload as unknown as Record<string, unknown>,
-      );
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
   }
@@ -1439,9 +1649,9 @@ export class BackendApi {
     },
   ) {
     const payload = await this.send<CrmResourceMutationResponse>(
-      '/admin/crm/resource-mutations',
+      "/admin/crm/resource-mutations",
       {
-        method: 'POST',
+        method: "POST",
         body: {
           tenantId,
           action,
@@ -1454,14 +1664,12 @@ export class BackendApi {
       },
     );
     if (
-      payload.success !== true
-      || !String(payload.operationId || '').trim()
-      || !String(payload.requestId || '').trim()
-      || typeof payload.idempotentReplay !== 'boolean'
+      payload.success !== true ||
+      !String(payload.operationId || "").trim() ||
+      !String(payload.requestId || "").trim() ||
+      typeof payload.idempotentReplay !== "boolean"
     ) {
-      invalidBackendResponse(
-        payload as unknown as Record<string, unknown>,
-      );
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
   }
@@ -1472,7 +1680,7 @@ export class BackendApi {
     auditReason: string,
     idempotencyKey: string,
   ) {
-    return this.crmResourceMutation(tenantId, 'team.create', {
+    return this.crmResourceMutation(tenantId, "team.create", {
       data,
       auditReason,
       idempotencyKey,
@@ -1486,7 +1694,7 @@ export class BackendApi {
     auditReason: string,
     idempotencyKey: string,
   ) {
-    return this.crmResourceMutation(tenantId, 'team.update', {
+    return this.crmResourceMutation(tenantId, "team.update", {
       resourceId: teamId,
       data,
       auditReason,
@@ -1500,16 +1708,14 @@ export class BackendApi {
     auditReason: string,
     idempotencyKey: string,
   ) {
-    const payload = await this.crmResourceMutation(tenantId, 'team.delete', {
+    const payload = await this.crmResourceMutation(tenantId, "team.delete", {
       resourceId: teamId,
       data: {},
       auditReason,
       idempotencyKey,
     });
     if (payload.id !== teamId || payload.deleted !== true) {
-      invalidBackendResponse(
-        payload as unknown as Record<string, unknown>,
-      );
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
   }
@@ -1526,23 +1732,30 @@ export class BackendApi {
       imageReservationId?: string | null;
       seasonId: string | null;
       registrationFormId: string | null;
-      publishMode: 'immediate' | 'draft';
+      publishMode: "immediate" | "draft";
+      priceCents?: number;
+      paymentTerms?: Record<string, unknown>;
+      paymentPolicies?: Record<string, unknown> | null;
     },
     auditReason: string,
     idempotencyKey: string,
   ) {
-    const payload = await this.crmResourceMutation(tenantId, 'event.create_series', {
-      data,
-      auditReason,
-      idempotencyKey,
-    });
+    const payload = await this.crmResourceMutation(
+      tenantId,
+      "event.create_series",
+      {
+        data,
+        auditReason,
+        idempotencyKey,
+      },
+    );
     if (
-      !String(payload.id || '').trim()
-      || !Array.isArray(payload.eventIds)
-      || payload.eventIds.length === 0
-      || payload.eventIds.some((id) => !String(id || '').trim())
-      || !['deferred', 'not_required'].includes(
-        String(payload.publicationSyncStatus || ''),
+      !String(payload.id || "").trim() ||
+      !Array.isArray(payload.eventIds) ||
+      payload.eventIds.length === 0 ||
+      payload.eventIds.some((id) => !String(id || "").trim()) ||
+      !["deferred", "not_required"].includes(
+        String(payload.publicationSyncStatus || ""),
       )
     ) {
       invalidBackendResponse(payload as unknown as Record<string, unknown>);
@@ -1557,17 +1770,21 @@ export class BackendApi {
     auditReason: string,
     idempotencyKey: string,
   ) {
-    const payload = await this.crmResourceMutation(tenantId, 'event.duplicate', {
-      resourceId: eventId,
-      data: { occurrences },
-      auditReason,
-      idempotencyKey,
-    });
+    const payload = await this.crmResourceMutation(
+      tenantId,
+      "event.duplicate",
+      {
+        resourceId: eventId,
+        data: { occurrences },
+        auditReason,
+        idempotencyKey,
+      },
+    );
     if (
-      !String(payload.id || '').trim()
-      || !Array.isArray(payload.eventIds)
-      || payload.eventIds.length === 0
-      || payload.eventIds.some((id) => !String(id || '').trim())
+      !String(payload.id || "").trim() ||
+      !Array.isArray(payload.eventIds) ||
+      payload.eventIds.length === 0 ||
+      payload.eventIds.some((id) => !String(id || "").trim())
     ) {
       invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
@@ -1591,25 +1808,28 @@ export class BackendApi {
       timeZone?: string;
       seasonId?: string | null;
       applyToSeries?: boolean;
+      priceCents?: number;
+      paymentTerms?: Record<string, unknown>;
+      paymentPolicies?: Record<string, unknown> | null;
     },
     auditReason: string,
     idempotencyKey: string,
   ) {
-    const payload = await this.crmResourceMutation(tenantId, 'event.update', {
+    const payload = await this.crmResourceMutation(tenantId, "event.update", {
       resourceId: eventId,
       data,
       auditReason,
       idempotencyKey,
     });
     if (
-      payload.id !== eventId
-      || !Array.isArray(payload.eventIds)
-      || payload.eventIds.length < 1
-      || payload.eventIds.some((id) => !String(id || '').trim())
-      || !Number.isSafeInteger(payload.updatedCount)
-      || Number(payload.updatedCount) < 1
-      || !['succeeded', 'not_required'].includes(
-        String(payload.publicationSyncStatus || ''),
+      payload.id !== eventId ||
+      !Array.isArray(payload.eventIds) ||
+      payload.eventIds.length < 1 ||
+      payload.eventIds.some((id) => !String(id || "").trim()) ||
+      !Number.isSafeInteger(payload.updatedCount) ||
+      Number(payload.updatedCount) < 1 ||
+      !["succeeded", "not_required"].includes(
+        String(payload.publicationSyncStatus || ""),
       )
     ) {
       invalidBackendResponse(payload as unknown as Record<string, unknown>);
@@ -1624,12 +1844,12 @@ export class BackendApi {
       description: string;
       fields: CrmRegistrationFieldsInput;
       sections: CrmRegistrationFormSectionInput[];
-      status: 'active' | 'archived';
+      status: "active" | "archived";
     },
     auditReason: string,
     idempotencyKey: string,
   ) {
-    return this.crmResourceMutation(tenantId, 'registration_form.create', {
+    return this.crmResourceMutation(tenantId, "registration_form.create", {
       data,
       auditReason,
       idempotencyKey,
@@ -1644,12 +1864,12 @@ export class BackendApi {
       description: string;
       fields: CrmRegistrationFieldsInput;
       sections: CrmRegistrationFormSectionInput[];
-      status: 'active' | 'archived';
+      status: "active" | "archived";
     },
     auditReason: string,
     idempotencyKey: string,
   ) {
-    return this.crmResourceMutation(tenantId, 'registration_form.update', {
+    return this.crmResourceMutation(tenantId, "registration_form.update", {
       resourceId: formId,
       data,
       auditReason,
@@ -1671,7 +1891,7 @@ export class BackendApi {
     auditReason: string,
     idempotencyKey: string,
   ) {
-    return this.crmResourceMutation(tenantId, 'season.create', {
+    return this.crmResourceMutation(tenantId, "season.create", {
       data,
       auditReason,
       idempotencyKey,
@@ -1694,7 +1914,7 @@ export class BackendApi {
     auditReason: string,
     idempotencyKey: string,
   ) {
-    return this.crmResourceMutation(tenantId, 'season.update', {
+    return this.crmResourceMutation(tenantId, "season.update", {
       resourceId: seasonId,
       data,
       auditReason,
@@ -1708,7 +1928,7 @@ export class BackendApi {
     auditReason: string,
     idempotencyKey: string,
   ) {
-    return this.crmResourceMutation(tenantId, 'document.delete', {
+    return this.crmResourceMutation(tenantId, "document.delete", {
       resourceId: documentId,
       auditReason,
       idempotencyKey,
@@ -1721,10 +1941,9 @@ export class BackendApi {
       accessUrl: string;
       expiresInSeconds: number;
       requestId: string;
-    }>(
-      `/admin/crm/documents/${encodeURIComponent(documentId)}/access-url`,
-      { query: { tenantId } },
-    );
+    }>(`/admin/crm/documents/${encodeURIComponent(documentId)}/access-url`, {
+      query: { tenantId },
+    });
   }
 
   async documents(tenantId: string, limit = 100) {
@@ -1735,14 +1954,14 @@ export class BackendApi {
       requestId: string;
     }>(
       `/admin/crm/documents?tenantId=${encodeURIComponent(tenantId)}&limit=${encodeURIComponent(String(limit))}`,
-      { method: 'GET' },
+      { method: "GET" },
     );
   }
 
   async adminStaffDirectory(tenantId: string, limit = 100) {
     const payload = await this.send<AdminStaffDirectory>(
       `/admin/staff?tenantId=${encodeURIComponent(tenantId)}&limit=${encodeURIComponent(String(limit))}`,
-      { method: 'GET' },
+      { method: "GET" },
     );
     assertStaffDirectoryEnvelope(payload, tenantId, limit);
     return payload;
@@ -1758,8 +1977,8 @@ export class BackendApi {
   }: {
     tenantId: string;
     membershipId: string;
-    role?: 'owner' | 'editor' | 'viewer';
-    status?: 'active' | 'inactive';
+    role?: "owner" | "editor" | "viewer";
+    status?: "active" | "inactive";
     auditReason: string;
     idempotencyKey: string;
   }) {
@@ -1768,11 +1987,11 @@ export class BackendApi {
       idempotentReplay: boolean;
       membershipId: string;
       uid: string;
-      role: 'owner' | 'editor' | 'viewer';
-      status: 'active' | 'inactive';
+      role: "owner" | "editor" | "viewer";
+      status: "active" | "inactive";
       requestId: string;
     }>(`/admin/staff/${encodeURIComponent(membershipId)}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: {
         tenantId,
         ...(role ? { role } : {}),
@@ -1783,17 +2002,15 @@ export class BackendApi {
       idempotencyKey,
     });
     if (
-      payload.success !== true
-      || typeof payload.idempotentReplay !== 'boolean'
-      || payload.membershipId !== membershipId
-      || !String(payload.uid || '').trim()
-      || !['owner', 'editor', 'viewer'].includes(payload.role)
-      || !['active', 'inactive'].includes(payload.status)
-      || !String(payload.requestId || '').trim()
+      payload.success !== true ||
+      typeof payload.idempotentReplay !== "boolean" ||
+      payload.membershipId !== membershipId ||
+      !String(payload.uid || "").trim() ||
+      !["owner", "editor", "viewer"].includes(payload.role) ||
+      !["active", "inactive"].includes(payload.status) ||
+      !String(payload.requestId || "").trim()
     ) {
-      invalidBackendResponse(
-        payload as unknown as Record<string, unknown>,
-      );
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
   }
@@ -1813,37 +2030,32 @@ export class BackendApi {
       success: true;
       idempotentReplay: boolean;
       inviteId: string;
-      status: 'revoked';
+      status: "revoked";
       requestId: string;
     }>(`/admin/invites/${encodeURIComponent(inviteId)}/revoke`, {
-      method: 'POST',
+      method: "POST",
       body: { tenantId, auditReason, idempotencyKey },
       idempotencyKey,
     });
     if (
-      payload.success !== true
-      || typeof payload.idempotentReplay !== 'boolean'
-      || payload.inviteId !== inviteId
-      || payload.status !== 'revoked'
-      || !String(payload.requestId || '').trim()
+      payload.success !== true ||
+      typeof payload.idempotentReplay !== "boolean" ||
+      payload.inviteId !== inviteId ||
+      payload.status !== "revoked" ||
+      !String(payload.requestId || "").trim()
     ) {
-      invalidBackendResponse(
-        payload as unknown as Record<string, unknown>,
-      );
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
   }
 
-  async previewFinancialPeriod(
-    tenantId: string,
-    period: FinancialPeriodInput,
-  ) {
+  async previewFinancialPeriod(tenantId: string, period: FinancialPeriodInput) {
     const payload = await this.send<{
       tenantId: string;
       preview: FinancialPeriodPreview;
       requestId: string;
-    }>('/admin/financial-periods/preview', {
-      method: 'POST',
+    }>("/admin/financial-periods/preview", {
+      method: "POST",
       body: { tenantId, period },
     });
     assertTenantEnvelope(
@@ -1851,15 +2063,13 @@ export class BackendApi {
       tenantId,
     );
     if (
-      !payload.preview
-      || typeof payload.preview !== 'object'
-      || typeof payload.preview.truncated !== 'boolean'
-      || !payload.preview.collections
-      || typeof payload.preview.collections !== 'object'
+      !payload.preview ||
+      typeof payload.preview !== "object" ||
+      typeof payload.preview.truncated !== "boolean" ||
+      !payload.preview.collections ||
+      typeof payload.preview.collections !== "object"
     ) {
-      invalidBackendResponse(
-        payload as unknown as Record<string, unknown>,
-      );
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
   }
@@ -1871,7 +2081,7 @@ export class BackendApi {
       truncated: boolean;
       limit: number;
       requestId: string;
-    }>('/admin/financial-periods', {
+    }>("/admin/financial-periods", {
       query: { tenantId, limit: String(limit) },
     });
     assertTenantEnvelope(
@@ -1879,13 +2089,11 @@ export class BackendApi {
       tenantId,
     );
     if (
-      !Array.isArray(payload.periods)
-      || typeof payload.truncated !== 'boolean'
-      || !Number.isSafeInteger(payload.limit)
+      !Array.isArray(payload.periods) ||
+      typeof payload.truncated !== "boolean" ||
+      !Number.isSafeInteger(payload.limit)
     ) {
-      invalidBackendResponse(
-        payload as unknown as Record<string, unknown>,
-      );
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
   }
@@ -1900,24 +2108,22 @@ export class BackendApi {
       success: true;
       idempotentReplay: boolean;
       periodId: string;
-      status: 'closed';
+      status: "closed";
       preview: FinancialPeriodPreview;
       requestId: string;
-    }>('/admin/financial-periods/close', {
-      method: 'POST',
+    }>("/admin/financial-periods/close", {
+      method: "POST",
       body: { tenantId, period, auditReason, idempotencyKey },
       idempotencyKey,
     });
     if (
-      payload.success !== true
-      || payload.status !== 'closed'
-      || !String(payload.periodId || '').trim()
-      || typeof payload.idempotentReplay !== 'boolean'
-      || !payload.preview
+      payload.success !== true ||
+      payload.status !== "closed" ||
+      !String(payload.periodId || "").trim() ||
+      typeof payload.idempotentReplay !== "boolean" ||
+      !payload.preview
     ) {
-      invalidBackendResponse(
-        payload as unknown as Record<string, unknown>,
-      );
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
   }
@@ -1932,32 +2138,27 @@ export class BackendApi {
       success: true;
       idempotentReplay: boolean;
       periodId: string;
-      status: 'reopened';
+      status: "reopened";
       requestId: string;
-    }>(
-      `/admin/financial-periods/${encodeURIComponent(periodId)}/reopen`,
-      {
-        method: 'POST',
-        body: { tenantId, auditReason, idempotencyKey },
-        idempotencyKey,
-      },
-    );
+    }>(`/admin/financial-periods/${encodeURIComponent(periodId)}/reopen`, {
+      method: "POST",
+      body: { tenantId, auditReason, idempotencyKey },
+      idempotencyKey,
+    });
     if (
-      payload.success !== true
-      || payload.status !== 'reopened'
-      || !String(payload.periodId || '').trim()
-      || typeof payload.idempotentReplay !== 'boolean'
+      payload.success !== true ||
+      payload.status !== "reopened" ||
+      !String(payload.periodId || "").trim() ||
+      typeof payload.idempotentReplay !== "boolean"
     ) {
-      invalidBackendResponse(
-        payload as unknown as Record<string, unknown>,
-      );
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
   }
 
   async appConfiguration(tenantId: string) {
     const payload = await this.send<CrmAppConfigurationSnapshot>(
-      '/admin/crm/app-configuration',
+      "/admin/crm/app-configuration",
       { query: { tenantId } },
     );
     assertTenantEnvelope(
@@ -1965,18 +2166,14 @@ export class BackendApi {
       tenantId,
     );
     if (
-      !['initialize', 'update'].includes(payload.mode)
-      || !String(payload.versionToken || '').trim()
-      || !String(payload.requestId || '').trim()
-      || (
-        payload.mode === 'initialize'
-          ? payload.configuration !== null
-          : !isValidAppConfiguration(payload.configuration)
-      )
+      !["initialize", "update"].includes(payload.mode) ||
+      !String(payload.versionToken || "").trim() ||
+      !String(payload.requestId || "").trim() ||
+      (payload.mode === "initialize"
+        ? payload.configuration !== null
+        : !isValidAppConfiguration(payload.configuration))
     ) {
-      invalidBackendResponse(
-        payload as unknown as Record<string, unknown>,
-      );
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
   }
@@ -1984,7 +2181,7 @@ export class BackendApi {
   async publishAppConfiguration(
     tenantId: string,
     data: CrmAppConfiguration & {
-      mode: 'initialize' | 'update';
+      mode: "initialize" | "update";
       expectedVersionToken: string;
     },
     auditReason: string,
@@ -1992,21 +2189,19 @@ export class BackendApi {
   ) {
     const payload = await this.crmResourceMutation(
       tenantId,
-      'app_configuration.publish',
+      "app_configuration.publish",
       { data, auditReason, idempotencyKey },
     );
     if (
-      payload.id !== tenantId
-      || payload.mode !== 'update'
-      || !String(payload.versionToken || '').trim()
-      || !['succeeded', 'deferred'].includes(
-        String(payload.publicationSyncStatus || ''),
-      )
-      || !isValidAppConfiguration(payload.configuration)
+      payload.id !== tenantId ||
+      payload.mode !== "update" ||
+      !String(payload.versionToken || "").trim() ||
+      !["succeeded", "deferred"].includes(
+        String(payload.publicationSyncStatus || ""),
+      ) ||
+      !isValidAppConfiguration(payload.configuration)
     ) {
-      invalidBackendResponse(
-        payload as unknown as Record<string, unknown>,
-      );
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
   }
@@ -2028,33 +2223,28 @@ export class BackendApi {
       nextCursor: string | null;
       limit: number;
       requestId: string;
-    }>(
-      '/admin/direct-invoices',
-      { query: { tenantId, limit, cursor, status } },
-    );
+    }>("/admin/direct-invoices", {
+      query: { tenantId, limit, cursor, status },
+    });
     assertTenantEnvelope(
       payload as unknown as Record<string, unknown>,
       tenantId,
     );
     if (
-      !Array.isArray(payload.invoices)
-      || typeof payload.truncated !== 'boolean'
-      || typeof payload.hasMore !== 'boolean'
-      || (payload.hasMore && !String(payload.nextCursor || '').trim())
-      || !Number.isSafeInteger(payload.limit)
-      || !String(payload.requestId || '').trim()
+      !Array.isArray(payload.invoices) ||
+      typeof payload.truncated !== "boolean" ||
+      typeof payload.hasMore !== "boolean" ||
+      (payload.hasMore && !String(payload.nextCursor || "").trim()) ||
+      !Number.isSafeInteger(payload.limit) ||
+      !String(payload.requestId || "").trim()
     ) {
-      invalidBackendResponse(
-        payload as unknown as Record<string, unknown>,
-      );
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     for (const invoice of payload.invoices) {
-      directInvoiceFromEnvelope(
-        {
-          invoice,
-          requestId: payload.requestId,
-        },
-      );
+      directInvoiceFromEnvelope({
+        invoice,
+        requestId: payload.requestId,
+      });
     }
     return payload;
   }
@@ -2064,14 +2254,11 @@ export class BackendApi {
     return payload.invoices ?? [];
   }
 
-  async createDirectInvoice(
-    draft: DirectInvoiceDraft,
-    idempotencyKey: string,
-  ) {
+  async createDirectInvoice(draft: DirectInvoiceDraft, idempotencyKey: string) {
     const payload = await this.send<{ invoice: DirectInvoiceRecord }>(
-      '/admin/direct-invoices',
+      "/admin/direct-invoices",
       {
-        method: 'POST',
+        method: "POST",
         body: { ...draft, idempotencyKey },
         idempotencyKey,
       },
@@ -2084,14 +2271,14 @@ export class BackendApi {
   async directInvoiceAction(
     tenantId: string,
     invoiceId: string,
-    action: 'issue' | 'remind' | 'void',
+    action: "issue" | "remind" | "void",
     idempotencyKey?: string,
     auditReason?: string,
   ) {
     const payload = await this.send<{ invoice: DirectInvoiceRecord }>(
       `/admin/direct-invoices/${encodeURIComponent(invoiceId)}/${action}`,
       {
-        method: 'POST',
+        method: "POST",
         body: {
           tenantId,
           ...(idempotencyKey ? { idempotencyKey } : {}),
@@ -2120,7 +2307,7 @@ export class BackendApi {
     tenantId: string;
     invoiceId: string;
     amountCents: number;
-    method: 'cash' | 'check' | 'bank_transfer' | 'other';
+    method: "cash" | "check" | "bank_transfer" | "other";
     reference: string;
     note?: string;
     auditReason: string;
@@ -2130,7 +2317,7 @@ export class BackendApi {
     const payload = await this.send<{ invoice: DirectInvoiceRecord }>(
       `/admin/direct-invoices/${encodeURIComponent(invoiceId)}/manual-payment`,
       {
-        method: 'POST',
+        method: "POST",
         body: {
           tenantId,
           amountCents,
@@ -2168,7 +2355,7 @@ export class BackendApi {
     const payload = await this.send<{ invoice: DirectInvoiceRecord }>(
       `/admin/direct-invoices/${encodeURIComponent(invoiceId)}/refund`,
       {
-        method: 'POST',
+        method: "POST",
         body: {
           tenantId,
           amountCents,
@@ -2193,7 +2380,7 @@ export class BackendApi {
     const payload = await this.send<{ invoice: DirectInvoiceRecord }>(
       `/admin/direct-invoices/${encodeURIComponent(invoiceId)}/reconcile`,
       {
-        method: 'POST',
+        method: "POST",
         body: { tenantId, auditReason },
       },
     );
@@ -2222,32 +2409,29 @@ export class BackendApi {
         refunds: number;
       };
       requestId: string;
-    }>(
-      `/admin/direct-invoices/${encodeURIComponent(invoiceId)}/ledger`,
-      { query: { tenantId } },
-    );
+    }>(`/admin/direct-invoices/${encodeURIComponent(invoiceId)}/ledger`, {
+      query: { tenantId },
+    });
     assertTenantEnvelope(
       payload as unknown as Record<string, unknown>,
       tenantId,
     );
     if (
-      !Array.isArray(payload.events)
-      || !Array.isArray(payload.payments)
-      || !Array.isArray(payload.refunds)
-      || !payload.truncated
-      || Object.values(payload.truncated).some(
-        (truncated) => typeof truncated !== 'boolean',
-      )
-      || !payload.limits
-      || Object.values(payload.limits).some(
+      !Array.isArray(payload.events) ||
+      !Array.isArray(payload.payments) ||
+      !Array.isArray(payload.refunds) ||
+      !payload.truncated ||
+      Object.values(payload.truncated).some(
+        (truncated) => typeof truncated !== "boolean",
+      ) ||
+      !payload.limits ||
+      Object.values(payload.limits).some(
         (limit) => !Number.isSafeInteger(limit) || limit < 1,
-      )
-      || !String(payload.requestId || '').trim()
-      || !validDirectInvoiceProviderAccounting(payload.providerAccounting)
+      ) ||
+      !String(payload.requestId || "").trim() ||
+      !validDirectInvoiceProviderAccounting(payload.providerAccounting)
     ) {
-      invalidBackendResponse(
-        payload as unknown as Record<string, unknown>,
-      );
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     directInvoiceFromEnvelope(
       payload as unknown as Record<string, unknown>,
@@ -2265,7 +2449,7 @@ export class BackendApi {
     return this.send<Record<string, unknown>>(
       `/admin/billing/payments/${encodeURIComponent(paymentId)}/resend-receipt`,
       {
-        method: 'POST',
+        method: "POST",
         body: { tenantId, auditReason },
         idempotencyKey,
       },
@@ -2280,7 +2464,7 @@ export class BackendApi {
       chargesEnabled: boolean;
       payoutsEnabled: boolean;
       requirementsDueCount: number;
-    }>('/stripe/connect/status', { query: { tenantId } });
+    }>("/stripe/connect/status", { query: { tenantId } });
   }
 
   stripeConnectAccountLink(
@@ -2292,15 +2476,15 @@ export class BackendApi {
       stripeAccountId: string;
       expiresAt: number | null;
       idempotentReplay: boolean;
-    }>('/stripe/connect/account-link', {
-      method: 'POST',
+    }>("/stripe/connect/account-link", {
+      method: "POST",
       body: { tenantId },
       idempotencyKey,
     });
   }
 
   onboardingStatus(tenantId: string) {
-    return this.send<Record<string, unknown>>('/admin/onboarding/status', {
+    return this.send<Record<string, unknown>>("/admin/onboarding/status", {
       query: { tenantId },
     });
   }
@@ -2309,11 +2493,11 @@ export class BackendApi {
     body: Record<string, unknown>,
     idempotencyKey: string,
   ) {
-    const tenantId = String(body.tenantId || '').trim();
+    const tenantId = String(body.tenantId || "").trim();
     const payload = await this.send<OnboardingBootstrapResult>(
-      '/admin/onboarding/bootstrap',
+      "/admin/onboarding/bootstrap",
       {
-        method: 'POST',
+        method: "POST",
         body: { ...body, operationKey: idempotencyKey },
         idempotencyKey,
       },
@@ -2323,29 +2507,27 @@ export class BackendApi {
       tenantId,
     );
     if (
-      !String(payload.programName || '').trim()
-      || !payload.readiness
-      || typeof payload.readiness !== 'object'
-      || !String(payload.readiness.state || '').trim()
-      || typeof payload.readiness.launchReady !== 'boolean'
-      || !Array.isArray(payload.readiness.blockers)
-      || payload.readiness.blockers.some(
-        (blocker) => typeof blocker !== 'string' || !blocker.trim(),
-      )
-      || !payload.readiness.checks
-      || typeof payload.readiness.checks !== 'object'
-      || !payload.seeded
-      || typeof payload.seeded !== 'object'
-      || !Array.isArray(payload.seeded.teams)
-      || payload.seeded.teams.some(
-        (teamId) => typeof teamId !== 'string' || !teamId.trim(),
-      )
-      || typeof payload.idempotentReplay !== 'boolean'
-      || !String(payload.requestId || '').trim()
+      !String(payload.programName || "").trim() ||
+      !payload.readiness ||
+      typeof payload.readiness !== "object" ||
+      !String(payload.readiness.state || "").trim() ||
+      typeof payload.readiness.launchReady !== "boolean" ||
+      !Array.isArray(payload.readiness.blockers) ||
+      payload.readiness.blockers.some(
+        (blocker) => typeof blocker !== "string" || !blocker.trim(),
+      ) ||
+      !payload.readiness.checks ||
+      typeof payload.readiness.checks !== "object" ||
+      !payload.seeded ||
+      typeof payload.seeded !== "object" ||
+      !Array.isArray(payload.seeded.teams) ||
+      payload.seeded.teams.some(
+        (teamId) => typeof teamId !== "string" || !teamId.trim(),
+      ) ||
+      typeof payload.idempotentReplay !== "boolean" ||
+      !String(payload.requestId || "").trim()
     ) {
-      invalidBackendResponse(
-        payload as unknown as Record<string, unknown>,
-      );
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
   }
@@ -2362,34 +2544,30 @@ export class BackendApi {
       csvBase64: string;
       idempotentReplay: boolean;
       requestId?: string;
-    }>('/admin/crm/exports', {
-      method: 'POST',
+    }>("/admin/crm/exports", {
+      method: "POST",
       body,
       idempotencyKey,
     });
     if (
-      (payload.tenantId && payload.tenantId !== body.tenantId)
-      || !String(payload.exportId || '').trim()
-      || payload.resourceId !== body.resourceId
-      || !Number.isSafeInteger(payload.rowCount)
-      || payload.rowCount < 0
-      || !Array.isArray(payload.visibleColumnIds)
-      || payload.visibleColumnIds.length === 0
-      || payload.visibleColumnIds.some(
-        (columnId) => typeof columnId !== 'string' || !columnId.trim(),
-      )
-      || !/^[a-f0-9]{64}$/i.test(String(payload.checksum || ''))
-      || !validIsoTimestamp(payload.expiresAt)
-      || !String(payload.csvBase64 || '').trim()
-      || typeof payload.idempotentReplay !== 'boolean'
-      || (
-        payload.requestId !== undefined
-        && !String(payload.requestId || '').trim()
-      )
+      (payload.tenantId && payload.tenantId !== body.tenantId) ||
+      !String(payload.exportId || "").trim() ||
+      payload.resourceId !== body.resourceId ||
+      !Number.isSafeInteger(payload.rowCount) ||
+      payload.rowCount < 0 ||
+      !Array.isArray(payload.visibleColumnIds) ||
+      payload.visibleColumnIds.length === 0 ||
+      payload.visibleColumnIds.some(
+        (columnId) => typeof columnId !== "string" || !columnId.trim(),
+      ) ||
+      !/^[a-f0-9]{64}$/i.test(String(payload.checksum || "")) ||
+      !validIsoTimestamp(payload.expiresAt) ||
+      !String(payload.csvBase64 || "").trim() ||
+      typeof payload.idempotentReplay !== "boolean" ||
+      (payload.requestId !== undefined &&
+        !String(payload.requestId || "").trim())
     ) {
-      invalidBackendResponse(
-        payload as unknown as Record<string, unknown>,
-      );
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
   }
@@ -2407,7 +2585,7 @@ export class BackendApi {
       retainedRecipientCount: number;
       publicCount: number;
       notifications: {
-        scope: 'tenant_account_holders';
+        scope: "tenant_account_holders";
         topic: null;
         requestedMessageCount: number;
         sentMessageCount: number;
@@ -2421,39 +2599,39 @@ export class BackendApi {
         providerErrorCodes: Record<string, number>;
       };
       requestId: string;
-    }>('/admin/messages/batch', {
-      method: 'POST',
+    }>("/admin/messages/batch", {
+      method: "POST",
       body: { tenantId, messages },
       idempotencyKey,
     });
     const notificationCounts = [
-      'requestedMessageCount',
-      'sentMessageCount',
-      'failedMessageCount',
-      'noRecipientMessageCount',
-      'replayedMessageCount',
-      'eligibleAccountCount',
-      'eligibleDeviceCount',
-      'successCount',
-      'failureCount',
+      "requestedMessageCount",
+      "sentMessageCount",
+      "failedMessageCount",
+      "noRecipientMessageCount",
+      "replayedMessageCount",
+      "eligibleAccountCount",
+      "eligibleDeviceCount",
+      "successCount",
+      "failureCount",
     ] as const;
     if (
-      payload.success !== true
-      || !String(payload.sendId || '').trim()
-      || !String(payload.requestId || '').trim()
-      || payload.notifications?.scope !== 'tenant_account_holders'
-      || payload.notifications?.topic !== null
-      || notificationCounts.some(
+      payload.success !== true ||
+      !String(payload.sendId || "").trim() ||
+      !String(payload.requestId || "").trim() ||
+      payload.notifications?.scope !== "tenant_account_holders" ||
+      payload.notifications?.topic !== null ||
+      notificationCounts.some(
         (field) =>
-          !Number.isSafeInteger(payload.notifications?.[field])
-          || Number(payload.notifications?.[field]) < 0,
-      )
-      || !payload.notifications?.providerErrorCodes
-      || Object.entries(payload.notifications.providerErrorCodes).some(
+          !Number.isSafeInteger(payload.notifications?.[field]) ||
+          Number(payload.notifications?.[field]) < 0,
+      ) ||
+      !payload.notifications?.providerErrorCodes ||
+      Object.entries(payload.notifications.providerErrorCodes).some(
         ([code, count]) =>
-          !/^messaging\/[a-z0-9-]+$/.test(code)
-          || !Number.isSafeInteger(count)
-          || count < 0,
+          !/^messaging\/[a-z0-9-]+$/.test(code) ||
+          !Number.isSafeInteger(count) ||
+          count < 0,
       )
     ) {
       invalidBackendResponse(payload as unknown as Record<string, unknown>);
@@ -2468,26 +2646,26 @@ export class BackendApi {
       threads: AdminInboxThread[];
       truncated: boolean;
       requestId: string;
-    }>('/admin/inbox/threads', { query: { tenantId } });
+    }>("/admin/inbox/threads", { query: { tenantId } });
     assertTenantEnvelope(
       payload as unknown as Record<string, unknown>,
       tenantId,
     );
     if (
-      payload.success !== true
-      || !Array.isArray(payload.threads)
-      || typeof payload.truncated !== 'boolean'
-      || !String(payload.requestId || '').trim()
-      || payload.threads.some(
+      payload.success !== true ||
+      !Array.isArray(payload.threads) ||
+      typeof payload.truncated !== "boolean" ||
+      !String(payload.requestId || "").trim() ||
+      payload.threads.some(
         (thread) =>
-          !String(thread.id || '').trim()
-          || !String(thread.consumerEmail || '').trim()
-          || !Array.isArray(thread.messages)
-          || thread.messages.some(
+          !String(thread.id || "").trim() ||
+          !String(thread.consumerEmail || "").trim() ||
+          !Array.isArray(thread.messages) ||
+          thread.messages.some(
             (message) =>
-              !String(message.id || '').trim()
-              || !['consumer', 'admin'].includes(message.direction)
-              || !String(message.message || '').trim(),
+              !String(message.id || "").trim() ||
+              !["consumer", "admin"].includes(message.direction) ||
+              !String(message.message || "").trim(),
           ),
       )
     ) {
@@ -2517,8 +2695,8 @@ export class BackendApi {
       replyId: string;
       senderAddress: string;
       requestId: string;
-    }>('/admin/inbox/reply', {
-      method: 'POST',
+    }>("/admin/inbox/reply", {
+      method: "POST",
       body: {
         tenantId,
         consumerEmail,
@@ -2533,38 +2711,31 @@ export class BackendApi {
       tenantId,
     );
     if (
-      payload.success !== true
-      || !String(payload.replyId || '').trim()
-      || !String(payload.requestId || '').trim()
+      payload.success !== true ||
+      !String(payload.replyId || "").trim() ||
+      !String(payload.requestId || "").trim()
     ) {
       invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
   }
 
-  recallMessage(
-    tenantId: string,
-    messageId: string,
-    idempotencyKey: string,
-  ) {
+  recallMessage(tenantId: string, messageId: string, idempotencyKey: string) {
     return this.send<{
       success: boolean;
       idempotentReplay: boolean;
       messageId: string;
       requestId: string;
-    }>(
-      `/admin/messages/${encodeURIComponent(messageId)}/recall`,
-      {
-        method: 'POST',
-        body: { tenantId, idempotencyKey },
-        idempotencyKey,
-      },
-    );
+    }>(`/admin/messages/${encodeURIComponent(messageId)}/recall`, {
+      method: "POST",
+      body: { tenantId, idempotencyKey },
+      idempotencyKey,
+    });
   }
 
   async adminInvites(tenantId: string) {
     const payload = await this.send<{ invites: AdminInviteRecord[] }>(
-      '/admin/invites',
+      "/admin/invites",
       { query: { tenantId } },
     );
     return payload.invites ?? [];
@@ -2580,15 +2751,15 @@ export class BackendApi {
   }: {
     tenantId: string;
     email: string;
-    role: 'editor' | 'viewer';
+    role: "editor" | "viewer";
     firstName?: string;
     lastName?: string;
     idempotencyKey: string;
   }) {
     const payload = await this.send<{ invite: AdminInviteRecord }>(
-      '/admin/invites',
+      "/admin/invites",
       {
-        method: 'POST',
+        method: "POST",
         body: {
           tenantId,
           email,
@@ -2611,13 +2782,10 @@ export class BackendApi {
       tenantId: string;
       preview: RosterPreview;
       requestId: string;
-    }>(
-      `/admin/teams/${encodeURIComponent(teamId)}/roster/preview`,
-      {
-        method: 'POST',
-        body: { tenantId, changes },
-      },
-    );
+    }>(`/admin/teams/${encodeURIComponent(teamId)}/roster/preview`, {
+      method: "POST",
+      body: { tenantId, changes },
+    });
     assertTenantEnvelope(
       payload as unknown as Record<string, unknown>,
       tenantId,
@@ -2639,35 +2807,28 @@ export class BackendApi {
       operationId: string;
       preview: RosterPreview;
       requestId: string;
-    }>(
-      `/admin/teams/${encodeURIComponent(teamId)}/roster/commit`,
-      {
-        method: 'POST',
-        body: {
-          tenantId,
-          changes: preview.changes,
-          changeSetHash: preview.changeSetHash,
-        },
-        idempotencyKey,
+    }>(`/admin/teams/${encodeURIComponent(teamId)}/roster/commit`, {
+      method: "POST",
+      body: {
+        tenantId,
+        changes: preview.changes,
+        changeSetHash: preview.changeSetHash,
       },
-    );
+      idempotencyKey,
+    });
     assertTenantEnvelope(
       payload as unknown as Record<string, unknown>,
       tenantId,
     );
     assertRosterPreviewEnvelope(payload, teamId);
     if (
-      payload.success !== true
-      || !String(payload.operationId || '').trim()
-      || !String(payload.requestId || '').trim()
-      || (
-        payload.idempotentReplay !== undefined
-        && typeof payload.idempotentReplay !== 'boolean'
-      )
+      payload.success !== true ||
+      !String(payload.operationId || "").trim() ||
+      !String(payload.requestId || "").trim() ||
+      (payload.idempotentReplay !== undefined &&
+        typeof payload.idempotentReplay !== "boolean")
     ) {
-      invalidBackendResponse(
-        payload as unknown as Record<string, unknown>,
-      );
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
   }
@@ -2681,8 +2842,8 @@ export class BackendApi {
       tenantId: string;
       preview: RosterTransferPreview;
       requestId: string;
-    }>('/admin/roster/transfers/preview', {
-      method: 'POST',
+    }>("/admin/roster/transfers/preview", {
+      method: "POST",
       body: {
         tenantId,
         registrationIds,
@@ -2705,8 +2866,8 @@ export class BackendApi {
       auditEventId: string | null;
       preview: RosterTransferPreview;
       requestId: string;
-    }>('/admin/roster/transfers/commit', {
-      method: 'POST',
+    }>("/admin/roster/transfers/commit", {
+      method: "POST",
       body: {
         tenantId,
         registrationIds: preview.registrationIds,
@@ -2735,7 +2896,7 @@ export class BackendApi {
       auditEventId: string | null;
       requestId: string;
     }>(`/admin/seasons/${encodeURIComponent(seasonId)}/participants/assign`, {
-      method: 'POST',
+      method: "POST",
       body: {
         tenantId,
         registrationIds,
@@ -2755,7 +2916,7 @@ export class BackendApi {
     tenantId: string;
     transactionId: string;
     amountCents?: number;
-    reason: 'duplicate' | 'fraudulent' | 'requested_by_customer';
+    reason: "duplicate" | "fraudulent" | "requested_by_customer";
     note: string;
     idempotencyKey: string;
   }) {
@@ -2765,8 +2926,8 @@ export class BackendApi {
       transactionId: string;
       refund: Record<string, unknown>;
       requestId: string;
-    }>('/admin/refund', {
-      method: 'POST',
+    }>("/admin/refund", {
+      method: "POST",
       body: {
         tenantId,
         transactionId,
@@ -2781,7 +2942,10 @@ export class BackendApi {
 
 export function createIdempotencyKey(prefix: string) {
   const safePrefix =
-    prefix.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').slice(0, 40)
-    || 'operation';
+    prefix
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, "-")
+      .slice(0, 40) || "operation";
   return `${safePrefix}:${defaultRequestId()}`;
 }

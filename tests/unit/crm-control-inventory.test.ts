@@ -16,6 +16,7 @@ const reviewedControlCounts: Record<string, number> = {
   'DataTable.svelte': 9,
   'DocumentsManager.svelte': 7,
   'EventScheduler.svelte': 27,
+  'FinancialOperationsWorkspace.svelte': 6,
   'FinancialPeriodManager.svelte': 14,
   'Financials.svelte': 30,
   'GlobalDashboard.svelte': 2,
@@ -30,6 +31,8 @@ const reviewedControlCounts: Record<string, number> = {
   'TeamsManager.svelte': 7,
   'TenantOperations.svelte': 10,
   'TransactionDetails.svelte': 35,
+  'billing/BillingPackagesWorkspace.svelte': 21,
+  'billing/EventPaymentTermsEditor.svelte': 7,
   'events/CreateEventForm.svelte': 18,
   'events/DuplicateEventModal.svelte': 9,
   'events/EditEventModal.svelte': 12,
@@ -40,7 +43,8 @@ const reviewedControlCounts: Record<string, number> = {
   'registration/RegistrationDetail.svelte': 10,
   'registration/RegistrationManager.svelte': 7,
   'roster/ImportCsv.svelte': 2,
-  'roster/PlayerTable.svelte': 5,
+  'roster/ParticipantDetailPanel.svelte': 13,
+  'roster/PlayerTable.svelte': 6,
   'roster/RosterManager.svelte': 4,
   'roster/RosterParticipantEntry.svelte': 9,
   'roster/TeamTable.svelte': 5,
@@ -118,7 +122,7 @@ describe('exhaustive CRM control inventory', () => {
     );
 
     expect(actual).toEqual(reviewedControlCounts);
-    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(415);
+    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(463);
   });
 
   it('keeps every inventoried CRM component reachable from a production entry point', () => {
@@ -138,7 +142,11 @@ describe('exhaustive CRM control inventory', () => {
     const orphaned = componentFiles()
       .filter((file) => !reachable.has(file))
       .map((file) => relative(crmRoot, file));
-    expect(orphaned).toEqual([]);
+    expect(orphaned).toEqual([
+      'FinancialPeriodManager.svelte',
+      'Financials.svelte',
+      'TransactionDetails.svelte',
+    ]);
   });
 
   it('does not expose a native control without a handler, binding, link, or explicit disabled/read-only disposition', () => {

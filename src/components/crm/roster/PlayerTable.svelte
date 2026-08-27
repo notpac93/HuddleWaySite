@@ -8,6 +8,7 @@
   } from '../../../lib/api/BackendApi';
   import StatusButton from '../ui/StatusButton.svelte';
   import { createEventDispatcher, onDestroy } from 'svelte';
+  import ParticipantDetailPanel from './ParticipantDetailPanel.svelte';
 
   export let players: any[] = [];
   export let setActiveTeam = (team: any) => {};
@@ -34,6 +35,7 @@
   let bulkOperationKey = '';
   let operationGeneration = 0;
   let operationRequestId = '';
+  let detailPlayer: any = null;
   const dispatch = createEventDispatcher();
   class RosterScopeChangedError extends Error {}
 
@@ -229,6 +231,7 @@
     { key: 'role', label: 'Role' },
     { key: 'team', label: 'Team' },
     { key: 'status', label: 'Status' }
+    ,{ key: 'details', label: '' }
   ]}
   exportFilename="roster"
   searchPlaceholder="Search players..."
@@ -366,8 +369,14 @@
       {/if}
     {:else if column.key === 'status'}
       <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">{row.status}</span>
+    {:else if column.key === 'details'}
+      <button type="button" class="text-sm font-semibold text-blue-700 hover:text-blue-900" on:click={() => detailPlayer = row}>Details</button>
     {:else}
       {row[column.key]}
     {/if}
   </svelte:fragment>
 </DataTable>
+
+{#if detailPlayer}
+  <ParticipantDetailPanel player={detailPlayer} onClose={() => detailPlayer = null} onChanged={() => dispatch('changed')} />
+{/if}
