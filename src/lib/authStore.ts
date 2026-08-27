@@ -1,37 +1,39 @@
-import { derived, get, writable } from 'svelte/store';
-import { auth } from './firebase';
-import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
+import { derived, get, writable } from "svelte/store";
+import { auth } from "./firebase";
+import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import {
   AuthService,
   type TenantAccess,
   type TenantOperationsRole,
   type TenantRole,
-} from './services/AuthService';
+} from "./services/AuthService";
 import {
   clearCrmContext,
   readCrmContext,
   resolveAuthorizedTenant,
-} from './crm/crmContextPersistence';
+} from "./crm/crmContextPersistence";
 
 export const userStore = writable<User | null>(null);
 export const tenantIdStore = writable<string | null>(null);
 export const availableTenants = writable<string[]>([]);
+export const tenantNamesStore = writable<Record<string, string>>({});
 export const tenantAccessStore = writable<TenantAccess[]>([]);
 export const canViewTenantOperationsStore = writable<boolean>(false);
-export const tenantOperationsRoleStore =
-  writable<TenantOperationsRole | null>(null);
+export const tenantOperationsRoleStore = writable<TenantOperationsRole | null>(
+  null,
+);
 export const isAuthLoading = writable<boolean>(true);
-export const authErrorStore = writable<string>('');
+export const authErrorStore = writable<string>("");
 export const activeTenantRole = derived(
   [tenantIdStore, tenantAccessStore],
   ([$tenantId, $access]): TenantRole | null =>
     $access.find((entry) => entry.tenantId === $tenantId)?.role ?? null,
 );
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   onAuthStateChanged(auth, async (user) => {
     isAuthLoading.set(true);
-    authErrorStore.set('');
+    authErrorStore.set("");
     userStore.set(user);
     if (user) {
       try {
@@ -45,30 +47,27 @@ if (typeof window !== 'undefined') {
           currentTenant,
           persistedContext,
         );
-        if (
-          persistedContext
-          && !tenants.includes(persistedContext.tenantId)
-        ) {
+        if (persistedContext && !tenants.includes(persistedContext.tenantId)) {
           clearCrmContext(user.uid);
         }
         tenantAccessStore.set(access);
-        canViewTenantOperationsStore.set(
-          authorization.canViewTenantOperations,
-        );
+        tenantNamesStore.set(authorization.tenantNames ?? {});
+        canViewTenantOperationsStore.set(authorization.canViewTenantOperations);
         tenantOperationsRoleStore.set(authorization.tenantOperationsRole);
         availableTenants.set(tenants);
         tenantIdStore.set(restoredTenant);
       } catch {
-        console.error('Could not load administrator access. Logging out.');
+        console.error("Could not load administrator access. Logging out.");
         try {
           await signOut(auth);
         } catch {
           // Ignore sign out errors
         }
         authErrorStore.set(
-          'Your organization access could not be verified. Refresh or sign in again.',
+          "Your organization access could not be verified. Refresh or sign in again.",
         );
         tenantAccessStore.set([]);
+        tenantNamesStore.set({});
         canViewTenantOperationsStore.set(false);
         tenantOperationsRoleStore.set(null);
         availableTenants.set([]);
@@ -76,6 +75,7 @@ if (typeof window !== 'undefined') {
       }
     } else {
       tenantAccessStore.set([]);
+      tenantNamesStore.set({});
       canViewTenantOperationsStore.set(false);
       tenantOperationsRoleStore.set(null);
       availableTenants.set([]);

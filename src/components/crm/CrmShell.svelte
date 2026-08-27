@@ -4,7 +4,11 @@
   import { auth, db } from '../../lib/firebase';
   import { signOut } from 'firebase/auth';
   import { doc, onSnapshot } from 'firebase/firestore';
-  import { tenantIdStore, availableTenants } from '../../lib/authStore';
+  import {
+    tenantIdStore,
+    availableTenants,
+    tenantNamesStore,
+  } from '../../lib/authStore';
   import { modalFocus } from '../../lib/ui/modalFocus';
   import CrmBreadcrumbs from './CrmBreadcrumbs.svelte';
 
@@ -151,6 +155,10 @@
     showMobileMenu = false;
   }
 
+  function organizationName(tenantId: string, index: number) {
+    return $tenantNamesStore[tenantId] || `Organization ${index + 1}`;
+  }
+
   function openActiveTeamHome() {
     setActiveTab('Rostering');
   }
@@ -274,14 +282,14 @@
         <div class="space-y-2 border-t border-slate-700 p-4">
           {#if $availableTenants.length > 1}
             <p class="px-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Organization</p>
-            {#each $availableTenants as tenant}
+            {#each $availableTenants as tenant, index}
               <button
                 type="button"
                 class="w-full rounded-md px-2 py-2 text-left text-sm {$tenantIdStore === tenant ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-white/10'}"
                 aria-current={$tenantIdStore === tenant ? 'true' : undefined}
                 on:click={() => { switchTenant(tenant); closeMobileMenu(); }}
               >
-                Organization ID: {tenant}
+                {organizationName(tenant, index)}
               </button>
             {/each}
           {/if}
@@ -374,13 +382,13 @@
 
       {#if showOrgSwitcher && $availableTenants.length > 0}
         <div class="crm-ui-shell-org-menu">
-          {#each $availableTenants as tenant}
+          {#each $availableTenants as tenant, index}
             <button
               type="button"
               class="w-full text-left px-4 py-2 text-sm {$tenantIdStore === tenant ? 'bg-[#2563eb] text-white font-semibold' : 'text-gray-300 hover:bg-white/10 hover:text-white'} whitespace-nowrap"
               on:click={() => switchTenant(tenant)}
             >
-              Organization ID: {tenant}
+              {organizationName(tenant, index)}
             </button>
           {/each}
         </div>

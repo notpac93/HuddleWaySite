@@ -1,5 +1,5 @@
-import { db } from '../firebase';
-import { type User } from 'firebase/auth';
+import { db } from "../firebase";
+import { type User } from "firebase/auth";
 import {
   collection,
   doc,
@@ -7,9 +7,9 @@ import {
   getDocs,
   query,
   where,
-} from 'firebase/firestore';
+} from "firebase/firestore";
 
-export type TenantRole = 'owner' | 'editor' | 'viewer' | 'platform_admin';
+export type TenantRole = "owner" | "editor" | "viewer" | "platform_admin";
 
 export interface TenantAccess {
   tenantId: string;
@@ -17,17 +17,19 @@ export interface TenantAccess {
 }
 
 export type TenantOperationsRole =
-  | 'platform_admin'
-  | 'platform_operations_viewer';
+  "platform_admin" | "platform_operations_viewer";
 
 export interface CrmAuthorization {
   tenantAccess: TenantAccess[];
+  tenantNames: Record<string, string>;
   canViewTenantOperations: boolean;
   tenantOperationsRole: TenantOperationsRole | null;
 }
 
 function normalizedSystemRole(value: unknown) {
-  return String(value ?? '').trim().toLowerCase();
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
 }
 
 export function resolveTenantOperationsRole(
@@ -44,42 +46,41 @@ export function resolveTenantOperationsRole(
       : []),
   ]);
   if (
-    hasBoolean('platform_admin', 'platformAdmin')
-    || hasBoolean('super_admin', 'superAdmin')
-    || roles.some((role) => ['platform_admin', 'super_admin'].includes(role))
+    hasBoolean("platform_admin", "platformAdmin") ||
+    hasBoolean("super_admin", "superAdmin") ||
+    roles.some((role) => ["platform_admin", "super_admin"].includes(role))
   ) {
-    return 'platform_admin';
+    return "platform_admin";
   }
   if (
-    hasBoolean(
-      'platform_operations_viewer',
-      'platformOperationsViewer',
-    )
-    || roles.includes('platform_operations_viewer')
+    hasBoolean("platform_operations_viewer", "platformOperationsViewer") ||
+    roles.includes("platform_operations_viewer")
   ) {
-    return 'platform_operations_viewer';
+    return "platform_operations_viewer";
   }
   return null;
 }
 
 function normalizedRole(value: unknown): TenantRole | null {
   const candidate =
-    typeof value === 'string'
+    typeof value === "string"
       ? value
-      : value && typeof value === 'object' && 'role' in value
+      : value && typeof value === "object" && "role" in value
         ? (value as { role?: unknown }).role
         : null;
-  const role = String(candidate ?? '').trim().toLowerCase();
-  return ['owner', 'editor', 'viewer'].includes(role)
+  const role = String(candidate ?? "")
+    .trim()
+    .toLowerCase();
+  return ["owner", "editor", "viewer"].includes(role)
     ? (role as TenantRole)
     : null;
 }
 
 function isActiveMembership(value: unknown) {
   return Boolean(
-    value
-    && typeof value === 'object'
-    && (value as { active?: unknown }).active === true,
+    value &&
+    typeof value === "object" &&
+    (value as { active?: unknown }).active === true,
   );
 }
 
@@ -98,9 +99,9 @@ export function parseTenantAccess(
 ): TenantAccess[] {
   const access = new Map<string, TenantRole>();
   const add = (tenantIdValue: unknown, role: TenantRole | null) => {
-    const tenantId = String(tenantIdValue ?? '').trim();
+    const tenantId = String(tenantIdValue ?? "").trim();
     if (!tenantId || !role) return;
-    const effectiveRole = isPlatformAdmin ? 'platform_admin' : role;
+    const effectiveRole = isPlatformAdmin ? "platform_admin" : role;
     const current = access.get(tenantId);
     if (!current || rolePriority(effectiveRole) > rolePriority(current)) {
       access.set(tenantId, effectiveRole);
@@ -108,7 +109,7 @@ export function parseTenantAccess(
   };
 
   const tenantRoles =
-    data.tenantRoles && typeof data.tenantRoles === 'object'
+    data.tenantRoles && typeof data.tenantRoles === "object"
       ? (data.tenantRoles as Record<string, unknown>)
       : {};
   for (const [tenantId, value] of Object.entries(tenantRoles)) {
@@ -116,7 +117,7 @@ export function parseTenantAccess(
   }
 
   const memberships =
-    data.memberships && typeof data.memberships === 'object'
+    data.memberships && typeof data.memberships === "object"
       ? (data.memberships as Record<string, unknown>)
       : {};
   for (const [tenantId, value] of Object.entries(memberships)) {
@@ -127,8 +128,8 @@ export function parseTenantAccess(
 
   if (isPlatformAdmin) {
     const tenantIds = Array.isArray(data.tenantIds) ? data.tenantIds : [];
-    for (const tenantId of tenantIds) add(tenantId, 'platform_admin');
-    add(data.tenantId, 'platform_admin');
+    for (const tenantId of tenantIds) add(tenantId, "platform_admin");
+    add(data.tenantId, "platform_admin");
   }
 
   return Array.from(access, ([tenantId, role]) => ({ tenantId, role })).sort(
@@ -143,10 +144,13 @@ export function parseCanonicalTenantAccess(
   for (const record of records) {
     const data = record.data();
     if (
-      data.active !== true
-      || String(data.status || '').trim().toLowerCase() !== 'active'
-    ) continue;
-    const tenantId = String(data.tenantId || '').trim();
+      data.active !== true ||
+      String(data.status || "")
+        .trim()
+        .toLowerCase() !== "active"
+    )
+      continue;
+    const tenantId = String(data.tenantId || "").trim();
     const role = normalizedRole(data.role);
     if (!tenantId || !role) continue;
     const current = access.get(tenantId);
@@ -159,25 +163,46 @@ export function parseCanonicalTenantAccess(
   );
 }
 
+async function fetchAuthorizedTenantNames(access: TenantAccess[]) {
+  const entries = await Promise.all(
+    access.map(async ({ tenantId }) => {
+      try {
+        const snapshot = await getDoc(doc(db, "tenant_branding", tenantId));
+        const name = snapshot.exists()
+          ? String(snapshot.data().name || "").trim()
+          : "";
+        return [tenantId, name] as const;
+      } catch {
+        return [tenantId, ""] as const;
+      }
+    }),
+  );
+  return Object.fromEntries(entries);
+}
+
 export class AuthService {
   static async fetchAuthorization(user: User): Promise<CrmAuthorization> {
     const [userDocSnap, canonicalMemberships] = await Promise.all([
-      getDoc(doc(db, 'users', user.uid)),
-      getDocs(query(
-        collection(db, 'tenant_memberships'),
-        where('uid', '==', user.uid),
-      )),
+      getDoc(doc(db, "users", user.uid)),
+      getDocs(
+        query(
+          collection(db, "tenant_memberships"),
+          where("uid", "==", user.uid),
+        ),
+      ),
     ]);
     const data = userDocSnap.exists() ? userDocSnap.data() : {};
     // Match the backend's revocation boundary: platform-wide access must be
     // present in the live user document. A stale ID-token claim must never
     // keep another organization's tenant visible after access is revoked.
     const tenantOperationsRole = resolveTenantOperationsRole(data);
-    const isPlatformAdmin = tenantOperationsRole === 'platform_admin';
+    const isPlatformAdmin = tenantOperationsRole === "platform_admin";
+    const tenantAccess = isPlatformAdmin
+      ? parseTenantAccess(data, true)
+      : parseCanonicalTenantAccess(canonicalMemberships.docs);
     return {
-      tenantAccess: isPlatformAdmin
-        ? parseTenantAccess(data, true)
-        : parseCanonicalTenantAccess(canonicalMemberships.docs),
+      tenantAccess,
+      tenantNames: await fetchAuthorizedTenantNames(tenantAccess),
       canViewTenantOperations: tenantOperationsRole !== null,
       tenantOperationsRole,
     };
