@@ -157,18 +157,33 @@
       .find(Boolean) || null;
   }
 
+  function humanName(record: Record<string, unknown>, person: Record<string, unknown>) {
+    const joined = (source: Record<string, unknown>) =>
+      [humanText(source.firstName), humanText(source.lastName)]
+        .filter(Boolean)
+        .join(' ');
+    return humanText(
+      person.fullName,
+      person.displayName,
+      joined(person),
+      record.participantName,
+      record.displayName,
+      joined(record),
+    );
+  }
+
   // Recent activity from authoritative registration records.
   $: recentRegistrations = dashboardSummary.recentRegistrations
     .map((registration) => {
       const participant = registration.participantSummary as Record<string, unknown> || {};
       const payer = registration.payerSummary as Record<string, unknown> || {};
       return {
-        participantName: humanText(
-          participant.fullName,
-          participant.displayName,
-          registration.participantName,
+        participantName: humanName(registration, participant),
+        email: humanText(
+          payer.email,
+          registration.participantEmail,
+          registration.email,
         ),
-        email: humanText(payer.email, registration.participantEmail),
         createdAt: registration.createdAt,
       };
     });

@@ -189,6 +189,27 @@ describe('GlobalDashboard bounded operational summary', () => {
     expect(revenueCard).not.toHaveTextContent('$250.00');
   });
 
+  it('keeps supported legacy human names and emails without exposing IDs', async () => {
+    backendMocks.crmDashboardSummary.mockResolvedValue({
+      schemaVersion: 'crm_dashboard_summary_v1',
+      tenantId: 'fixture-tenant',
+      counts: { registrations: 1, teams: 0, events: 0 },
+      recentRegistrations: [{
+        id: 'internal-registration-id',
+        firstName: 'Legacy',
+        lastName: 'Player',
+        email: 'legacy@example.test',
+        createdAt: '2026-07-26T12:00:00.000Z',
+      }],
+      requestId: 'dashboard-summary-request',
+    });
+    render(TestedGlobalDashboard);
+
+    expect(await screen.findByText('Legacy Player')).toBeVisible();
+    expect(screen.getByText('legacy@example.test')).toBeVisible();
+    expect(screen.queryByText('internal-registration-id')).toBeNull();
+  });
+
   it('shows owner/editor quick-action boundaries and a read-only viewer state', () => {
     const { unmount } = render(TestedGlobalDashboard);
     expect(
