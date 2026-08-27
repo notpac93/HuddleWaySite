@@ -197,7 +197,7 @@
     <p class="text-sm font-medium text-gray-500">Overview of your organization's key metrics.</p>
     {#if !canManageTenant}
       <p class="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900" role="status">
-        Viewer access is read-only. Creation, editing, publishing, invitation, and deletion controls are not available.
+        Viewer access is read-only. Editing controls are unavailable.
       </p>
     {/if}
   </div>
@@ -207,7 +207,7 @@
     </p>
   {:else if operationalError}
     <p class="crm-ui-danger" role="alert">
-      {operationalError} Metrics and recent records are unavailable.
+      {operationalError}
     </p>
   {/if}
 

@@ -224,7 +224,7 @@ describe('GlobalDashboard bounded operational summary', () => {
     render(TestedGlobalDashboard);
     expect(
       screen.getByText(
-        'Viewer access is read-only. Creation, editing, publishing, invitation, and deletion controls are not available.',
+        'Viewer access is read-only. Editing controls are unavailable.',
       ),
     ).toBeVisible();
     expect(
@@ -238,7 +238,7 @@ describe('GlobalDashboard bounded operational summary', () => {
     render(TestedGlobalDashboard);
 
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(
-      'Organization metrics could not be loaded. Metrics and recent records are unavailable.',
+      'Organization metrics could not be loaded.',
     ));
     for (const label of [
       'Registration Records',
