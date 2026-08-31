@@ -1270,7 +1270,7 @@
         <button
           type="button"
           aria-pressed={activeView === view}
-          class="border-b-4 px-3 py-4 text-base font-semibold transition-colors sm:text-lg {activeView === view ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-800 hover:border-gray-200'}"
+          class="border-b-4 px-3 py-4 text-base font-semibold transition-colors sm:text-lg {activeView === view ? 'border-[var(--crm-brand-border)] text-[var(--crm-brand-link)]' : 'border-transparent text-gray-800 hover:border-gray-200'}"
           on:click={() => setView(view)}
         >
           {view}
@@ -1333,7 +1333,7 @@
           <button
             type="button"
             aria-pressed={activeView === tool.view}
-            class="rounded-lg border px-3 py-2 text-sm font-semibold {activeView === tool.view ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}"
+            class="rounded-lg border px-3 py-2 text-sm font-semibold {activeView === tool.view ? 'crm-theme-selected' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}"
             on:click={() => setView(tool.view)}
           >
             {tool.label}
@@ -1341,7 +1341,7 @@
         {/each}
         <button
           type="button"
-          class="rounded-lg bg-[#008194] px-3 py-2 text-sm font-semibold text-white hover:bg-[#006d7c] disabled:cursor-not-allowed disabled:opacity-50"
+          class="rounded-lg bg-[var(--crm-brand-control)] px-3 py-2 text-sm font-semibold text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
           disabled={!ownerAuthorized || Boolean(teamId) || loadState !== 'ready'}
           title={teamId ? 'Switch to organization scope to create a tenant-scoped invoice.' : undefined}
           on:click={openCreateInvoice}
@@ -1381,7 +1381,7 @@
                 </div>
                 <button
                   type="button"
-                  class="rounded-lg border border-blue-100 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+                  class="crm-theme-link rounded-lg border border-[var(--crm-brand-border)] bg-[var(--crm-brand-surface)] px-4 py-2 text-sm font-semibold hover:bg-[var(--crm-brand-surface-strong)]"
                   aria-expanded={filtersOpen}
                   on:click={() => filtersOpen = !filtersOpen}
                 >
@@ -1390,7 +1390,7 @@
                 {#if activeView === 'Invoices'}
                 <button
                   type="button"
-                  class="rounded-lg border border-blue-100 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  class="crm-theme-link rounded-lg border border-[var(--crm-brand-border)] bg-[var(--crm-brand-surface)] px-4 py-2 text-sm font-semibold hover:bg-[var(--crm-brand-surface-strong)] disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={filteredRows.length === 0 || exportState === 'loading'}
                   on:click={exportInvoices}
                 >

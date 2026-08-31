@@ -185,7 +185,7 @@
           type="button"
           disabled={$seasonsProjectionScope.loading || Boolean($seasonsProjectionScope.error)}
           on:click={() => showCreateModal = true}
-          class="rounded-lg bg-[#1855c5] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          class="rounded-lg bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-semibold text-[var(--crm-on-primary)] disabled:opacity-50"
         >
           Create Season
         </button>
@@ -222,12 +222,12 @@
               <img src={season.imageUrl || fallbackImage} alt={season.displayName} width="128" height="96" loading="lazy" decoding="async" class="h-24 w-32 rounded-lg object-cover" on:error={imageFallback} />
               <div class="min-w-0 flex-1">
                 <h3 class="crm-ui-title">{season.displayName}</h3>
-                <p class="text-sm text-[#1855c5]">{season.dates}</p>
+                <p class="text-sm text-[var(--crm-brand-link)]">{season.dates}</p>
                 <p class="mt-1 text-xs text-gray-500">{season.statusLabel} · {season.registrations} registrations · {season.revenue}</p>
               </div>
               <div class="flex gap-2">
-                <button type="button" on:click={() => openSeason(season)} class="rounded-md bg-[#1855c5] px-3 py-2 text-xs font-semibold text-white">View Details</button>
-                <button type="button" on:click={() => editingSeason = season} class="rounded-md border border-gray-300 px-3 py-2 text-xs font-semibold text-[#1855c5]">Edit</button>
+                <button type="button" on:click={() => openSeason(season)} class="rounded-md bg-[var(--crm-brand-control)] px-3 py-2 text-xs font-semibold text-[var(--crm-on-primary)]">View Details</button>
+                <button type="button" on:click={() => editingSeason = season} class="rounded-md border border-gray-300 px-3 py-2 text-xs font-semibold text-[var(--crm-brand-link)]">Edit</button>
               </div>
             </div>
           </article>
@@ -243,12 +243,12 @@
           <tbody>
             {#each filteredSeasons as season (season.id)}
               <tr>
-                <td class="crm-ui-td"><button type="button" class="font-semibold text-[#1855c5]" on:click={() => openSeason(season)}>{season.displayName}</button></td>
+                <td class="crm-ui-td"><button type="button" class="font-semibold text-[var(--crm-brand-link)]" on:click={() => openSeason(season)}>{season.displayName}</button></td>
                 <td class="crm-ui-td">{season.statusLabel}</td>
                 <td class="crm-ui-td">{season.dates}</td>
                 <td class="crm-ui-td">{season.registrations}</td>
                 <td class="crm-ui-td">{season.revenue}</td>
-                <td class="crm-ui-td"><button type="button" class="font-semibold text-[#1855c5]" on:click={() => editingSeason = season}>Edit</button></td>
+                <td class="crm-ui-td"><button type="button" class="font-semibold text-[var(--crm-brand-link)]" on:click={() => editingSeason = season}>Edit</button></td>
               </tr>
             {:else}
               <tr><td colspan={columns.length + 1} class="crm-ui-empty">No seasons found.</td></tr>

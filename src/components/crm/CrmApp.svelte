@@ -282,20 +282,20 @@
 </script>
 
 {#if $isAuthLoading}
-  <div class="min-h-screen flex items-center justify-center bg-gray-50">
-    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+  <div class="crm-theme-default-host min-h-screen flex items-center justify-center bg-gray-50">
+    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--crm-brand-primary)]"></div>
   </div>
 {:else if !$userStore}
   <Login />
 {:else if $authErrorStore}
-  <div class="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+  <div class="crm-theme-default-host min-h-screen flex items-center justify-center bg-gray-50 p-6">
     <div class="max-w-lg rounded-lg border border-red-200 bg-white p-8 shadow text-center">
       <h1 class="text-xl font-semibold text-gray-900">Access could not be verified</h1>
       <p class="mt-2 text-sm text-red-700">{$authErrorStore}</p>
       <div class="mt-6 flex justify-center gap-3">
         <button
           type="button"
-          class="rounded-md bg-[#00a4bd] px-4 py-2 text-sm font-medium text-white shadow hover:bg-[#008194]"
+          class="rounded-md bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-medium text-[var(--crm-on-primary)] shadow hover:bg-[var(--crm-brand-primary-hover)]"
           on:click={async () => {
             try {
               await signOut(auth);
@@ -313,7 +313,7 @@
   && !$canViewTenantOperationsStore
 )}
   {#if $userStore.emailVerified}
-    <div class="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+    <div class="crm-theme-default-host min-h-screen flex items-center justify-center bg-gray-50 p-6">
       <div class="max-w-lg rounded-lg border border-gray-200 bg-white p-8 shadow">
         <h1 class="text-xl font-semibold text-gray-900">Organization setup is managed by HuddleWay</h1>
         <p class="mt-2 text-sm text-gray-600">
@@ -322,7 +322,7 @@
       </div>
     </div>
   {:else}
-    <div class="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+    <div class="crm-theme-default-host min-h-screen flex items-center justify-center bg-gray-50 p-6">
       <div class="max-w-lg rounded-lg border border-gray-200 bg-white p-8 shadow">
         <h1 class="text-xl font-semibold text-gray-900">Verify your email to continue</h1>
         <p class="mt-2 text-sm text-gray-600">
@@ -332,7 +332,7 @@
     </div>
   {/if}
 {:else if !canViewCrm}
-  <div class="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+  <div class="crm-theme-default-host min-h-screen flex items-center justify-center bg-gray-50 p-6">
     <div class="max-w-lg rounded-lg border border-gray-200 bg-white p-8 shadow">
       <h1 class="text-xl font-semibold text-gray-900">Unsupported organization role</h1>
       <p class="mt-2 text-sm text-gray-600">
@@ -360,7 +360,7 @@
         <p class="mt-2 text-sm text-red-700">{moduleLoadError}</p>
         <button
           type="button"
-          class="mt-4 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          class="mt-4 rounded-md bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-medium text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--crm-brand-focus)] focus:ring-offset-2"
           on:click={retryActiveTab}
         >
           Try again
@@ -369,7 +369,7 @@
     {:else}
       <div class="flex min-h-64 items-center justify-center p-8" role="status">
         <span class="sr-only">Loading {activeTab}</span>
-        <div class="h-10 w-10 animate-spin rounded-full border-2 border-gray-200 border-b-indigo-600"></div>
+        <div class="h-10 w-10 animate-spin rounded-full border-2 border-gray-200 border-b-[var(--crm-brand-primary)]"></div>
       </div>
     {/if}
 </CrmShell>

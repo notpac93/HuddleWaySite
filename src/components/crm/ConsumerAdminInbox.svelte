@@ -183,7 +183,7 @@
               <li>
                 <button
                   type="button"
-                  class="w-full p-4 text-left hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1855c5] {selectedThreadId === thread.id ? 'bg-blue-50' : ''}"
+                  class="w-full p-4 text-left hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--crm-brand-focus)] {selectedThreadId === thread.id ? 'crm-theme-selected' : ''}"
                   aria-pressed={selectedThreadId === thread.id}
                   on:click={() => selectThread(thread)}
                 >
@@ -207,10 +207,10 @@
           <ol class="flex-1 space-y-3 overflow-y-auto bg-gray-50 p-4" aria-label="Conversation messages">
             {#each selectedThread.messages as message (message.id)}
               <li class="flex {message.direction === 'admin' ? 'justify-end' : 'justify-start'}">
-                <article class="max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm {message.direction === 'admin' ? 'bg-[#1855c5] text-white' : 'border border-gray-200 bg-white text-gray-900'}">
-                  <p class="text-xs font-semibold {message.direction === 'admin' ? 'text-blue-100' : 'text-gray-500'}">{message.senderName}</p>
+                <article class="max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm {message.direction === 'admin' ? 'bg-[var(--crm-brand-control)] text-[var(--crm-on-primary)]' : 'border border-gray-200 bg-white text-gray-900'}">
+                  <p class="text-xs font-semibold {message.direction === 'admin' ? 'text-[var(--crm-on-primary)] opacity-80' : 'text-gray-500'}">{message.senderName}</p>
                   <p class="mt-1 whitespace-pre-wrap break-words">{message.message}</p>
-                  <time class="mt-2 block text-xs {message.direction === 'admin' ? 'text-blue-100' : 'text-gray-500'}">{message.createdAt ? new Date(message.createdAt).toLocaleString() : 'Timestamp unavailable'}</time>
+                  <time class="mt-2 block text-xs {message.direction === 'admin' ? 'text-[var(--crm-on-primary)] opacity-80' : 'text-gray-500'}">{message.createdAt ? new Date(message.createdAt).toLocaleString() : 'Timestamp unavailable'}</time>
                 </article>
               </li>
             {/each}
@@ -232,7 +232,7 @@
               </div>
             {/if}
             <div class="flex justify-end">
-              <button type="submit" disabled={!replyIsValid || replyState === 'loading'} class="rounded-md bg-[#1855c5] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+              <button type="submit" disabled={!replyIsValid || replyState === 'loading'} class="rounded-md bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-semibold text-[var(--crm-on-primary)] disabled:opacity-50">
                 {replyState === 'loading' ? 'Sending…' : 'Send reply'}
               </button>
             </div>

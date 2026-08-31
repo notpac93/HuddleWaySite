@@ -840,7 +840,7 @@ import {
   {:else}
   <div class="grid gap-6">
     {#each visibleEvents as event (event.id)}
-      <article class="crm-ui-event-card {activeResultId === String(event.id) ? 'ring-2 ring-[#00a4bd]' : ''}">
+      <article class="crm-ui-event-card {activeResultId === String(event.id) ? 'ring-2 focus:ring-[var(--crm-brand-focus)]' : ''}">
         <!-- Collapsed Summary Card -->
         <div class="crm-ui-event-card-summary">
           <div class="crm-ui-event-thumbnail">
@@ -875,7 +875,7 @@ import {
               {/if}
             </div>
             <div class="crm-ui-event-meta">
-              <span class="flex items-center text-[#00a4bd] font-semibold">
+              <span class="flex items-center text-[var(--crm-brand-link)] font-semibold">
                 <svg class="mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
@@ -950,7 +950,7 @@ import {
               disabled={inlineSaveState === 'loading'}
               on:click={() => toggleExpand(event)}
             >
-              <svg class="crm-ui-event-chevron {expandedEventId === event.id ? 'rotate-180 text-[#00a4bd]' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg class="crm-ui-event-chevron {expandedEventId === event.id ? 'rotate-180 text-[var(--crm-brand-link)]' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
               </svg>
             </button>
@@ -1049,7 +1049,7 @@ import {
                   <div>
                     <div class="flex justify-between items-center mb-1">
                       <label for={`inline-event-date-${event.id}`} class="block text-xs font-semibold uppercase text-gray-700">Date</label>
-                      <button type="button" on:click={() => openDuplicateModal(event)} class="text-[10px] font-semibold text-[#00a4bd] hover:text-[#007f91]">+ Add More Dates</button>
+                      <button type="button" on:click={() => openDuplicateModal(event)} class="text-[10px] font-semibold text-[var(--crm-brand-link)] hover:text-[var(--crm-brand-primary-hover)]">+ Add More Dates</button>
                     </div>
                     <input
                       id={`inline-event-date-${event.id}`}

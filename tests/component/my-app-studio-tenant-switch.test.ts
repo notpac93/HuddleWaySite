@@ -270,6 +270,9 @@ describe('MyAppStudio tenant preview isolation', () => {
     await fireEvent.input(screen.getByLabelText('App Name'), {
       target: { value: 'Alpha League Draft' },
     });
+    await fireEvent.input(screen.getByLabelText('Primary brand color hex value'), {
+      target: { value: '#ABCDEF' },
+    });
 
     await waitFor(() => {
       expect(postMessage).toHaveBeenCalled();
@@ -280,7 +283,8 @@ describe('MyAppStudio tenant preview isolation', () => {
         targetOrigin,
       }))
       .find(({ payload }) =>
-        payload?.configuration?.name === 'Alpha League Draft');
+        payload?.configuration?.name === 'Alpha League Draft'
+        && payload?.configuration?.primaryColor === '#ABCDEF');
     expect(matchingCall).toMatchObject({
       targetOrigin: previewOrigin,
       payload: {
@@ -288,9 +292,14 @@ describe('MyAppStudio tenant preview isolation', () => {
         tenantId: 'tenant-a',
         configuration: {
           name: 'Alpha League Draft',
+          primaryColor: '#ABCDEF',
         },
       },
     });
+    expect(screen.getByRole('button', { name: 'Publish App' }).getAttribute('style') || '')
+      .not.toContain('#ABCDEF');
+    expect(screen.getByLabelText('Primary brand color hex value').getAttribute('style') || '')
+      .not.toContain('#ABCDEF');
     expect(appMocks.publishAppConfiguration).not.toHaveBeenCalled();
   });
 

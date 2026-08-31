@@ -1,14 +1,40 @@
 @import "tailwindcss";
 @config "../../tailwind.config.mjs";
 
+.crm-theme-default-host,
+.crm-auth-shell,
+.crm-ui-shell-root {
+  --crm-brand-primary: #003366;
+  --crm-brand-secondary: #C6A95B;
+  --crm-brand-tertiary: #FFFFFF;
+  --crm-brand-control: #003366;
+  --crm-on-primary: #FFFFFF;
+  --crm-on-secondary: #000000;
+  --crm-on-tertiary: #000000;
+  --crm-brand-primary-hover: #002C58;
+  --crm-brand-link: #003366;
+  --crm-brand-focus: #003366;
+  --crm-brand-surface: #F8F5EC;
+  --crm-brand-surface-strong: #F2EBDD;
+  --crm-on-brand-surface: #003366;
+  --crm-brand-border: #806D3B;
+  --crm-brand-sidebar: #082554;
+  --crm-brand-sidebar-hover: #263F6B;
+  --crm-brand-sidebar-active: #C6A95B;
+  --crm-on-sidebar: #FFFFFF;
+  --crm-on-sidebar-muted: #C4CDDA;
+  --crm-on-sidebar-active: #000000;
+  --crm-sidebar-icon: #FFFFFF;
+}
+
 .crm-auth-shell {
   position: relative;
   isolation: isolate;
   overflow: hidden;
   background:
-    radial-gradient(circle at 14% 12%, rgba(0, 164, 189, 0.45), transparent 34%),
-    radial-gradient(circle at 88% 88%, rgba(46, 100, 234, 0.42), transparent 36%),
-    linear-gradient(135deg, #071a3a 0%, #123b88 52%, #075f83 100%);
+    radial-gradient(circle at 14% 12%, color-mix(in srgb, var(--crm-brand-secondary) 42%, transparent), transparent 34%),
+    radial-gradient(circle at 88% 88%, color-mix(in srgb, var(--crm-brand-tertiary) 18%, transparent), transparent 36%),
+    linear-gradient(135deg, var(--crm-brand-sidebar) 0%, var(--crm-brand-primary) 58%, var(--crm-brand-primary-hover) 100%);
 }
 
 .crm-auth-shell::before {
@@ -53,16 +79,16 @@
 }
 
 .crm-auth-link {
-  color: #1855c5;
+  color: var(--crm-brand-link);
   font-weight: 600;
   text-underline-offset: 0.2em;
   transition: color 150ms ease, text-decoration-color 150ms ease;
 }
 
 .crm-auth-link:hover {
-  color: #0d3f9e;
+  color: var(--crm-brand-primary-hover);
   text-decoration: underline;
-  text-decoration-color: rgba(24, 85, 197, 0.45);
+  text-decoration-color: var(--crm-brand-border);
 }
 
 .crm-auth-button-primary,
@@ -81,38 +107,125 @@
 }
 
 .crm-auth-button-primary {
-  border: 1px solid #1249ae;
-  background: linear-gradient(135deg, #1d6ff2 0%, #1855c5 55%, #123f98 100%);
-  color: #fff;
-  box-shadow: 0 8px 18px rgba(24, 85, 197, 0.24), inset 0 1px rgba(255, 255, 255, 0.18);
+  border: 1px solid var(--crm-brand-border);
+  background: linear-gradient(135deg, var(--crm-brand-control) 0%, var(--crm-brand-primary-hover) 100%);
+  color: var(--crm-on-primary);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--crm-brand-primary) 28%, transparent), inset 0 1px rgba(255, 255, 255, 0.18);
 }
 
 .crm-auth-button-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #216fe6 0%, #134bb4 58%, #0d367f 100%);
-  box-shadow: 0 10px 22px rgba(13, 63, 158, 0.3), inset 0 1px rgba(255, 255, 255, 0.2);
+  background: var(--crm-brand-primary-hover);
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--crm-brand-primary-hover) 34%, transparent), inset 0 1px rgba(255, 255, 255, 0.2);
   transform: translateY(-1px);
 }
 
 .crm-auth-button-secondary {
-  border: 1.5px solid #1855c5;
+  border: 1.5px solid var(--crm-brand-border);
   background: #fff;
-  color: #164daf;
-  box-shadow: 0 2px 8px rgba(24, 85, 197, 0.08);
+  color: var(--crm-brand-link);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--crm-brand-primary) 10%, transparent);
 }
 
 .crm-auth-button-secondary:hover:not(:disabled) {
-  border-color: #0d3f9e;
-  background: #eef4ff;
-  color: #0d3f9e;
-  box-shadow: 0 6px 16px rgba(24, 85, 197, 0.14);
+  border-color: var(--crm-brand-border);
+  background: var(--crm-brand-surface);
+  color: var(--crm-brand-link);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--crm-brand-primary) 16%, transparent);
   transform: translateY(-1px);
 }
 
 .crm-auth-button-primary:focus-visible,
 .crm-auth-button-secondary:focus-visible,
 .crm-auth-link:focus-visible {
-  outline: 3px solid rgba(69, 137, 255, 0.55);
+  outline: 3px solid var(--crm-brand-focus);
   outline-offset: 3px;
+}
+
+.crm-theme-sidebar,
+.crm-ui-shell-mobile-drawer {
+  border-color: color-mix(in srgb, var(--crm-on-sidebar) 18%, transparent);
+  background: var(--crm-brand-sidebar);
+  color: var(--crm-on-sidebar);
+}
+
+.crm-theme-sidebar-active {
+  background: var(--crm-brand-sidebar-active);
+  color: var(--crm-on-sidebar-active);
+}
+
+.crm-theme-sidebar-idle {
+  color: var(--crm-on-sidebar-muted);
+}
+
+.crm-theme-sidebar-idle:hover {
+  background: var(--crm-brand-sidebar-hover);
+  color: var(--crm-on-sidebar-active);
+}
+
+.crm-theme-sidebar-idle:hover .crm-theme-sidebar-icon {
+  color: var(--crm-on-sidebar-active);
+}
+
+.crm-theme-sidebar-icon {
+  color: var(--crm-sidebar-icon);
+}
+
+.crm-theme-sidebar-divider {
+  border-bottom: 1px solid color-mix(in srgb, var(--crm-on-sidebar) 18%, transparent);
+  color: var(--crm-on-sidebar);
+}
+
+.crm-theme-sidebar-divider-top {
+  border-top: 1px solid color-mix(in srgb, var(--crm-on-sidebar) 18%, transparent);
+}
+
+.crm-theme-search-icon {
+  color: #9CA3AF;
+}
+
+.group:hover .crm-theme-search-icon {
+  color: var(--crm-brand-link);
+}
+
+.crm-theme-action {
+  border-color: transparent;
+  background: var(--crm-brand-control);
+  color: var(--crm-on-primary);
+}
+
+.crm-theme-action:hover:not(:disabled) {
+  background: var(--crm-brand-primary-hover);
+}
+
+.crm-theme-link {
+  color: var(--crm-brand-link);
+}
+
+.crm-theme-link:hover {
+  color: var(--crm-brand-primary-hover);
+}
+
+.crm-theme-selected {
+  border-color: var(--crm-brand-border);
+  background: var(--crm-brand-surface);
+  color: var(--crm-on-brand-surface);
+}
+
+.crm-theme-border {
+  border-color: var(--crm-brand-border);
+}
+
+.crm-theme-surface {
+  background: var(--crm-brand-surface);
+  color: var(--crm-on-brand-surface);
+}
+
+.crm-theme-focus:focus,
+.crm-theme-focus:focus-visible,
+.crm-ui-shell-root :where(a, button, input, select, textarea):focus-visible,
+.crm-theme-default-host :where(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--crm-brand-focus);
+  outline-offset: 2px;
 }
 
 .crm-auth-button-primary:disabled,
@@ -147,39 +260,39 @@
 @layer components {
   .crm-ui-input { @apply mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm; }
   .crm-ui-label { @apply block text-sm font-medium text-gray-700; }
-  .crm-ui-th-blue { @apply px-4 py-3 text-left text-xs font-bold text-[#0f2142] tracking-wider; }
+  .crm-ui-th-blue { @apply px-4 py-3 text-left text-xs font-bold text-[var(--crm-brand-link)] tracking-wider; }
   .crm-ui-label-caps { @apply block text-xs font-semibold uppercase tracking-wider text-gray-700 mb-1; }
-  .crm-ui-checkbox { @apply mt-1 h-4 w-4 text-[#00a4bd] focus:ring-[#00a4bd] border-gray-300 rounded; }
+  .crm-ui-checkbox { @apply mt-1 h-4 w-4 text-[var(--crm-brand-link)] focus:ring-[var(--crm-brand-focus)] border-gray-300 rounded; }
   .crm-ui-backdrop { @apply fixed inset-0 z-0 h-full w-full bg-gray-500/75 transition-opacity; }
-  .crm-ui-input-indigo { @apply mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm; }
+  .crm-ui-input-indigo { @apply mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-focus)] sm:text-sm; }
   .crm-ui-modal-shell { @apply flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0; }
-  .crm-ui-select-teal { @apply w-full text-sm border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-[#00a4bd] focus:border-[#00a4bd]; }
+  .crm-ui-select-teal { @apply w-full text-sm border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-border)]; }
   .crm-ui-label-xs { @apply block text-xs font-medium text-gray-700; }
   .crm-ui-label-caps-sm { @apply block text-xs font-semibold uppercase text-gray-700 mb-1; }
-  .crm-ui-input-teal-compact { @apply shadow-sm focus:ring-[#00a4bd] focus:border-[#00a4bd] block w-full sm:text-sm border-gray-300 rounded-md; }
-  .crm-ui-input-teal { @apply w-full text-sm border border-gray-300 rounded-md px-3 py-2 focus:ring-[#00a4bd] focus:border-[#00a4bd]; }
-  .crm-ui-input-blue { @apply mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#1a56db] focus:border-[#1a56db] sm:text-sm; }
+  .crm-ui-input-teal-compact { @apply shadow-sm focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-border)] block w-full sm:text-sm border-gray-300 rounded-md; }
+  .crm-ui-input-teal { @apply w-full text-sm border border-gray-300 rounded-md px-3 py-2 focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-border)]; }
+  .crm-ui-input-blue { @apply mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-border)] sm:text-sm; }
   .crm-ui-title { @apply text-lg font-bold text-gray-900; }
-  .crm-ui-input-primary { @apply w-full text-sm border border-gray-300 rounded-md px-3 py-2 focus:ring-[#1855c5] focus:border-[#1855c5]; }
+  .crm-ui-input-primary { @apply w-full text-sm border border-gray-300 rounded-md px-3 py-2 focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-border)]; }
   .crm-ui-label-strong { @apply block text-sm font-medium text-gray-800; }
   .crm-ui-button-secondary { @apply rounded-md border border-gray-300 px-3 py-2 text-sm font-medium hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50; }
-  .crm-ui-button-primary { @apply rounded-md bg-[#008194] px-4 py-2 text-sm font-semibold text-white hover:bg-[#006d7c] disabled:cursor-not-allowed disabled:opacity-50; }
+  .crm-ui-button-primary { @apply rounded-md bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-semibold text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50; }
   .crm-ui-button-danger-outline { @apply rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50; }
   .crm-ui-line-input { @apply mt-1 w-full rounded-md border border-gray-300 px-2 py-2 text-sm; }
   .crm-ui-operation-message { @apply rounded-md border p-3 text-sm; }
   .crm-ui-modal-spacer { @apply hidden sm:inline-block sm:align-middle sm:h-screen; }
   .crm-ui-notice { @apply mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900; }
-  .crm-ui-auth-input { @apply appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#00a4bd] focus:border-[#00a4bd] sm:text-sm; }
+  .crm-ui-auth-input { @apply appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-border)] sm:text-sm; }
   .crm-ui-checkbox-label { @apply ml-3 block text-sm font-medium text-gray-700; }
   .crm-ui-select { @apply mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm; }
-  .crm-ui-auth-select { @apply mt-1 appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#00a4bd] focus:border-[#00a4bd] sm:text-sm; }
-  .crm-ui-select-primary { @apply w-full text-sm border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-[#1855c5] focus:border-[#1855c5]; }
-  .crm-ui-input-teal-block { @apply mt-1 shadow-sm focus:ring-[#00a4bd] focus:border-[#00a4bd] block w-full sm:text-sm border-gray-300 rounded-md; }
+  .crm-ui-auth-select { @apply mt-1 appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-border)] sm:text-sm; }
+  .crm-ui-select-primary { @apply w-full text-sm border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-border)]; }
+  .crm-ui-input-teal-block { @apply mt-1 shadow-sm focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-border)] block w-full sm:text-sm border-gray-300 rounded-md; }
   .crm-ui-modal-root { @apply fixed inset-0 z-50 overflow-y-auto; }
   .crm-ui-search-icon { @apply absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none; }
   .crm-ui-meta { @apply text-[13px] text-gray-500 mb-1; }
   .crm-ui-th { @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600; }
-  .crm-ui-input-teal-wide { @apply mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#00a4bd] focus:border-[#00a4bd] sm:text-sm; }
+  .crm-ui-input-teal-wide { @apply mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-border)] sm:text-sm; }
   .crm-ui-notice-card { @apply rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900; }
   .crm-ui-eyebrow { @apply text-xs uppercase tracking-wide text-gray-500; }
   .crm-ui-field { @apply mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm; }
@@ -191,7 +304,7 @@
   .crm-ui-table { @apply min-w-full divide-y divide-gray-200; }
   .crm-ui-notice-sm { @apply rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900; }
   .crm-ui-hint { @apply mt-1 text-xs text-gray-500; }
-  .crm-ui-input-search { @apply w-full text-sm border-gray-300 rounded-md py-1.5 px-3 focus:ring-[#00a4bd] focus:border-[#00a4bd]; }
+  .crm-ui-input-search { @apply w-full text-sm border-gray-300 rounded-md py-1.5 px-3 focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-border)]; }
   .crm-ui-danger { @apply rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800; }
   .crm-ui-hint-xs { @apply text-xs text-gray-500; }
   .crm-ui-empty { @apply rounded-lg border border-gray-200 bg-white px-6 py-10 text-center text-sm text-gray-600; }
@@ -207,36 +320,36 @@
   .crm-ui-modal-body { @apply bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4; }
   .crm-ui-grid-two { @apply grid grid-cols-2 gap-4; }
   .crm-ui-modal-panel-lg { @apply relative z-10 inline-block max-h-[calc(100vh-2rem)] overflow-y-auto rounded-lg bg-white text-left align-bottom shadow-xl sm:my-8 sm:w-full sm:max-w-2xl sm:align-middle; }
-  .crm-ui-registration-primary { @apply inline-flex w-full justify-center rounded-md border border-transparent bg-[#00a4bd] px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-[#008194] focus:outline-none focus:ring-2 focus:ring-[#00a4bd] focus:ring-offset-2 disabled:opacity-50 sm:ml-3 sm:w-auto sm:text-sm; }
-  .crm-ui-registration-secondary { @apply mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#00a4bd] focus:ring-offset-2 disabled:opacity-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm; }
-  .crm-ui-registration-back { @apply mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#00a4bd] focus:ring-offset-2 disabled:opacity-50 sm:mt-0 sm:w-auto sm:text-sm; }
+  .crm-ui-registration-primary { @apply inline-flex w-full justify-center rounded-md border border-transparent bg-[var(--crm-brand-control)] px-4 py-2 text-base font-medium text-[var(--crm-on-primary)] shadow-sm hover:bg-[var(--crm-brand-primary-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--crm-brand-focus)] focus:ring-offset-2 disabled:opacity-50 sm:ml-3 sm:w-auto sm:text-sm; }
+  .crm-ui-registration-secondary { @apply mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[var(--crm-brand-focus)] focus:ring-offset-2 disabled:opacity-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm; }
+  .crm-ui-registration-back { @apply mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[var(--crm-brand-focus)] focus:ring-offset-2 disabled:opacity-50 sm:mt-0 sm:w-auto sm:text-sm; }
   .crm-ui-registration-tab { @apply whitespace-nowrap border-b-2 px-1 py-3 text-sm font-semibold; }
-  .crm-ui-registration-tab-active { @apply border-[#1855c5] text-[#1855c5]; }
+  .crm-ui-registration-tab-active { @apply border-[var(--crm-brand-border)] text-[var(--crm-brand-link)]; }
   .crm-ui-registration-tab-idle { @apply border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700; }
-  .crm-ui-registration-export { @apply flex items-center rounded border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-[#1855c5] shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50; }
-  .crm-ui-registration-retry { @apply rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-[#1855c5] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50; }
+  .crm-ui-registration-export { @apply flex items-center rounded border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-[var(--crm-brand-link)] shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50; }
+  .crm-ui-registration-retry { @apply rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-[var(--crm-brand-link)] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50; }
   .crm-ui-detail-retry { @apply mt-3 rounded-md border border-red-300 bg-white px-3 py-1.5 font-semibold text-red-800 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50; }
-  .crm-ui-participant-checkbox { @apply rounded border-gray-300 text-[#1855c5] focus:ring-[#1855c5] disabled:cursor-not-allowed disabled:opacity-50; }
+  .crm-ui-participant-checkbox { @apply rounded border-gray-300 text-[var(--crm-brand-link)] focus:ring-[var(--crm-brand-focus)] disabled:cursor-not-allowed disabled:opacity-50; }
   .crm-ui-pager-button { @apply relative inline-flex items-center border border-gray-300 bg-white px-4 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400; }
   .crm-ui-event-create-panel { @apply relative z-10 inline-block max-h-[calc(100vh-2rem)] overflow-y-auto rounded-lg bg-white px-4 pt-5 pb-4 text-left align-bottom shadow-xl sm:my-8 sm:w-full sm:max-w-lg sm:p-6 sm:align-middle; }
   .crm-ui-event-edit-panel { @apply relative z-10 inline-block max-h-[calc(100vh-2rem)] overflow-y-auto rounded-xl bg-white p-6 text-left align-bottom shadow-2xl sm:my-8 sm:w-full sm:max-w-lg sm:align-middle; }
   .crm-ui-event-duplicate-panel { @apply relative z-10 max-h-[90vh] overflow-y-auto rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl sm:my-8 sm:w-full sm:max-w-2xl sm:p-6; }
-  .crm-ui-event-step-primary { @apply inline-flex w-full justify-center rounded-md border border-transparent bg-[#00a4bd] px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-[#008194] focus:outline-none disabled:opacity-50 sm:ml-3 sm:w-auto sm:text-sm; }
+  .crm-ui-event-step-primary { @apply inline-flex w-full justify-center rounded-md border border-transparent bg-[var(--crm-brand-control)] px-4 py-2 text-base font-medium text-[var(--crm-on-primary)] shadow-sm hover:bg-[var(--crm-brand-primary-hover)] focus:outline-none disabled:opacity-50 sm:ml-3 sm:w-auto sm:text-sm; }
   .crm-ui-event-step-secondary { @apply mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none disabled:opacity-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm; }
   .crm-ui-event-step-cancel { @apply mt-3 inline-flex w-full justify-center rounded-md border border-transparent bg-transparent px-4 py-2 text-base font-medium text-gray-500 shadow-sm hover:text-gray-700 focus:outline-none disabled:opacity-50 sm:mt-0 sm:mr-auto sm:w-auto sm:text-sm; }
-  .crm-ui-event-action-primary { @apply rounded-md bg-[#00a4bd] px-4 py-2 text-sm font-semibold text-white shadow-xs hover:bg-[#008194] disabled:opacity-50; }
+  .crm-ui-event-action-primary { @apply rounded-md bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-semibold text-[var(--crm-on-primary)] shadow-xs hover:bg-[var(--crm-brand-primary-hover)] disabled:opacity-50; }
   .crm-ui-event-action-secondary { @apply rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50; }
-  .crm-ui-event-duplicate-primary { @apply inline-flex w-full justify-center rounded-md bg-[#00a4bd] px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#007f91] disabled:opacity-50 sm:ml-3 sm:w-auto; }
+  .crm-ui-event-duplicate-primary { @apply inline-flex w-full justify-center rounded-md bg-[var(--crm-brand-control)] px-3 py-2 text-sm font-semibold text-[var(--crm-on-primary)] shadow-sm hover:bg-[var(--crm-brand-primary-hover)] disabled:opacity-50 sm:ml-3 sm:w-auto; }
   .crm-ui-event-duplicate-secondary { @apply mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50 sm:mt-0 sm:w-auto; }
   .crm-ui-event-tab { @apply whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium; }
-  .crm-ui-event-tab-active { @apply border-[#00a4bd] text-[#00a4bd]; }
+  .crm-ui-event-tab-active { @apply border-[var(--crm-brand-border)] text-[var(--crm-brand-link)]; }
   .crm-ui-event-tab-idle { @apply border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700; }
-  .crm-ui-event-top-primary { @apply inline-flex items-center justify-center rounded-md bg-[#00a4bd] px-4 py-2 text-sm font-semibold text-white hover:bg-[#008194] disabled:opacity-50; }
+  .crm-ui-event-top-primary { @apply inline-flex items-center justify-center rounded-md bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-semibold text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)] disabled:opacity-50; }
   .crm-ui-event-time-preview { @apply mt-4 w-full rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm hover:bg-gray-50; }
   .crm-ui-event-time-editor { @apply mt-4 rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm; }
   .crm-ui-event-time-row { @apply relative flex items-end gap-4 rounded-lg border border-gray-100 bg-gray-50 p-3; }
-  .crm-ui-event-link { @apply flex items-center gap-1 text-xs font-semibold text-[#00a4bd] hover:text-[#007f91]; }
-  .crm-ui-event-card { @apply overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm hover:border-[#00a4bd]; }
+  .crm-ui-event-link { @apply flex items-center gap-1 text-xs font-semibold text-[var(--crm-brand-link)] hover:text-[var(--crm-brand-primary-hover)]; }
+  .crm-ui-event-card { @apply overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm hover:border-[var(--crm-brand-border)]; }
   .crm-ui-event-card-summary { @apply flex flex-col justify-between gap-4 p-6 sm:flex-row sm:items-center; }
   .crm-ui-event-thumbnail { @apply h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-slate-900 sm:h-24 sm:w-32; }
   .crm-ui-event-meta { @apply mt-1 flex flex-col gap-2 text-sm text-gray-500 sm:flex-row sm:items-center sm:gap-4; }
@@ -247,37 +360,39 @@
   .crm-ui-event-badge-unavailable { @apply bg-red-100 text-red-800; }
   .crm-ui-event-toggle-track { @apply block h-6 w-10 rounded-full bg-gray-300; }
   .crm-ui-event-toggle-dot { @apply absolute left-1 top-1 h-4 w-4 rounded-full bg-white; }
-  .crm-ui-event-toggle-active { @apply bg-[#00a4bd]; }
+  .crm-ui-event-toggle-active { @apply bg-[var(--crm-brand-control)]; }
   .crm-ui-event-step-line { @apply absolute left-0 top-1/2 h-0.5 w-full -translate-y-1/2 bg-gray-200; }
   .crm-ui-event-step-dot { @apply flex h-8 w-8 items-center justify-center rounded-full font-medium; }
-  .crm-ui-event-step-dot-active { @apply bg-[#00a4bd] text-white; }
+  .crm-ui-event-step-dot-active { @apply bg-[var(--crm-brand-control)] text-[var(--crm-on-primary)]; }
   .crm-ui-event-step-dot-idle { @apply bg-gray-200 text-gray-500; }
-  .crm-ui-event-date-pill { @apply inline-flex items-center gap-1 rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-medium text-cyan-900 hover:bg-cyan-100; }
-  .crm-ui-event-type-pill { @apply ml-2 inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800; }
-  .crm-ui-event-icon-button { @apply rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-[#00a4bd]; }
+  .crm-ui-event-date-pill { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium; background: var(--crm-brand-surface); color: var(--crm-on-brand-surface); }
+  .crm-ui-event-type-pill { @apply ml-2 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium; background: var(--crm-brand-surface); color: var(--crm-on-brand-surface); }
+  .crm-ui-event-icon-button { @apply rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-[var(--crm-brand-link)]; }
   .crm-ui-event-chevron { @apply h-5 w-5; }
   .crm-ui-event-banner { @apply relative h-36 w-full overflow-hidden rounded-lg border border-gray-300 bg-slate-900; }
   .crm-ui-event-edit-thumbnail { @apply h-20 w-24 shrink-0 overflow-hidden rounded-lg border border-gray-300 bg-slate-900; }
   .crm-ui-shell-mobile-drawer { @apply relative z-10 flex h-full w-[min(88vw,20rem)] flex-col bg-slate-900 text-gray-100 shadow-2xl; }
   .crm-ui-shell-root { @apply flex h-screen overflow-hidden bg-gray-50 font-sans; }
   .crm-ui-shell-mobile-overlay { @apply fixed inset-0 z-0 h-full w-full bg-slate-950/70; }
-  .crm-ui-shell-mobile-header { @apply flex h-[73px] items-center gap-3 border-b border-slate-700 px-5; }
-  .crm-ui-shell-mobile-signout { @apply w-full rounded-md border border-slate-600 px-3 py-2 text-left text-sm font-medium text-gray-100 hover:bg-white/10; }
-  .crm-ui-shell-account { @apply relative flex min-h-[81px] flex-col justify-center border-t border-[#1e293b] p-4; }
-  .crm-ui-shell-avatar { @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-sm font-bold text-white shadow; }
-  .crm-ui-shell-signout-icon { @apply shrink-0 rounded-md p-2 text-gray-400 transition-colors hover:bg-white/10 hover:text-white; }
-  .crm-ui-shell-org-menu { @apply absolute bottom-full left-0 z-50 mb-2 w-full rounded-md border border-[#334155] bg-[#1e293b] py-1 shadow-lg; }
+  .crm-ui-shell-mobile-header { @apply flex h-[73px] items-center gap-3 border-b px-5; border-color: color-mix(in srgb, var(--crm-on-sidebar) 18%, transparent); }
+  .crm-ui-shell-mobile-signout { @apply w-full rounded-md border px-3 py-2 text-left text-sm font-medium; border-color: color-mix(in srgb, var(--crm-on-sidebar) 24%, transparent); color: var(--crm-on-sidebar); }
+  .crm-ui-shell-mobile-signout:hover { background: var(--crm-brand-sidebar-hover); }
+  .crm-ui-shell-account { @apply relative flex min-h-[81px] flex-col justify-center border-t p-4; border-color: color-mix(in srgb, var(--crm-on-sidebar) 18%, transparent); }
+  .crm-ui-shell-avatar { @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold shadow; background: var(--crm-brand-secondary); color: var(--crm-on-secondary); }
+  .crm-ui-shell-signout-icon { @apply shrink-0 rounded-md p-2 transition-colors; color: var(--crm-on-sidebar-muted); }
+  .crm-ui-shell-signout-icon:hover { background: var(--crm-brand-sidebar-hover); color: var(--crm-on-sidebar); }
+  .crm-ui-shell-org-menu { @apply absolute bottom-full left-0 z-50 mb-2 w-full rounded-md border py-1 shadow-lg; border-color: color-mix(in srgb, var(--crm-on-sidebar) 22%, transparent); background: var(--crm-brand-sidebar); }
   .crm-ui-shell-main { @apply relative z-0 flex flex-1 flex-col overflow-y-auto bg-gray-50; }
-  .crm-ui-shell-header { @apply sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-gray-200 bg-white px-3 py-3 shadow-xs sm:px-6 sm:py-4; }
+  .crm-ui-shell-header { @apply sticky top-0 z-40 flex items-center justify-between gap-3 border-b bg-white px-3 py-3 shadow-xs sm:px-6 sm:py-4; border-color: var(--crm-brand-border); }
   .crm-ui-shell-breadcrumb { @apply flex min-w-0 flex-1 items-center space-x-2 overflow-hidden text-sm text-gray-600; }
   .crm-ui-shell-search-icon { @apply pointer-events-none absolute inset-y-0 left-0 hidden items-center pl-3 sm:flex; }
-  .crm-ui-shell-search { @apply block w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-left text-gray-500 transition-all focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:py-1.5 sm:pl-10 sm:text-sm; }
+  .crm-ui-shell-search { @apply block w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-left text-gray-500 transition-all focus:border-[var(--crm-brand-focus)] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[var(--crm-brand-focus)] sm:py-1.5 sm:pl-10 sm:text-sm; }
   .crm-ui-shell-brand-error { @apply mx-3 mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800 sm:mx-6; }
   .crm-ui-shell-logout-panel { @apply relative z-10 inline-block overflow-hidden rounded-lg bg-white text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-sm sm:align-middle; }
   .crm-ui-shell-logout-icon { @apply mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10; }
   .crm-ui-shell-logout-actions { @apply bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6; }
   .crm-ui-shell-logout-primary { @apply inline-flex w-full justify-center rounded-md border border-transparent bg-red-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-60 sm:ml-3 sm:w-auto sm:text-sm; }
-  .crm-ui-shell-logout-secondary { @apply mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#00a4bd] focus:ring-offset-2 disabled:opacity-60 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm; }
+  .crm-ui-shell-logout-secondary { @apply mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[var(--crm-brand-focus)] focus:ring-offset-2 disabled:opacity-60 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm; }
   .crm-ui-shell-search-loading { @apply fixed inset-0 z-50 flex items-start justify-center bg-gray-500/75 px-4 pt-16; }
   .crm-ui-shell-search-loading-card { @apply rounded-lg bg-white px-6 py-5 text-sm font-medium text-gray-700 shadow-xl; }
   .crm-ui-studio-root { @apply flex h-full min-w-0 flex-col overflow-y-auto bg-[#f8fafc] xl:flex-row xl:overflow-hidden; }
@@ -289,7 +404,8 @@
   .crm-ui-studio-modules { @apply rounded-lg border border-gray-200 bg-white p-4 shadow-sm; }
   .crm-ui-studio-module-row { @apply flex items-center justify-between border-t border-gray-100 pt-4 first:border-t-0 first:pt-0; }
   .crm-ui-studio-actions { @apply flex items-center justify-end space-x-4 border-t border-gray-200 bg-white p-4; }
-  .crm-ui-studio-publish { @apply rounded-md px-4 py-2 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50; }
+  .crm-ui-studio-publish { @apply rounded-md px-4 py-2 text-sm font-medium shadow-sm transition-opacity disabled:opacity-50; background: var(--crm-brand-control); color: var(--crm-on-primary); }
+  .crm-ui-studio-publish:hover:not(:disabled) { background: var(--crm-brand-primary-hover); }
   .crm-ui-studio-preview { @apply relative flex min-h-[44rem] w-full min-w-0 flex-col overflow-y-auto bg-gray-100 p-4 sm:p-8 xl:h-full xl:w-7/12; }
   .crm-ui-studio-toolbar { @apply flex max-w-full flex-col gap-4 rounded-lg border border-gray-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:space-x-6; }
   .crm-ui-studio-logo { @apply flex h-12 w-12 items-center justify-center overflow-hidden rounded border border-gray-200 bg-white; }

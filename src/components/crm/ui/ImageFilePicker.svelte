@@ -71,7 +71,7 @@
         accept={IMAGE_FILE_ACCEPT}
         {disabled}
         on:change={handleFileChange}
-        class="block w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50"
+        class="block w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-[var(--crm-brand-surface)] file:px-3 file:py-2 file:text-sm file:font-semibold file:text-[var(--crm-brand-link)] hover:file:bg-[var(--crm-brand-surface-strong)] disabled:opacity-50"
       />
       <p class="mt-1 text-xs text-gray-500">PNG, JPG, GIF, or WebP · 10 MB maximum.</p>
       {#if selectedFile && !validationMessage}

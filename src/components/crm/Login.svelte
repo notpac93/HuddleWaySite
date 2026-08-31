@@ -103,7 +103,7 @@
     <h2 class="mt-6 text-center text-3xl font-extrabold text-white">
       Admin Portal
     </h2>
-    <p class="mt-2 text-center text-sm font-medium text-blue-100">
+    <p class="mt-2 text-center text-sm font-medium text-[var(--crm-on-sidebar-muted)]">
       {#if view === 'login'}
         Sign in to manage your organization
       {:else if view === 'signup'}

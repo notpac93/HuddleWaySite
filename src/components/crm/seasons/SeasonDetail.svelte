@@ -294,9 +294,9 @@
     <button type="button" aria-label="Back to seasons" on:click={goBack} class="text-gray-400 hover:text-gray-600 transition-colors bg-gray-50 hover:bg-gray-100 p-1.5 rounded-md">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
     </button>
-    <h1 class="text-[28px] font-extrabold text-[#0f2142] leading-none tracking-tight">{season?.name || season?.title || 'Unnamed Season'}</h1>
+    <h1 class="text-[28px] font-extrabold text-[var(--crm-brand-link)] leading-none tracking-tight">{season?.name || season?.title || 'Unnamed Season'}</h1>
   </div>
-  <button type="button" disabled={!seasonId} on:click={() => showEditSeasonModal = true} class="bg-[#f0f4fa] text-[#1855c5] border border-blue-100 px-4 py-1.5 rounded text-sm font-semibold hover:bg-[#e4ebf6] flex items-center transition-colors disabled:opacity-50">
+  <button type="button" disabled={!seasonId} on:click={() => showEditSeasonModal = true} class="bg-[var(--crm-brand-surface)] text-[var(--crm-brand-link)] border border-[var(--crm-brand-border)] px-4 py-1.5 rounded text-sm font-semibold hover:bg-[var(--crm-brand-surface-strong)] flex items-center transition-colors disabled:opacity-50">
     <svg class="w-3.5 h-3.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
     Edit
   </button>
@@ -304,7 +304,7 @@
 
 <!-- Status badges under title -->
 <div class="flex items-center space-x-3 mb-6 mt-2 ml-10">
-  <span class="bg-[#1855c5] text-white px-3 py-1 rounded text-sm font-semibold">{season?.status || 'Unsupported status'}</span>
+  <span class="bg-[var(--crm-brand-control)] text-[var(--crm-on-primary)] px-3 py-1 rounded text-sm font-semibold">{season?.status || 'Unsupported status'}</span>
   <span class="crm-ui-hint-xs">Payment options are managed on the linked registration form.</span>
 </div>
 
@@ -371,7 +371,7 @@
     <button
       type="button"
       aria-pressed={activeTab === 'participants'}
-      class="{activeTab === 'participants' ? 'border-[#1855c5] text-[#1855c5]' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors"
+      class="{activeTab === 'participants' ? 'border-[var(--crm-brand-border)] text-[var(--crm-brand-link)]' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors"
       on:click={() => activeTab = 'participants'}
     >
       Participants
@@ -379,7 +379,7 @@
     <button
       type="button"
       aria-pressed={activeTab === 'events'}
-      class="{activeTab === 'events' ? 'border-[#1855c5] text-[#1855c5]' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors"
+      class="{activeTab === 'events' ? 'border-[var(--crm-brand-border)] text-[var(--crm-brand-link)]' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors"
       on:click={() => activeTab = 'events'}
     >
       Events <span class="ml-2 bg-gray-100 text-gray-600 py-0.5 px-2.5 rounded-full text-xs">{eventProjectionUnavailable ? '—' : seasonEvents.length}</span>
@@ -397,7 +397,7 @@
     <input
       type="text"
       bind:value={participantSearch}
-      class="block w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#1855c5] shadow-sm"
+      class="block w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[var(--crm-brand-border)] shadow-sm"
       placeholder="Search by name"
     >
   </div>
@@ -454,10 +454,10 @@
       {:else}
         {#each filteredParticipants as p (p.id)}
           <tr class="hover:bg-gray-50">
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-[#0f2142] font-semibold">{p.id.substring(0, 8).toUpperCase()}</td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm text-[var(--crm-brand-link)] font-semibold">{p.id.substring(0, 8).toUpperCase()}</td>
             <td class="crm-ui-td">{p.status}</td>
             <td class="crm-ui-td">{p.date ? p.date.toLocaleDateString('en-US') : 'Unavailable'}</td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-[#1855c5]">{p.name}</td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-[var(--crm-brand-link)]">{p.name}</td>
             <td class="crm-ui-td">{p.financialStatus}</td>
           </tr>
         {/each}
@@ -471,7 +471,7 @@
   <!-- Events Toolbar -->
   <div class="flex justify-between items-center mb-4">
     <h3 class="text-lg font-semibold text-gray-900">Events</h3>
-    <button type="button" disabled={!seasonId || $eventsProjectionScope.loading || Boolean($eventsProjectionScope.error)} class="bg-[#1855c5] text-white px-4 py-2 rounded text-sm font-semibold hover:bg-[#1546a3] flex items-center shadow-sm disabled:opacity-50" on:click={() => showLinkEventModal = true}>
+    <button type="button" disabled={!seasonId || $eventsProjectionScope.loading || Boolean($eventsProjectionScope.error)} class="bg-[var(--crm-brand-control)] text-[var(--crm-on-primary)] px-4 py-2 rounded text-sm font-semibold hover:bg-[var(--crm-brand-primary-hover)] flex items-center shadow-sm disabled:opacity-50" on:click={() => showLinkEventModal = true}>
       <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
       Add / Link Event
     </button>
@@ -509,7 +509,7 @@
           <tr>
             <td colspan="5" class="px-6 py-12 text-center text-gray-500 text-sm">
               <p>No events linked to this season yet.</p>
-              <button type="button" disabled={!seasonId} class="mt-4 text-[#1855c5] hover:underline font-medium disabled:opacity-50" on:click={() => showLinkEventModal = true}>
+              <button type="button" disabled={!seasonId} class="mt-4 text-[var(--crm-brand-link)] hover:underline font-medium disabled:opacity-50" on:click={() => showLinkEventModal = true}>
                 Add your first event
               </button>
             </td>

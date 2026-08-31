@@ -215,7 +215,7 @@
           href={blockedAccessUrl}
           target="_blank"
           rel="noopener noreferrer"
-          class="mt-2 inline-flex break-all font-medium text-blue-700 underline"
+          class="crm-theme-link mt-2 inline-flex break-all font-medium underline"
         >Open secure document link</a>
       {/if}
       {#if operationRequestId}<p class="mt-1 text-xs">Support request: {operationRequestId}</p>{/if}
@@ -263,7 +263,7 @@
                 type="button"
                 disabled={!documentRecord.isAvailable || !documentRecord.hasApprovedStoragePath || Boolean(accessDocumentId)}
                 title={!documentRecord.hasApprovedStoragePath ? 'No approved stored object is available.' : undefined}
-                class="text-sm font-medium text-blue-700 disabled:cursor-not-allowed disabled:text-gray-400"
+                class="crm-theme-link text-sm font-medium disabled:cursor-not-allowed disabled:text-gray-400"
                 on:click={() => handleViewDocument(documentRecord)}
               >{accessDocumentId === documentRecord.id ? 'Opening…' : 'View securely'}</button>
               <button

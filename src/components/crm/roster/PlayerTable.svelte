@@ -256,12 +256,12 @@
       <span class="ml-4 text-xs text-red-700">Support request: {requestId}</span>
     {/if}
     {#if selectedPlayerIds.length > 0}
-      <div class="flex items-center space-x-2 bg-blue-50 border border-blue-200 rounded-md px-3 py-1.5 ml-4">
-        <span class="text-sm font-medium text-blue-800">{selectedPlayerIds.length} selected</span>
-        <div class="w-px h-4 bg-blue-300 mx-2"></div>
+      <div class="crm-theme-selected flex items-center space-x-2 border rounded-md px-3 py-1.5 ml-4">
+        <span class="text-sm font-medium">{selectedPlayerIds.length} selected</span>
+        <div class="w-px h-4 bg-[var(--crm-brand-border)] mx-2"></div>
         <label>
           <span class="sr-only">Bulk roster action</span>
-          <select bind:value={bulkSelectedTeam} disabled={submitState === 'loading'} class="text-sm border-gray-300 rounded-md py-1 pl-2 pr-8 focus:outline-none focus:ring-[#1a56db] focus:border-[#1a56db] disabled:opacity-50">
+          <select bind:value={bulkSelectedTeam} disabled={submitState === 'loading'} class="text-sm border-gray-300 rounded-md py-1 pl-2 pr-8 focus:outline-none focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-border)] disabled:opacity-50">
           <option value="">Select Action...</option>
           <optgroup label="Assign to Team">
             {#each transferTeams as team (team.id)}
@@ -289,14 +289,14 @@
           loadingText="Updating..."
           successText="Updated!"
           errorText="Retry Transfer"
-          class="bg-[#1a56db] text-white px-3 py-1 rounded text-sm font-medium hover:bg-[#1e40af] disabled:opacity-50"
+          class="bg-[var(--crm-brand-control)] text-[var(--crm-on-primary)] px-3 py-1 rounded text-sm font-medium hover:bg-[var(--crm-brand-primary-hover)] disabled:opacity-50"
         />
       </div>
     {/if}
     {#if showAdvancedFilters && selectedPlayerIds.length === 0}
       <label>
         <span class="sr-only">Filter players by role</span>
-        <select bind:value={roleFilter} class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-[#1a56db] focus:border-[#1a56db]">
+        <select bind:value={roleFilter} class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-border)]">
         <option value="">All Roles</option>
         <option value="Player">Player</option>
         <option value="Coach">Coach</option>
@@ -306,7 +306,7 @@
       </label>
       <label>
         <span class="sr-only">Filter players by status</span>
-        <select bind:value={statusFilter} class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-[#1a56db] focus:border-[#1a56db]">
+        <select bind:value={statusFilter} class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-border)]">
         <option value="">All Statuses</option>
         <option value="Active">Active</option>
         <option value="Inactive">Inactive</option>
@@ -319,7 +319,7 @@
   <svelte:fragment slot="actions">
     <button
       type="button"
-      class="inline-flex items-center rounded-md bg-[#1855c5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1546a3] focus:outline-none focus:ring-2 focus:ring-[#1855c5] focus:ring-offset-2"
+      class="inline-flex items-center rounded-md bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-semibold text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--crm-brand-focus)] focus:ring-offset-2"
       on:click={onAddPlayer}
     >
       <span class="mr-2 text-lg leading-none" aria-hidden="true">+</span>
@@ -342,7 +342,7 @@
               decoding="async"
             />
           {:else}
-            <div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold">
+            <div class="h-10 w-10 rounded-full bg-[var(--crm-brand-surface)] flex items-center justify-center text-[var(--crm-brand-link)] font-bold">
               {row.name.charAt(0).toUpperCase()}
             </div>
           {/if}
@@ -356,7 +356,7 @@
       {#if row.teamId}
         <button
           type="button"
-          class="bg-blue-100 text-blue-800 hover:bg-blue-200 text-xs px-2 py-1 rounded-full cursor-pointer transition-colors"
+          class="bg-[var(--crm-brand-surface)] text-[var(--crm-brand-link)] hover:bg-[var(--crm-brand-surface-strong)] text-xs px-2 py-1 rounded-full cursor-pointer transition-colors"
           on:click={() => setActiveTeam({ name: row.team, id: row.teamId })}
         >
           {row.team}

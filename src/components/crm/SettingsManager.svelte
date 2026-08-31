@@ -252,7 +252,7 @@
             idleText="Save changes"
             loadingText="Saving..."
             successText="Saved"
-            class="bg-indigo-600 border border-transparent rounded-md shadow-sm py-2 px-4 inline-flex justify-center text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            class="bg-[var(--crm-brand-control)] border border-transparent rounded-md shadow-sm py-2 px-4 inline-flex justify-center text-sm font-medium text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)] disabled:opacity-50"
           />
         </div>
       </form>
@@ -323,7 +323,7 @@
             idleText="Change Password"
             loadingText="Changing..."
             successText="Changed"
-            class="bg-indigo-600 border border-transparent rounded-md shadow-sm py-2 px-4 inline-flex justify-center text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            class="bg-[var(--crm-brand-control)] border border-transparent rounded-md shadow-sm py-2 px-4 inline-flex justify-center text-sm font-medium text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)] disabled:opacity-50"
           />
         </div>
       </form>

@@ -136,7 +136,7 @@
         </div>
 
         <div class="mb-4">
-          <button type="button" disabled={isSubmitting} on:click={handleCreateNew} class="w-full flex justify-center items-center py-3 px-4 border-2 border-dashed border-[#1855c5] rounded-md text-[#1855c5] hover:bg-blue-50 font-medium transition-colors disabled:opacity-50">
+          <button type="button" disabled={isSubmitting} on:click={handleCreateNew} class="w-full flex justify-center items-center py-3 px-4 border-2 border-dashed border-[var(--crm-brand-border)] rounded-md text-[var(--crm-brand-link)] hover:bg-[var(--crm-brand-surface)] font-medium transition-colors disabled:opacity-50">
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
             Create New Event
           </button>
@@ -150,7 +150,7 @@
             type="text"
             bind:value={searchQuery}
             disabled={isSubmitting}
-            class="block w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#1855c5] focus:ring-1 focus:ring-[#1855c5]"
+            class="block w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[var(--crm-brand-border)] focus:ring-1 focus:ring-[var(--crm-brand-focus)]"
             placeholder="Search existing unlinked events..."
           >
         </div>
@@ -188,7 +188,7 @@
               {#each availableEvents as event (event.id)}
                 <li class="p-4 hover:bg-gray-50 flex justify-between items-center">
                   <div>
-                    <h4 class="text-sm font-semibold text-[#0f2142]">{event.title}</h4>
+                    <h4 class="text-sm font-semibold text-[var(--crm-brand-link)]">{event.title}</h4>
                     <p class="text-xs text-gray-500 mt-1">
                       {event.date ? (event.date.toDate ? event.date.toDate() : new Date(event.date)).toLocaleDateString() : 'No date'}
                       {#if event.type}<span class="mx-1">•</span>{event.type}{/if}
@@ -202,7 +202,7 @@
                     loadingText="Linking..."
                     successText="Linked!"
                     errorText="Retry Link"
-                    class="px-3 py-1.5 border border-[#1855c5] text-[#1855c5] rounded text-sm font-medium hover:bg-[#1855c5] hover:text-white transition-colors disabled:opacity-50"
+                    class="px-3 py-1.5 border border-[var(--crm-brand-border)] text-[var(--crm-brand-link)] rounded text-sm font-medium hover:bg-[var(--crm-brand-control)] hover:text-[var(--crm-on-primary)] transition-colors disabled:opacity-50"
                   />
                 </li>
               {/each}

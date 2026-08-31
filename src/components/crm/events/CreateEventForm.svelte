@@ -489,7 +489,7 @@
                           aria-label={`Remove ${readableDate(dateKey)}`}
                         >
                           {readableDate(dateKey)}
-                          <span aria-hidden="true" class="text-cyan-700">×</span>
+                          <span aria-hidden="true" class="crm-theme-link">×</span>
                         </button>
                       {/each}
                     </div>
@@ -507,14 +507,14 @@
                         <span class="block text-sm font-medium text-gray-900">{formatTime12hr(slot.startTime)} - {formatTime12hr(slot.endTime)}</span>
                       {/each}
                     </div>
-                    <span class="text-[#00a4bd] text-xs font-semibold">Edit</span>
+                    <span class="text-[var(--crm-brand-link)] text-xs font-semibold">Edit</span>
                   </div>
                 </button>
               {:else}
                 <div class="crm-ui-event-time-editor">
                   <div class="flex justify-between items-center mb-3">
                     <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Event Time{timeSlots.length > 1 ? 's' : ''}</span>
-                    <button type="button" on:click={() => showTimes = false} class="text-[#00a4bd] text-xs font-semibold">Done</button>
+                    <button type="button" on:click={() => showTimes = false} class="text-[var(--crm-brand-link)] text-xs font-semibold">Done</button>
                   </div>
                   <div class="space-y-4">
                     {#each timeSlots as slot, index}
@@ -592,7 +592,7 @@
                 {#each registrationForms as form}
                   <option value={form.id}>{form.title}</option>
                 {/each}
-                <option value="CREATE_NEW" class="font-bold text-[#00a4bd]">+ Create New Form</option>
+                <option value="CREATE_NEW" class="font-bold text-[var(--crm-brand-link)]">+ Create New Form</option>
               </select>
               {#if registrationFormsError}
                 <p class="mt-2 text-xs text-red-700" role="alert">{registrationFormsError}</p>

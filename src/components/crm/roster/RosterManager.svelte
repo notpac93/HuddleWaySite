@@ -131,7 +131,7 @@
       <h2 class="crm-ui-page-title">Rosters & Teams</h2>
       <p class="text-sm text-gray-500">Manage program members, teams, seasons, and reviewed player assignments.</p>
     </div>
-    <button type="button" class="rounded bg-[#1855c5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1546a3]" on:click={() => { entrySuccess = ''; entryMode = 'csv'; }}>Import players CSV</button>
+    <button type="button" class="rounded bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-semibold text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)]" on:click={() => { entrySuccess = ''; entryMode = 'csv'; }}>Import players CSV</button>
   </div>
   {#if entrySuccess}<p class="rounded border border-green-200 bg-green-50 p-3 text-sm text-green-800" role="status">{entrySuccess}</p>{/if}
 
@@ -141,7 +141,7 @@
       <button
         type="button"
         aria-pressed={activeTab === 'Players'}
-        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm {activeTab === 'Players' ? 'border-[#1a56db] text-[#1a56db]' : 'border-transparent text-gray-500 hover:text-gray-700'}"
+        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm {activeTab === 'Players' ? 'border-[var(--crm-brand-border)] text-[var(--crm-brand-link)]' : 'border-transparent text-gray-500 hover:text-gray-700'}"
         on:click={() => activeTab = 'Players'}
       >
         All Players
@@ -149,7 +149,7 @@
       <button
         type="button"
         aria-pressed={activeTab === 'Teams'}
-        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm {activeTab === 'Teams' ? 'border-[#1a56db] text-[#1a56db]' : 'border-transparent text-gray-500 hover:text-gray-700'}"
+        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm {activeTab === 'Teams' ? 'border-[var(--crm-brand-border)] text-[var(--crm-brand-link)]' : 'border-transparent text-gray-500 hover:text-gray-700'}"
         on:click={() => activeTab = 'Teams'}
       >
         Teams & Divisions
@@ -157,7 +157,7 @@
       <button
         type="button"
         aria-pressed={activeTab === 'Import'}
-        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm {activeTab === 'Import' ? 'border-[#1a56db] text-[#1a56db]' : 'border-transparent text-gray-500 hover:text-gray-700'}"
+        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm {activeTab === 'Import' ? 'border-[var(--crm-brand-border)] text-[var(--crm-brand-link)]' : 'border-transparent text-gray-500 hover:text-gray-700'}"
         on:click={() => activeTab = 'Import'}
       >
         CSV Import

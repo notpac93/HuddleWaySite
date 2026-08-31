@@ -4,7 +4,7 @@
 
   // Form State
   let programName = '';
-  let primaryColor = '#1a56db';
+  let primaryColor = '#003366';
   let firstTeamName = '';
   let isFinishing = false;
   let setupError = '';
@@ -84,8 +84,8 @@
           logoUrl: '',
           colors: {
             primary: primaryColor,
-            secondary: '#E5E7EB',
-            accent: '#D32F2F',
+            secondary: '#C6A95B',
+            accent: '#FFFFFF',
           },
           pageLabels: {},
         },
@@ -147,7 +147,7 @@
   };
 </script>
 
-<div class="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+<div class="crm-theme-default-host min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
   <div class="sm:mx-auto sm:w-full sm:max-w-xl">
     <div class="text-center mb-8">
       <h2 class="text-3xl font-extrabold text-gray-900">Set up your organization</h2>
@@ -157,7 +157,7 @@
     <!-- Progress Bar (Momentum & Progress UX Principle) -->
     <div class="mb-8">
       <div class="overflow-hidden rounded-full bg-gray-200 h-2">
-        <div class="h-2 bg-indigo-600 rounded-full transition-all duration-500 ease-in-out" style="width: {(step / totalSteps) * 100}%"></div>
+        <div class="h-2 bg-[var(--crm-brand-control)] rounded-full transition-all duration-500 ease-in-out" style="width: {(step / totalSteps) * 100}%"></div>
       </div>
       <div class="mt-2 text-right text-xs font-medium text-gray-500">Step {step} of {totalSteps}</div>
     </div>
@@ -171,7 +171,7 @@
             <h3 class="crm-ui-subtitle">What's your program called?</h3>
             <p class="text-sm text-gray-500 mb-4">This is the name parents and players will see.</p>
             <label for="setup-program-name" class="sr-only">Organization name</label>
-            <input id="setup-program-name" type="text" bind:value={programName} minlength="2" maxlength="120" placeholder="e.g., Elite Soccer Academy" class="appearance-none block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            <input id="setup-program-name" type="text" bind:value={programName} minlength="2" maxlength="120" placeholder="e.g., Elite Soccer Academy" class="appearance-none block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-focus)] sm:text-sm">
           </div>
         </div>
 
@@ -184,7 +184,7 @@
           <div class="flex items-center space-x-4 border border-gray-200 p-4 rounded-lg bg-gray-50">
             <input type="color" bind:value={primaryColor} aria-label="Primary organization color" class="h-14 w-14 rounded cursor-pointer p-0 border-0 shadow-sm">
             <div class="flex-1">
-              <input type="text" bind:value={primaryColor} aria-label="Primary organization color hex value" maxlength="7" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm uppercase font-mono text-gray-600">
+              <input type="text" bind:value={primaryColor} aria-label="Primary organization color hex value" maxlength="7" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-focus)] sm:text-sm uppercase font-mono text-gray-600">
             </div>
           </div>
 
@@ -216,7 +216,7 @@
 
           <div>
             <label for="setup-team-name" class="block text-sm font-medium text-gray-700 mb-1">Team Name</label>
-            <input id="setup-team-name" type="text" bind:value={firstTeamName} minlength="2" maxlength="120" placeholder="e.g., U12 Boys Varsity" class="appearance-none block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            <input id="setup-team-name" type="text" bind:value={firstTeamName} minlength="2" maxlength="120" placeholder="e.g., U12 Boys Varsity" class="appearance-none block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-focus)] sm:text-sm">
           </div>
           <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mt-4">
             <div class="flex">
@@ -235,8 +235,8 @@
       {:else if step === 4}
         <!-- Step 4: Stripe Connect (Trust & Value) -->
         <div class="space-y-6 text-center">
-          <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-indigo-100 mb-4">
-            <svg class="h-8 w-8 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-[var(--crm-brand-surface)] mb-4">
+            <svg class="h-8 w-8 text-[var(--crm-brand-link)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
@@ -293,7 +293,7 @@
           <button
             on:click={nextStep}
             disabled={!canProceed()}
-            class="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition-colors"
+            class="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-[var(--crm-on-primary)] bg-[var(--crm-brand-control)] hover:bg-[var(--crm-brand-primary-hover)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--crm-brand-focus)] disabled:opacity-50 transition-colors"
           >
             Continue
           </button>
@@ -308,12 +308,12 @@
             </div>
           {/if}
           {#if setupComplete}
-          <button type="button" on:click={() => window.location.href = '/admin'} class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+          <button type="button" on:click={() => window.location.href = '/admin'} class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-[var(--crm-on-primary)] bg-[var(--crm-brand-control)] hover:bg-[var(--crm-brand-primary-hover)]">
             Continue to dashboard
           </button>
           {:else}
           <div class="flex flex-col gap-3 sm:flex-row-reverse">
-            <button type="button" on:click={finishSetup} disabled={isFinishing} class="flex flex-1 justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-3 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50">
+            <button type="button" on:click={finishSetup} disabled={isFinishing} class="flex flex-1 justify-center rounded-md border border-transparent bg-[var(--crm-brand-control)] px-4 py-3 text-sm font-medium text-[var(--crm-on-primary)] shadow-sm hover:bg-[var(--crm-brand-primary-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--crm-brand-focus)] focus:ring-offset-2 disabled:opacity-50">
               {isFinishing ? 'Creating organization…' : 'Create organization'}
             </button>
             <button type="button" on:click={prevStep} disabled={isFinishing} class="flex justify-center rounded-md border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">

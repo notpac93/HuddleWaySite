@@ -588,7 +588,7 @@
       </button>
       <button
         type="button"
-        class="rounded-md bg-[#00a4bd] px-4 py-2 text-sm font-medium text-white hover:bg-[#008194]"
+        class="rounded-md bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-medium text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)]"
         on:click={() => openComposer('registration_email')}
       >
         Start registration email
@@ -630,7 +630,7 @@
             id="announcement-attachment"
             bind:value={attachmentScope}
             on:change={handleAttachmentScopeChange}
-            class="mt-1 block w-full rounded-md border border-gray-300 bg-white p-2 shadow-sm focus:border-[#00a4bd] focus:ring-[#00a4bd] sm:text-sm"
+            class="mt-1 block w-full rounded-md border border-gray-300 bg-white p-2 shadow-sm focus:border-[var(--crm-brand-border)] focus:ring-[var(--crm-brand-focus)] sm:text-sm"
           >
             {#if composerKind === 'announcement'}
               <option value="all">All organization account holders</option>
@@ -651,7 +651,7 @@
               id="announcement-event"
               bind:value={selectedEventId}
               disabled={eventOptions.length === 0}
-              class="mt-1 block w-full rounded-md border border-gray-300 bg-white p-2 shadow-sm focus:border-[#00a4bd] focus:ring-[#00a4bd] disabled:bg-gray-100 sm:text-sm"
+              class="mt-1 block w-full rounded-md border border-gray-300 bg-white p-2 shadow-sm focus:border-[var(--crm-brand-border)] focus:ring-[var(--crm-brand-focus)] disabled:bg-gray-100 sm:text-sm"
             >
               <option value="">Select an event</option>
               {#each eventOptions as event}
@@ -667,7 +667,7 @@
               id="announcement-season"
               bind:value={selectedSeasonId}
               disabled={seasonOptions.length === 0}
-              class="mt-1 block w-full rounded-md border border-gray-300 bg-white p-2 shadow-sm focus:border-[#00a4bd] focus:ring-[#00a4bd] disabled:bg-gray-100 sm:text-sm"
+              class="mt-1 block w-full rounded-md border border-gray-300 bg-white p-2 shadow-sm focus:border-[var(--crm-brand-border)] focus:ring-[var(--crm-brand-focus)] disabled:bg-gray-100 sm:text-sm"
             >
               <option value="">Select a season</option>
               {#each seasonOptions as season}
@@ -685,7 +685,7 @@
               bind:value={registrationRecipientInput}
               rows="5"
               placeholder="family@example.com&#10;another-family@example.com"
-              class="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-[#00a4bd] focus:ring-[#00a4bd] sm:text-sm"
+              class="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-[var(--crm-brand-border)] focus:ring-[var(--crm-brand-focus)] sm:text-sm"
               aria-describedby="registration-recipient-help"
             ></textarea>
             <p id="registration-recipient-help" class="crm-ui-hint">
@@ -703,7 +703,7 @@
             type="text"
             bind:value={subject}
             maxlength={SUBJECT_MAX_LENGTH}
-            class="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-[#00a4bd] focus:ring-[#00a4bd] sm:text-sm"
+            class="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-[var(--crm-brand-border)] focus:ring-[var(--crm-brand-focus)] sm:text-sm"
             aria-describedby="announcement-subject-help"
           />
           <p id="announcement-subject-help" class="crm-ui-hint">{subject.length}/{SUBJECT_MAX_LENGTH} characters</p>
@@ -715,7 +715,7 @@
             bind:value={body}
             rows="5"
             maxlength={BODY_MAX_LENGTH}
-            class="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-[#00a4bd] focus:ring-[#00a4bd] sm:text-sm"
+            class="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-[var(--crm-brand-border)] focus:ring-[var(--crm-brand-focus)] sm:text-sm"
             aria-describedby="announcement-body-help"
           ></textarea>
           <p id="announcement-body-help" class="crm-ui-hint">{body.length}/{BODY_MAX_LENGTH} characters</p>
@@ -737,7 +737,7 @@
             idleText={composerKind === 'registration_email' ? 'Create link and send email' : 'Publish announcement'}
             loadingText={composerKind === 'registration_email' ? 'Preparing email…' : 'Publishing…'}
             successText={composerKind === 'registration_email' ? 'Email sent' : 'Published'}
-            class="rounded-md bg-[#00a4bd] px-4 py-2 text-sm font-medium text-white hover:bg-[#008194] disabled:opacity-50"
+            class="rounded-md bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-medium text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)] disabled:opacity-50"
           />
         </div>
       </div>
@@ -786,7 +786,7 @@
             <div class="flex items-start gap-4 p-4">
               <button
                 type="button"
-                class="min-w-0 flex-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1855c5] focus-visible:ring-offset-2"
+                class="min-w-0 flex-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--crm-brand-focus)] focus-visible:ring-offset-2"
                 aria-expanded={expandedMessageIds.has(message.id)}
                 aria-controls={`announcement-details-${message.id}`}
                 on:click={() => toggleMessageDetails(message.id)}

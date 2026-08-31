@@ -244,7 +244,7 @@
           loadingText="Saving..."
           successText="Saved!"
           errorText="Retry Season Update"
-          class="px-4 py-2 bg-[#1855c5] text-white rounded-md text-sm font-semibold hover:bg-[#1546a3] disabled:opacity-50 shadow-xs"
+          class="px-4 py-2 bg-[var(--crm-brand-control)] text-[var(--crm-on-primary)] rounded-md text-sm font-semibold hover:bg-[var(--crm-brand-primary-hover)] disabled:opacity-50 shadow-xs"
         />
       </div>
     </div>

@@ -309,13 +309,13 @@
               {form ? 'Edit Registration Form' : 'Create New Registration Form'}
             </h3>
             <div class="mt-2 flex items-center">
-              <div class="flex items-center text-sm font-medium {currentStep === 1 ? 'text-[#00a4bd]' : 'text-gray-500'}">
-                <span class="flex h-6 w-6 items-center justify-center rounded-full border-2 {currentStep === 1 ? 'border-[#00a4bd]' : 'border-gray-300'} mr-2">1</span>
+              <div class="flex items-center text-sm font-medium {currentStep === 1 ? 'text-[var(--crm-brand-link)]' : 'text-gray-500'}">
+                <span class="flex h-6 w-6 items-center justify-center rounded-full border-2 {currentStep === 1 ? 'border-[var(--crm-brand-border)]' : 'border-gray-300'} mr-2">1</span>
                 Basics
               </div>
               <div class="mx-4 h-px w-8 bg-gray-300"></div>
-              <div class="flex items-center text-sm font-medium {currentStep === 2 ? 'text-[#00a4bd]' : 'text-gray-500'}">
-                <span class="flex h-6 w-6 items-center justify-center rounded-full border-2 {currentStep === 2 ? 'border-[#00a4bd]' : 'border-gray-300'} mr-2">2</span>
+              <div class="flex items-center text-sm font-medium {currentStep === 2 ? 'text-[var(--crm-brand-link)]' : 'text-gray-500'}">
+                <span class="flex h-6 w-6 items-center justify-center rounded-full border-2 {currentStep === 2 ? 'border-[var(--crm-brand-border)]' : 'border-gray-300'} mr-2">2</span>
                 Form Builder
               </div>
             </div>
@@ -369,7 +369,7 @@
               {#each sections as section, sectionIndex (section.id)}
                 <section class="rounded-lg border border-gray-200 bg-gray-50 p-4" aria-label={`Registration step ${sectionIndex + 1}`}>
                   <div class="mb-4 flex items-start gap-3">
-                    <span class="mt-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#1855c5] text-sm font-bold text-white">{sectionIndex + 1}</span>
+                    <span class="mt-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--crm-brand-control)] text-sm font-bold text-[var(--crm-on-primary)]">{sectionIndex + 1}</span>
                     <div class="min-w-0 flex-1 space-y-2">
                       <label>
                         <span class="sr-only">Step {sectionIndex + 1} name</span>
