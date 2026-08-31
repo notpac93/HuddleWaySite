@@ -79,12 +79,12 @@
 
   function calendarDayClass(day: CalendarDay) {
     if (day.isSelected) {
-      return 'bg-[#00a4bd] text-white font-semibold shadow-sm';
+      return 'bg-[var(--crm-brand-control)] text-[var(--crm-on-primary)] font-semibold shadow-sm';
     }
     if (!day.inCurrentMonth) {
       return 'text-gray-300 hover:bg-gray-50';
     }
-    return 'text-gray-700 hover:bg-cyan-50 hover:text-[#007f91]';
+    return 'text-gray-700 hover:bg-[var(--crm-brand-surface)] hover:text-[var(--crm-brand-primary-hover)]';
   }
 
   function readableDate(dateKey: string) {
@@ -272,7 +272,7 @@
           {#each ['S', 'M', 'T', 'W', 'T', 'F', 'S'] as day, i}
             <label class="flex items-center cursor-pointer" title={['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][i]}>
               <input type="checkbox" bind:checked={recurrenceDays[i]} aria-label={['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][i]} class="sr-only" />
-              <span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold {recurrenceDays[i] ? 'bg-[#00a4bd] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'} transition-colors">
+              <span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold {recurrenceDays[i] ? 'bg-[var(--crm-brand-control)] text-[var(--crm-on-primary)]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'} transition-colors">
                 {day}
               </span>
             </label>
@@ -286,12 +286,12 @@
       {/if}
       <div class="mt-4 flex justify-end gap-2">
         <button type="button" on:click={clearDates} class="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md">Clear Selected</button>
-        <button type="button" on:click={generateRecurrentDates} class="px-3 py-1.5 text-xs font-medium text-white bg-[#00a4bd] hover:bg-[#007f91] rounded-md">Apply Rule</button>
+        <button type="button" on:click={generateRecurrentDates} class="px-3 py-1.5 text-xs font-medium text-[var(--crm-on-primary)] bg-[var(--crm-brand-control)] hover:bg-[var(--crm-brand-primary-hover)] rounded-md">Apply Rule</button>
       </div>
 
       <div class="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
         <span class="crm-ui-hint-xs">Need to manually add or remove dates?</span>
-        <button type="button" on:click={() => showCalendar = true} class="text-[#00a4bd] hover:text-[#007f91] text-xs font-semibold">Select specific days</button>
+        <button type="button" on:click={() => showCalendar = true} class="text-[var(--crm-brand-link)] hover:text-[var(--crm-brand-primary-hover)] text-xs font-semibold">Select specific days</button>
       </div>
     </div>
   {:else}
@@ -325,7 +325,7 @@
         <button
           type="button"
           on:click={() => selectCalendarDay(day)}
-          class="relative mx-auto flex h-9 w-9 items-center justify-center rounded-full text-sm transition-colors {calendarDayClass(day)} {day.isToday && !day.isSelected ? 'ring-1 ring-inset ring-[#00a4bd]' : ''}"
+          class="relative mx-auto flex h-9 w-9 items-center justify-center rounded-full text-sm transition-colors {calendarDayClass(day)} {day.isToday && !day.isSelected ? 'ring-1 ring-inset focus:ring-[var(--crm-brand-focus)]' : ''}"
           aria-label={readableDate(day.key)}
           aria-pressed={day.isSelected}
         >
@@ -336,7 +336,7 @@
 
     <div class="mt-4 border-t border-gray-100 pt-3 flex justify-between items-center">
       <button type="button" on:click={() => showCalendar = false} class="text-xs font-semibold text-gray-500 hover:text-gray-700">Back to Rules</button>
-      <button type="button" on:click={() => showCalendar = false} class="px-3 py-1.5 bg-[#00a4bd] text-white text-xs font-semibold rounded-md hover:bg-[#007f91]">Done selecting</button>
+      <button type="button" on:click={() => showCalendar = false} class="px-3 py-1.5 bg-[var(--crm-brand-control)] text-[var(--crm-on-primary)] text-xs font-semibold rounded-md hover:bg-[var(--crm-brand-primary-hover)]">Done selecting</button>
     </div>
   </div>
   {/if}
@@ -353,7 +353,7 @@
               aria-label={`Remove ${readableDate(dateKey)}`}
             >
               {readableDate(dateKey)}
-              <span aria-hidden="true" class="text-cyan-700">×</span>
+              <span aria-hidden="true" class="crm-theme-link">×</span>
             </button>
           {/each}
       </div>

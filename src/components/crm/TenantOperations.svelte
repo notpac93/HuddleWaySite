@@ -197,7 +197,7 @@
             type="search"
             bind:value={search}
             placeholder="Program name or tenant ID"
-            class="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-950 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            class="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-950 shadow-sm focus:border-[var(--crm-brand-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--crm-brand-focus)]"
           >
         </label>
         <label class="text-sm font-semibold text-slate-700">
@@ -229,7 +229,7 @@
           </select>
         </label>
         <div class="flex items-end gap-2">
-          <button type="submit" on:click|preventDefault={() => loadInventory()} class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+          <button type="submit" on:click|preventDefault={() => loadInventory()} class="crm-theme-action rounded-lg px-4 py-2.5 text-sm font-semibold">
             Apply
           </button>
           <button type="button" class="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50" on:click={clearFilters}>
@@ -302,7 +302,7 @@
                   <td class="px-5 py-4 text-right">
                     <button
                       type="button"
-                      class="font-semibold text-blue-700 hover:text-blue-900"
+                      class="crm-theme-link font-semibold"
                       on:click={() => selectedTenant = tenant}
                     >
                       Inspect

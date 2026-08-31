@@ -704,7 +704,7 @@
   >
     <header class="flex items-start justify-between border-b border-gray-200 bg-gray-50 px-5 py-4">
       <div>
-        <p class="text-xs font-semibold uppercase tracking-wide text-[#008194]">
+        <p class="text-xs font-semibold uppercase tracking-wide text-[var(--crm-brand-link)]">
           {createMode ? 'Financial operation' : humanizeStatus(row?.kind)}
         </p>
         <h2 id="finance-detail-title" class="mt-1 text-lg font-semibold text-gray-950">
@@ -720,7 +720,7 @@
       </div>
       <button
         type="button"
-        class="rounded-md p-2 text-gray-500 hover:bg-gray-200 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#00a4bd]"
+        class="rounded-md p-2 text-gray-500 hover:bg-gray-200 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-[var(--crm-brand-focus)]"
         aria-label="Close financial details"
         disabled={submitState === 'loading'}
         on:click={close}
@@ -824,7 +824,7 @@
           </dl>
 
           <label class="flex items-start gap-3 rounded-lg border border-gray-200 p-3 text-sm text-gray-800">
-            <input type="checkbox" bind:checked={impactConfirmed} class="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#00a4bd]" />
+            <input type="checkbox" bind:checked={impactConfirmed} class="mt-0.5 h-4 w-4 rounded border-gray-300 text-[var(--crm-brand-link)]" />
             <span>I reviewed the recipient, line items, integer-minor-unit totals, and understand this creates an unsent draft.</span>
           </label>
 
@@ -888,8 +888,8 @@
 
             {#if safeHostedInvoiceUrl || safeInvoicePdfUrl}
               <div class="flex flex-wrap gap-3">
-                {#if safeHostedInvoiceUrl}<a href={safeHostedInvoiceUrl} target="_blank" rel="noopener noreferrer" class="text-sm font-semibold text-[#00788a] hover:underline">Open hosted invoice</a>{/if}
-                {#if safeInvoicePdfUrl}<a href={safeInvoicePdfUrl} target="_blank" rel="noopener noreferrer" class="text-sm font-semibold text-[#00788a] hover:underline">Open invoice PDF</a>{/if}
+                {#if safeHostedInvoiceUrl}<a href={safeHostedInvoiceUrl} target="_blank" rel="noopener noreferrer" class="crm-theme-link text-sm font-semibold hover:underline">Open hosted invoice</a>{/if}
+                {#if safeInvoicePdfUrl}<a href={safeInvoicePdfUrl} target="_blank" rel="noopener noreferrer" class="crm-theme-link text-sm font-semibold hover:underline">Open invoice PDF</a>{/if}
               </div>
             {/if}
             {#if directInvoice.hostedInvoiceUrl && !safeHostedInvoiceUrl}
@@ -1040,7 +1040,7 @@
             </div>
 
             <label class="flex items-start gap-3 rounded-md border border-gray-200 bg-white p-3 text-sm text-gray-800">
-              <input type="checkbox" bind:checked={impactConfirmed} class="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#00a4bd]" />
+              <input type="checkbox" bind:checked={impactConfirmed} class="mt-0.5 h-4 w-4 rounded border-gray-300 text-[var(--crm-brand-link)]" />
               <span>I reviewed the amount, scope, status transition, and downstream impact described above.</span>
             </label>
 

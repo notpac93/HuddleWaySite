@@ -267,7 +267,7 @@
                   {#each registrationForms as form (form.id)}
                     <option value={form.id}>{form.title}</option>
                   {/each}
-                  <option value="CREATE_NEW" class="font-bold text-indigo-600">+ Create New Form</option>
+                  <option value="CREATE_NEW" class="font-bold text-[var(--crm-brand-link)]">+ Create New Form</option>
                 </select>
                 {#if registrationFormsLoading}
                   <p class="mt-2 text-xs text-gray-600" role="status">Loading registration forms…</p>
@@ -294,7 +294,7 @@
           idleText="Create Season"
           loadingText="Creating..."
           successText="Created!"
-          class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-[#1855c5] text-base font-medium text-white hover:bg-[#1546a3] focus:outline-none sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-[var(--crm-brand-control)] text-base font-medium text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)] focus:outline-none sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         />
         <button
           type="button"

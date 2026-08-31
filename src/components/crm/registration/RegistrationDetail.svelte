@@ -190,12 +190,12 @@
     <button type="button" aria-label="Back to registration forms" on:click={goBack} class="text-gray-400 hover:text-gray-600 transition-colors bg-gray-50 hover:bg-gray-100 p-1.5 rounded-md">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
     </button>
-    <h1 class="text-[28px] font-extrabold text-[#0f2142] leading-none tracking-tight">{selectedForm.name}</h1>
+    <h1 class="text-[28px] font-extrabold text-[var(--crm-brand-link)] leading-none tracking-tight">{selectedForm.name}</h1>
   </div>
   <button
     type="button"
     on:click={() => dispatch('edit')}
-    class="bg-[#f0f4fa] text-[#1855c5] border border-blue-100 px-4 py-1.5 rounded text-sm font-semibold hover:bg-[#e4ebf6] flex items-center transition-colors"
+    class="bg-[var(--crm-brand-surface)] text-[var(--crm-brand-link)] border border-[var(--crm-brand-border)] px-4 py-1.5 rounded text-sm font-semibold hover:bg-[var(--crm-brand-surface-strong)] flex items-center transition-colors"
   >
     <svg class="w-3.5 h-3.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 11l6-6 4 4-6 6H9v-4z"></path></svg>
     Edit Registration Form
@@ -282,7 +282,7 @@
 
 <!-- Connected Events Table -->
 <div class="mb-8">
-  <h2 class="text-lg font-bold text-[#0f2142] mb-3">Connected Events</h2>
+  <h2 class="text-lg font-bold text-[var(--crm-brand-link)] mb-3">Connected Events</h2>
   <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
   <div class="border border-gray-200 rounded overflow-x-auto shadow-sm" role="region" tabindex="0" aria-label="Scrollable connected events table">
     <table class="crm-ui-table">
@@ -320,7 +320,7 @@
   </div>
 </div>
 
-<h2 class="text-lg font-bold text-[#0f2142] mb-3">Form Participants</h2>
+<h2 class="text-lg font-bold text-[var(--crm-brand-link)] mb-3">Form Participants</h2>
 <!-- Participant Table Toolbar -->
 <div class="flex space-x-3 mb-2">
   <div class="relative flex-1">
@@ -332,20 +332,20 @@
       <input
       type="search"
       bind:value={searchQuery}
-      class="block w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#1855c5] shadow-sm"
+      class="block w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[var(--crm-brand-border)] shadow-sm"
       placeholder="Search by participant name or email"
       />
     </label>
   </div>
   {#if searchQuery}
-    <button type="button" on:click={handleClearAll} class="text-[#1855c5] text-xs hover:underline">Clear search</button>
+    <button type="button" on:click={handleClearAll} class="text-[var(--crm-brand-link)] text-xs hover:underline">Clear search</button>
   {/if}
   <button
     type="button"
     on:click={handleExport}
     disabled={filteredParticipants.length === 0}
     title={filteredParticipants.length === 0 ? 'There are no matching participants to export.' : undefined}
-    class="bg-white text-[#1855c5] border border-gray-300 px-3 py-1.5 rounded text-sm font-semibold hover:bg-gray-50 flex items-center shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+    class="bg-white text-[var(--crm-brand-link)] border border-gray-300 px-3 py-1.5 rounded text-sm font-semibold hover:bg-gray-50 flex items-center shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
   >
     <svg class="w-3.5 h-3.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
     Export
@@ -360,7 +360,7 @@
     <thead class="bg-white">
       <tr>
         <th scope="col" class="px-4 py-3 text-left">
-          <input type="checkbox" aria-label="Select all participants on this page" checked={pageSelected} disabled={isLoadingParticipants || pageParticipantIds.length === 0} on:change={toggleSelectAll} class="rounded border-gray-300 text-[#1855c5] focus:ring-[#1855c5] disabled:cursor-not-allowed disabled:opacity-50">
+          <input type="checkbox" aria-label="Select all participants on this page" checked={pageSelected} disabled={isLoadingParticipants || pageParticipantIds.length === 0} on:change={toggleSelectAll} class="rounded border-gray-300 text-[var(--crm-brand-link)] focus:ring-[var(--crm-brand-focus)] disabled:cursor-not-allowed disabled:opacity-50">
         </th>
         <th scope="col" class="crm-ui-th-blue">Registration Status</th>
         <th scope="col" class="crm-ui-th-blue">Date &uarr;</th>
@@ -380,13 +380,13 @@
         </tr>
       {:else}
         {#each paginatedParticipants as p (p.id)}
-          <tr class="hover:bg-gray-50 {selectedParticipants.has(p.id) ? 'bg-blue-50' : ''}">
+          <tr class="hover:bg-gray-50 {selectedParticipants.has(p.id) ? 'crm-theme-selected' : ''}">
             <td class="px-4 py-3 whitespace-nowrap">
               <input type="checkbox" aria-label={`Select ${p.participantName || p.id || 'unavailable participant'}`} checked={Boolean(p.id) && selectedParticipants.has(p.id)} disabled={!p.id} on:change={() => p.id && toggleSelect(p.id)} class="crm-ui-participant-checkbox">
             </td>
             <td class="crm-ui-td">{p.status || 'Unsupported status'}</td>
             <td class="crm-ui-td">{formatRegistrationDate(p.date)}</td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-[#1855c5]">{p.participantName || 'Participant name unavailable'}</td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-[var(--crm-brand-link)]">{p.participantName || 'Participant name unavailable'}</td>
             <td class="crm-ui-td">{selectedForm.program || 'Unavailable'}</td>
             <td class="crm-ui-td">{p.financialStatus || 'Unavailable'}</td>
           </tr>

@@ -138,7 +138,7 @@
         <nav class="space-y-1">
           {#each categories as category}
             <button
-              class="w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors {activeCategory === category ? 'bg-blue-50 text-[#1a56db]' : 'text-gray-700 hover:bg-gray-50'}"
+              class="w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors {activeCategory === category ? 'crm-theme-selected' : 'text-gray-700 hover:bg-gray-50'}"
               on:click={() => activeCategory = category}
             >
               {category}
@@ -164,7 +164,7 @@
             <input
             type="search"
             bind:value={searchQuery}
-            class="block w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#1a56db]"
+            class="block w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[var(--crm-brand-border)]"
             placeholder="Search files..."
             />
           </label>

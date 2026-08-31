@@ -274,7 +274,7 @@
   {#if !selectedFormId}
     <!-- Overview Dashboard -->
     <div class="flex justify-end items-center mb-2">
-      <button on:click={openNewRegistrationForm} class="bg-[#1855c5] text-white px-4 py-2 rounded text-sm font-semibold hover:bg-[#1546a3] flex items-center shadow-sm">
+      <button on:click={openNewRegistrationForm} class="bg-[var(--crm-brand-control)] text-[var(--crm-on-primary)] px-4 py-2 rounded text-sm font-semibold hover:bg-[var(--crm-brand-primary-hover)] flex items-center shadow-sm">
         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
         Create New Registration Form
       </button>
@@ -315,7 +315,7 @@
           <input
           type="search"
           bind:value={searchQuery}
-          class="block w-full pl-9 pr-3 py-2 border border-gray-300 rounded text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#1855c5]"
+          class="block w-full pl-9 pr-3 py-2 border border-gray-300 rounded text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[var(--crm-brand-border)]"
           placeholder="Search forms by name or program"
           />
         </label>

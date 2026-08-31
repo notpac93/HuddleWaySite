@@ -164,9 +164,9 @@ describe('SetupWorkflow corrective navigation and retries', () => {
       branding: {
         logoUrl: '',
         colors: {
-          primary: '#1a56db',
-          secondary: '#E5E7EB',
-          accent: '#D32F2F',
+          primary: '#003366',
+          secondary: '#C6A95B',
+          accent: '#FFFFFF',
         },
         pageLabels: {},
       },

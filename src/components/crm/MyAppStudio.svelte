@@ -535,8 +535,7 @@
           type="button"
           disabled={submitState === 'loading'}
           aria-pressed={activeTab === tab}
-          class="px-4 py-2 text-sm font-medium border-b-2 transition-colors {activeTab !== tab ? 'border-transparent text-gray-500 hover:text-gray-700' : ''}"
-          style={activeTab === tab ? `border-color: ${primaryColor}; color: ${primaryColor};` : ''}
+          class="px-4 py-2 text-sm font-medium border-b-2 transition-colors {activeTab !== tab ? 'border-transparent text-gray-500 hover:text-gray-700' : 'border-[var(--crm-brand-border)] text-[var(--crm-brand-link)]'}"
           on:click={() => activeTab = tab}
         >
           {tab}
@@ -589,7 +588,6 @@
               maxlength="160"
               disabled={submitState === 'loading'}
               class="crm-ui-studio-name"
-              style="outline-color: {primaryColor}"
             />
           </div>
 
@@ -633,14 +631,12 @@
                       maxlength="80"
                       disabled={submitState === 'loading'}
                       class="mt-1 w-full max-w-xs rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none"
-                      style="outline-color: {primaryColor}"
                     />
                   </div>
                   <button
                     type="button"
                     disabled={submitState === 'loading'}
-                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {tab.enabled ? '' : 'bg-gray-200'}"
-                    style={tab.enabled ? `background-color: ${primaryColor};` : ''}
+                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {tab.enabled ? 'bg-[var(--crm-brand-control)]' : 'bg-gray-200'}"
                     aria-label={`${tab.enabled ? 'Hide' : 'Show'} ${permanentTabName(tab)} tab`}
                     aria-pressed={tab.enabled}
                     on:click={() => { tab.enabled = !tab.enabled; tabsConfig = tabsConfig; }}
@@ -669,7 +665,6 @@
         successText="Saved!"
         errorText="Retry Publish"
         class="crm-ui-studio-publish"
-        style="background-color: {primaryColor};"
       />
     </div>
     <p class="px-4 pb-3 text-right text-xs text-gray-500">
@@ -684,7 +679,7 @@
   <!-- Right Pane: Live Preview -->
   <div class="crm-ui-studio-preview">
     <!-- Abstract pattern background -->
-    <div class="absolute inset-0 opacity-5" style="background-image: radial-gradient(#00a4bd 1px, transparent 1px); background-size: 20px 20px;"></div>
+    <div class="absolute inset-0 opacity-5" style="background-image: radial-gradient(var(--crm-brand-primary) 1px, transparent 1px); background-size: 20px 20px;"></div>
 
     <!-- Top Right: Logo Upload & Colors -->
     <div class="flex justify-end mb-6 z-20">
@@ -711,7 +706,7 @@
                 </div>
                 <div class="text-xs text-gray-500 font-medium">Primary</div>
               </div>
-              <input type="text" bind:value={primaryColor} aria-label="Primary brand color hex value" maxlength="7" pattern={'^#[0-9a-fA-F]{6}$'} disabled={submitState === 'loading'} class="crm-ui-studio-color-hex" style="outline-color: {primaryColor}" />
+              <input type="text" bind:value={primaryColor} aria-label="Primary brand color hex value" maxlength="7" pattern={'^#[0-9a-fA-F]{6}$'} disabled={submitState === 'loading'} class="crm-ui-studio-color-hex" />
             </div>
             <!-- Secondary Color -->
             <div class="flex flex-col space-y-1">
@@ -722,7 +717,7 @@
                 </div>
                 <div class="text-xs text-gray-500 font-medium">Secondary</div>
               </div>
-              <input type="text" bind:value={secondaryColor} aria-label="Secondary brand color hex value" maxlength="7" pattern={'^#[0-9a-fA-F]{6}$'} disabled={submitState === 'loading'} class="crm-ui-studio-color-hex" style="outline-color: {primaryColor}" />
+              <input type="text" bind:value={secondaryColor} aria-label="Secondary brand color hex value" maxlength="7" pattern={'^#[0-9a-fA-F]{6}$'} disabled={submitState === 'loading'} class="crm-ui-studio-color-hex" />
             </div>
             <!-- Tertiary Color -->
             <div class="flex flex-col space-y-1">
@@ -733,7 +728,7 @@
                 </div>
                 <div class="text-xs text-gray-500 font-medium">Tertiary</div>
               </div>
-              <input type="text" bind:value={tertiaryColor} aria-label="Tertiary brand color hex value" maxlength="7" pattern={'^#[0-9a-fA-F]{6}$'} disabled={submitState === 'loading'} class="crm-ui-studio-color-hex" style="outline-color: {primaryColor}" />
+              <input type="text" bind:value={tertiaryColor} aria-label="Tertiary brand color hex value" maxlength="7" pattern={'^#[0-9a-fA-F]{6}$'} disabled={submitState === 'loading'} class="crm-ui-studio-color-hex" />
             </div>
           </div>
         </div>

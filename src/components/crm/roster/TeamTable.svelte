@@ -73,7 +73,7 @@
     </div>
     <button
       type="button"
-      class="inline-flex items-center justify-center rounded-md bg-[#1a56db] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#1e40af]"
+      class="inline-flex items-center justify-center rounded-md bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-medium text-[var(--crm-on-primary)] shadow-sm hover:bg-[var(--crm-brand-primary-hover)]"
       on:click={openCreate}
     >
       + Create Team
@@ -85,7 +85,7 @@
     <input
       type="search"
       bind:value={searchTerm}
-      class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#1a56db] focus:outline-none focus:ring-1 focus:ring-[#1a56db]"
+      class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--crm-brand-border)] focus:outline-none focus:ring-1 focus:ring-[var(--crm-brand-focus)]"
       placeholder="Search teams..."
     />
   </label>
@@ -106,7 +106,7 @@
         <article class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
           <div class="flex items-start justify-between gap-4">
             <div class="min-w-0">
-              <p class="text-xs font-semibold uppercase tracking-wide text-[#1a56db]">
+              <p class="text-xs font-semibold uppercase tracking-wide text-[var(--crm-brand-link)]">
                 {parentTeamName || 'Organization'}
               </p>
               <h4 class="mt-1 truncate text-lg font-semibold text-gray-950">{team.name}</h4>
@@ -127,8 +127,8 @@
             </div>
           </dl>
           <div class="mt-5 flex items-center justify-between gap-3">
-            <button type="button" class="text-sm font-medium text-gray-600 hover:text-[#1a56db]" on:click={() => openEdit(team)}>Edit</button>
-            <button type="button" class="rounded-md bg-blue-50 px-3 py-2 text-sm font-semibold text-[#1a56db] hover:bg-blue-100" on:click={() => setActiveTeam(team)}>Open team</button>
+            <button type="button" class="text-sm font-medium text-gray-600 hover:text-[var(--crm-brand-link)]" on:click={() => openEdit(team)}>Edit</button>
+            <button type="button" class="rounded-md bg-[var(--crm-brand-surface)] px-3 py-2 text-sm font-semibold text-[var(--crm-brand-link)] hover:bg-[var(--crm-brand-surface-strong)]" on:click={() => setActiveTeam(team)}>Open team</button>
           </div>
         </article>
       {/each}
@@ -146,7 +146,7 @@
             : 'Create the first team for this organization.'}
       </p>
       {#if !normalizedSearch}
-        <button type="button" class="mt-5 rounded-md bg-[#1a56db] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1e40af]" on:click={openCreate}>Create Team</button>
+        <button type="button" class="mt-5 rounded-md bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-semibold text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)]" on:click={openCreate}>Create Team</button>
       {/if}
     </div>
   {/if}

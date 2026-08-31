@@ -491,7 +491,7 @@
 
       <button
         type="submit"
-        class="mt-4 rounded-md border border-[#008194] bg-white px-3 py-2 text-sm font-semibold text-[#006d7c] hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-50"
+        class="crm-theme-link mt-4 rounded-md border border-[var(--crm-brand-border)] bg-white px-3 py-2 text-sm font-semibold hover:bg-[var(--crm-brand-surface)] disabled:cursor-not-allowed disabled:opacity-50"
         disabled={Boolean(periodValidationError) || previewState === 'loading' || !tenantId}
       >
         {previewState === 'loading' ? 'Previewing…' : 'Preview'}

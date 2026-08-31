@@ -131,7 +131,7 @@
       type="button"
       on:click={refreshActivities}
       disabled={isLoading || isLoadingMore || !$tenantIdStore}
-      class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+      class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--crm-brand-focus)] disabled:cursor-not-allowed disabled:opacity-60"
     >
       <svg class="-ml-1 mr-2 h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -144,7 +144,7 @@
     <div class="max-w-4xl mx-auto">
       {#if isLoading}
         <div class="flex justify-center items-center py-12">
-          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" role="status" aria-label="Loading activity"></div>
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--crm-brand-primary)]" role="status" aria-label="Loading activity"></div>
         </div>
       {:else if errorMessage}
         <div class="rounded-lg border border-red-200 bg-red-50 p-6 text-center" role="alert">

@@ -236,13 +236,13 @@
           bind:value={searchQuery}
           on:input={handleSearchInput}
           placeholder={searchPlaceholder}
-          class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#1a56db] focus:outline-none focus:ring-[#1a56db]"
+          class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--crm-brand-border)] focus:outline-none focus:ring-[var(--crm-brand-focus)]"
         />
       </label>
       {#if filterable}
         <button
           type="button"
-          class="inline-flex items-center justify-center rounded-md bg-[#1a56db] px-3 py-2 text-sm font-medium text-white hover:bg-[#1e40af]"
+          class="inline-flex items-center justify-center rounded-md bg-[var(--crm-brand-control)] px-3 py-2 text-sm font-medium text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)]"
           aria-expanded={filterExpanded}
           on:click={() => dispatch('filter')}
         >
@@ -311,7 +311,7 @@
                   bind:this={selectAllCheckbox}
                   type="checkbox"
                   aria-label="Select all records on this page"
-                  class="h-4 w-4 cursor-pointer rounded border-gray-300 text-[#1a56db] focus:ring-[#1a56db]"
+                  class="h-4 w-4 cursor-pointer rounded border-gray-300 text-[var(--crm-brand-link)] focus:ring-[var(--crm-brand-focus)]"
                   checked={currentPageSelected}
                   on:change={togglePage}
                 />
@@ -342,7 +342,7 @@
           {#each pageRows as row (stableId(row))}
             <tr
               data-record-id={stableId(row)}
-              class="hover:bg-gray-50 {selectedRows.has(stableId(row)) ? 'bg-blue-50' : ''} {activeRowId === stableId(row) ? 'ring-2 ring-inset ring-blue-500' : ''}"
+              class="hover:bg-gray-50 {selectedRows.has(stableId(row)) ? 'crm-theme-selected' : ''} {activeRowId === stableId(row) ? 'ring-2 ring-inset ring-[var(--crm-brand-focus)]' : ''}"
               tabindex="-1"
             >
               {#if selectable}
@@ -350,7 +350,7 @@
                   <input
                     type="checkbox"
                     aria-label={`Select ${row.name || row.title || stableId(row)}`}
-                    class="h-4 w-4 cursor-pointer rounded border-gray-300 text-[#1a56db] focus:ring-[#1a56db]"
+                    class="h-4 w-4 cursor-pointer rounded border-gray-300 text-[var(--crm-brand-link)] focus:ring-[var(--crm-brand-focus)]"
                     checked={selectedRows.has(stableId(row))}
                     on:change={() => toggleRow(row)}
                   />
@@ -371,14 +371,14 @@
       {#each pageRows as row (stableId(row))}
         <article
           data-record-id={stableId(row)}
-          class="rounded-lg border bg-white p-4 shadow-sm {selectedRows.has(stableId(row)) ? 'border-blue-400 bg-blue-50' : 'border-gray-200'} {activeRowId === stableId(row) ? 'ring-2 ring-blue-500' : ''}"
+          class="rounded-lg border bg-white p-4 shadow-sm {selectedRows.has(stableId(row)) ? 'crm-theme-selected' : 'border-gray-200'} {activeRowId === stableId(row) ? 'ring-2 ring-[var(--crm-brand-focus)]' : ''}"
           tabindex="-1"
         >
           {#if selectable}
             <label class="mb-3 flex items-center gap-2 text-sm font-medium text-gray-700">
               <input
                 type="checkbox"
-                class="h-4 w-4 rounded border-gray-300 text-[#1a56db] focus:ring-[#1a56db]"
+                class="h-4 w-4 rounded border-gray-300 text-[var(--crm-brand-link)] focus:ring-[var(--crm-brand-focus)]"
                 checked={selectedRows.has(stableId(row))}
                 on:change={() => toggleRow(row)}
               />

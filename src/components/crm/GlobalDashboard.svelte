@@ -189,8 +189,8 @@
     <div class="bg-white overflow-hidden shadow rounded-lg">
       <div class="p-5">
         <div class="crm-ui-center">
-          <div class="flex-shrink-0 bg-green-100 rounded-md p-3">
-            <svg class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div class="flex-shrink-0 bg-[var(--crm-brand-surface)] rounded-md p-3">
+            <svg class="h-6 w-6 text-[var(--crm-brand-link)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2v20m5-16H9a3 3 0 000 6h6a3 3 0 010 6H7" />
             </svg>
           </div>
@@ -228,8 +228,8 @@
     <div class="bg-white overflow-hidden shadow rounded-lg">
       <div class="p-5">
         <div class="crm-ui-center">
-          <div class="flex-shrink-0 bg-blue-100 rounded-md p-3">
-            <svg class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div class="flex-shrink-0 bg-[var(--crm-brand-surface)] rounded-md p-3">
+            <svg class="h-6 w-6 text-[var(--crm-brand-link)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2m7-10a4 4 0 100-8 4 4 0 000 8" />
             </svg>
           </div>
@@ -249,8 +249,8 @@
     <div class="bg-white overflow-hidden shadow rounded-lg">
       <div class="p-5">
         <div class="crm-ui-center">
-          <div class="flex-shrink-0 bg-indigo-100 rounded-md p-3">
-            <svg class="h-6 w-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div class="flex-shrink-0 bg-[var(--crm-brand-surface)] rounded-md p-3">
+            <svg class="h-6 w-6 text-[var(--crm-brand-link)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16v4H4zm0 6h16v4H4z" />
             </svg>
           </div>
@@ -270,8 +270,8 @@
     <div class="bg-white overflow-hidden shadow rounded-lg">
       <div class="p-5">
         <div class="crm-ui-center">
-          <div class="flex-shrink-0 bg-purple-100 rounded-md p-3">
-            <svg class="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div class="flex-shrink-0 bg-[var(--crm-brand-surface)] rounded-md p-3">
+            <svg class="h-6 w-6 text-[var(--crm-brand-link)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 3v4m10-4v4M5 10h14v11H5z" />
             </svg>
           </div>
@@ -302,7 +302,7 @@
             <li>
               <div class="px-4 py-4 sm:px-6 hover:bg-gray-50">
                 <div class="crm-ui-between">
-                  <p class="text-sm font-medium text-[#1a56db] truncate">{reg.participantName || 'Participant name unavailable'}</p>
+                  <p class="text-sm font-medium text-[var(--crm-brand-link)] truncate">{reg.participantName || 'Participant name unavailable'}</p>
                 </div>
                 <div class="mt-2 sm:flex sm:justify-between">
                   <div class="sm:flex">
@@ -338,15 +338,15 @@
       </div>
       <div class="p-6">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <button type="button" on:click={openCreateEvent} class="flex flex-col items-center justify-center p-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 hover:border-[#1a56db] hover:bg-blue-50 transition-colors">
-            <svg class="h-8 w-8 text-[#1a56db] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <button type="button" on:click={openCreateEvent} class="flex flex-col items-center justify-center p-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 hover:border-[var(--crm-brand-border)] hover:bg-[var(--crm-brand-surface)] transition-colors">
+            <svg class="h-8 w-8 text-[var(--crm-brand-link)] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
             </svg>
             <span class="text-sm font-medium text-gray-900">Create Event</span>
           </button>
 
-          <button type="button" on:click={openStaffInvite} disabled={!isOwner} title={!isOwner ? 'Only organization owners can invite staff.' : undefined} class="flex flex-col items-center justify-center p-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 hover:border-[#1a56db] hover:bg-blue-50 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
-            <svg class="h-8 w-8 text-[#1a56db] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <button type="button" on:click={openStaffInvite} disabled={!isOwner} title={!isOwner ? 'Only organization owners can invite staff.' : undefined} class="flex flex-col items-center justify-center p-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 hover:border-[var(--crm-brand-border)] hover:bg-[var(--crm-brand-surface)] transition-colors disabled:cursor-not-allowed disabled:opacity-50">
+            <svg class="h-8 w-8 text-[var(--crm-brand-link)] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
             </svg>
             <span class="text-sm font-medium text-gray-900">Add Staff</span>

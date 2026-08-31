@@ -134,13 +134,13 @@
                     <ul class="space-y-1">
                       {#each filteredPlayers as player (player.id)}
                         <li>
-                          <button type="button" class="flex w-full items-center justify-between p-2 hover:bg-blue-50 rounded-md cursor-pointer group text-left" on:click={() => openResult('Roster', player.id)}>
+                          <button type="button" class="flex w-full items-center justify-between p-2 hover:bg-[var(--crm-brand-surface)] rounded-md cursor-pointer group text-left" on:click={() => openResult('Roster', player.id)}>
                           <div class="crm-ui-center">
-                            <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-[#1a56db] font-bold mr-3">
+                            <div class="h-8 w-8 rounded-full bg-[var(--crm-brand-surface)] flex items-center justify-center text-[var(--crm-brand-link)] font-bold mr-3">
                               {((player.participantName || '?').charAt(0)).toUpperCase()}
                             </div>
                             <div>
-                              <p class="text-sm font-medium text-gray-900 group-hover:text-[#1a56db]">{player.participantName || 'Participant name unavailable'}</p>
+                              <p class="text-sm font-medium text-gray-900 group-hover:text-[var(--crm-brand-link)]">{player.participantName || 'Participant name unavailable'}</p>
                               <p class="crm-ui-hint-xs">{player.email || 'Email unavailable'}</p>
                             </div>
                           </div>
@@ -159,13 +159,13 @@
                     <ul class="space-y-1">
                       {#each filteredTeams as team (team.id)}
                         <li>
-                          <button type="button" class="flex w-full items-center justify-between p-2 hover:bg-blue-50 rounded-md cursor-pointer group text-left" on:click={() => openResult('Teams', team.id)}>
+                          <button type="button" class="flex w-full items-center justify-between p-2 hover:bg-[var(--crm-brand-surface)] rounded-md cursor-pointer group text-left" on:click={() => openResult('Teams', team.id)}>
                           <div class="crm-ui-center">
                             <div class="h-8 w-8 rounded-md bg-gray-100 flex items-center justify-center text-gray-500 mr-3">
                               <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                             </div>
                             <div>
-                              <p class="text-sm font-medium text-gray-900 group-hover:text-[#1a56db]">{team.name}</p>
+                              <p class="text-sm font-medium text-gray-900 group-hover:text-[var(--crm-brand-link)]">{team.name}</p>
                               <p class="crm-ui-hint-xs">{team.description || 'Team details unavailable'}</p>
                             </div>
                           </div>
@@ -184,13 +184,13 @@
                     <ul class="space-y-1">
                       {#each filteredEvents as event (event.id)}
                         <li>
-                          <button type="button" class="flex w-full items-center justify-between p-2 hover:bg-blue-50 rounded-md cursor-pointer group text-left" on:click={() => openResult('Events', event.id)}>
+                          <button type="button" class="flex w-full items-center justify-between p-2 hover:bg-[var(--crm-brand-surface)] rounded-md cursor-pointer group text-left" on:click={() => openResult('Events', event.id)}>
                           <div class="crm-ui-center">
                             <div class="h-8 w-8 rounded-md bg-purple-100 flex items-center justify-center text-purple-600 mr-3">
                               <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
                             </div>
                             <div>
-                              <p class="text-sm font-medium text-gray-900 group-hover:text-[#1a56db]">{event.title}</p>
+                              <p class="text-sm font-medium text-gray-900 group-hover:text-[var(--crm-brand-link)]">{event.title}</p>
                               <p class="crm-ui-hint-xs">{event.type || 'Event type unavailable'}</p>
                             </div>
                           </div>

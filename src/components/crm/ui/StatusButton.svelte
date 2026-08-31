@@ -14,7 +14,7 @@
   export { styleValue as style };
 
   // Helper to append status-based styling dynamically, or just rely on the parent's classes for bg color
-  // Most parent components are passing their own colors (e.g. bg-[#00a4bd], bg-indigo-600)
+  // Most parent components are passing their own colors (e.g. bg-[var(--crm-brand-control)], bg-[var(--crm-brand-control)])
   // When in success or error state, we might want to override the color.
   $: computedClass = `${className} relative inline-flex items-center justify-center transition-colors duration-200 ` +
     (state === 'success' ? '!bg-emerald-600 hover:!bg-emerald-700 !border-emerald-600 text-white ' : '') +

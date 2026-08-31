@@ -23,7 +23,7 @@
     {:else}
       <button
         type="button"
-        class="hidden truncate font-medium text-gray-600 transition-colors hover:text-[#1a56db] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a56db] sm:inline"
+        class="hidden truncate font-medium text-gray-600 transition-colors hover:text-[var(--crm-brand-link)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--crm-brand-focus)] sm:inline"
         on:click={item.onSelect}
       >{item.label}</button>
     {/if}

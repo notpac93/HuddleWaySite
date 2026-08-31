@@ -328,7 +328,7 @@
       <h2 class="crm-ui-page-title">Staff access</h2>
       <p class="text-sm text-gray-500">Review active organization memberships and pending invitations.</p>
     </div>
-    <button type="button" on:click={() => showModal = true} class="rounded-md bg-[#1a56db] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#1e40af]">
+    <button type="button" on:click={() => showModal = true} class="rounded-md bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-medium text-[var(--crm-on-primary)] shadow-sm hover:bg-[var(--crm-brand-primary-hover)]">
       Invite staff
     </button>
   </div>
@@ -340,8 +340,8 @@
 
   <div class="border-b border-gray-200">
     <nav class="-mb-px flex gap-8" aria-label="Staff views">
-      <button type="button" class="whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium {activeTab === 'Directory' ? 'border-[#1a56db] text-[#1a56db]' : 'border-transparent text-gray-500'}" aria-current={activeTab === 'Directory' ? 'page' : undefined} on:click={() => activeTab = 'Directory'}>Staff directory</button>
-      <button type="button" class="whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium {activeTab === 'Invites' ? 'border-[#1a56db] text-[#1a56db]' : 'border-transparent text-gray-500'}" aria-current={activeTab === 'Invites' ? 'page' : undefined} on:click={() => activeTab = 'Invites'}>Pending invites</button>
+      <button type="button" class="whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium {activeTab === 'Directory' ? 'border-[var(--crm-brand-border)] text-[var(--crm-brand-link)]' : 'border-transparent text-gray-500'}" aria-current={activeTab === 'Directory' ? 'page' : undefined} on:click={() => activeTab = 'Directory'}>Staff directory</button>
+      <button type="button" class="whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium {activeTab === 'Invites' ? 'border-[var(--crm-brand-border)] text-[var(--crm-brand-link)]' : 'border-transparent text-gray-500'}" aria-current={activeTab === 'Invites' ? 'page' : undefined} on:click={() => activeTab = 'Invites'}>Pending invites</button>
     </nav>
   </div>
 
@@ -411,7 +411,7 @@
               <td class="px-6 py-4 text-sm text-gray-700">{staff.active ? 'Active membership' : 'Inactive membership'}{staff.emailVerified ? ' · verified email' : ' · email unverified'}</td>
               <td class="px-6 py-4 text-sm text-gray-500">{formatDate(staff.joinedAt)}</td>
               <td class="px-6 py-4 text-right">
-                <button type="button" class="text-sm font-medium text-blue-700 hover:text-blue-900" on:click={() => openManageDialog(staff)}>Manage access</button>
+                <button type="button" class="crm-theme-link text-sm font-medium" on:click={() => openManageDialog(staff)}>Manage access</button>
               </td>
             </tr>
           {/each}

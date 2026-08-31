@@ -88,7 +88,7 @@
     >
       <svelte:fragment slot="cell" let:row let:column>
         {#if column.key === 'name'}
-          <button type="button" class="text-sm font-medium text-[#1855c5] hover:underline" on:click={() => openFormDetails(row)}>
+          <button type="button" class="text-sm font-medium text-[var(--crm-brand-link)] hover:underline" on:click={() => openFormDetails(row)}>
             {row.name}
           </button>
         {:else if column.key === 'status'}
