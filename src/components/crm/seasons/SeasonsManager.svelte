@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { tenantIdStore } from '../../../lib/authStore';
   import {
     DataStore,
@@ -17,6 +18,7 @@
   import SeasonDetail from './SeasonDetail.svelte';
 
   export let activeTeam: any = null;
+  export let onNavigateTab: (tab: string, id?: string | null) => void = () => {};
 
   let showCreateModal = false;
   let editingSeason: any = null;
@@ -24,7 +26,10 @@
   let selectedSeasonSignature = '';
   let searchQuery = '';
   let viewMode: 'cards' | 'table' = 'cards';
+  let statusFilter = 'all';
+  let dateFilter = 'all';
   let loadedTenantId = '';
+  let viewPreferenceLoaded = false;
   let filteredSeasons: any[] = [];
 
   const statuses = ['active', 'upcoming', 'completed', 'archived'];
@@ -114,8 +119,19 @@
           .toLowerCase()
           .includes(searchQuery.trim().toLowerCase())
       )
+      .filter((season) => statusFilter === 'all' || String(season.status || '').toLowerCase() === statusFilter)
+      .filter((season) => {
+        if (dateFilter === 'all') return true;
+        const today = new Date().toISOString().slice(0, 10);
+        const start = dateKey(season.startDate);
+        const end = dateKey(season.endDate);
+        if (dateFilter === 'current') return (!start || start <= today) && (!end || end >= today);
+        if (dateFilter === 'future') return Boolean(start && start > today);
+        return Boolean(end && end < today);
+      })
       .map(decorate);
   }
+  $: if (viewPreferenceLoaded && typeof window !== 'undefined') window.localStorage.setItem('huddleway-season-view', viewMode);
   $: if (selectedSeason) {
     const source = scopedSeasons.find(
       (season) => season.id === selectedSeason.id,
@@ -159,12 +175,19 @@
     const image = event.currentTarget as HTMLImageElement;
     if (image.src !== fallbackImage) image.src = fallbackImage;
   }
+
+  onMount(() => {
+    const saved = window.localStorage.getItem('huddleway-season-view');
+    if (saved === 'cards' || saved === 'table') viewMode = saved;
+    viewPreferenceLoaded = true;
+  });
 </script>
 
 <div class="h-full overflow-y-auto bg-gray-50/50 p-6 md:p-8">
   {#if selectedSeason}
     <SeasonDetail
       season={selectedSeason}
+      {onNavigateTab}
       on:back={() => {
         selectedSeason = null;
         selectedSeasonSignature = '';
@@ -174,7 +197,7 @@
     <header class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
       <div>
         <h2 class="text-xl font-bold text-gray-900">Seasons & Leagues</h2>
-        <p class="crm-ui-hint-xs">Manage seasons, registration links, graphics, and events.</p>
+        <p class="crm-ui-hint-xs">Manage seasons, registration links, payment scope, rosters, and events.</p>
       </div>
       <button
           type="button"
@@ -187,10 +210,16 @@
     </header>
 
     <section class="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-3" aria-label="Season list controls">
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <label class="min-w-0 flex-1">
           <span class="sr-only">Search seasons</span>
           <input type="search" bind:value={searchQuery} class="crm-ui-field bg-white" placeholder="Search seasons by name..." />
+        </label>
+        <label class="text-sm font-medium text-gray-600">Status
+          <select class="mt-1 block rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" bind:value={statusFilter}><option value="all">All statuses</option>{#each statuses as status}<option value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>{/each}</select>
+        </label>
+        <label class="text-sm font-medium text-gray-600">Dates
+          <select class="mt-1 block rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" bind:value={dateFilter}><option value="all">Any date</option><option value="current">In progress</option><option value="future">Future</option><option value="past">Past</option></select>
         </label>
         <div class="flex shrink-0 items-center gap-2">
           <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">View</span>
@@ -237,7 +266,7 @@
             </div>
           </article>
         {:else}
-          <div class="crm-ui-empty">No seasons found.</div>
+          <div class="crm-ui-empty">{scopedSeasons.length === 0 ? 'No seasons yet. Create one to organize registration, roster assignment, events, and payment setup.' : 'No seasons match these filters.'}</div>
         {/each}
       </div>
     {:else}
@@ -256,7 +285,7 @@
                 <td class="crm-ui-td"><button type="button" class="font-semibold text-[var(--crm-brand-link)]" on:click={() => editingSeason = season}>Edit</button></td>
               </tr>
             {:else}
-              <tr><td colspan={columns.length + 1} class="crm-ui-empty">No seasons found.</td></tr>
+              <tr><td colspan={columns.length + 1} class="crm-ui-empty">{scopedSeasons.length === 0 ? 'No seasons yet. Create one to enable season-based payment setup and organization.' : 'No seasons match these filters.'}</td></tr>
             {/each}
           </tbody>
         </table>

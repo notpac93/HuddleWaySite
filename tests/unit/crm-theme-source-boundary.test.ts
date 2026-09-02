@@ -14,6 +14,22 @@ const semanticUtilityExceptions = new Map<string, {
     reason: 'blue denotes an update audit event alongside green create and red delete events',
     utilities: new Set(['bg-blue-100', 'text-blue-600']),
   }],
+  ['src/components/crm/ConsumerAdminInbox.svelte', {
+    reason: 'blue badge identifies an unread conversation state',
+    utilities: new Set(['bg-blue-100', 'text-blue-800']),
+  }],
+  ['src/components/crm/InviteStaffModal.svelte', {
+    reason: 'blue panel explains the selected permission scope before invitation',
+    utilities: new Set(['border-blue-200', 'bg-blue-50', 'text-blue-950']),
+  }],
+  ['src/components/crm/MyAppStudio.svelte', {
+    reason: 'blue panel identifies an informational rollback draft',
+    utilities: new Set(['border-blue-200', 'bg-blue-50', 'text-blue-900']),
+  }],
+  ['src/components/crm/StaffManager.svelte', {
+    reason: 'blue panels and links explain role impact and pending-invite actions',
+    utilities: new Set(['border-blue-200', 'bg-blue-50', 'text-blue-950', 'text-blue-700', 'hover:text-blue-900']),
+  }],
   ['src/components/crm/Financials.svelte', {
     reason: 'blue panels are informational financial notices',
     utilities: new Set(['border-blue-200', 'bg-blue-50', 'text-blue-950']),
@@ -38,6 +54,10 @@ const semanticUtilityExceptions = new Map<string, {
     reason: 'blue panels are informational transaction notices',
     utilities: new Set(['border-blue-200', 'bg-blue-50', 'text-blue-950']),
   }],
+  ['src/components/crm/billing/BillingPackagesWorkspace.svelte', {
+    reason: 'blue panel is an informational package configuration notice',
+    utilities: new Set(['border-blue-200', 'bg-blue-50', 'text-blue-900']),
+  }],
   ['src/components/crm/events/CreateEventForm.svelte', {
     reason: 'blue panel is an informational recurrence notice',
     utilities: new Set(['border-blue-100', 'bg-blue-50', 'text-blue-900']),
@@ -45,6 +65,18 @@ const semanticUtilityExceptions = new Map<string, {
   ['src/components/crm/roster/ImportCsv.svelte', {
     reason: 'blue panel contains informational CSV guidance',
     utilities: new Set(['border-blue-200', 'bg-blue-50', 'text-blue-900', 'text-blue-950']),
+  }],
+  ['src/components/crm/registration/CreateRegistrationForm.svelte', {
+    reason: 'blue panels distinguish edit impact and the family form preview',
+    utilities: new Set(['border-blue-200', 'bg-blue-50', 'text-blue-900', 'text-blue-950']),
+  }],
+  ['src/components/crm/seasons/CreateSeasonModal.svelte', {
+    reason: 'blue panel explains the selected season scope',
+    utilities: new Set(['border-blue-100', 'bg-blue-50', 'text-blue-900']),
+  }],
+  ['src/components/crm/seasons/EditSeasonModal.svelte', {
+    reason: 'blue panel contains the reviewed season impact summary',
+    utilities: new Set(['border-blue-200', 'bg-blue-50', 'text-blue-950']),
   }],
 ]);
 

@@ -23,6 +23,12 @@
   let passwordConfirmation = '';
   let passwordError = '';
   let passwordSubmitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
+  let showEmailPassword = false;
+  let showCurrentPassword = false;
+  let showNewPassword = false;
+  let showConfirmationPassword = false;
+  let verificationState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
+  let verificationMessage = '';
 
   $: if ($userStore && loadedUserId !== $userStore.uid) {
     loadedUserId = $userStore.uid;
@@ -37,6 +43,11 @@
   $: emailChangeRequested = Boolean(
     currentEmail && normalizedEmail && normalizedEmail !== currentEmail,
   );
+  $: passwordChecks = {
+    length: passwordNew.length >= 8,
+    different: Boolean(passwordNew) && passwordNew !== passwordCurrent,
+    matches: Boolean(passwordConfirmation) && passwordNew === passwordConfirmation,
+  };
 
   function isValidEmail(value: string) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -173,12 +184,30 @@
       submitState = 'error';
     }
   }
+
+  async function resendEmailVerification() {
+    const user = $userStore;
+    if (!user?.email || !pendingEmail || !currentPassword || verificationState === 'loading') return;
+    verificationState = 'loading';
+    verificationMessage = '';
+    try {
+      const credential = EmailAuthProvider.credential(user.email, currentPassword);
+      await reauthenticateWithCredential(user, credential);
+      await verifyBeforeUpdateEmail(user, pendingEmail);
+      currentPassword = '';
+      verificationState = 'success';
+      verificationMessage = `Verification instructions were resent to ${pendingEmail}.`;
+    } catch (error) {
+      verificationState = 'error';
+      verificationMessage = profileErrorMessage(error, true);
+    }
+  }
 </script>
 
 <div class="h-full bg-white flex flex-col">
   <div class="px-8 py-6 border-b border-gray-200">
-    <h2 class="crm-ui-page-title">Settings</h2>
-    <p class="mt-1 text-sm text-gray-500">Manage your personal administrator profile.</p>
+    <h2 class="crm-ui-page-title">My profile</h2>
+    <p class="mt-1 text-sm text-gray-500">Manage your personal administrator identity and login credentials. Organization settings live in their owning portal tabs.</p>
   </div>
 
   <div class="flex-1 p-8 overflow-y-auto bg-gray-50">
@@ -219,13 +248,14 @@
             <label for="settings-current-password" class="crm-ui-label">Current password</label>
             <input
               id="settings-current-password"
-              type="password"
+              type={showEmailPassword ? 'text' : 'password'}
               bind:value={currentPassword}
               required
               minlength="6"
               autocomplete="current-password"
               class="crm-ui-input-indigo"
             >
+            <button type="button" class="crm-theme-link mt-2 text-sm" aria-pressed={showEmailPassword} on:click={() => showEmailPassword = !showEmailPassword}>{showEmailPassword ? 'Hide password' : 'Show password'}</button>
             <p class="crm-ui-hint">Required to protect email changes.</p>
           </div>
         {/if}
@@ -233,6 +263,9 @@
         {#if pendingEmail}
           <div class="crm-theme-surface crm-theme-border rounded-md border p-3 text-sm" role="status">
             Account verification is waiting for <strong>{pendingEmail}</strong>. Follow the instructions sent there. If you also want customers to see this address as the sender, reconnect it from Messages after the login change is complete.
+            <p class="mt-2 text-xs">To resend, enter the current login password above again.</p>
+            {#if verificationMessage}<p class="mt-2 {verificationState === 'error' ? 'text-red-700' : 'text-green-700'}">{verificationMessage}</p>{/if}
+            <div class="mt-3 flex flex-wrap gap-3"><button type="button" class="crm-theme-link font-medium" disabled={!currentPassword || verificationState === 'loading'} on:click={resendEmailVerification}>{verificationState === 'loading' ? 'Resending…' : 'Resend verification'}</button><button type="button" class="crm-theme-link font-medium" on:click={() => { email = currentEmail; pendingEmail = ''; currentPassword = ''; verificationMessage = ''; verificationState = 'idle'; saveError = 'The pending notice was cleared locally. Your current login email remains active unless the earlier verification link is completed.'; }}>Clear pending notice</button></div>
           </div>
         {/if}
 
@@ -271,19 +304,20 @@
           <label for="settings-password-current" class="crm-ui-label">Current password</label>
           <input
             id="settings-password-current"
-            type="password"
+            type={showCurrentPassword ? 'text' : 'password'}
             bind:value={passwordCurrent}
             required
             minlength="6"
             autocomplete="current-password"
             class="crm-ui-input-indigo"
           >
+          <button type="button" class="crm-theme-link mt-2 text-sm" aria-pressed={showCurrentPassword} on:click={() => showCurrentPassword = !showCurrentPassword}>{showCurrentPassword ? 'Hide password' : 'Show password'}</button>
         </div>
         <div>
           <label for="settings-password-new" class="crm-ui-label">New password</label>
           <input
             id="settings-password-new"
-            type="password"
+            type={showNewPassword ? 'text' : 'password'}
             bind:value={passwordNew}
             required
             minlength="8"
@@ -291,19 +325,21 @@
             aria-describedby="settings-password-help"
             class="crm-ui-input-indigo"
           >
-          <p id="settings-password-help" class="crm-ui-hint">Use at least 8 characters.</p>
+          <button type="button" class="crm-theme-link mt-2 text-sm" aria-pressed={showNewPassword} on:click={() => showNewPassword = !showNewPassword}>{showNewPassword ? 'Hide password' : 'Show password'}</button>
+          <ul id="settings-password-help" class="mt-2 space-y-1 text-sm" aria-label="Password requirements"><li class={passwordChecks.length ? 'text-green-700' : 'text-gray-500'}>{passwordChecks.length ? '✓' : '○'} At least 8 characters</li><li class={passwordChecks.different ? 'text-green-700' : 'text-gray-500'}>{passwordChecks.different ? '✓' : '○'} Different from current password</li><li class={passwordChecks.matches ? 'text-green-700' : 'text-gray-500'}>{passwordChecks.matches ? '✓' : '○'} Confirmation matches</li></ul>
         </div>
         <div>
           <label for="settings-password-confirm" class="crm-ui-label">Confirm new password</label>
           <input
             id="settings-password-confirm"
-            type="password"
+            type={showConfirmationPassword ? 'text' : 'password'}
             bind:value={passwordConfirmation}
             required
             minlength="8"
             autocomplete="new-password"
             class="crm-ui-input-indigo"
           >
+          <button type="button" class="crm-theme-link mt-2 text-sm" aria-pressed={showConfirmationPassword} on:click={() => showConfirmationPassword = !showConfirmationPassword}>{showConfirmationPassword ? 'Hide password' : 'Show password'}</button>
         </div>
 
         {#if passwordError}
@@ -319,6 +355,7 @@
         {/if}
 
         <div class="flex justify-end">
+          <p class="mr-auto max-w-lg text-sm text-gray-500">Changing this password signs out this browser. Other existing sessions are not guaranteed to be revoked. After sign-in, the portal restores your last authorized location.</p>
           <StatusButton
             type="submit"
             state={passwordSubmitState}

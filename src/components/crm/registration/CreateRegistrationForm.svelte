@@ -23,6 +23,9 @@
   let description = form ? form.description || '' : '';
 
   let sections: RegistrationFormSection[] = registrationSectionsFromForm(form);
+  let newStepName = '';
+  let previewOpen = false;
+  let collapsedSections = new Set<string>();
 
   let currentStep = 1;
   let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
@@ -103,11 +106,12 @@
   }
 
   function addSection() {
+    if (!newStepName.trim()) return;
     const sectionId = nextBuilderId('section', sections);
     const fieldId = nextBuilderId('field', sections);
     sections = [...sections, {
       id: sectionId,
-      title: `Step ${sections.length + 1}`,
+      title: newStepName.trim(),
       description: '',
       isActive: true,
       fields: [{
@@ -120,6 +124,21 @@
         isActive: true,
       }],
     }];
+    newStepName = '';
+  }
+
+  function toggleSection(sectionId: string) {
+    const next = new Set(collapsedSections);
+    if (next.has(sectionId)) next.delete(sectionId); else next.add(sectionId);
+    collapsedSections = next;
+  }
+
+  function moveSectionTo(index: number, destination: number) {
+    if (destination < 0 || destination >= sections.length || destination === index) return;
+    const next = [...sections];
+    const [section] = next.splice(index, 1);
+    next.splice(destination, 0, section);
+    sections = next;
   }
 
   function removeSection(index: number) {
@@ -151,6 +170,26 @@
       }],
     };
     sections = next;
+  }
+
+  function addQuestionTemplate(sectionIndex: number, template: 'email' | 'phone' | 'emergency') {
+    const presets = {
+      email: { type: 'email' as RegistrationFieldType, label: 'Email address', placeholder: 'name@example.com' },
+      phone: { type: 'phone' as RegistrationFieldType, label: 'Phone number', placeholder: '(555) 555-0123' },
+      emergency: { type: 'text' as RegistrationFieldType, label: 'Emergency contact name', placeholder: 'Full name' },
+    };
+    const preset = presets[template];
+    const id = nextBuilderId('field', sections);
+    const next = [...sections];
+    next[sectionIndex] = { ...next[sectionIndex], fields: [...next[sectionIndex].fields, { id, type: preset.type, label: preset.label, required: false, placeholder: preset.placeholder, options: null, isActive: true }] };
+    sections = next;
+  }
+
+  function fieldPreview(field: RegistrationFormSection['fields'][number]) {
+    if (field.type === 'dropdown') return `Choice list: ${(field.options || []).join(', ') || 'add at least one option'}`;
+    if (field.type === 'yes_no') return 'Yes / No choice';
+    if (field.type === 'date') return 'Date picker';
+    return field.placeholder || `${field.type} response`;
   }
 
   function removeField(sectionIndex: number, fieldIndex: number) {
@@ -336,6 +375,11 @@
               This form has an unsupported lifecycle status. Saving is disabled to avoid reopening or retiring it accidentally.
             </div>
           {/if}
+          {#if form}
+            <div class="mb-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">Changes apply to every connected future event using this form. Existing submitted responses remain readable under their original question labels.</div>
+          {:else}
+            <div class="mb-4 rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700"><strong>Default participant template:</strong> {sections.length} steps and {sections.reduce((count, section) => count + section.fields.length, 0)} questions, including the required player identity fields. Review and customize it before saving.</div>
+          {/if}
 
           {#if successMessage}
             <div class="mb-4 bg-green-50 border-l-4 border-green-400 p-4">
@@ -361,10 +405,12 @@
             </div>
           {:else if currentStep === 2}
             <div class="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-              <div class="flex items-center justify-between gap-3">
+              <div class="flex flex-wrap items-end justify-between gap-3">
                 <p class="text-sm text-gray-500">Each step appears in this order for future registrations.</p>
-                <button type="button" class="crm-ui-registration-secondary whitespace-nowrap" on:click={addSection}>Add Step</button>
+                <div class="flex gap-2"><label><span class="sr-only">New step name</span><input class="crm-ui-input-teal-wide" bind:value={newStepName} placeholder="New step name" /></label><button type="button" class="crm-ui-registration-secondary whitespace-nowrap" disabled={!newStepName.trim()} on:click={addSection}>Add Step</button><button type="button" class="crm-ui-registration-secondary whitespace-nowrap" on:click={() => previewOpen = !previewOpen}>{previewOpen ? 'Close preview' : 'Preview form'}</button></div>
               </div>
+
+              {#if previewOpen}<section class="rounded-lg border border-blue-200 bg-blue-50 p-4" aria-label="Registration form preview"><h4 class="font-semibold text-blue-950">Family response preview</h4>{#each sections as section, previewIndex}<div class="mt-3"><p class="text-sm font-semibold">{previewIndex + 1}. {section.title}</p><ul class="mt-1 space-y-1">{#each section.fields as field}<li class="text-xs text-blue-900">{field.label}{field.required ? ' *' : ''} — {fieldPreview(field)}</li>{/each}</ul></div>{/each}</section>{/if}
 
               {#each sections as section, sectionIndex (section.id)}
                 <section class="rounded-lg border border-gray-200 bg-gray-50 p-4" aria-label={`Registration step ${sectionIndex + 1}`}>
@@ -381,8 +427,10 @@
                       </label>
                     </div>
                     <div class="flex gap-1">
+                      <button type="button" class="crm-ui-registration-secondary" aria-expanded={!collapsedSections.has(section.id)} on:click={() => toggleSection(section.id)}>{collapsedSections.has(section.id) ? 'Expand' : 'Collapse'}</button>
                       <button type="button" class="crm-ui-registration-secondary" aria-label={`Move ${section.title} up`} disabled={sectionIndex === 0} on:click={() => moveSection(sectionIndex, -1)}>↑</button>
                       <button type="button" class="crm-ui-registration-secondary" aria-label={`Move ${section.title} down`} disabled={sectionIndex === sections.length - 1} on:click={() => moveSection(sectionIndex, 1)}>↓</button>
+                      <label><span class="sr-only">Move {section.title} to position</span><select class="crm-ui-registration-secondary" value={sectionIndex} on:change={(event) => moveSectionTo(sectionIndex, Number(event.currentTarget.value))}>{#each sections as _, position}<option value={position}>{position + 1}</option>{/each}</select></label>
                       <button
                         type="button"
                         class="crm-ui-registration-secondary text-red-700"
@@ -394,7 +442,7 @@
                     </div>
                   </div>
 
-                  <div class="space-y-3">
+                  {#if !collapsedSections.has(section.id)}<div class="space-y-3">
                     {#each section.fields as formField, fieldIndex (formField.id)}
                       <div class="rounded-md border border-gray-200 bg-white p-3">
                         <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_9rem_auto]">
@@ -442,10 +490,11 @@
                             <textarea class="crm-ui-input-teal-wide" rows="3" value={(formField.options || []).join('\n')} on:input={(event) => changeOptions(sectionIndex, fieldIndex, event.currentTarget.value)}></textarea>
                           </label>
                         {/if}
+                        <p class="mt-2 rounded bg-gray-50 px-2 py-1 text-xs text-gray-600"><strong>Response preview:</strong> {fieldPreview(formField)}</p>
                       </div>
                     {/each}
-                    <button type="button" class="crm-ui-registration-secondary" on:click={() => addField(sectionIndex)}>Add Question</button>
-                  </div>
+                    <div class="flex flex-wrap gap-2"><button type="button" class="crm-ui-registration-secondary" on:click={() => addField(sectionIndex)}>Add Question</button><button type="button" class="crm-ui-registration-secondary" on:click={() => addQuestionTemplate(sectionIndex, 'email')}>Add email question</button><button type="button" class="crm-ui-registration-secondary" on:click={() => addQuestionTemplate(sectionIndex, 'phone')}>Add phone question</button><button type="button" class="crm-ui-registration-secondary" on:click={() => addQuestionTemplate(sectionIndex, 'emergency')}>Add emergency contact</button></div>
+                  </div>{/if}
                 </section>
               {/each}
             </div>

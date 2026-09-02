@@ -11,7 +11,8 @@
   let email = '';
   let firstName = '';
   let lastName = '';
-  let role: 'editor' | 'viewer' = 'editor';
+  let role: 'editor' | 'viewer' = 'viewer';
+  let reviewing = false;
 
   let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
   let errorMessage = '';
@@ -30,6 +31,7 @@
       idempotencyKey = createIdempotencyKey('staff-invite');
       if (submitState === 'error') submitState = 'idle';
       errorMessage = '';
+      reviewing = false;
     }
   }
 
@@ -70,6 +72,11 @@
     }
   }
 
+  function reviewInvite() {
+    if (!email.trim() || !firstName.trim() || !lastName.trim()) return;
+    reviewing = true;
+  }
+
   function handleCancel() {
     if (submitState === 'loading') return;
     dispatch('cancel');
@@ -83,7 +90,7 @@
     <span class="crm-ui-modal-spacer" aria-hidden="true">&#8203;</span>
 
     <div class="relative z-10 inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full" tabindex="-1" use:modalFocus={{ onEscape: handleCancel }}>
-      <form on:submit|preventDefault={handleSubmit}>
+      <form on:submit|preventDefault={() => reviewing ? handleSubmit() : reviewInvite()}>
         <div class="crm-ui-modal-body">
           <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4" id="modal-title">Invite Staff Member</h3>
 
@@ -104,6 +111,21 @@
               <input type="email" id="email" bind:value={email} required class="crm-ui-input-blue" placeholder="coach@example.com">
             </div>
 
+            <section class="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700" aria-label="Staff permission comparison">
+              <p><strong>Viewer:</strong> can open the Dashboard and read authorized organization information; cannot change records or send messages.</p>
+              <p class="mt-2"><strong>Editor:</strong> can manage teams, seasons, rosters, events, registration, messages, documents, media, and app content. Editors cannot manage Financials, Staff, or Activity.</p>
+            </section>
+
+            <p class="text-sm text-gray-600">The invitation email will be sent to the address above and will show its expiration date. Existing HuddleWay users accept with their current account.</p>
+
+            {#if reviewing}
+              <section class="rounded-md border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950" aria-label="Invitation review">
+                <h4 class="font-semibold">Review invitation</h4>
+                <p class="mt-1">Recipient: {firstName.trim()} {lastName.trim()} · {email.trim()}</p>
+                <p>Access: {role === 'editor' ? 'Editor — can change program operations' : 'Viewer — read-only'}</p>
+              </section>
+            {/if}
+
             <div>
               <label for="role" class="crm-ui-label">Role</label>
               <select id="role" bind:value={role} class="crm-ui-input-blue">
@@ -123,7 +145,7 @@
             type="submit"
             state={submitState}
             disabled={!email.trim() || !firstName.trim() || !lastName.trim() || submitState === 'loading'}
-            idleText="Send Invite"
+            idleText={reviewing ? 'Confirm & Send Invite' : 'Review Invite'}
             loadingText="Sending..."
             successText="Sent!"
             errorText="Retry Invite"

@@ -87,7 +87,7 @@ describe('CRM interaction hardening source evidence', () => {
     const search = source('GlobalSearch.svelte');
     const shell = source('CrmShell.svelte');
 
-    expect(search.match(/<button type="button" class="flex w-full/g)).toHaveLength(3);
+    expect(search.match(/<button type="button"[^>]+class="flex w-full/g)).toHaveLength(3);
     expect(search).not.toMatch(/<li[^>]+on:click/);
     expect(shell).toContain('export let activeResultId: string | null = null;');
     expect(shell).toContain('activeResultId = event.detail.id;');

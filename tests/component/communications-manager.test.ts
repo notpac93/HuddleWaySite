@@ -91,6 +91,8 @@ vi.mock('../../src/lib/services/DataStore', async () => {
     seasonsStore: writable([
       { id: 'season-1', name: 'Summer 2026' },
     ]),
+    registrationsStore: writable([]),
+    teamsStore: writable([]),
   };
 });
 
@@ -313,16 +315,19 @@ describe('CommunicationsManager recall boundary', () => {
     const submit = screen.getByRole('button', {
       name: 'Delete announcement',
     });
+    expect(submit).toBeDisabled();
+    await fireEvent.input(within(dialog).getByLabelText('Audit reason'), { target: { value: 'Duplicate announcement' } });
     expect(submit).toBeEnabled();
     await fireEvent.click(submit);
     await fireEvent.click(submit);
 
     expect(backendClient.recallMessage).toHaveBeenCalledTimes(1);
-    const [tenantId, messageId, operationKey] =
+    const [tenantId, messageId, operationKey, auditReason] =
       vi.mocked(backendClient.recallMessage).mock.calls[0];
     expect(tenantId).toBe('tenant-a');
     expect(messageId).toBe('message-1');
     expect(operationKey).toMatch(/^message-recall-message-1:/);
+    expect(auditReason).toBe('Duplicate announcement');
     expect(
       within(dialog).getByRole('button', { name: 'Deleting…' }),
     ).toBeDisabled();
@@ -366,6 +371,7 @@ describe('CommunicationsManager recall boundary', () => {
     expect(await screen.findByText('Practice update')).toBeVisible();
 
     await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    await fireEvent.input(screen.getByLabelText('Audit reason'), { target: { value: 'Superseded content' } });
     await fireEvent.click(
       screen.getByRole('button', { name: 'Delete announcement' }),
     );

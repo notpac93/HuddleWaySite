@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 const projectId = 'demo-huddleway-crm';
 const authBaseUrl = `http://127.0.0.1:${process.env.PLAYWRIGHT_AUTH_EMULATOR_PORT ?? '9099'}`;
-const firestoreBaseUrl = `http://127.0.0.1:${process.env.PLAYWRIGHT_FIRESTORE_EMULATOR_PORT ?? '8080'}`;
+const firestoreBaseUrl = `http://127.0.0.1:${process.env.PLAYWRIGHT_FIRESTORE_EMULATOR_PORT ?? '8181'}`;
 const password = 'FixturePass123!';
 const crmTabs = [
   'Dashboard',
@@ -307,16 +307,27 @@ async function mockAuthenticatedBackend(page: Page, tenantId: string) {
   });
 
   await page.route('**/admin/crm/app-configuration**', async (route) => {
+    const isHistory = new URL(route.request().url()).pathname.endsWith('/history');
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({
-        tenantId,
-        mode: 'initialize',
-        configuration: null,
-        versionToken: 'e2e-config-version',
-        requestId: 'e2e-config',
-      }),
+      body: JSON.stringify(isHistory
+        ? {
+            tenantId,
+            versions: [],
+            truncated: false,
+            requestId: 'e2e-config-history',
+          }
+        : {
+            tenantId,
+            mode: 'initialize',
+            configVersion: 0,
+            publishedAt: null,
+            publishedBy: null,
+            configuration: null,
+            versionToken: 'e2e-config-version',
+            requestId: 'e2e-config',
+          }),
     });
   });
 
@@ -337,22 +348,23 @@ async function mockAuthenticatedBackend(page: Page, tenantId: string) {
 }
 
 async function openCrmTab(page: Page, tab: string, mobile: boolean) {
+  const visibleLabel = tab === 'Settings' ? 'My profile' : tab;
   if (mobile) {
     await page.getByRole('button', { name: 'Open navigation menu' }).click();
     const drawer = page.getByRole('dialog', { name: 'Fixture Athletics' });
-    await drawer.getByRole('button', { name: tab, exact: true }).click();
+    await drawer.getByRole('button', { name: visibleLabel, exact: true }).click();
     await expect(drawer).toBeHidden();
   } else {
     const sidebar = page.locator('aside');
     await sidebar.hover();
     await sidebar.locator('nav').getByRole('button', {
-      name: tab,
+      name: visibleLabel,
       exact: true,
     }).click();
   }
 
   await expect(
-    page.locator('header.crm-ui-shell-header').getByText(tab, { exact: true }),
+    page.locator('header.crm-ui-shell-header').getByText(visibleLabel, { exact: true }),
   ).toBeVisible();
   await expect(
     page.locator('main span.sr-only').filter({ hasText: `Loading ${tab}` }),

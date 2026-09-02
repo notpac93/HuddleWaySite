@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import {
     collection,
     getDocs,
@@ -16,7 +16,7 @@
     type ConnectedMailboxSnapshot,
     type MessageAudiencePreview,
   } from '../../lib/api/RegistrationOutreachApi';
-  import { eventsStore, seasonsStore } from '../../lib/services/DataStore';
+  import { eventsStore, registrationsStore, seasonsStore, teamsStore } from '../../lib/services/DataStore';
   import {
     BackendApiError,
     createIdempotencyKey,
@@ -25,6 +25,7 @@
   import { modalFocus } from '../../lib/ui/modalFocus';
   import ConsumerAdminInbox from './ConsumerAdminInbox.svelte';
   import AnnouncementPublishReview from './messages/AnnouncementPublishReview.svelte';
+  import { clearPortalDraft, registerPortalDraft } from '../../lib/ui/portalDraftGuard';
 
   export let registrationEmailDraft: {
     token: string;
@@ -49,10 +50,12 @@
 
   type AttachmentScope = 'all' | 'event' | 'season';
   type ComposerKind = 'announcement' | 'email' | 'registration_email';
+  type MessageView = 'email' | 'announcements' | 'registration' | 'conversations';
   type EmailReview = {
     kind: Extract<ComposerKind, 'email' | 'registration_email'>;
     preview: MessageAudiencePreview;
   };
+  type DeliveryReceipt = { id: string; kind: string; sentAt: string; recipientCount: number; sentCount: number; failedCount: number; sender: string };
 
   const SUBJECT_MAX_LENGTH = 200;
   const BODY_MAX_LENGTH = 4_000;
@@ -65,6 +68,19 @@
   let loadRequestId = '';
   let activeTenantId = '';
   let searchQuery = '';
+  const messageViews: Array<{ id: MessageView; label: string }> = [
+    { id: 'email', label: 'Email' },
+    { id: 'announcements', label: 'Announcements' },
+    { id: 'registration', label: 'Registration outreach' },
+    { id: 'conversations', label: 'Conversations' },
+  ];
+  let activeView: MessageView = 'email';
+  let recipientSource: 'manual' | 'roster' | 'team' | 'event' | 'season' = 'manual';
+  let recipientSourceId = '';
+  let historyAudienceFilter = 'all';
+  let historyDateFilter = '';
+  let conversationUnreadCount = 0;
+  let deliveryReceipts: DeliveryReceipt[] = [];
   let expandedMessageIds = new Set<string>();
 
   let subject = '';
@@ -85,6 +101,7 @@
   const recallIdempotencyKeys = new Map<string, string>();
   let tenantGeneration = 0;
   let recallTarget: WallMessage | null = null;
+  let recallReason = '';
   let consumedRegistrationDraftToken = '';
   let emailQuota: EmailQuotaSnapshot | null = null;
   let emailQuotaLoading = false;
@@ -102,15 +119,28 @@
   } | null = null;
 
   $: normalizedSearch = searchQuery.trim().toLocaleLowerCase();
+  function serializedDate(value: any) {
+    if (!value) return '';
+    const date = value?.toDate ? value.toDate() : new Date(value);
+    return Number.isNaN(date.getTime()) ? '' : date.toISOString();
+  }
+
   $: eventOptions = $eventsStore
     .map((event) => ({
       id: String(event.id || '').trim(),
       title: String(event.title || event.name || event.id || 'Untitled event').trim(),
       priceCents: Number.parseInt(String(event.priceCents || 0), 10) || 0,
       currency: String(event.currency || 'USD').trim().toUpperCase() || 'USD',
+      endDate: serializedDate(event.registrationEndDate || event.endDate || event.date),
+      status: String(event.status || '').toLowerCase(),
     }))
     .filter((event) => event.id)
     .sort((a, b) => a.title.localeCompare(b.title));
+  $: eligibleEventOptions = eventOptions.filter((event) => {
+    const date = event.endDate ? new Date(event.endDate) : null;
+    return !['completed', 'archived', 'cancelled'].includes(event.status)
+      && (!date || Number.isNaN(date.getTime()) || date.getTime() >= Date.now());
+  });
   $: seasonOptions = $seasonsStore
     .map((season) => ({
       id: String(season.id || '').trim(),
@@ -118,17 +148,30 @@
     }))
     .filter((season) => season.id)
     .sort((a, b) => a.title.localeCompare(b.title));
-  $: visibleMessages = normalizedSearch
-    ? messages.filter((message) =>
+  $: visibleMessages = messages.filter((message) =>
+      (historyAudienceFilter === 'all' || (historyAudienceFilter === 'organization' ? message.attachmentScope === 'all' : message.attachmentScope === historyAudienceFilter))
+      && (!historyDateFilter || (message.createdAt && message.createdAt.toISOString().slice(0, 10) >= historyDateFilter))
+      && (!normalizedSearch ||
         [
           message.authorName,
           message.subject,
           message.body,
           audienceLabel(message.teamId),
           attachmentLabel(message),
-        ].some((value) => value?.toLocaleLowerCase().includes(normalizedSearch)))
-    : messages;
+        ].some((value) => value?.toLocaleLowerCase().includes(normalizedSearch))));
   $: registrationRecipientResult = parseRecipientEmails(registrationRecipientInput);
+  $: hasMessageDraft = isAdding && Boolean(subject.trim() || body.trim() || registrationRecipientInput.trim());
+  $: if (hasMessageDraft && activeTenantId) {
+    registerPortalDraft({
+      id: `messages:${activeTenantId}`,
+      title: 'Unsent message draft',
+      message: 'This message has not been sent. Keep it in this browser, discard it, or stay and finish the review.',
+      retainLabel: 'Keep draft and leave',
+      onRetain: saveMessageDraft,
+      onDiscard: discardMessageDraft,
+    });
+    saveMessageDraft();
+  } else if (activeTenantId) clearPortalDraft(`messages:${activeTenantId}`);
   $: emailRecipientLimit = emailQuota?.perSendLimit ?? DEFAULT_EMAIL_RECIPIENT_LIMIT;
   $: registrationTargetId = attachmentScope === 'season'
     ? selectedSeasonId
@@ -209,9 +252,14 @@
       emailReview = null;
       announcementReview = null;
       senderSettingsOpen = false;
+      activeView = 'email';
+      recipientSource = 'manual';
+      recipientSourceId = '';
       connectedMailbox = null;
       connectedMailboxError = '';
       selectedDeliveryMode = 'huddleway';
+      deliveryReceipts = loadDeliveryReceipts(tenantId || '');
+      restoreMessageDraft(tenantId || '');
       if (mailboxConnectionResult) senderSettingsOpen = true;
       if (tenantId) {
         void fetchMessages(tenantId);
@@ -243,6 +291,76 @@
     emailReview = null;
     announcementReview = null;
     selectedDeliveryMode = 'huddleway';
+  }
+
+  function draftStorageKey(tenantId = activeTenantId) { return `huddleway-message-draft:${tenantId}`; }
+  function receiptStorageKey(tenantId = activeTenantId) { return `huddleway-message-receipts:${tenantId}`; }
+  function saveMessageDraft() {
+    if (!activeTenantId || !isAdding) return;
+    window.sessionStorage.setItem(draftStorageKey(), JSON.stringify({ subject, body, composerKind, registrationRecipientInput, attachmentScope, selectedEventId, selectedSeasonId, recipientSource, recipientSourceId }));
+  }
+  function discardMessageDraft() {
+    if (activeTenantId) window.sessionStorage.removeItem(draftStorageKey());
+    isAdding = false;
+    resetComposer();
+  }
+  function restoreMessageDraft(tenantId: string) {
+    if (!tenantId) return;
+    try {
+      const saved = JSON.parse(window.sessionStorage.getItem(draftStorageKey(tenantId)) || 'null');
+      if (!saved || typeof saved !== 'object') return;
+      subject = String(saved.subject || ''); body = String(saved.body || '');
+      composerKind = ['announcement', 'email', 'registration_email'].includes(saved.composerKind) ? saved.composerKind : 'announcement';
+      registrationRecipientInput = String(saved.registrationRecipientInput || '');
+      attachmentScope = ['all', 'event', 'season'].includes(saved.attachmentScope) ? saved.attachmentScope : 'all';
+      selectedEventId = String(saved.selectedEventId || ''); selectedSeasonId = String(saved.selectedSeasonId || '');
+      recipientSource = ['manual', 'roster', 'team', 'event', 'season'].includes(saved.recipientSource) ? saved.recipientSource : 'manual';
+      recipientSourceId = String(saved.recipientSourceId || '');
+      activeView = composerKind === 'email' ? 'email' : composerKind === 'announcement' ? 'announcements' : 'registration';
+      isAdding = Boolean(subject.trim() || body.trim() || registrationRecipientInput.trim());
+    } catch { window.sessionStorage.removeItem(draftStorageKey(tenantId)); }
+  }
+  function loadDeliveryReceipts(tenantId: string): DeliveryReceipt[] {
+    if (!tenantId) return [];
+    try { const value = JSON.parse(window.sessionStorage.getItem(receiptStorageKey(tenantId)) || '[]'); return Array.isArray(value) ? value.slice(0, 10) : []; } catch { return []; }
+  }
+  function addDeliveryReceipt(receipt: Omit<DeliveryReceipt, 'id' | 'sentAt'>) {
+    deliveryReceipts = [{ ...receipt, id: globalThis.crypto.randomUUID(), sentAt: new Date().toISOString() }, ...deliveryReceipts].slice(0, 10);
+    window.sessionStorage.setItem(receiptStorageKey(), JSON.stringify(deliveryReceipts));
+  }
+
+  function recipientEmail(record: Record<string, any>) {
+    return String(
+      record.email
+      || record.participantEmail
+      || record.payerEmail
+      || record.guardianEmail
+      || record.payer?.email
+      || record.participant?.email
+      || record.profile?.email
+      || '',
+    ).trim().toLowerCase();
+  }
+
+  function useAuthoritativeRecipients() {
+    const emails = $registrationsStore.filter((registration) => {
+      if (recipientSource === 'roster') return true;
+      if (recipientSource === 'team') return String(registration.teamId || '') === recipientSourceId;
+      if (recipientSource === 'event') return String(registration.eventId || '') === recipientSourceId;
+      if (recipientSource === 'season') return String(registration.seasonId || '') === recipientSourceId;
+      return false;
+    }).map(recipientEmail).filter(Boolean);
+    registrationRecipientInput = [...new Set(emails)].join('\n');
+  }
+
+  function duplicateAnnouncement(message: WallMessage) {
+    activeView = 'announcements';
+    openComposer('announcement');
+    subject = message.subject || '';
+    body = message.body;
+    attachmentScope = message.attachmentScope;
+    selectedEventId = message.eventId || '';
+    selectedSeasonId = message.seasonId || '';
   }
 
   async function fetchConnectedMailbox(tenantId: string) {
@@ -292,6 +410,7 @@
     resetComposer();
     composerKind = kind;
     attachmentScope = kind === 'registration_email' ? 'event' : 'all';
+    activeView = kind === 'email' ? 'email' : kind === 'announcement' ? 'announcements' : 'registration';
     isAdding = true;
   }
 
@@ -419,6 +538,7 @@
       operationMessage = delivery.failedCount > 0
         ? `${delivery.sentCount} email${delivery.sentCount === 1 ? '' : 's'} sent; ${delivery.failedCount} failed.${suppressedCopy} Only failed addresses remain in the form.`
         : `${delivery.sentCount} email${delivery.sentCount === 1 ? '' : 's'} sent.${suppressedCopy}`;
+      addDeliveryReceipt({ kind: 'Direct email', recipientCount: registrationRecipientResult.emails.length, sentCount: delivery.sentCount, failedCount: delivery.failedCount, sender: selectedDeliveryMode === 'connected_mailbox' ? connectedMailbox?.email || 'Connected mailbox' : 'HuddleWay' });
       operationRequestId = delivery.failedCount > 0 ? delivery.requestId : '';
       if (delivery.failedCount > 0) {
         registrationRecipientInput = delivery.failures
@@ -426,6 +546,7 @@
           .filter(Boolean)
           .join('\n');
       } else {
+        window.sessionStorage.removeItem(draftStorageKey());
         isAdding = false;
         resetComposer();
       }
@@ -726,6 +847,7 @@
       operationMessage = delivery.failedCount > 0
         ? `${delivery.sentCount} email${delivery.sentCount === 1 ? '' : 's'} sent; ${delivery.failedCount} failed.${suppressedCopy} Only the failed addresses remain in the form. The registration link closes ${expiration}.`
         : `${delivery.sentCount} registration email${delivery.sentCount === 1 ? '' : 's'} sent.${suppressedCopy} The registration link closes ${expiration}.`;
+      addDeliveryReceipt({ kind: 'Registration outreach', recipientCount: recipientEmails.length, sentCount: delivery.sentCount, failedCount: delivery.failedCount, sender: selectedDeliveryMode === 'connected_mailbox' ? connectedMailbox?.email || 'Connected mailbox' : 'HuddleWay' });
       operationRequestId = delivery.failedCount > 0 ? delivery.requestId : '';
       if (delivery.failedCount > 0) {
         registrationRecipientInput = delivery.failures
@@ -733,6 +855,7 @@
           .filter(Boolean)
           .join('\n');
       } else {
+        window.sessionStorage.removeItem(draftStorageKey());
         isAdding = false;
         resetComposer();
       }
@@ -751,17 +874,19 @@
   function requestRecall(message: WallMessage) {
     if (recallingMessageId) return;
     recallTarget = message;
+    recallReason = '';
   }
 
   function closeRecallDialog() {
     if (recallingMessageId) return;
     recallTarget = null;
+    recallReason = '';
   }
 
   async function handleRecallMessage() {
     if (recallingMessageId) return;
     const id = recallTarget?.id;
-    if (!id) return;
+    if (!id || recallReason.trim().length < 3) return;
 
     const tenantId = $tenantIdStore;
     const generation = tenantGeneration;
@@ -780,6 +905,7 @@
         tenantId,
         id,
         idempotencyKey,
+        recallReason.trim(),
       );
       if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
       await fetchMessages(tenantId);
@@ -787,6 +913,7 @@
       recallIdempotencyKeys.delete(id);
       operationMessage = 'Announcement deleted.';
       recallTarget = null;
+      recallReason = '';
     } catch (error) {
       if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
       operationMessage = 'The announcement could not be deleted.';
@@ -797,6 +924,10 @@
       }
     }
   }
+
+  onDestroy(() => {
+    if (activeTenantId) clearPortalDraft(`messages:${activeTenantId}`);
+  });
 </script>
 
   {#if announcementReview}
@@ -946,6 +1077,7 @@
         <p class="mt-2 text-sm text-gray-600">
           Delete “{recallTarget.subject || 'Untitled announcement'}” from {audienceLabel(recallTarget.teamId)}. The Wall post will no longer be available to that audience.
         </p>
+        <label class="mt-4 block text-sm font-medium text-gray-700">Audit reason<textarea class="mt-1 block w-full rounded-md border border-gray-300 p-2" rows="2" minlength="3" maxlength="500" bind:value={recallReason}></textarea></label>
         <div class="mt-6 flex justify-end gap-3">
           <button
             type="button"
@@ -956,7 +1088,7 @@
           >Cancel</button>
           <button
             type="button"
-            disabled={Boolean(recallingMessageId)}
+            disabled={Boolean(recallingMessageId) || recallReason.trim().length < 3}
             class="crm-ui-danger-button"
             on:click={handleRecallMessage}
           >{recallingMessageId ? 'Deleting…' : 'Delete announcement'}</button>
@@ -972,7 +1104,13 @@
     <p class="mt-1 text-sm text-gray-500">Choose the type of outreach you want to send. Each tool below serves a different audience and purpose.</p>
   </div>
 
-  <section class="crm-ui-message-direct" aria-labelledby="direct-email-heading">
+  <nav class="flex flex-wrap gap-2 rounded-lg border border-gray-200 bg-white p-2" aria-label="Message workspaces">
+    {#each messageViews as view}
+      <button type="button" aria-pressed={activeView === view.id} class="rounded-md px-4 py-2 text-sm font-medium {activeView === view.id ? 'crm-theme-selected' : 'text-gray-600 hover:bg-gray-50'}" on:click={() => activeView = view.id}>{view.label}{view.id === 'conversations' && conversationUnreadCount ? ` (${conversationUnreadCount})` : ''}</button>
+    {/each}
+  </nav>
+
+  <section class="crm-ui-message-direct" class:hidden={activeView !== 'email'} aria-labelledby="direct-email-heading">
     <div class="crm-ui-message-split">
       <div class="max-w-2xl">
         <p class="crm-ui-message-eyebrow">Customer outreach</p>
@@ -1048,8 +1186,12 @@
     </div>
   </section>
 
+  {#if activeView === 'email' && deliveryReceipts.length}
+    <section class="rounded-lg border border-gray-200 bg-white p-4" aria-labelledby="delivery-receipts-title"><h3 id="delivery-receipts-title" class="font-semibold text-gray-900">Recent delivery receipts</h3><p class="mt-1 text-xs text-gray-500">The 10 most recent sends retained in this browser session.</p><ul class="mt-3 divide-y divide-gray-100">{#each deliveryReceipts as receipt (receipt.id)}<li class="grid gap-1 py-3 text-sm sm:grid-cols-4"><span class="font-medium">{receipt.kind}</span><span>{receipt.sentCount}/{receipt.recipientCount} sent</span><span>{receipt.failedCount} failed · {receipt.sender}</span><time datetime={receipt.sentAt}>{new Date(receipt.sentAt).toLocaleString()}</time></li>{/each}</ul></section>
+  {/if}
+
   <div class="grid gap-4 md:grid-cols-2">
-    <section class="crm-ui-message-card" aria-labelledby="app-announcement-heading">
+    <section class="crm-ui-message-card" class:hidden={activeView !== 'announcements'} aria-labelledby="app-announcement-heading">
       <p class="crm-ui-message-eyebrow">In-app communication</p>
       <h3 id="app-announcement-heading" class="mt-1 text-lg font-semibold text-gray-900">App announcement</h3>
       <p class="mt-1 flex-1 text-sm text-gray-600">Publish an update for registered account holders and notify their active devices.</p>
@@ -1062,7 +1204,7 @@
       </button>
     </section>
 
-    <section class="crm-ui-message-card" aria-labelledby="registration-outreach-heading">
+    <section class="crm-ui-message-card" class:hidden={activeView !== 'registration'} aria-labelledby="registration-outreach-heading">
       <p class="crm-ui-message-eyebrow">Enrollment</p>
       <h3 id="registration-outreach-heading" class="mt-1 text-lg font-semibold text-gray-900">Registration outreach</h3>
       <p class="mt-1 flex-1 text-sm text-gray-600">Create a temporary registration link and email it to prospective participants.</p>
@@ -1077,7 +1219,7 @@
     </section>
   </div>
 
-  {#if senderSettingsOpen}
+  {#if senderSettingsOpen && activeView === 'email'}
     <section class="crm-ui-message-settings" aria-labelledby="connected-email-heading">
       <div class="flex items-start justify-between gap-4">
         <div>
@@ -1103,13 +1245,13 @@
       {:else}
         <div class="mt-4 grid gap-3 sm:grid-cols-2">
           <button type="button" disabled={!connectedMailbox?.availableProviders.includes('google')} class="crm-ui-message-provider" on:click={() => connectMailbox('google')}>
-            Connect Google or Gmail
+            Connect Google or Gmail{connectedMailbox && !connectedMailbox.availableProviders.includes('google') ? ' · Not configured' : ''}
           </button>
           <button type="button" disabled={!connectedMailbox?.availableProviders.includes('microsoft')} class="crm-ui-message-provider" on:click={() => connectMailbox('microsoft')}>
-            Connect Microsoft or Outlook
+            Connect Microsoft or Outlook{connectedMailbox && !connectedMailbox.availableProviders.includes('microsoft') ? ' · Not configured' : ''}
           </button>
         </div>
-        <p class="mt-3 text-xs text-gray-500">HuddleWay never receives your password.</p>
+        <p class="mt-3 text-xs text-gray-500">HuddleWay never receives your password. If a provider is not configured, ask a platform administrator to enable its OAuth connection.</p>
       {/if}
       {#if connectedMailboxError}
         <p class="crm-ui-notice-card mt-4" role="alert">{connectedMailboxError}</p>
@@ -1126,7 +1268,7 @@
     </div>
   {/if}
 
-  {#if isAdding}
+  {#if isAdding && ((composerKind === 'email' && activeView === 'email') || (composerKind === 'announcement' && activeView === 'announcements') || (composerKind === 'registration_email' && activeView === 'registration'))}
     <section class="crm-ui-message-composer" aria-labelledby="new-announcement-heading">
       <h3 id="new-announcement-heading" class="mb-4 text-lg font-bold">
         {composerKind === 'registration_email'
@@ -1142,7 +1284,7 @@
             {#if composerKind === 'registration_email'}
               Paste recipient emails. HuddleWay sends a temporary registration link using the same form and payment rules as the app.
             {:else if composerKind === 'email'}
-              Paste one or more addresses. Duplicates are removed before the allowance check.
+              Paste one or more addresses. Duplicates are removed before the allowance check. Replies go to the selected sender; groups over 100 must use the HuddleWay sender.
             {:else}
               Only this organization’s account holders receive this announcement and notification.
             {/if}
@@ -1182,8 +1324,8 @@
               class="crm-ui-message-select disabled:bg-gray-100"
             >
               <option value="">Select an event</option>
-              {#each eventOptions as event}
-                <option value={event.id}>{event.title}</option>
+              {#each composerKind === 'registration_email' ? eligibleEventOptions : eventOptions as event}
+                <option value={event.id}>{event.title}{composerKind === 'registration_email' && event.endDate ? ` · closes ${new Date(event.endDate).toLocaleDateString()}` : ''}</option>
               {/each}
             </select>
             {#if eventOptions.length === 0}<p class="crm-ui-hint">No events are available for this organization.</p>{/if}
@@ -1207,6 +1349,18 @@
         {/if}
         {#if composerKind !== 'announcement'}
           <div>
+            <div class="mb-3 rounded-md border border-gray-200 bg-gray-50 p-3">
+              <label for="recipient-source" class="crm-ui-label">Recipient source</label>
+              <div class="grid gap-2 sm:grid-cols-[1fr,1fr,auto]">
+                <select id="recipient-source" class="crm-ui-message-select" bind:value={recipientSource} on:change={() => recipientSourceId = ''}><option value="manual">Manual addresses</option><option value="roster">Entire loaded roster</option><option value="team">Team</option><option value="event">Event</option><option value="season">Season</option></select>
+                {#if recipientSource === 'team'}<select aria-label="Recipient team" class="crm-ui-message-select" bind:value={recipientSourceId}><option value="">Select team</option>{#each $teamsStore as team}<option value={team.id}>{team.name || team.id}</option>{/each}</select>
+                {:else if recipientSource === 'event'}<select aria-label="Recipient event" class="crm-ui-message-select" bind:value={recipientSourceId}><option value="">Select event</option>{#each eventOptions as event}<option value={event.id}>{event.title}</option>{/each}</select>
+                {:else if recipientSource === 'season'}<select aria-label="Recipient season" class="crm-ui-message-select" bind:value={recipientSourceId}><option value="">Select season</option>{#each seasonOptions as season}<option value={season.id}>{season.title}</option>{/each}</select>
+                {/if}
+                {#if recipientSource !== 'manual'}<button type="button" class="crm-ui-button-secondary" disabled={recipientSource !== 'roster' && !recipientSourceId} on:click={useAuthoritativeRecipients}>Use recipients</button>{/if}
+              </div>
+              <p class="mt-2 text-xs text-gray-500">Portal records are the primary source. Manual addresses remain available for exceptional recipients.</p>
+            </div>
             <label for="registration-recipient-emails" class="crm-ui-label">Recipient emails</label>
             <textarea
               id="registration-recipient-emails"
@@ -1288,12 +1442,12 @@
     </section>
   {/if}
 
-  <ConsumerAdminInbox />
+  <div class:hidden={activeView !== 'conversations'}><ConsumerAdminInbox registrations={$registrationsStore} teams={$teamsStore} events={$eventsStore} on:unreadCount={(event) => conversationUnreadCount = event.detail} /></div>
 
-  <section class="crm-ui-message-list" aria-labelledby="wall-announcements-heading">
+  <section class="crm-ui-message-list" class:hidden={activeView !== 'announcements'} aria-labelledby="wall-announcements-heading">
     <div class="border-b border-gray-200 p-4">
       <div class="crm-ui-message-list-header">
-        <div>
+        <div class="flex flex-wrap gap-2">
           <h3 id="wall-announcements-heading" class="font-semibold text-gray-900">Published announcements</h3>
           <p class="crm-ui-hint">
             {messages.length} published
@@ -1307,6 +1461,8 @@
             bind:value={searchQuery}
             class="crm-ui-input sm:w-72"
           />
+          <select aria-label="Filter announcement audience" class="crm-ui-input" bind:value={historyAudienceFilter}><option value="all">All audiences</option><option value="organization">Organization-wide</option><option value="event">Event</option><option value="season">Season</option></select>
+          <input aria-label="Announcements since date" type="date" class="crm-ui-input" bind:value={historyDateFilter} />
         </div>
       </div>
     </div>
@@ -1381,6 +1537,7 @@
                     <dd class="mt-1 text-gray-900">{message.createdAt ? message.createdAt.toLocaleString() : 'Timestamp unavailable'}</dd>
                   </div>
                 </dl>
+                <button type="button" class="crm-ui-button-secondary mt-4" on:click={() => duplicateAnnouncement(message)}>Duplicate as new</button>
               </div>
             {/if}
           </li>

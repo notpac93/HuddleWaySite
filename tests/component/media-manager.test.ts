@@ -12,8 +12,17 @@ const firestoreMocks = vi.hoisted(() => ({
   observers: [] as SnapshotObserver[],
   unsubscribe: vi.fn(),
 }));
+const backendMocks = vi.hoisted(() => ({
+  uploadImageAsset: vi.fn(),
+  publishProgramMedia: vi.fn(),
+  updateMedia: vi.fn(),
+  deleteMedia: vi.fn(),
+}));
 
 vi.mock('../../src/lib/firebase', () => ({ db: {}, firebaseApp: {} }));
+vi.mock('../../src/lib/api/backendClient', () => ({
+  backendClient: backendMocks,
+}));
 vi.mock('firebase/firestore', () => ({
   collection: vi.fn((_db: unknown, name: string) => ({ name })),
   documentId: vi.fn(() => '__name__'),
@@ -83,6 +92,9 @@ describe('MediaManager bounded tenant projection', () => {
   beforeEach(() => {
     firestoreMocks.observers.length = 0;
     firestoreMocks.unsubscribe.mockReset();
+    Object.values(backendMocks).forEach((mock) => mock.mockReset());
+    backendMocks.updateMedia.mockResolvedValue({ success: true });
+    backendMocks.deleteMedia.mockResolvedValue({ success: true });
     vi.spyOn(console, 'error').mockImplementation(() => {});
     tenants.set('tenant-a');
   });
@@ -174,5 +186,50 @@ describe('MediaManager bounded tenant projection', () => {
 
     tenants.set(null);
     await waitFor(() => expect(screen.getByText('No media files')).toBeVisible());
+  });
+
+  it('keeps metadata changes and removal behind audited backend commands', async () => {
+    render(TestedMediaManager);
+    firestoreMocks.observers.at(-1)?.next({
+      docs: [document('banner-a', {
+        fileName: 'Original banner.png',
+        imageUrl: 'https://cdn.example.test/banner.png',
+        category: 'Banners',
+        purpose: 'Homepage banner',
+        altText: 'Players entering the field',
+      })],
+    });
+
+    await fireEvent.click(
+      await screen.findByRole('button', { name: 'Open details for Original banner.png' }),
+    );
+    await fireEvent.input(screen.getByLabelText('Filename'), {
+      target: { value: 'Opening day banner.png' },
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Save metadata' }));
+
+    await waitFor(() => expect(backendMocks.updateMedia).toHaveBeenCalledTimes(1));
+    expect(backendMocks.updateMedia).toHaveBeenCalledWith(
+      'tenant-a',
+      'banner-a',
+      expect.objectContaining({ fileName: 'Opening day banner.png' }),
+      'Correct reusable media metadata.',
+      expect.stringContaining('program-media-update'),
+    );
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Remove asset' }));
+    await fireEvent.input(screen.getByLabelText('Removal reason'), {
+      target: { value: 'Retired after the season ended.' },
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Confirm removal' }));
+
+    await waitFor(() => expect(backendMocks.deleteMedia).toHaveBeenCalledTimes(1));
+    expect(backendMocks.deleteMedia).toHaveBeenCalledWith(
+      'tenant-a',
+      'banner-a',
+      'Retired after the season ended.',
+      expect.stringContaining('program-media-delete'),
+    );
+    expect(screen.getByText('Asset archived and removed from the active library.')).toBeVisible();
   });
 });

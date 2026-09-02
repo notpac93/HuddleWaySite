@@ -19,6 +19,7 @@ type SnapshotSubscription = {
 const snapshotSubscriptions: SnapshotSubscription[] = [];
 const appMocks = vi.hoisted(() => ({
   appConfiguration: vi.fn(),
+  appConfigurationHistory: vi.fn(),
   publishAppConfiguration: vi.fn(),
   uploadImageAsset: vi.fn(),
 }));
@@ -97,6 +98,9 @@ function configurationSnapshot(tenantId: string) {
   return {
     tenantId,
     mode: 'update' as const,
+    configVersion: 3,
+    publishedAt: '2026-07-01T12:00:00.000Z',
+    publishedBy: 'owner-1',
     versionToken: `version-${tenantId}-${configNames.get(tenantId)}`,
     configuration: {
       name: configNames.get(tenantId)
@@ -224,6 +228,13 @@ describe('MyAppStudio tenant preview isolation', () => {
     appMocks.appConfiguration.mockImplementation(
       async (tenantId: string) => configurationSnapshot(tenantId),
     );
+    appMocks.appConfigurationHistory.mockReset();
+    appMocks.appConfigurationHistory.mockResolvedValue({
+      tenantId: 'tenant-a',
+      versions: [],
+      truncated: false,
+      requestId: 'history-request',
+    });
     appMocks.publishAppConfiguration.mockReset();
     appMocks.publishAppConfiguration.mockImplementation(
       async (
@@ -585,5 +596,35 @@ describe('MyAppStudio tenant preview isolation', () => {
     await pending.promise;
     expect(screen.getByLabelText('App Name')).toHaveValue('Beta League');
     expect(screen.getByRole('button', { name: 'Publish App' })).toBeDisabled();
+  });
+
+  it('loads a prior published version as an unpublished rollback draft', async () => {
+    appMocks.appConfigurationHistory.mockResolvedValue({
+      tenantId: 'tenant-a',
+      versions: [{
+        id: 'tenant-a__00000002',
+        configVersion: 2,
+        publishedAt: '2026-06-01T12:00:00.000Z',
+        publishedBy: 'editor-2',
+        auditReason: 'Published reviewed app configuration.',
+        configuration: {
+          ...configurationSnapshot('tenant-a').configuration,
+          name: 'Alpha League Classic',
+        },
+      }],
+      truncated: false,
+      requestId: 'history-request',
+    });
+    render(TestedMyAppStudio);
+    await findTenantPreview('Alpha League');
+    await fireEvent.click(screen.getByRole('button', { name: 'Version history' }));
+
+    expect(await screen.findByText('Version 2')).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Use as rollback draft' }));
+    expect(screen.getByLabelText('App Name')).toHaveValue('Alpha League Classic');
+    expect(screen.getByText(
+      /Version 2 is loaded as an unpublished rollback draft/,
+    )).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Publish App' })).toBeEnabled();
   });
 });

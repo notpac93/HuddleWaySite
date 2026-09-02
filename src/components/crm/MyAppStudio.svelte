@@ -23,6 +23,7 @@
     registerPortalDraft,
   } from '../../lib/ui/portalDraftGuard';
   import AppPublishReview from './app/AppPublishReview.svelte';
+  import { eventsStore, teamsStore } from '../../lib/services/DataStore';
 
 
   // Form Configurator State
@@ -46,6 +47,7 @@
   let loadedConfigSignature = '';
   let configLoadSequence = 0;
   let publishMessage = '';
+  let draftNotice = '';
   let publishRequestId = '';
   let publishIdempotencyKey = createIdempotencyKey('app-configuration-publish');
   let publishAttemptSignature = '';
@@ -62,6 +64,14 @@
     savedAt: string;
     configuration: CrmAppConfiguration;
   } | null = null;
+  type AppVersion = { id: string; configVersion: number; publishedAt: string | null; publishedBy: string | null; auditReason: string | null; configuration: CrmAppConfiguration };
+  let configVersion = 0;
+  let publishedAt: string | null = null;
+  let publishedBy: string | null = null;
+  let versionHistory: AppVersion[] = [];
+  let versionHistoryState: 'idle' | 'loading' | 'ready' | 'error' = 'idle';
+  let versionHistoryTruncated = false;
+  let brandingUndoSnapshot: Pick<CrmAppConfiguration, 'name' | 'primaryColor' | 'secondaryColor' | 'tertiaryColor'> | null = null;
 
   const previewBaseUrl = resolveCrmAppPreviewUrl(publicEnvironment);
 
@@ -75,6 +85,11 @@
     { key: 'events', pageId: 'events_page', route: '/events', label: 'Events', enabled: true },
   ];
   const maxActiveTabs = 5;
+  const approvedPalettes = [
+    { name: 'HuddleWay blue', primary: '#0F4C81', secondary: '#245BD6', tertiary: '#F59E0B' },
+    { name: 'Field green', primary: '#166534', secondary: '#16A34A', tertiary: '#FACC15' },
+    { name: 'Club burgundy', primary: '#7F1D1D', secondary: '#DC2626', tertiary: '#F59E0B' },
+  ];
   const missingTabPriority = ['home', 'teams', 'schedule', 'messaging', 'events'];
   const permanentTabNames: Record<string, string> = {
     home: 'Home',
@@ -250,7 +265,7 @@
 
   // Active Tab in the left pane
   let activeTab = 'Branding';
-  const tabs = ['Branding', 'Pages'];
+  const tabs = ['Branding', 'Pages', 'Version history'];
 
   $: if (String($tenantIdStore || '') !== activeTenantId) {
     activeTenantId = String($tenantIdStore || '');
@@ -266,6 +281,11 @@
     logoValidationMessage = '';
     loadedConfigSignature = '';
     configVersionToken = '';
+    configVersion = 0;
+    publishedAt = null;
+    publishedBy = null;
+    versionHistory = [];
+    versionHistoryState = 'idle';
     loadedConfiguration = null;
     savedDraft = null;
     showPublishReview = false;
@@ -273,6 +293,7 @@
     publishIdempotencyKey =
       createIdempotencyKey('app-configuration-publish');
     publishMessage = '';
+    draftNotice = '';
     publishRequestId = '';
     submitState = 'idle';
     clearPreviewDraftRetries();
@@ -456,6 +477,69 @@
     removeLocalDraft();
   }
 
+  function captureBrandingUndo() {
+    brandingUndoSnapshot = { name: appName, primaryColor, secondaryColor, tertiaryColor };
+  }
+
+  function applyPalette(palette: typeof approvedPalettes[number]) {
+    captureBrandingUndo();
+    primaryColor = palette.primary;
+    secondaryColor = palette.secondary;
+    tertiaryColor = palette.tertiary;
+  }
+
+  function undoBrandingChange() {
+    if (!brandingUndoSnapshot) return;
+    const prior = brandingUndoSnapshot;
+    brandingUndoSnapshot = { name: appName, primaryColor, secondaryColor, tertiaryColor };
+    appName = prior.name;
+    primaryColor = prior.primaryColor;
+    secondaryColor = prior.secondaryColor;
+    tertiaryColor = prior.tertiaryColor;
+  }
+
+  function moveTab(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    if (target < 0 || target >= tabsConfig.length) return;
+    const next = [...tabsConfig];
+    [next[index], next[target]] = [next[target], next[index]];
+    tabsConfig = next;
+  }
+
+  function activeContentCount(tab: NavigationTabDraft) {
+    if (tab.key === 'events') return $eventsStore.length;
+    if (tab.key === 'schedule') return $eventsStore.filter((event) => !['cancelled', 'archived'].includes(String(event.status || event.lifecycleStatus || '').toLowerCase())).length;
+    if (tab.key === 'teams' || permanentTabName(tab) === 'Teams') return $teamsStore.length;
+    return 0;
+  }
+
+  function useVersionAsRollbackDraft(version: AppVersion) {
+    captureBrandingUndo();
+    const configuration = version.configuration;
+    appName = configuration.name;
+    primaryColor = configuration.primaryColor;
+    secondaryColor = configuration.secondaryColor;
+    tertiaryColor = configuration.tertiaryColor;
+    logoUrl = configuration.logoUrl;
+    tabsConfig = configuration.navigationTabs.map((tab) => ({ ...tab }));
+    activeTab = 'Branding';
+    draftNotice = `Version ${version.configVersion} is loaded as an unpublished rollback draft. Review the preview and publish to make it current.`;
+  }
+
+  async function loadVersionHistory(tenantId: string) {
+    versionHistoryState = 'loading';
+    try {
+      const result = await backendClient.appConfigurationHistory(tenantId);
+      if ($tenantIdStore !== tenantId) return;
+      versionHistory = result.versions;
+      versionHistoryTruncated = result.truncated;
+      versionHistoryState = 'ready';
+    } catch {
+      if ($tenantIdStore !== tenantId) return;
+      versionHistoryState = 'error';
+    }
+  }
+
   function readLocalDraft(tenantId: string) {
     try {
       const raw = window.localStorage.getItem(draftStorageKey(tenantId));
@@ -502,6 +586,9 @@
       }
 
       configMode = snapshot.mode;
+      configVersion = snapshot.configVersion;
+      publishedAt = snapshot.publishedAt;
+      publishedBy = snapshot.publishedBy;
       configVersionToken = snapshot.versionToken;
       if (snapshot.configuration) {
         const configuration = snapshot.configuration;
@@ -527,6 +614,7 @@
       }
       configLoadState = 'ready';
       savedDraft = readLocalDraft(tenantId);
+      void loadVersionHistory(tenantId);
     } catch (e) {
       console.error('App configuration load failed.');
       if (
@@ -564,6 +652,7 @@
     const mode = configMode;
     submitState = 'loading';
     publishMessage = '';
+    draftNotice = '';
     publishRequestId = '';
     try {
       const configuration: CrmAppConfiguration = {
@@ -673,7 +762,7 @@
       <h1 class="crm-ui-page-title">My App</h1>
       <p class="text-sm text-gray-500 mt-1">Preview changes here, then publish them to your family app.</p>
       {#if configLoadState === 'ready'}
-        <p class="mt-2 text-xs font-medium text-gray-600">{versionLabel} · Previewing {isDirty ? 'unpublished draft' : 'published configuration'}</p>
+        <p class="mt-2 text-xs font-medium text-gray-600">Version {configVersion || 'initial'} · {versionLabel} · Previewing {isDirty ? 'unpublished draft' : 'published configuration'} · Last published {publishedAt ? new Date(publishedAt).toLocaleString() : 'not available'} by {publishedBy || 'actor unavailable'}</p>
       {/if}
     </div>
 
@@ -721,6 +810,12 @@
       </div>
     {/if}
 
+    {#if draftNotice}
+      <div class="mx-6 mt-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900" role="status">
+        {draftNotice}
+      </div>
+    {/if}
+
     {#if savedDraft}
       <div class="mx-6 mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950" role="status">
         <p class="font-semibold">A browser draft was saved {new Date(savedDraft.savedAt).toLocaleString()}.</p>
@@ -748,6 +843,7 @@
               id="studio-app-name"
               type="text"
               bind:value={appName}
+              on:focus={captureBrandingUndo}
               maxlength="160"
               disabled={submitState === 'loading'}
               class="crm-ui-studio-name"
@@ -783,7 +879,7 @@
             {/if}
 
             <div class="space-y-4">
-              {#each tabsConfig as tab (tab.key)}
+              {#each tabsConfig as tab, index (tab.key)}
                 <div class="crm-ui-studio-module-row">
                   <div class="min-w-0 flex-1 pr-4">
                     <h4 class="text-sm font-semibold text-gray-900">
@@ -809,6 +905,8 @@
                   >
                     <span class="inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {tab.enabled ? 'translate-x-5' : 'translate-x-0'}"></span>
                   </button>
+                  <div class="ml-3 flex flex-col gap-1"><button type="button" aria-label={`Move ${permanentTabName(tab)} tab up`} disabled={submitState === 'loading' || index === 0} class="rounded border px-2 py-1 text-xs disabled:opacity-40" on:click={() => moveTab(index, -1)}>↑</button><button type="button" aria-label={`Move ${permanentTabName(tab)} tab down`} disabled={submitState === 'loading' || index === tabsConfig.length - 1} class="rounded border px-2 py-1 text-xs disabled:opacity-40" on:click={() => moveTab(index, 1)}>↓</button></div>
+                  {#if tab.enabled && activeContentCount(tab) > 0}<p class="mt-2 basis-full text-xs text-amber-800">Hiding this tab would remove access to {activeContentCount(tab)} active {permanentTabName(tab).toLowerCase()} record{activeContentCount(tab) === 1 ? '' : 's'} from family navigation; the content itself is retained.</p>{/if}
                 </div>
               {/each}
 
@@ -818,6 +916,8 @@
             </div>
           </div>
         </div>
+      {:else if activeTab === 'Version history'}
+        <div class="space-y-4"><div><h3 class="font-semibold text-gray-900">Published versions</h3><p class="mt-1 text-sm text-gray-600">Load an earlier configuration as a draft, inspect it in the mobile preview, then use the normal reviewed publish flow to roll back safely.</p></div>{#if versionHistoryState === 'loading'}<p role="status" class="text-sm text-gray-500">Loading version history…</p>{:else if versionHistoryState === 'error'}<div class="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">Version history could not be loaded. <button type="button" class="font-semibold underline" on:click={() => activeTenantId && loadVersionHistory(activeTenantId)}>Retry</button></div>{:else if versionHistory.length === 0}<p class="rounded-md border bg-white p-4 text-sm text-gray-600">No portal-published versions are retained yet. The next publication will start this history.</p>{:else}<ul class="divide-y rounded-lg border bg-white">{#each versionHistory as version}<li class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p class="font-semibold">Version {version.configVersion}{version.configVersion === configVersion ? ' · Current' : ''}</p><p class="text-xs text-gray-500">{version.publishedAt ? new Date(version.publishedAt).toLocaleString() : 'Time unavailable'} · {version.publishedBy || 'Actor unavailable'}</p></div><button type="button" class="crm-ui-button-secondary" disabled={version.configVersion === configVersion || submitState === 'loading'} on:click={() => useVersionAsRollbackDraft(version)}>Use as rollback draft</button></li>{/each}</ul>{#if versionHistoryTruncated}<p class="text-xs text-amber-800">Showing the 20 most recent retained versions.</p>{/if}{/if}</div>
       {/if}
     </div>
     <div class="crm-ui-studio-actions">
@@ -868,7 +968,7 @@
             <div class="flex flex-col space-y-1">
               <div class="flex items-center space-x-2">
                 <div class="crm-ui-studio-color-swatch">
-                  <input type="color" bind:value={primaryColor} aria-label="Primary brand color" disabled={submitState === 'loading'} class="crm-ui-studio-color-picker" />
+                  <input type="color" bind:value={primaryColor} on:focus={captureBrandingUndo} aria-label="Primary brand color" disabled={submitState === 'loading'} class="crm-ui-studio-color-picker" />
                   <div class="absolute inset-0 z-0" style="background-color: {primaryColor}"></div>
                 </div>
                 <div class="text-xs text-gray-500 font-medium">Primary</div>
@@ -879,7 +979,7 @@
             <div class="flex flex-col space-y-1">
               <div class="flex items-center space-x-2">
                 <div class="crm-ui-studio-color-swatch">
-                  <input type="color" bind:value={secondaryColor} aria-label="Secondary brand color" disabled={submitState === 'loading'} class="crm-ui-studio-color-picker" />
+                  <input type="color" bind:value={secondaryColor} on:focus={captureBrandingUndo} aria-label="Secondary brand color" disabled={submitState === 'loading'} class="crm-ui-studio-color-picker" />
                   <div class="absolute inset-0 z-0" style="background-color: {secondaryColor}"></div>
                 </div>
                 <div class="text-xs text-gray-500 font-medium">Secondary</div>
@@ -890,7 +990,7 @@
             <div class="flex flex-col space-y-1">
               <div class="flex items-center space-x-2">
                 <div class="crm-ui-studio-color-swatch">
-                  <input type="color" bind:value={tertiaryColor} aria-label="Tertiary brand color" disabled={submitState === 'loading'} class="crm-ui-studio-color-picker" />
+                  <input type="color" bind:value={tertiaryColor} on:focus={captureBrandingUndo} aria-label="Tertiary brand color" disabled={submitState === 'loading'} class="crm-ui-studio-color-picker" />
                   <div class="absolute inset-0 z-0" style="background-color: {tertiaryColor}"></div>
                 </div>
                 <div class="text-xs text-gray-500 font-medium">Tertiary</div>
@@ -898,6 +998,7 @@
               <input type="text" bind:value={tertiaryColor} aria-label="Tertiary brand color hex value" maxlength="7" pattern={'^#[0-9a-fA-F]{6}$'} disabled={submitState === 'loading'} class="crm-ui-studio-color-hex" />
             </div>
           </div>
+          <div class="mt-3 flex flex-wrap gap-2"><span class="text-xs font-semibold text-gray-600">Approved palettes:</span>{#each approvedPalettes as palette}<button type="button" class="rounded-md border bg-white px-2 py-1 text-xs" disabled={submitState === 'loading'} on:click={() => applyPalette(palette)}>{palette.name}</button>{/each}<button type="button" class="rounded-md border bg-white px-2 py-1 text-xs" disabled={!brandingUndoSnapshot || submitState === 'loading'} on:click={undoBrandingChange}>Undo branding change</button></div>
         </div>
       </div>
     </div>

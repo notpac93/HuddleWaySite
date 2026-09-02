@@ -7,6 +7,8 @@
   import { activeTenantRole, tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
 
+  export let onNavigateTab: (tab: string, id?: string | null) => void = () => {};
+
   let showCreateEventModal = false;
   let showAddStaffModal = false;
   let CreateEventFormComponent: Component<any> | null = null;
@@ -20,6 +22,7 @@
   };
   let loadedDashboardTenant = '';
   let dashboardSummaryGeneration = 0;
+  let lastRefreshedAt: Date | null = null;
 
   async function openCreateEvent() {
     quickActionLoadError = '';
@@ -71,6 +74,7 @@
         recentRegistrations: summary.recentRegistrations,
         error: '',
       };
+      lastRefreshedAt = new Date();
     } catch {
       if (generation !== dashboardSummaryGeneration) return;
       dashboardSummary = {
@@ -180,6 +184,7 @@
       const participant = registration.participantSummary as Record<string, unknown> || {};
       const payer = registration.payerSummary as Record<string, unknown> || {};
       return {
+        id: registration.id,
         participantName: humanName(registration, participant),
         email: humanText(
           payer.email,
@@ -189,17 +194,22 @@
         createdAt: registration.createdAt,
       };
     });
+  $: identityRepairCount = recentRegistrations.filter((registration) => !registration.participantName || !registration.email).length;
 
 </script>
 
 <div class="h-full flex flex-col p-6 space-y-6 overflow-y-auto bg-gray-50">
-  <div>
-    <p class="text-sm font-medium text-gray-500">Overview of your organization's key metrics.</p>
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div><h1 class="text-2xl font-bold text-gray-950">Dashboard</h1>
+    <p class="mt-1 text-sm font-medium text-gray-500">Current organization totals and the latest registration activity.</p>
+    <p class="mt-1 text-xs text-gray-500">Last refreshed: {lastRefreshedAt ? lastRefreshedAt.toLocaleTimeString() : 'waiting for authoritative data'}</p>
     {#if !canManageTenant}
       <p class="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900" role="status">
         Viewer access is read-only. Editing controls are unavailable.
       </p>
     {/if}
+    </div>
+    <button type="button" class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" disabled={operationalLoading || !loadedDashboardTenant} on:click={() => loadedDashboardTenant && loadDashboardSummary(loadedDashboardTenant)}>Refresh dashboard</button>
   </div>
   {#if operationalLoading}
     <p class="rounded-md border border-gray-200 bg-white p-3 text-sm text-gray-600" role="status">
@@ -214,7 +224,7 @@
   <!-- KPI Cards -->
   <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
     <!-- Total Revenue -->
-    <div class="bg-white overflow-hidden shadow rounded-lg">
+    <button type="button" class="overflow-hidden rounded-lg bg-white text-left shadow disabled:cursor-not-allowed disabled:opacity-60" disabled={!isOwner} title={!isOwner ? 'Financials require owner access.' : undefined} on:click={() => onNavigateTab('Financials')}>
       <div class="p-5">
         <div class="crm-ui-center">
           <div class="flex-shrink-0 bg-[var(--crm-brand-surface)] rounded-md p-3">
@@ -225,6 +235,7 @@
           <div class="ml-5 w-0 flex-1">
             <dl>
               <dt class="text-sm font-medium text-gray-500 truncate">Successful payment revenue</dt>
+              <dd class="text-xs text-gray-500">All loaded history · successful transactions only</dd>
               <dd>
                 {#if revenueUnavailable}
                   <div class="crm-ui-subtitle">
@@ -243,6 +254,7 @@
                   {/each}
                 {/if}
               </dd>
+              <dd class="mt-2 text-xs font-semibold text-[var(--crm-brand-link)]">View financial records →</dd>
               {#if $financialProjectionScope.error}
                 <dd class="mt-1 text-xs text-red-700" role="alert">{$financialProjectionScope.error}</dd>
               {/if}
@@ -250,10 +262,10 @@
           </div>
         </div>
       </div>
-    </div>
+    </button>
 
     <!-- Total Players -->
-    <div class="bg-white overflow-hidden shadow rounded-lg">
+    <button type="button" class="overflow-hidden rounded-lg bg-white text-left shadow disabled:cursor-not-allowed disabled:opacity-60" disabled={!canManageTenant} on:click={() => onNavigateTab('Registration')}>
       <div class="p-5">
         <div class="crm-ui-center">
           <div class="flex-shrink-0 bg-[var(--crm-brand-surface)] rounded-md p-3">
@@ -264,17 +276,19 @@
           <div class="ml-5 w-0 flex-1">
             <dl>
               <dt class="text-sm font-medium text-gray-500 truncate">Registration Records</dt>
+              <dd class="text-xs text-gray-500">All-time records in the current organization</dd>
               <dd>
                 <div class="crm-ui-subtitle">{totalPlayers}</div>
               </dd>
+              <dd class="mt-2 text-xs font-semibold text-[var(--crm-brand-link)]">View registration →</dd>
             </dl>
           </div>
         </div>
       </div>
-    </div>
+    </button>
 
     <!-- Active Teams -->
-    <div class="bg-white overflow-hidden shadow rounded-lg">
+    <button type="button" class="overflow-hidden rounded-lg bg-white text-left shadow disabled:cursor-not-allowed disabled:opacity-60" disabled={!canManageTenant} on:click={() => onNavigateTab('Teams')}>
       <div class="p-5">
         <div class="crm-ui-center">
           <div class="flex-shrink-0 bg-[var(--crm-brand-surface)] rounded-md p-3">
@@ -285,17 +299,19 @@
           <div class="ml-5 w-0 flex-1">
             <dl>
               <dt class="text-sm font-medium text-gray-500 truncate">Teams</dt>
+              <dd class="text-xs text-gray-500">Current organization total</dd>
               <dd>
                 <div class="crm-ui-subtitle">{activeTeams}</div>
               </dd>
+              <dd class="mt-2 text-xs font-semibold text-[var(--crm-brand-link)]">View teams →</dd>
             </dl>
           </div>
         </div>
       </div>
-    </div>
+    </button>
 
     <!-- Events -->
-    <div class="bg-white overflow-hidden shadow rounded-lg">
+    <button type="button" class="overflow-hidden rounded-lg bg-white text-left shadow disabled:cursor-not-allowed disabled:opacity-60" disabled={!canManageTenant} on:click={() => onNavigateTab('Events')}>
       <div class="p-5">
         <div class="crm-ui-center">
           <div class="flex-shrink-0 bg-[var(--crm-brand-surface)] rounded-md p-3">
@@ -306,15 +322,27 @@
           <div class="ml-5 w-0 flex-1">
             <dl>
               <dt class="text-sm font-medium text-gray-500 truncate">Events Managed</dt>
+              <dd class="text-xs text-gray-500">All-time event records in this organization</dd>
               <dd>
                 <div class="crm-ui-subtitle">{totalEvents}</div>
               </dd>
+              <dd class="mt-2 text-xs font-semibold text-[var(--crm-brand-link)]">View events →</dd>
             </dl>
           </div>
         </div>
       </div>
-    </div>
+    </button>
   </div>
+
+  {#if identityRepairCount > 0 || revenueUnavailable}
+    <section class="rounded-lg border border-amber-200 bg-amber-50 p-4" aria-labelledby="dashboard-attention-title">
+      <h2 id="dashboard-attention-title" class="font-semibold text-amber-950">Needs attention</h2>
+      <div class="mt-3 flex flex-wrap gap-3">
+        {#if identityRepairCount > 0}<button type="button" class="rounded-md border border-amber-300 bg-white px-3 py-2 text-sm disabled:opacity-60" disabled={!canManageTenant} on:click={() => onNavigateTab('Roster')}>{identityRepairCount} recent registration{identityRepairCount === 1 ? '' : 's'} need identity repair</button>{/if}
+        {#if revenueUnavailable}<button type="button" class="rounded-md border border-amber-300 bg-white px-3 py-2 text-sm disabled:opacity-60" disabled={!isOwner} on:click={() => onNavigateTab('Financials')}>Financial totals need reconciliation or a complete load</button>{/if}
+      </div>
+    </section>
+  {/if}
 
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
     <!-- Recent Registrations -->
@@ -326,9 +354,9 @@
       </div>
       <div class="bg-white overflow-hidden sm:rounded-md">
         <ul class="divide-y divide-gray-200">
-          {#each recentRegistrations as reg}
+          {#each recentRegistrations as reg (reg.id)}
             <li>
-              <div class="px-4 py-4 sm:px-6 hover:bg-gray-50">
+              <button type="button" class="w-full px-4 py-4 text-left hover:bg-gray-50 sm:px-6" on:click={() => onNavigateTab('Roster', reg.id)}>
                 <div class="crm-ui-between">
                   <p class="text-sm font-medium text-[var(--crm-brand-link)] truncate">{reg.participantName || 'Participant name unavailable'}</p>
                 </div>
@@ -340,7 +368,8 @@
                     <p class="ml-0 mt-1 flex items-center text-xs text-gray-500 sm:ml-4 sm:mt-0">{formatRegistrationDate(reg.createdAt)}</p>
                   </div>
                 </div>
-              </div>
+                {#if !reg.participantName || !reg.email}<p class="mt-2 text-xs font-semibold text-amber-700">Identity repair needed</p>{/if}
+              </button>
             </li>
           {/each}
           {#if operationalLoading}

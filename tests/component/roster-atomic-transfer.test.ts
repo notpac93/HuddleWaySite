@@ -100,6 +100,10 @@ async function prepareTransfer() {
   await fireEvent.click(screen.getAllByLabelText('Select Kai Reed')[0]);
   await fireEvent.change(
     screen.getByLabelText('Bulk roster action'),
+    { target: { value: 'assign_team' } },
+  );
+  await fireEvent.change(
+    screen.getByLabelText('Destination team'),
     { target: { value: 'team-2' } },
   );
 }
@@ -173,10 +177,13 @@ describe('PlayerTable atomic roster transfer', () => {
     });
     await fireEvent.click(screen.getAllByLabelText('Select Kai Reed')[0]);
     const action = screen.getByLabelText('Bulk roster action');
-    expect(action).toHaveTextContent('Fall 2026');
-    expect(action.querySelector('optgroup[label="Assign to Season"]')).not.toBeNull();
     await fireEvent.change(action, {
-      target: { value: 'season:season-fall' },
+      target: { value: 'assign_season' },
+    });
+    const destination = screen.getByLabelText('Destination season');
+    expect(destination).toHaveTextContent('Fall 2026');
+    await fireEvent.change(destination, {
+      target: { value: 'season-fall' },
     });
     await fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
 
@@ -281,10 +288,13 @@ describe('PlayerTable atomic roster transfer', () => {
       '1 roster record was omitted',
     );
     await fireEvent.click(screen.getAllByLabelText('Select Kai Reed')[0]);
-    const teamSelect = screen.getByLabelText('Bulk roster action');
+    const actionSelect = screen.getByLabelText('Bulk roster action');
+    await fireEvent.change(actionSelect, { target: { value: 'assign_team' } });
+    const teamSelect = screen.getByLabelText('Destination team');
     await fireEvent.change(teamSelect, { target: { value: 'team-2' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
 
+    expect(actionSelect).toBeDisabled();
     expect(teamSelect).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Updating...' })).toBeDisabled();
 

@@ -193,6 +193,14 @@
     });
   }
   $: activeComponentProps = {
+    ...(activeTab === 'Dashboard'
+      ? {
+          onNavigateTab: (tab: string, id: string | null = null) => {
+            activeResultId = id;
+            activeTab = tab;
+          },
+        }
+      : {}),
     ...(activeTab === 'Teams'
       ? {
           activeTeam,
@@ -205,7 +213,22 @@
           },
         }
       : {}),
-    ...(activeTab === 'Seasons' ? { activeTeam } : {}),
+    ...(activeTab === 'Staff'
+      ? {
+          onNavigateTab: (tab: string) => {
+            activeTab = tab;
+          },
+        }
+      : {}),
+    ...(activeTab === 'Seasons'
+      ? {
+          activeTeam,
+          onNavigateTab: (tab: string, id: string | null = null) => {
+            activeResultId = id;
+            activeTab = tab;
+          },
+        }
+      : {}),
     ...(activeTab === 'Roster'
       ? { activeTeam, setActiveTeam, activeResultId, onTargetConsumed }
       : {}),

@@ -22,6 +22,7 @@
   import { downloadCsv } from '../../../lib/ui/csvExport';
 
   export let season: any = null;
+  export let onNavigateTab: (tab: string, id?: string | null) => void = () => {};
 
   const dispatch = createEventDispatcher();
 
@@ -308,6 +309,12 @@
   <span class="crm-ui-hint-xs">Payment options are managed on the linked registration form.</span>
 </div>
 
+<dl class="mb-6 ml-10 grid gap-3 rounded-lg border border-gray-200 bg-white p-4 text-sm sm:grid-cols-3">
+  <div><dt class="text-gray-500">Dates</dt><dd class="font-medium text-gray-900">{season?.startDate ? new Date(season.startDate.toMillis ? season.startDate.toMillis() : season.startDate).toLocaleDateString() : 'TBD'} – {season?.endDate ? new Date(season.endDate.toMillis ? season.endDate.toMillis() : season.endDate).toLocaleDateString() : 'TBD'}</dd></div>
+  <div><dt class="text-gray-500">Registration form</dt><dd class="font-medium text-gray-900">{season?.registrationFormId || 'Not attached'}</dd></div>
+  <div><dt class="text-gray-500">Scope</dt><dd class="font-medium text-gray-900">{season?.teamId ? `Team · ${season.teamId}` : 'Organization-wide'}</dd></div>
+</dl>
+
 {#if !seasonId}
   <div class="crm-ui-danger mb-4" role="alert">
     This season record is missing its identifier. Editing, event linking, and exports are unavailable.
@@ -317,7 +324,7 @@
 <!-- Metrics Cards -->
 <div class="grid grid-cols-2 gap-4 mb-4">
   <!-- Participants Card -->
-  <div class="border border-gray-200 rounded p-4 shadow-sm bg-white">
+  <button type="button" class="border border-gray-200 rounded p-4 text-left shadow-sm bg-white" on:click={() => { activeTab = 'participants'; participantSearch = ''; }}>
     <h3 class="text-base text-gray-600 mb-4">Participants</h3>
     <div class="grid grid-cols-4 gap-2 text-center">
       <div>
@@ -339,10 +346,10 @@
         <p class="crm-ui-title">{participantProjectionUnavailable ? '—' : participants.filter(p => String(p.status).toLowerCase() === 'waitlisted').length}</p>
       </div>
     </div>
-  </div>
+  </button>
 
   <!-- Payments Card -->
-  <div class="border border-gray-200 rounded p-4 shadow-sm bg-white">
+  <button type="button" class="border border-gray-200 rounded p-4 text-left shadow-sm bg-white" on:click={() => onNavigateTab('Financials')}>
     <h3 class="text-base text-gray-600 mb-4">Payments</h3>
     <div class="grid grid-cols-4 gap-2 text-center">
       <div>
@@ -362,7 +369,7 @@
         <p class="crm-ui-title">{formatScopedMoney(financials.totalBalance)}</p>
       </div>
     </div>
-  </div>
+  </button>
 </div>
 
 <!-- Tabs -->
@@ -457,7 +464,7 @@
             <td class="px-4 py-3 whitespace-nowrap text-sm text-[var(--crm-brand-link)] font-semibold">{p.id.substring(0, 8).toUpperCase()}</td>
             <td class="crm-ui-td">{p.status}</td>
             <td class="crm-ui-td">{p.date ? p.date.toLocaleDateString('en-US') : 'Unavailable'}</td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-[var(--crm-brand-link)]">{p.name}</td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-[var(--crm-brand-link)]"><button type="button" class="hover:underline" on:click={() => onNavigateTab('Roster', p.id)}>{p.name}</button></td>
             <td class="crm-ui-td">{p.financialStatus}</td>
           </tr>
         {/each}
@@ -539,7 +546,7 @@
   {#if unlinkCandidate}
     <div class="mt-3 rounded-md border border-red-200 bg-red-50 p-4">
       <p class="font-semibold text-red-950">Unlink {unlinkCandidate.title}?</p>
-      <p class="text-xs text-red-800">The event remains intact but leaves this season.</p>
+      <p class="text-xs text-red-800">The event remains intact but leaves this season. Its registrations, messages, and payment records remain attached to the event; season totals and event grouping can change immediately.</p>
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
         <label class="text-xs text-red-950">Audit reason
           <input type="text" bind:value={unlinkReason} disabled={unlinkState === 'loading'} minlength="3" maxlength="500" class="crm-ui-field mt-1" />

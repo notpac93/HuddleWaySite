@@ -3,8 +3,6 @@ import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const imageEditors = [
-  'src/components/crm/seasons/CreateSeasonModal.svelte',
-  'src/components/crm/seasons/EditSeasonModal.svelte',
   'src/components/crm/events/CreateEventForm.svelte',
   'src/components/crm/events/EditEventModal.svelte',
   'src/components/crm/EventScheduler.svelte',
@@ -32,6 +30,15 @@ describe('CRM image selection controls', () => {
     expect(source).not.toMatch(/type=["']url["']/i);
     expect(source).not.toMatch(/paste\s+(?:an?\s+)?image\s+url/i);
     expect(source).not.toMatch(/uploads are unavailable/i);
+  });
+
+  it.each([
+    'src/components/crm/seasons/CreateSeasonModal.svelte',
+    'src/components/crm/seasons/EditSeasonModal.svelte',
+  ])('%s explains the unsupported banner capability before file selection', (file) => {
+    const source = readFileSync(file, 'utf8');
+    expect(source).not.toMatch(/type=["']file["']/i);
+    expect(source).toMatch(/banner[\s\S]{0,220}(?:disabled|managed from Media)/i);
   });
 
   it('keeps image URL entry out of every CRM component and workflow', () => {

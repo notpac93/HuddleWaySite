@@ -207,6 +207,7 @@ async function fillCreateSeason() {
 
 describe('season mutation family', () => {
   beforeEach(() => {
+    window.localStorage.removeItem('huddleway-season-view');
     tenants.set('tenant-a');
     seasonRecords.set([fallLeague]);
     eventRecords.set([openingPractice]);
@@ -297,32 +298,22 @@ describe('season mutation family', () => {
       }))
       .mockResolvedValueOnce(undefined);
     render(TestedEditSeasonModal, { season: fallLeague });
-    await fireEvent.click(screen.getByRole('button', {
-      name: 'Save Changes',
-    }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Review Changes' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Confirm Changes' }));
     const failure = await screen.findByRole('alert');
     expect(failure).toHaveTextContent('The season could not be updated.');
     expect(failure).not.toHaveTextContent('season-request-4');
     expect(failure).not.toHaveTextContent('raw season datastore failure');
-    await fireEvent.click(screen.getByRole('button', {
-      name: 'Retry Season Update',
-    }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Retry Season Update' }));
     await waitFor(() => expect(backendMocks.updateSeason).toHaveBeenCalledTimes(2));
     expect(backendMocks.updateSeason.mock.calls[1][4])
       .toBe(backendMocks.updateSeason.mock.calls[0][4]);
   });
 
-  it('rejects non-image files before updating a season', async () => {
+  it('keeps unsupported direct banner replacement unavailable', async () => {
     render(TestedEditSeasonModal, { season: fallLeague });
-    await fireEvent.change(screen.getByLabelText('Season Banner Graphic'), {
-      target: {
-        files: [new File(['not-an-image'], 'banner.txt', { type: 'text/plain' })],
-      },
-    });
-    await fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Choose a PNG, JPG, GIF, or WebP image.',
-    );
+    expect(screen.getByText(/Season banner selection is disabled here|Replace it from Media/)).toBeVisible();
+    expect(screen.queryByLabelText('Season Banner Graphic')).toBeNull();
     expect(backendMocks.updateSeason).not.toHaveBeenCalled();
   });
 

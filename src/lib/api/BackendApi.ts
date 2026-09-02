@@ -21,7 +21,7 @@ export interface BackendErrorPayload {
 }
 
 export type CrmImageUploadPurpose =
-  "branding-logo" | "season-banner" | "event-cover";
+  "branding-logo" | "season-banner" | "event-cover" | "program-library";
 
 export interface CrmImageUploadResult {
   tenantId: string;
@@ -41,7 +41,7 @@ export interface CrmImagePublicationResult {
   tenantId: string;
   reservationId: string;
   publicationId: string;
-  resourceType: "event";
+  resourceType: "event" | "program_media";
   resourceIds: string[];
   status: "draft" | "published";
   isVisible: boolean;
@@ -393,6 +393,9 @@ export type CrmAppConfiguration = {
 export type CrmAppConfigurationSnapshot = {
   tenantId: string;
   mode: "initialize" | "update";
+  configVersion: number;
+  publishedAt: string | null;
+  publishedBy: string | null;
   versionToken: string;
   configuration: CrmAppConfiguration | null;
   requestId: string;
@@ -493,6 +496,8 @@ type CrmResourceMutationResponse = {
   updatedCount?: number;
   configVersion?: number;
   deleted?: boolean;
+  updated?: boolean;
+  archived?: boolean;
   storageDeleted?: boolean;
   title?: string;
   publicationSyncStatus?: "deferred" | "succeeded" | "not_required";
@@ -772,6 +777,12 @@ export interface CrmAuditEventRecord {
   actorRole: string;
   actorLabel: string;
   timestamp: string | null;
+  resourceId: string | null;
+  correlationId: string | null;
+  source: string;
+  reason: string | null;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
 }
 
 export interface RequestOptions {
@@ -1256,6 +1267,90 @@ export class BackendApi {
         payload as unknown as Record<string, unknown>,
         "The image publication response was invalid.",
       );
+    }
+    return payload;
+  }
+
+  async publishProgramMedia(
+    tenantId: string,
+    reservationId: string,
+    metadata: {
+      fileName: string;
+      category: string;
+      purpose: string;
+      altText: string;
+      width: number | null;
+      height: number | null;
+    },
+    auditReason: string,
+    idempotencyKey: string,
+  ) {
+    const payload = await this.send<CrmImagePublicationResult & { success: boolean }>(
+      `/admin/crm/images/upload-reservations/${encodeURIComponent(reservationId)}/publish`,
+      {
+        method: "POST",
+        body: {
+          tenantId,
+          resourceType: "program_media",
+          resourceIds: [reservationId],
+          metadata,
+          auditReason,
+          idempotencyKey,
+        },
+        idempotencyKey,
+      },
+    );
+    if (
+      payload.success !== true
+      || payload.tenantId !== tenantId
+      || payload.reservationId !== reservationId
+      || payload.publicationId !== reservationId
+      || payload.resourceType !== "program_media"
+      || payload.status !== "published"
+      || payload.isVisible !== true
+      || !/^https?:\/\//i.test(String(payload.publicUrl || ""))
+      || typeof payload.idempotentReplay !== "boolean"
+      || !String(payload.operationId || "").trim()
+      || !String(payload.requestId || "").trim()
+    ) {
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
+    }
+    return payload;
+  }
+
+  async updateMedia(
+    tenantId: string,
+    mediaId: string,
+    data: { fileName: string; category: string; purpose: string; altText: string },
+    auditReason: string,
+    idempotencyKey: string,
+  ) {
+    const payload = await this.crmResourceMutation(tenantId, "media.update", {
+      resourceId: mediaId,
+      data,
+      auditReason,
+      idempotencyKey,
+    });
+    if (payload.id !== mediaId || payload.updated !== true) {
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
+    }
+    return payload;
+  }
+
+  async deleteMedia(
+    tenantId: string,
+    mediaId: string,
+    auditReason: string,
+    idempotencyKey: string,
+  ) {
+    const payload = await this.crmResourceMutation(tenantId, "media.delete", {
+      resourceId: mediaId,
+      data: {},
+      auditReason,
+      idempotencyKey,
+    });
+    if (payload.id !== mediaId || payload.archived !== true) {
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
   }
@@ -2074,6 +2169,38 @@ export class BackendApi {
     return payload;
   }
 
+  async resendAdminInvite({
+    tenantId,
+    inviteId,
+    idempotencyKey,
+  }: {
+    tenantId: string;
+    inviteId: string;
+    idempotencyKey: string;
+  }) {
+    const payload = await this.send<{
+      success: true;
+      idempotentReplay: boolean;
+      inviteId: string;
+      deliveryStatus: "sent";
+      requestId: string;
+    }>(`/admin/invites/${encodeURIComponent(inviteId)}/resend`, {
+      method: "POST",
+      body: { tenantId, idempotencyKey },
+      idempotencyKey,
+    });
+    if (
+      payload.success !== true ||
+      typeof payload.idempotentReplay !== "boolean" ||
+      payload.inviteId !== inviteId ||
+      payload.deliveryStatus !== "sent" ||
+      !String(payload.requestId || "").trim()
+    ) {
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
+    }
+    return payload;
+  }
+
   async previewFinancialPeriod(tenantId: string, period: FinancialPeriodInput) {
     const payload = await this.send<{
       tenantId: string;
@@ -2192,12 +2319,37 @@ export class BackendApi {
     );
     if (
       !["initialize", "update"].includes(payload.mode) ||
+      !Number.isSafeInteger(payload.configVersion) ||
+      payload.configVersion < 0 ||
+      (payload.publishedAt !== null && !validIsoTimestamp(payload.publishedAt)) ||
+      (payload.publishedBy !== null && typeof payload.publishedBy !== "string") ||
       !String(payload.versionToken || "").trim() ||
       !String(payload.requestId || "").trim() ||
       (payload.mode === "initialize"
         ? payload.configuration !== null
         : !isValidAppConfiguration(payload.configuration))
     ) {
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
+    }
+    return payload;
+  }
+
+  async appConfigurationHistory(tenantId: string) {
+    const payload = await this.send<{
+      tenantId: string;
+      versions: Array<{
+        id: string;
+        configVersion: number;
+        publishedAt: string | null;
+        publishedBy: string | null;
+        auditReason: string | null;
+        configuration: CrmAppConfiguration;
+      }>;
+      truncated: boolean;
+      requestId: string;
+    }>("/admin/crm/app-configuration/history", { query: { tenantId } });
+    assertTenantEnvelope(payload as unknown as Record<string, unknown>, tenantId);
+    if (!Array.isArray(payload.versions) || typeof payload.truncated !== "boolean" || !String(payload.requestId || "").trim() || payload.versions.some((version) => !String(version.id || "").trim() || !Number.isSafeInteger(version.configVersion) || version.configVersion < 1 || (version.publishedAt !== null && !validIsoTimestamp(version.publishedAt)) || (version.publishedBy !== null && typeof version.publishedBy !== "string") || (version.auditReason !== null && typeof version.auditReason !== "string") || !isValidAppConfiguration(version.configuration))) {
       invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
@@ -2774,7 +2926,7 @@ export class BackendApi {
     return payload;
   }
 
-  recallMessage(tenantId: string, messageId: string, idempotencyKey: string) {
+  recallMessage(tenantId: string, messageId: string, idempotencyKey: string, auditReason = "Announcement removed by an authorized administrator.") {
     return this.send<{
       success: boolean;
       idempotentReplay: boolean;
@@ -2782,7 +2934,7 @@ export class BackendApi {
       requestId: string;
     }>(`/admin/messages/${encodeURIComponent(messageId)}/recall`, {
       method: "POST",
-      body: { tenantId, idempotencyKey },
+      body: { tenantId, idempotencyKey, auditReason },
       idempotencyKey,
     });
   }

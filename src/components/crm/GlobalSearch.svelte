@@ -33,6 +33,19 @@
     closeSearch();
   }
 
+  function handleResultKeys(event: KeyboardEvent) {
+    if (!['ArrowDown', 'ArrowUp'].includes(event.key)) return;
+    const container = (event.currentTarget as HTMLElement).closest('[data-search-panel]');
+    const results = Array.from(container?.querySelectorAll<HTMLButtonElement>('[data-search-result]') || []);
+    if (results.length === 0) return;
+    event.preventDefault();
+    const current = results.indexOf(document.activeElement as HTMLButtonElement);
+    const next = event.key === 'ArrowDown'
+      ? (current + 1 + results.length) % results.length
+      : (current <= 0 ? results.length - 1 : current - 1);
+    results[next]?.focus();
+  }
+
   $: query = searchQuery.toLowerCase().trim();
 
   $: searchablePlayers = $registrationsStore.map((registration) =>
@@ -75,13 +88,13 @@
 </script>
 
 {#if isOpen}
-  <div class="crm-ui-modal-root" aria-labelledby="global-search-title" role="dialog" aria-modal="true">
+  <div class="crm-ui-modal-root" aria-labelledby="global-search-title" role="dialog" aria-modal="true" tabindex="-1" on:keydown={handleResultKeys}>
     <div class="flex items-start justify-center min-h-screen pt-16 px-4 pb-20 text-center sm:block sm:p-0">
 
       <!-- Background overlay -->
       <button type="button" class="crm-ui-backdrop" aria-label="Close global search" tabindex="-1" on:click={closeSearch}></button>
 
-      <div class="relative z-10 inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-top sm:max-w-2xl sm:w-full" tabindex="-1" use:modalFocus={{ onEscape: closeSearch, initialFocusSelector: '#global-search-input' }}>
+      <div data-search-panel role="document" class="relative z-10 inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-top sm:max-w-2xl sm:w-full" tabindex="-1" use:modalFocus={{ onEscape: closeSearch, initialFocusSelector: '#global-search-input' }}>
         <div class="bg-white">
           <h2 id="global-search-title" class="sr-only">Search HuddleWay records</h2>
           <div class="relative border-b border-gray-200">
@@ -106,8 +119,9 @@
 
           <div class="max-h-[60vh] overflow-y-auto">
             <div class="border-b border-gray-100 px-4 py-2 text-xs text-gray-500">
-              Search covers the loaded organization projections (up to {$registrationsProjectionScope.limit} records per category).
+              Search shows up to 5 matches per category from the loaded organization projections.
               {#if searchIsTruncated} More records exist, so results are incomplete.{/if}
+              <span class="ml-2 font-medium">↑/↓ move through results · Enter opens · Esc closes</span>
             </div>
             {#if searchIsLoading}
               <div class="p-8 text-center text-sm text-gray-500" role="status">Loading searchable records…</div>
@@ -134,7 +148,7 @@
                     <ul class="space-y-1">
                       {#each filteredPlayers as player (player.id)}
                         <li>
-                          <button type="button" class="flex w-full items-center justify-between p-2 hover:bg-[var(--crm-brand-surface)] rounded-md cursor-pointer group text-left" on:click={() => openResult('Roster', player.id)}>
+                          <button type="button" data-search-result class="flex w-full items-center justify-between p-2 hover:bg-[var(--crm-brand-surface)] rounded-md cursor-pointer group text-left" on:click={() => openResult('Roster', player.id)}>
                           <div class="crm-ui-center">
                             <div class="h-8 w-8 rounded-full bg-[var(--crm-brand-surface)] flex items-center justify-center text-[var(--crm-brand-link)] font-bold mr-3">
                               {((player.participantName || '?').charAt(0)).toUpperCase()}
@@ -159,7 +173,7 @@
                     <ul class="space-y-1">
                       {#each filteredTeams as team (team.id)}
                         <li>
-                          <button type="button" class="flex w-full items-center justify-between p-2 hover:bg-[var(--crm-brand-surface)] rounded-md cursor-pointer group text-left" on:click={() => openResult('Teams', team.id)}>
+                          <button type="button" data-search-result class="flex w-full items-center justify-between p-2 hover:bg-[var(--crm-brand-surface)] rounded-md cursor-pointer group text-left" on:click={() => openResult('Teams', team.id)}>
                           <div class="crm-ui-center">
                             <div class="h-8 w-8 rounded-md bg-gray-100 flex items-center justify-center text-gray-500 mr-3">
                               <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
@@ -184,7 +198,7 @@
                     <ul class="space-y-1">
                       {#each filteredEvents as event (event.id)}
                         <li>
-                          <button type="button" class="flex w-full items-center justify-between p-2 hover:bg-[var(--crm-brand-surface)] rounded-md cursor-pointer group text-left" on:click={() => openResult('Events', event.id)}>
+                          <button type="button" data-search-result class="flex w-full items-center justify-between p-2 hover:bg-[var(--crm-brand-surface)] rounded-md cursor-pointer group text-left" on:click={() => openResult('Events', event.id)}>
                           <div class="crm-ui-center">
                             <div class="h-8 w-8 rounded-md bg-purple-100 flex items-center justify-center text-purple-600 mr-3">
                               <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>

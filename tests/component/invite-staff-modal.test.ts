@@ -92,10 +92,10 @@ describe('InviteStaffModal command states', () => {
     );
     render(TestedInviteStaffModal);
 
-    expect(screen.getByRole('button', { name: 'Send Invite' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Review Invite' })).toBeDisabled();
     await fillInvite(' COACH@Example.Test ');
-    const submit = screen.getByRole('button', { name: 'Send Invite' });
-    expect(submit).toBeEnabled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Review Invite' }));
+    const submit = screen.getByRole('button', { name: 'Confirm & Send Invite' });
     await fireEvent.click(submit);
     await fireEvent.click(submit);
 
@@ -136,7 +136,8 @@ describe('InviteStaffModal command states', () => {
     render(TestedInviteStaffModal);
     await fillInvite();
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Send Invite' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Review Invite' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Confirm & Send Invite' }));
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('The staff invitation could not be sent.');
     expect(alert).not.toHaveTextContent('invite-request-safe');
@@ -155,15 +156,17 @@ describe('InviteStaffModal command states', () => {
     render(TestedInviteStaffModal);
     await fillInvite();
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Send Invite' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Review Invite' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Confirm & Send Invite' }));
     await screen.findByRole('alert');
     const firstKey = inviteMock.mock.calls[0][0].idempotencyKey;
 
     await fireEvent.input(screen.getByLabelText('Email Address *'), {
       target: { value: 'assistant@example.test' },
     });
-    expect(screen.getByRole('button', { name: 'Send Invite' })).toBeEnabled();
-    await fireEvent.click(screen.getByRole('button', { name: 'Send Invite' }));
+    expect(screen.getByRole('button', { name: 'Review Invite' })).toBeEnabled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Review Invite' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Confirm & Send Invite' }));
     await waitFor(() => expect(inviteMock).toHaveBeenCalledTimes(2));
     expect(inviteMock.mock.calls[1][0].idempotencyKey).not.toBe(firstKey);
   });

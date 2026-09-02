@@ -2,6 +2,8 @@
   import { tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
   import { BackendApiError, type CrmAuditEventRecord } from '../../lib/api/BackendApi';
+  import { downloadCsv } from '../../lib/ui/csvExport';
+  import { modalFocus } from '../../lib/ui/modalFocus';
 
   let activities: CrmAuditEventRecord[] = [];
   let isLoading = false;
@@ -14,6 +16,15 @@
   let loadGeneration = 0;
   let hasMore = false;
   let nextCursor: string | null = null;
+  let searchQuery = '';
+  let actorFilter = '';
+  let actionFilter = '';
+  let resourceFilter = '';
+  let outcomeFilter = '';
+  let dateFrom = '';
+  let dateTo = '';
+  let selectedActivity: CrmAuditEventRecord | null = null;
+  let lastRefreshedAt: Date | null = null;
 
   async function loadActivities(append = false) {
     const tenantId = $tenantIdStore;
@@ -61,6 +72,7 @@
       nextCursor = page.nextCursor;
       truncated = page.hasMore;
       requestId = page.requestId;
+      lastRefreshedAt = new Date();
     } catch (e) {
       console.error('Activity could not be loaded.');
       if (generation !== loadGeneration || $tenantIdStore !== tenantId) return;
@@ -119,13 +131,60 @@
         return 'bg-gray-100 text-gray-600';
     }
   }
+
+  $: actors = [...new Set(activities.map((activity) => activity.actorLabel).filter(Boolean))].sort();
+  $: resources = [...new Set(activities.map((activity) => activity.resourceType).filter(Boolean))].sort();
+  $: filteredActivities = activities.filter((activity) => {
+    const query = searchQuery.trim().toLowerCase();
+    const day = activity.timestamp?.slice(0, 10) || '';
+    return (!query || [activity.actionDescription, activity.actorLabel, activity.resourceType, activity.resourceId, activity.reason, activity.correlationId]
+      .some((value) => String(value || '').toLowerCase().includes(query)))
+      && (!actorFilter || activity.actorLabel === actorFilter)
+      && (!actionFilter || activity.actionType === actionFilter)
+      && (!resourceFilter || activity.resourceType === resourceFilter)
+      && (!outcomeFilter || activity.outcome === outcomeFilter)
+      && (!dateFrom || day >= dateFrom)
+      && (!dateTo || day <= dateTo);
+  });
+
+  function exportActivity() {
+    downloadCsv(filteredActivities.map((activity) => ({
+      organization: $tenantIdStore || '', generatedAt: new Date().toISOString(),
+      filters: `actor=${actorFilter || 'all'}; action=${actionFilter || 'all'}; resource=${resourceFilter || 'all'}; outcome=${outcomeFilter || 'all'}; from=${dateFrom || 'any'}; to=${dateTo || 'any'}`,
+      timestamp: activity.timestamp, actor: activity.actorLabel, role: activity.actorRole,
+      action: activity.action, resourceType: activity.resourceType, resourceId: activity.resourceId,
+      outcome: activity.outcome, reason: activity.reason, correlationId: activity.correlationId,
+      retentionCaveat: 'Export includes only audit records retained and loaded in the portal.',
+    })), [
+      { key: 'organization', label: 'Organization' }, { key: 'generatedAt', label: 'Generated at' },
+      { key: 'filters', label: 'Filters' }, { key: 'timestamp', label: 'Timestamp' },
+      { key: 'actor', label: 'Actor' }, { key: 'role', label: 'Role' },
+      { key: 'action', label: 'Action' }, { key: 'resourceType', label: 'Object type' },
+      { key: 'resourceId', label: 'Object ID' }, { key: 'outcome', label: 'Outcome' },
+      { key: 'reason', label: 'Reason' }, { key: 'correlationId', label: 'Correlation ID' },
+      { key: 'retentionCaveat', label: 'Retention caveat' },
+    ], `huddleway-activity-${$tenantIdStore || 'organization'}`);
+  }
 </script>
+
+{#if selectedActivity}
+  <div class="fixed inset-0 z-50 flex justify-end bg-slate-950/40" role="dialog" aria-modal="true" aria-labelledby="activity-detail-title">
+    <button type="button" class="absolute inset-0" aria-label="Close activity details" on:click={() => selectedActivity = null}></button>
+    <aside class="relative z-10 h-full w-full max-w-xl overflow-y-auto bg-white p-6 shadow-xl" tabindex="-1" use:modalFocus={{ onEscape: () => selectedActivity = null, initialFocusSelector: 'button' }}>
+      <div class="flex justify-between gap-4"><div><h3 id="activity-detail-title" class="text-xl font-semibold">Audit record</h3><p class="text-sm text-gray-500">{selectedActivity.actionDescription}</p></div><button type="button" class="rounded-md border px-3 py-2 text-sm" on:click={() => selectedActivity = null}>Close</button></div>
+      <dl class="mt-6 grid gap-4 text-sm sm:grid-cols-2"><div><dt class="text-gray-500">Actor</dt><dd>{selectedActivity.actorLabel} ({selectedActivity.actorRole})</dd></div><div><dt class="text-gray-500">Outcome</dt><dd>{selectedActivity.outcome}</dd></div><div><dt class="text-gray-500">Object</dt><dd>{selectedActivity.resourceType} · {selectedActivity.resourceId || 'ID unavailable'}</dd></div><div><dt class="text-gray-500">Time</dt><dd>{formatTime(selectedActivity.timestamp)}</dd></div><div><dt class="text-gray-500">Source</dt><dd>{selectedActivity.source}</dd></div><div><dt class="text-gray-500">Correlation ID</dt><dd class="break-all">{selectedActivity.correlationId || 'Unavailable'}</dd></div></dl>
+      <section class="mt-6"><h4 class="font-semibold">Reason</h4><p class="mt-1 text-sm">{selectedActivity.reason || 'No audit reason was recorded.'}</p></section>
+      <div class="mt-6 grid gap-4 sm:grid-cols-2"><section class="rounded-md border bg-gray-50 p-4"><h4 class="font-semibold">Before</h4><pre class="mt-2 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify(selectedActivity.before, null, 2) || 'Not available'}</pre></section><section class="rounded-md border bg-gray-50 p-4"><h4 class="font-semibold">After</h4><pre class="mt-2 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify(selectedActivity.after, null, 2) || 'Not available'}</pre></section></div>
+    </aside>
+  </div>
+{/if}
 
 <div class="h-full bg-white flex flex-col">
   <div class="px-8 py-6 border-b border-gray-200 flex justify-between items-center">
     <div>
       <h2 class="crm-ui-page-title">Activity & Audit Logs</h2>
       <p class="mt-1 text-sm text-gray-500">A chronological record of actions taken in your organization.</p>
+      <p class="mt-1 text-xs text-gray-500">Records are shown newest first for the retained server history. Last successful ingestion: {activities[0]?.timestamp ? formatTime(activities[0].timestamp) : 'not yet available'} · refreshed {lastRefreshedAt ? lastRefreshedAt.toLocaleTimeString() : 'not yet'}.</p>
     </div>
     <button
       type="button"
@@ -142,6 +201,15 @@
 
   <div class="flex-1 p-8 overflow-y-auto bg-gray-50">
     <div class="max-w-4xl mx-auto">
+      <section class="mb-5 grid gap-3 rounded-lg border bg-white p-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Activity filters">
+        <label class="text-sm">Search<input type="search" class="mt-1 block w-full rounded-md border p-2" bind:value={searchQuery} placeholder="Action, object, ID, reason" /></label>
+        <label class="text-sm">Actor<select class="mt-1 block w-full rounded-md border p-2" bind:value={actorFilter}><option value="">All actors</option>{#each actors as actor}<option value={actor}>{actor} — filter</option>{/each}</select></label>
+        <label class="text-sm">Action<select class="mt-1 block w-full rounded-md border p-2" bind:value={actionFilter}><option value="">All actions</option><option value="create">Create</option><option value="update">Update</option><option value="delete">Delete</option></select></label>
+        <label class="text-sm">Object type<select class="mt-1 block w-full rounded-md border p-2" bind:value={resourceFilter}><option value="">All objects</option>{#each resources as resource}<option value={resource}>{resource}</option>{/each}</select></label>
+        <label class="text-sm">Outcome<select class="mt-1 block w-full rounded-md border p-2" bind:value={outcomeFilter}><option value="">Any outcome</option><option value="succeeded">Succeeded</option><option value="partial">Partial</option><option value="failed">Failed</option><option value="denied">Denied</option></select></label>
+        <label class="text-sm">From<input type="date" class="mt-1 block w-full rounded-md border p-2" bind:value={dateFrom} /></label><label class="text-sm">To<input type="date" class="mt-1 block w-full rounded-md border p-2" bind:value={dateTo} /></label>
+        <button type="button" class="self-end rounded-md border px-3 py-2 text-sm" disabled={filteredActivities.length === 0} on:click={exportActivity}>Export filtered CSV</button>
+      </section>
       {#if isLoading}
         <div class="flex justify-center items-center py-12">
           <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--crm-brand-primary)]" role="status" aria-label="Loading activity"></div>
@@ -164,7 +232,8 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
           </svg>
           <h3 class="mt-2 text-sm font-medium text-gray-900">No activity found</h3>
-          <p class="mt-1 text-sm text-gray-500">There are no audit logs for this organization yet.</p>
+          <p class="mt-1 text-sm text-gray-500">No retained audit events were returned. Logging may have begun after this organization was created, or ingestion may require investigation.</p>
+          {#if requestId}<p class="mt-2 text-xs text-gray-500">Diagnostic reference: {requestId}</p>{/if}
         </div>
       {:else}
         {#if truncated}
@@ -172,9 +241,11 @@
             Showing {activities.length} loaded audit events. More records exist; this is not the full history.
           </p>
         {/if}
-        <div class="flow-root">
+        {#if filteredActivities.length === 0}
+          <div class="rounded-lg border bg-white p-8 text-center text-sm text-gray-600">No loaded audit events match these filters. Clear one or more filters or load older activity.</div>
+        {:else}<div class="flow-root">
           <ul class="-mb-8">
-            {#each activities as activity, idx (activity.id)}
+            {#each filteredActivities as activity, idx (activity.id)}
               <li>
                 <div class="relative pb-8">
                   {#if idx !== activities.length - 1}
@@ -203,7 +274,7 @@
                         {/if}
                       </span>
                     </div>
-                    <div class="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
+                    <button type="button" class="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4 text-left" on:click={() => selectedActivity = activity}>
                       <div>
                         <p class="text-sm text-gray-500">
                           <span class="font-medium text-gray-900">{activity.actorLabel || 'Actor unavailable'}</span>
@@ -220,13 +291,13 @@
                           <span>Timestamp unavailable</span>
                         {/if}
                       </div>
-                    </div>
+                    </button>
                   </div>
                 </div>
               </li>
             {/each}
           </ul>
-        </div>
+        </div>{/if}
         {#if loadMoreError}
           <div class="mt-6 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">
             <p>{loadMoreError}</p>

@@ -10,6 +10,8 @@
   import InviteStaffModal from './InviteStaffModal.svelte';
   import { modalFocus } from '../../lib/ui/modalFocus';
 
+  export let onNavigateTab: (tab: string) => void = () => {};
+
   const STAFF_LIMIT = 100;
 
   let directory: AdminStaffDirectory | null = null;
@@ -22,6 +24,9 @@
   let showModal = false;
   let searchQuery = '';
   let roleFilter = '';
+  let statusFilter = '';
+  let verificationFilter = '';
+  let sortBy: 'name' | 'role' | 'date' = 'name';
   let manageTarget: AdminStaffDirectory['staff'][number] | null = null;
   let revokeTarget: AdminStaffDirectory['pendingInvites'][number] | null = null;
   let selectedRole: 'owner' | 'editor' | 'viewer' = 'viewer';
@@ -32,14 +37,21 @@
   let mutationRequestId = '';
   let mutationSignature = '';
   let mutationKey = '';
+  let inviteActionId = '';
 
   $: normalizedSearch = searchQuery.trim().toLocaleLowerCase();
   $: staffRows = (directory?.staff || []).filter((staff) => {
     if (roleFilter && staff.role !== roleFilter) return false;
+    if (statusFilter && staff.status !== statusFilter) return false;
+    if (verificationFilter && (verificationFilter === 'verified') !== staff.emailVerified) return false;
     if (!normalizedSearch) return true;
     return [staff.displayName, staff.email, staff.uid]
       .some((value) => value?.toLocaleLowerCase().includes(normalizedSearch));
-  });
+  }).sort((left, right) => sortBy === 'role'
+    ? left.role.localeCompare(right.role)
+    : sortBy === 'date'
+      ? String(right.joinedAt || '').localeCompare(String(left.joinedAt || ''))
+      : String(left.displayName || left.email || '').localeCompare(String(right.displayName || right.email || '')));
   $: inviteRows = (directory?.pendingInvites || []).filter((invite) => {
     if (roleFilter && invite.role !== roleFilter) return false;
     if (!normalizedSearch) return true;
@@ -113,6 +125,8 @@
       showModal = false;
       searchQuery = '';
       roleFilter = '';
+      statusFilter = '';
+      verificationFilter = '';
       closeLifecycleDialog(true);
       if (tenantId) void loadStaffDirectory(tenantId);
       else isLoading = false;
@@ -214,6 +228,34 @@
         : 'Staff access could not be changed.';
     }
   }
+
+  async function resendInvite(invite: AdminStaffDirectory['pendingInvites'][number]) {
+    if (!activeTenantId || inviteActionId) return;
+    inviteActionId = invite.id;
+    mutationMessage = '';
+    try {
+      await backendClient.resendAdminInvite({
+        tenantId: activeTenantId,
+        inviteId: invite.id,
+        idempotencyKey: createIdempotencyKey(`invite-resend-${invite.id}`),
+      });
+      mutationMessage = `Invitation resent to ${invite.email}. Its original expiration is unchanged.`;
+      await loadStaffDirectory(activeTenantId);
+    } catch (error) {
+      mutationMessage = error instanceof BackendApiError ? error.message : 'The invitation could not be resent.';
+    } finally {
+      inviteActionId = '';
+    }
+  }
+
+  async function copyInviteLink(invite: AdminStaffDirectory['pendingInvites'][number]) {
+    try {
+      await navigator.clipboard.writeText(new URL(`/invite/${encodeURIComponent(invite.id)}`, window.location.origin).toString());
+      mutationMessage = `Invite link copied for ${invite.email}. It expires ${formatDate(invite.expiresAt)} and only the invited address can accept it.`;
+    } catch {
+      mutationMessage = 'The browser could not copy the invitation link.';
+    }
+  }
 </script>
 
 {#if showModal}
@@ -267,6 +309,19 @@
               </select>
             </label>
           </div>
+          <section class="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950" aria-label="Access change impact">
+            <p><strong>Before:</strong> {manageTarget.role}, {manageTarget.active ? 'active' : 'inactive'}.</p>
+            <p><strong>After:</strong> {selectedRole}, {selectedStatus}.</p>
+            {#if selectedStatus === 'inactive'}
+              <p class="mt-2">This removes portal access after authorization refresh; authored program content remains attributed and intact. Reactivation is available later.</p>
+            {:else if selectedRole === 'owner'}
+              <p class="mt-2">Gains every portal tab plus financial, staff-access, and audit-log management.</p>
+            {:else if selectedRole === 'editor'}
+              <p class="mt-2">Can change teams, seasons, rosters, events, registration, messages, documents, media, and My App. Cannot access Financials, Staff, or Activity.</p>
+            {:else}
+              <p class="mt-2">Retains read-only Dashboard access and loses record-changing actions.</p>
+            {/if}
+          </section>
         {:else if revokeTarget}
           <p class="mt-2 text-sm text-gray-600">
             Revoke the pending invitation for {revokeTarget.email || 'this recipient'}.
@@ -339,8 +394,8 @@
 
   <div class="border-b border-gray-200">
     <nav class="-mb-px flex gap-8" aria-label="Staff views">
-      <button type="button" class="whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium {activeTab === 'Directory' ? 'border-[var(--crm-brand-border)] text-[var(--crm-brand-link)]' : 'border-transparent text-gray-500'}" aria-current={activeTab === 'Directory' ? 'page' : undefined} on:click={() => activeTab = 'Directory'}>Staff directory</button>
-      <button type="button" class="whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium {activeTab === 'Invites' ? 'border-[var(--crm-brand-border)] text-[var(--crm-brand-link)]' : 'border-transparent text-gray-500'}" aria-current={activeTab === 'Invites' ? 'page' : undefined} on:click={() => activeTab = 'Invites'}>Pending invites</button>
+      <button type="button" aria-label="Staff directory" class="whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium {activeTab === 'Directory' ? 'border-[var(--crm-brand-border)] text-[var(--crm-brand-link)]' : 'border-transparent text-gray-500'}" aria-current={activeTab === 'Directory' ? 'page' : undefined} on:click={() => activeTab = 'Directory'}>Staff directory ({directory?.staff.length || 0})</button>
+      <button type="button" aria-label="Pending invites" class="whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium {activeTab === 'Invites' ? 'border-[var(--crm-brand-border)] text-[var(--crm-brand-link)]' : 'border-transparent text-gray-500'}" aria-current={activeTab === 'Invites' ? 'page' : undefined} on:click={() => activeTab = 'Invites'}>Pending invites ({directory?.pendingInvites.length || 0})</button>
     </nav>
   </div>
 
@@ -349,6 +404,11 @@
       <span class="sr-only">Search staff by name or email</span>
       <input type="search" bind:value={searchQuery} class="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" placeholder="Search staff by name or email" />
     </label>
+    {#if activeTab === 'Directory'}
+      <label><span class="sr-only">Filter staff status</span><select bind:value={statusFilter} class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm"><option value="">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
+      <label><span class="sr-only">Filter email verification</span><select bind:value={verificationFilter} class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm"><option value="">Any verification</option><option value="verified">Verified email</option><option value="unverified">Unverified email</option></select></label>
+      <label><span class="sr-only">Sort staff</span><select bind:value={sortBy} class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm"><option value="name">Sort by name</option><option value="role">Sort by role</option><option value="date">Sort by newest</option></select></label>
+    {/if}
     <label>
       <span class="sr-only">Filter staff role</span>
       <select bind:value={roleFilter} class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700">
@@ -404,6 +464,7 @@
               <td class="px-6 py-4">
                 <p class="text-sm font-medium text-gray-900">{staff.displayName || 'Name unavailable'}</p>
                 <p class="crm-ui-hint-xs">{staff.email || 'Email unavailable'}</p>
+                {#if !staff.displayName}<button type="button" class="crm-theme-link mt-1 text-xs font-medium" on:click={() => onNavigateTab('Settings')}>Complete profile in My profile</button>{/if}
               </td>
               <td class="px-6 py-4 text-sm capitalize text-gray-700">{staff.role}</td>
               <td class="px-6 py-4 text-sm text-gray-700">{staff.active ? 'Active membership' : 'Inactive membership'}{staff.emailVerified ? ' · verified email' : ' · email unverified'}</td>
@@ -424,7 +485,7 @@
               <td class="px-6 py-4 text-sm text-amber-700">Pending invitation</td>
               <td class="px-6 py-4 text-sm text-gray-500">Sent {formatDate(invite.createdAt)} · expires {formatDate(invite.expiresAt)}</td>
               <td class="px-6 py-4 text-right">
-                <button type="button" class="text-sm font-medium text-red-700 hover:text-red-900" on:click={() => openRevokeDialog(invite)}>Revoke</button>
+                <div class="flex flex-wrap justify-end gap-3"><button type="button" class="text-sm font-medium text-blue-700 hover:text-blue-900" disabled={Boolean(inviteActionId)} on:click={() => resendInvite(invite)}>{inviteActionId === invite.id ? 'Resending…' : 'Resend'}</button><button type="button" class="text-sm font-medium text-blue-700 hover:text-blue-900" disabled={Boolean(inviteActionId)} on:click={() => copyInviteLink(invite)}>Copy link</button><button type="button" class="text-sm font-medium text-red-700 hover:text-red-900" disabled={Boolean(inviteActionId)} on:click={() => openRevokeDialog(invite)}>Revoke</button></div>
               </td>
             </tr>
           {/each}

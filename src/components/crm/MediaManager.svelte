@@ -2,11 +2,11 @@
   import { onMount } from 'svelte';
   import { db } from '../../lib/firebase';
   import {
-    collection, doc, documentId, limit, onSnapshot, orderBy, query,
-    serverTimestamp, setDoc, updateDoc, where,
+    collection, documentId, limit, onSnapshot, orderBy, query, where,
   } from 'firebase/firestore';
-  import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-  import { activeTenantRole, tenantIdStore, userStore } from '../../lib/authStore';
+  import { activeTenantRole, tenantIdStore } from '../../lib/authStore';
+  import { backendClient } from '../../lib/api/backendClient';
+  import { BackendApiError, createIdempotencyKey } from '../../lib/api/BackendApi';
   import { eventsStore, seasonsStore } from '../../lib/services/DataStore';
   import { modalFocus } from '../../lib/ui/modalFocus';
   import PageHeader from './ui/PageHeader.svelte';
@@ -141,26 +141,35 @@
       if (mediaFiles.some((media) => media.name?.toLowerCase() === uploadFile?.name.toLowerCase())) {
         throw new Error('An active asset already uses this filename. Rename the file or replace the existing asset deliberately.');
       }
-      const id = `media-${Date.now()}-${globalThis.crypto.randomUUID().slice(0, 8)}`;
-      const storagePath = `program_media/${tenantId}/${id}-${uploadFile.name.replace(/[^A-Za-z0-9._-]/g, '-')}`;
-      const { getFirebaseStorage } = await import('../../lib/firebaseStorage');
-      const storageReference = ref(getFirebaseStorage(), storagePath);
-      await uploadBytes(storageReference, uploadFile, { contentType: uploadFile.type });
-      const imageUrl = await getDownloadURL(storageReference);
       const dimensions = await imageDimensions(uploadFile);
-      await setDoc(doc(db, 'program_images', id), {
-        tenantId, imageUrl, storagePath, fileName: uploadFile.name,
-        uploadedBy: $userStore?.email || $userStore?.uid || 'operations-portal',
-        contentType: uploadFile.type, sizeBytes: uploadFile.size,
-        width: dimensions.width || null, height: dimensions.height || null,
-        category: uploadCategory, purpose: uploadPurpose.trim(), altText: uploadAltText.trim(),
-        isActive: true, uploadedAt: serverTimestamp(), updatedAt: serverTimestamp(),
-      });
+      const uploadKey = createIdempotencyKey('program-media-upload');
+      const uploaded = await backendClient.uploadImageAsset(
+        tenantId,
+        uploadFile,
+        'program-library',
+        uploadKey,
+      );
+      await backendClient.publishProgramMedia(
+        tenantId,
+        uploaded.reservationId,
+        {
+          fileName: uploadFile.name,
+          category: uploadCategory,
+          purpose: uploadPurpose.trim(),
+          altText: uploadAltText.trim(),
+          width: dimensions.width || null,
+          height: dimensions.height || null,
+        },
+        'Add a reviewed image to the reusable program media library.',
+        `${uploadKey}:publish`,
+      );
       operationMessage = `Uploaded ${uploadFile.name} to the reusable program library.`;
       closeUpload();
     } catch (error) {
       uploadState = 'error';
-      operationMessage = error instanceof Error ? error.message : 'Image upload failed. Please try again.';
+      operationMessage = error instanceof BackendApiError
+        ? 'The image could not be added to the library. Review the file and try again.'
+        : error instanceof Error ? error.message : 'Image upload failed. Please try again.';
     }
   }
   function closeUpload() {
@@ -171,17 +180,46 @@
     if (!canManage || selectedIds.length === 0) return;
     operationMessage = '';
     try {
-      await Promise.all(selectedIds.map((id) => updateDoc(doc(db, 'program_images', id), { category: bulkCategory, updatedAt: serverTimestamp() })));
-      operationMessage = `Categorized ${selectedIds.length} asset${selectedIds.length === 1 ? '' : 's'} as ${bulkCategory}.`;
-      selectedIds = [];
+      const requestedIds = [...selectedIds];
+      const results = await Promise.allSettled(requestedIds.map((id) => {
+        const media = mediaFiles.find((entry) => entry.id === id);
+        if (!media) return Promise.reject(new Error('Media record unavailable'));
+        return backendClient.updateMedia(
+          String($tenantIdStore || ''),
+          id,
+          {
+            fileName: media.name || 'Unnamed asset',
+            category: bulkCategory,
+            purpose: media.purpose || 'Reusable program image',
+            altText: media.altText || media.name || 'Program image',
+          },
+          `Categorize the selected media asset as ${bulkCategory}.`,
+          createIdempotencyKey('program-media-category'),
+        );
+      }));
+      const failedIds = requestedIds.filter((_, index) => results[index].status === 'rejected');
+      const succeeded = requestedIds.length - failedIds.length;
+      operationMessage = failedIds.length
+        ? `Categorized ${succeeded} asset${succeeded === 1 ? '' : 's'}; ${failedIds.length} could not be updated and remain selected for retry.`
+        : `Categorized ${succeeded} asset${succeeded === 1 ? '' : 's'} as ${bulkCategory}.`;
+      selectedIds = failedIds;
     } catch { operationMessage = 'Selected assets could not be categorized.'; }
   }
   async function saveMetadata() {
     if (!selected || !canManage) return;
     try {
-      await updateDoc(doc(db, 'program_images', selected.id), {
-        fileName: selected.name || '', category: selected.category || '', purpose: selected.purpose || '', altText: selected.altText || '', updatedAt: serverTimestamp(),
-      });
+      await backendClient.updateMedia(
+        String($tenantIdStore || ''),
+        selected.id,
+        {
+          fileName: selected.name || 'Unnamed asset',
+          category: selected.category || 'Uncategorized',
+          purpose: selected.purpose || 'Reusable program image',
+          altText: selected.altText || selected.name || 'Program image',
+        },
+        'Correct reusable media metadata.',
+        createIdempotencyKey('program-media-update'),
+      );
       operationMessage = 'Asset metadata updated.';
     } catch { operationMessage = 'Asset metadata could not be updated.'; }
   }
@@ -194,12 +232,13 @@
     if ((usageByUrl.get(selected.url) || []).length > 0) return;
     deleteState = 'saving'; operationMessage = '';
     try {
-      await updateDoc(doc(db, 'program_images', selected.id), { isActive: false, deletedAt: serverTimestamp(), deletionReason: deleteReason.trim(), updatedAt: serverTimestamp() });
-      if (selected.storagePath) {
-        try { const { getFirebaseStorage } = await import('../../lib/firebaseStorage'); await deleteObject(ref(getFirebaseStorage(), selected.storagePath)); }
-        catch { operationMessage = 'Asset archived, but stored-object cleanup requires support.'; }
-      }
-      if (!operationMessage) operationMessage = 'Asset removed from the active library.';
+      await backendClient.deleteMedia(
+        String($tenantIdStore || ''),
+        selected.id,
+        deleteReason.trim(),
+        createIdempotencyKey('program-media-delete'),
+      );
+      operationMessage = 'Asset archived and removed from the active library.';
       selected = null; deleteState = 'idle'; deleteReason = '';
     } catch { deleteState = 'error'; operationMessage = 'Asset removal failed. Retry after checking your access.'; }
   }
@@ -231,7 +270,7 @@
 {#if selected}
   <div class="fixed inset-0 z-50 flex justify-end bg-slate-950/40" role="dialog" aria-modal="true" aria-labelledby="media-detail-title">
     <button type="button" class="absolute inset-0" aria-label="Close media details" on:click={() => selected = null}></button>
-    <aside class="relative z-10 h-full w-full max-w-lg overflow-y-auto bg-white p-6 shadow-xl">
+    <aside class="relative z-10 h-full w-full max-w-lg overflow-y-auto bg-white p-6 shadow-xl" tabindex="-1" use:modalFocus={{ onEscape: () => selected = null, initialFocusSelector: 'button' }}>
       <div class="flex items-start justify-between"><div><h3 id="media-detail-title" class="text-xl font-semibold">Asset details</h3><p class="text-sm text-gray-500">Identity: {selected.id}</p></div><button type="button" class="rounded-md border px-3 py-2 text-sm" on:click={() => selected = null}>Close</button></div>
       {#if safeMediaUrl(selected.url)}<img class="mt-5 max-h-80 w-full rounded-lg bg-gray-100 object-contain" src={safeMediaUrl(selected.url)} alt={selected.altText || selected.name || 'Media name unavailable'} width="640" height="480" />{/if}
       <div class="mt-5 grid gap-4 sm:grid-cols-2">

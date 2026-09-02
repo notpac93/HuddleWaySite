@@ -6,8 +6,6 @@
   import { RegistrationService } from '../../../lib/services/RegistrationService';
   import CreateRegistrationForm from '../registration/CreateRegistrationForm.svelte';
   import StatusButton from '../ui/StatusButton.svelte';
-  import ImageFilePicker from '../ui/ImageFilePicker.svelte';
-  import { validateImageFile } from '../../../lib/media/imageUpload';
   import { modalFocus } from '../../../lib/ui/modalFocus';
 
   export let activeTeam: any = null;
@@ -19,8 +17,6 @@
   let startDate = '';
   let endDate = '';
   let status = 'active';
-  let imageFile: File | null = null;
-  let imageValidationMessage = '';
   let registrationForms: any[] = [];
   let selectedFormId = '';
   let showCreateForm = false;
@@ -91,9 +87,6 @@
       startDate,
       endDate,
       status,
-      imageFile: imageFile
-        ? { name: imageFile.name, type: imageFile.type, size: imageFile.size }
-        : null,
       registrationFormId: selectedFormId || null,
       auditReason: auditReason.trim(),
     });
@@ -106,7 +99,6 @@
     startDate;
     endDate;
     status;
-    imageFile;
     selectedFormId;
     const signature = buildPayloadSignature();
     if (signature !== payloadSignature && submitState !== 'loading') {
@@ -145,15 +137,6 @@
     }
     if (!supportedStatuses.includes(status)) {
       errorMessage = 'Select a supported season status.';
-      return;
-    }
-    imageValidationMessage = validateImageFile(imageFile);
-    if (imageValidationMessage) {
-      return;
-    }
-    if (imageFile) {
-      errorMessage =
-        'Season banner upload is temporarily unavailable while publication privacy is being finalized. Remove the image to save the season safely.';
       return;
     }
     const generation = ++operationGeneration;
@@ -214,6 +197,10 @@
     operationGeneration += 1;
     unsubscribeRegistrationForms();
   });
+
+  $: durationDays = startDate && endDate && endDate >= startDate
+    ? Math.floor((Date.parse(`${endDate}T00:00:00Z`) - Date.parse(`${startDate}T00:00:00Z`)) / 86400000) + 1
+    : 0;
 </script>
 
 <!-- Modal Overlay -->
@@ -235,28 +222,33 @@
             <fieldset disabled={submitState === 'loading'} class="m-0 mt-6 min-w-0 space-y-4 border-0 p-0">
               <!-- Basic Info -->
               <div>
-                <label for="season-create-name" class="crm-ui-label">Season Name</label>
-                <input id="season-create-name" type="text" bind:value={name} maxlength="160" class="crm-ui-input-indigo" placeholder="e.g. Fall 2026 Season">
+                <label for="season-create-name" class="crm-ui-label">Season Name <span aria-hidden="true">*</span></label>
+                <input id="season-create-name" aria-label="Season Name" type="text" bind:value={name} maxlength="160" class="crm-ui-input-indigo" placeholder="e.g. Fall 2026 Season">
               </div>
 
-              <ImageFilePicker
-                inputId="season-create-image"
-                label="Season Banner (Optional)"
-                bind:selectedFile={imageFile}
-                bind:validationMessage={imageValidationMessage}
-                disabled={submitState === 'loading'}
-              />
+              <div class="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+                Season banners are managed from Media after the season is created. Direct banner selection is disabled here until the private publication contract is available.
+              </div>
 
               <div class="crm-ui-grid-two">
                 <div>
-                  <label for="season-create-start" class="crm-ui-label">Start Date</label>
-                  <input id="season-create-start" type="date" bind:value={startDate} class="crm-ui-input-indigo">
+                  <label for="season-create-start" class="crm-ui-label">Start Date <span aria-hidden="true">*</span></label>
+                  <input id="season-create-start" aria-label="Start Date" type="date" bind:value={startDate} class="crm-ui-input-indigo">
                 </div>
                 <div>
-                  <label for="season-create-end" class="crm-ui-label">End Date</label>
-                  <input id="season-create-end" type="date" bind:value={endDate} class="crm-ui-input-indigo">
+                  <label for="season-create-end" class="crm-ui-label">End Date <span aria-hidden="true">*</span></label>
+                  <input id="season-create-end" aria-label="End Date" type="date" bind:value={endDate} class="crm-ui-input-indigo">
                 </div>
               </div>
+              {#if durationDays > 0}<p class="text-sm text-gray-600">Duration: {durationDays} day{durationDays === 1 ? '' : 's'}, including both dates.</p>{/if}
+
+              <div>
+                <label for="season-create-status" class="crm-ui-label">Initial Status *</label>
+                <select id="season-create-status" bind:value={status} class="crm-ui-input-indigo"><option value="upcoming">Upcoming</option><option value="active">Active</option><option value="completed">Completed</option><option value="archived">Archived</option></select>
+              </div>
+              <p class="rounded-md border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900">
+                Scope: {activeTeam?.id ? `This season belongs to ${activeTeam.name || activeTeam.title || 'the active team'}.` : 'This is an organization-wide season and can group multiple teams.'}
+              </p>
 
               <!-- Registration Form Select -->
               <div class="mt-6 border-t border-gray-200 pt-4">
@@ -265,15 +257,16 @@
                 <select id="season-create-registration-form" bind:value={selectedFormId} on:change={handleFormSelectionChange} class="crm-ui-input-indigo">
                   <option value="">-- No Registration Needed --</option>
                   {#each registrationForms as form (form.id)}
-                    <option value={form.id}>{form.title}</option>
+                    <option value={form.id}>{form.title} · {form.status || 'status unavailable'} · {(form.eventIds || form.linkedEventIds || []).length} connected events</option>
                   {/each}
-                  <option value="CREATE_NEW" class="font-bold text-[var(--crm-brand-link)]">+ Create New Form</option>
+                  <option value="CREATE_NEW" class="font-bold text-[var(--crm-brand-link)]">+ Create a form now (optional)</option>
                 </select>
                 {#if registrationFormsLoading}
                   <p class="mt-2 text-xs text-gray-600" role="status">Loading registration forms…</p>
                 {:else if registrationFormsError}
                   <p class="mt-2 text-xs text-red-700" role="alert">{registrationFormsError}</p>
                 {/if}
+                <p class="mt-2 text-xs text-gray-500">You may leave this blank and create or attach a form after the season is saved.</p>
               </div>
 
             </fieldset>

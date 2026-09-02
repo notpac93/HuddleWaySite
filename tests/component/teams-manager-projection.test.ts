@@ -27,6 +27,9 @@ vi.mock('../../src/lib/services/DataStore', async () => {
   const { writable } = await import('svelte/store');
   return {
     teamsStore: writable([]),
+    registrationsStore: writable([]),
+    seasonsStore: writable([]),
+    eventsStore: writable([]),
     teamsProjectionScope: writable({
       limit: null,
       truncated: false,

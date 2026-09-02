@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, tick } from 'svelte';
   import Papa from 'papaparse';
+  import { modalFocus } from '../../lib/ui/modalFocus';
 
   type Row = Record<string, any>;
   type Column = {
@@ -44,6 +45,7 @@
   let consumedTargetId = '';
   let tableRegion: HTMLElement;
   let selectAllCheckbox: HTMLInputElement;
+  let exportReviewOpen = false;
 
   function stableId(row: Row): string {
     const value = row?.[rowKey];
@@ -223,8 +225,13 @@
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+    exportReviewOpen = false;
   }
 </script>
+
+{#if exportReviewOpen}
+  <div class="crm-ui-modal-root" role="dialog" aria-modal="true" aria-labelledby="table-export-review-title"><button type="button" class="crm-ui-backdrop" aria-label="Cancel export" tabindex="-1" on:click={() => exportReviewOpen = false}></button><div class="relative z-10 mx-auto mt-[15vh] w-[calc(100%-2rem)] max-w-lg rounded-lg bg-white p-6 shadow-xl" tabindex="-1" use:modalFocus={{ onEscape: () => exportReviewOpen = false, initialFocusSelector: '[data-export-cancel]' }}><h2 id="table-export-review-title" class="text-lg font-semibold text-gray-950">Review CSV export</h2><p class="mt-2 text-sm text-gray-600">{exportRows.length} {selectedExportRows.length ? 'selected' : 'filtered'} record{exportRows.length === 1 ? '' : 's'} will be downloaded.</p><p class="mt-3 text-sm"><strong>Scope:</strong> {selectedExportRows.length ? 'Selected records across all table pages' : 'All records matching the current search, filters, and sort order'}</p><p class="mt-1 text-sm"><strong>Columns:</strong> {columns.filter((column) => column.label && column.key !== 'actions').map((column) => column.label).join(', ')}</p><p class="mt-1 text-xs text-gray-500">Filename: {exportFilename}_{new Date().toISOString().split('T')[0]}.csv · Generated {new Date().toLocaleString()}</p>{#if truncated}<p class="mt-3 text-sm text-amber-800">Only loaded records can be exported because this projection is limited.</p>{/if}<div class="mt-6 flex justify-end gap-3"><button type="button" data-export-cancel class="crm-ui-button-secondary" on:click={() => exportReviewOpen = false}>Cancel</button><button type="button" class="crm-ui-button-primary" on:click={exportCSV}>Download CSV</button></div></div></div>
+{/if}
 
 <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
   <div class="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
@@ -259,7 +266,7 @@
     {#if exportable}
       <button
         type="button"
-        on:click={exportCSV}
+        on:click={() => exportReviewOpen = true}
         disabled={exportRows.length === 0 || loading || permissionDenied || Boolean(effectiveError)}
         title={exportRows.length === 0 ? 'There are no records in the stated export scope.' : undefined}
         class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"

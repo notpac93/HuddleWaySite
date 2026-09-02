@@ -4,8 +4,6 @@
   import { backendClient } from '../../../lib/api/backendClient';
   import { BackendApiError, createIdempotencyKey } from '../../../lib/api/BackendApi';
   import StatusButton from '../ui/StatusButton.svelte';
-  import ImageFilePicker from '../ui/ImageFilePicker.svelte';
-  import { validateImageFile } from '../../../lib/media/imageUpload';
   import { modalFocus } from '../../../lib/ui/modalFocus';
 
   export let season: any = null;
@@ -20,8 +18,6 @@
     ? String(season.status).trim().toLowerCase()
     : '';
   let imageUrl = season ? season.imageUrl || '' : '';
-  let imageFile: File | null = null;
-  let imageValidationMessage = '';
   let description = season ? season.description || '' : '';
 
   let startDate = season && season.startDate ? new Date(season.startDate.toMillis ? season.startDate.toMillis() : season.startDate).toISOString().slice(0, 10) : '';
@@ -33,6 +29,8 @@
   let operationKey = createIdempotencyKey('season-update');
   let payloadSignature = '';
   let operationGeneration = 0;
+  let reviewing = false;
+  let reviewedSignature = '';
 
   function buildPayloadSignature() {
     return JSON.stringify({
@@ -41,9 +39,6 @@
       name: name.trim(),
       status,
       imageUrl: imageUrl.trim(),
-      imageFile: imageFile
-        ? { name: imageFile.name, type: imageFile.type, size: imageFile.size }
-        : null,
       description: description.trim(),
       startDate,
       endDate,
@@ -57,11 +52,11 @@
     name;
     status;
     imageUrl;
-    imageFile;
     description;
     startDate;
     endDate;
     const signature = buildPayloadSignature();
+    if (reviewing && signature !== reviewedSignature) reviewing = false;
     if (signature !== payloadSignature && submitState !== 'loading') {
       payloadSignature = signature;
       operationKey = createIdempotencyKey('season-update');
@@ -100,15 +95,6 @@
     }
     if (startDate && endDate && endDate < startDate) {
       errorMessage = 'Season end date cannot be before its start date.';
-      return;
-    }
-    imageValidationMessage = validateImageFile(imageFile);
-    if (imageValidationMessage) {
-      return;
-    }
-    if (imageFile) {
-      errorMessage =
-        'Season banner upload is temporarily unavailable while publication privacy is being finalized. Remove the image to save other season changes safely.';
       return;
     }
     const generation = ++operationGeneration;
@@ -163,6 +149,15 @@
   onDestroy(() => {
     operationGeneration += 1;
   });
+
+  function startReview() {
+    reviewedSignature = buildPayloadSignature();
+    reviewing = true;
+  }
+
+  $: durationDays = startDate && endDate && endDate >= startDate
+    ? Math.floor((Date.parse(`${endDate}T00:00:00Z`) - Date.parse(`${startDate}T00:00:00Z`)) / 86400000) + 1
+    : 0;
 </script>
 
 <div class="crm-ui-modal-root" aria-labelledby="modal-title" role="dialog" aria-modal="true">
@@ -181,21 +176,16 @@
       </div>
 
       <fieldset disabled={submitState === 'loading'} class="m-0 mt-4 min-w-0 space-y-4 border-0 p-0">
-        <ImageFilePicker
-          inputId="season-edit-image"
-          label="Season Banner Graphic"
-          currentUrl={imageUrl}
-          previewAlt="Season banner"
-          bind:selectedFile={imageFile}
-          bind:validationMessage={imageValidationMessage}
-          disabled={submitState === 'loading'}
-        />
+        <div class="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+          {imageUrl ? 'This season already has a banner. Replace it from Media after the approved private publication flow is available.' : 'Season banner selection is disabled here until the approved private publication flow is available.'}
+        </div>
 
         <!-- Name -->
         <div>
           <label for="season-edit-name" class="crm-ui-label-caps">Season Name *</label>
           <input id="season-edit-name" type="text" bind:value={name} maxlength="160" class="crm-ui-input-primary" placeholder="e.g. Fall 2026 Season" />
         </div>
+        {#if durationDays > 0}<p class="text-sm text-gray-600">Duration: {durationDays} day{durationDays === 1 ? '' : 's'}, including both dates.</p>{/if}
 
         <!-- Dates -->
         <div class="grid grid-cols-2 gap-3">
@@ -220,6 +210,15 @@
           </select>
         </div>
 
+        {#if reviewing}
+          <section class="rounded-md border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950" aria-label="Season change review">
+            <h4 class="font-semibold">Review downstream impact</h4>
+            <p class="mt-2"><strong>Status:</strong> {season?.status || 'Unavailable'} → {status}</p>
+            <p><strong>Dates:</strong> {season?.startDate ? new Date(season.startDate.toMillis ? season.startDate.toMillis() : season.startDate).toLocaleDateString() : 'TBD'} – {season?.endDate ? new Date(season.endDate.toMillis ? season.endDate.toMillis() : season.endDate).toLocaleDateString() : 'TBD'} → {startDate || 'TBD'} – {endDate || 'TBD'}</p>
+            <p class="mt-2">Status or date changes can affect registration availability, event grouping, roster timing, and payment setup. Existing records are retained.</p>
+          </section>
+        {/if}
+
         {#if errorMessage}
           <p class="rounded-md bg-red-50 p-3 text-sm text-red-700" role="alert">{errorMessage}</p>
         {/if}
@@ -238,9 +237,9 @@
         <StatusButton
           type="button"
           state={submitState}
-          on:click={handleSave}
+          on:click={() => reviewing ? handleSave() : startReview()}
           disabled={!name.trim() || !status || (startDate && endDate && endDate < startDate) || submitState === 'loading'}
-          idleText="Save Changes"
+          idleText={reviewing ? 'Confirm Changes' : 'Review Changes'}
           loadingText="Saving..."
           successText="Saved!"
           errorText="Retry Season Update"

@@ -47,6 +47,7 @@ vi.mock('../../src/lib/services/DataStore', async () => {
       },
     ]),
     registrationsStore: writable([]),
+    seasonsStore: writable([]),
     teamsStore: writable([{ id: 'team-1', name: 'Tigers' }]),
     eventsProjectionScope: writable(healthyScope),
     registrationsProjectionScope: writable(healthyScope),

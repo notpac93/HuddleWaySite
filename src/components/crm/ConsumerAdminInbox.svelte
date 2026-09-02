@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   import { tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
   import {
@@ -9,11 +9,21 @@
 
   const SUBJECT_LIMIT = 200;
   const MESSAGE_LIMIT = 4_000;
+  const dispatch = createEventDispatcher<{ unreadCount: number }>();
+
+  export let registrations: any[] = [];
+  export let teams: any[] = [];
+  export let events: any[] = [];
 
   let tenantId = '';
   let threads: AdminInboxThread[] = [];
   let selectedThreadId = '';
   let search = '';
+  let statusFilter: 'all' | 'unread' | 'awaiting' | 'replied' = 'all';
+  let teamFilter = '';
+  let eventFilter = '';
+  let sinceDate = '';
+  let viewedThreadIds = new Set<string>();
   let loadState: 'idle' | 'loading' | 'ready' | 'error' = 'idle';
   let loadMessage = '';
   let loadRequestId = '';
@@ -29,16 +39,63 @@
     return count > 0 ? thread.messages[count - 1]?.message || '' : '';
   }
 
+  function lastMessage(thread: AdminInboxThread) {
+    return thread.messages[thread.messages.length - 1] || null;
+  }
+
+  function emailForRegistration(record: any) {
+    return String(record?.email || record?.participantEmail || record?.payerEmail || record?.guardianEmail || record?.payer?.email || record?.participant?.email || record?.profile?.email || '').trim().toLowerCase();
+  }
+
+  function threadRegistrationIds(thread: AdminInboxThread, field: 'teamId' | 'eventId') {
+    const email = thread.consumerEmail.trim().toLowerCase();
+    return new Set(registrations.filter((record) => emailForRegistration(record) === email).map((record) => String(record?.[field] || '').trim()).filter(Boolean));
+  }
+
+  function isAwaitingReply(thread: AdminInboxThread) {
+    return lastMessage(thread)?.direction === 'consumer';
+  }
+
+  function isUnread(thread: AdminInboxThread) {
+    return isAwaitingReply(thread) && !viewedThreadIds.has(thread.id);
+  }
+
+  function readViewedThreadIds(storageTenantId: string) {
+    try {
+      const parsed = JSON.parse(
+        window.localStorage.getItem(`huddleway-inbox-viewed:${storageTenantId}`) || '[]',
+      );
+      return new Set<string>(
+        (Array.isArray(parsed) ? parsed : [])
+          .map((value) => String(value || '').trim())
+          .filter(Boolean),
+      );
+    } catch {
+      return new Set<string>();
+    }
+  }
+
   $: selectedThread = threads.find((thread) => thread.id === selectedThreadId) || null;
   $: normalizedSearch = search.trim().toLocaleLowerCase();
-  $: visibleThreads = normalizedSearch
-    ? threads.filter((thread) => [
+  $: visibleThreads = threads.filter((thread) => {
+      const matchesSearch = !normalizedSearch || [
         thread.consumerName,
         thread.consumerEmail,
         thread.subject,
         lastMessageText(thread),
-      ].some((value) => String(value || '').toLocaleLowerCase().includes(normalizedSearch)))
-    : threads;
+      ].some((value) => String(value || '').toLocaleLowerCase().includes(normalizedSearch));
+      const awaiting = isAwaitingReply(thread);
+      const matchesStatus = statusFilter === 'all'
+        || (statusFilter === 'unread' && isUnread(thread))
+        || (statusFilter === 'awaiting' && awaiting)
+        || (statusFilter === 'replied' && !awaiting);
+      const matchesTeam = !teamFilter || threadRegistrationIds(thread, 'teamId').has(teamFilter);
+      const matchesEvent = !eventFilter || threadRegistrationIds(thread, 'eventId').has(eventFilter);
+      const matchesDate = !sinceDate || Boolean(thread.lastMessageAt && thread.lastMessageAt.slice(0, 10) >= sinceDate);
+      return matchesSearch && matchesStatus && matchesTeam && matchesEvent && matchesDate;
+    });
+  $: unreadCount = threads.filter(isUnread).length;
+  $: dispatch('unreadCount', unreadCount);
   $: replyIsValid = Boolean(
     selectedThread
     && replySubject.trim()
@@ -52,6 +109,11 @@
     tenantId = nextTenantId || '';
     threads = [];
     selectedThreadId = '';
+    statusFilter = 'all';
+    teamFilter = '';
+    eventFilter = '';
+    sinceDate = '';
+    viewedThreadIds = readViewedThreadIds(tenantId);
     resetReply();
     if (tenantId) void loadThreads(tenantId);
     else loadState = 'idle';
@@ -71,10 +133,12 @@
 
   function selectThread(thread: AdminInboxThread) {
     selectedThreadId = thread.id;
+    viewedThreadIds = new Set([...viewedThreadIds, thread.id]);
+    window.localStorage.setItem(`huddleway-inbox-viewed:${tenantId}`, JSON.stringify([...viewedThreadIds]));
     replySubject = thread.subject.toLocaleLowerCase().startsWith('re:')
       ? thread.subject
       : `Re: ${thread.subject || 'Message'}`;
-    replyMessage = '';
+    replyMessage = window.sessionStorage.getItem(`huddleway-inbox-reply:${tenantId}:${thread.id}`) || '';
     replyState = 'idle';
     replyStatus = '';
     replyRequestId = '';
@@ -133,6 +197,7 @@
       replyState = 'success';
       replyStatus = 'Reply sent and added to this conversation.';
       replyMessage = '';
+      window.sessionStorage.removeItem(`huddleway-inbox-reply:${tenantId}:${requestedThreadId}`);
       await loadThreads(requestedTenantId);
     } catch (error) {
       if (
@@ -145,6 +210,12 @@
       replyRequestId = requestIdFrom(error);
     }
   }
+
+  function saveReplyDraft() {
+    if (!selectedThreadId) return;
+    if (replyMessage.trim()) window.sessionStorage.setItem(`huddleway-inbox-reply:${tenantId}:${selectedThreadId}`, replyMessage);
+    else window.sessionStorage.removeItem(`huddleway-inbox-reply:${tenantId}:${selectedThreadId}`);
+  }
 </script>
 
 <section class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" aria-labelledby="direct-inbox-heading">
@@ -154,10 +225,16 @@
         <h3 id="direct-inbox-heading" class="font-semibold text-gray-900">Direct conversations</h3>
         <p class="crm-ui-hint">Private account-holder messages and program replies. These are separate from public announcements.</p>
       </div>
-      <div>
+      <div class="min-w-0 flex-1">
         <label for="direct-inbox-search" class="block text-xs font-medium text-gray-600">Search conversations</label>
         <input id="direct-inbox-search" type="search" bind:value={search} class="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm sm:w-72" />
       </div>
+    </div>
+    <div class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <label class="text-xs font-medium text-gray-600">Status<select class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" bind:value={statusFilter}><option value="all">All ({threads.length})</option><option value="unread">Unread ({unreadCount})</option><option value="awaiting">Awaiting reply</option><option value="replied">Replied</option></select></label>
+      <label class="text-xs font-medium text-gray-600">Team<select class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" bind:value={teamFilter}><option value="">All teams</option>{#each teams as team}<option value={team.id}>{team.name || team.id}</option>{/each}</select></label>
+      <label class="text-xs font-medium text-gray-600">Conversation event<select class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" bind:value={eventFilter}><option value="">All events</option>{#each events as event}<option value={event.id}>{event.title || event.name || event.id}</option>{/each}</select></label>
+      <label class="text-xs font-medium text-gray-600">Since<input type="date" class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" bind:value={sinceDate} /></label>
     </div>
   </div>
 
@@ -187,6 +264,7 @@
                   on:click={() => selectThread(thread)}
                 >
                   <span class="block truncate text-sm font-semibold text-gray-950">{thread.consumerName || 'Account holder'}</span>
+                  <span class="mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold {isUnread(thread) ? 'bg-blue-100 text-blue-800' : isAwaitingReply(thread) ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'}">{isUnread(thread) ? 'Unread' : isAwaitingReply(thread) ? 'Awaiting reply' : 'Replied'}</span>
                   <span class="block truncate text-xs text-gray-500">{thread.consumerEmail}</span>
                   <span class="mt-1 block truncate text-sm text-gray-700">{thread.subject || 'Message'}</span>
                   <span class="mt-1 block text-xs text-gray-500">{thread.lastMessageAt ? new Date(thread.lastMessageAt).toLocaleString() : 'Timestamp unavailable'}</span>
@@ -221,7 +299,7 @@
             </div>
             <div>
               <label for="direct-reply-message" class="crm-ui-label">Reply</label>
-              <textarea id="direct-reply-message" bind:value={replyMessage} maxlength={MESSAGE_LIMIT} rows="4" class="mt-1 block w-full rounded-md border border-gray-300 p-2 text-sm"></textarea>
+              <textarea id="direct-reply-message" bind:value={replyMessage} on:input={saveReplyDraft} maxlength={MESSAGE_LIMIT} rows="4" class="mt-1 block w-full rounded-md border border-gray-300 p-2 text-sm"></textarea>
               <p class="crm-ui-hint">{replyMessage.length}/{MESSAGE_LIMIT} characters</p>
             </div>
             {#if replyStatus}

@@ -28,6 +28,8 @@
   let selectedPlayerIds: any[] = [];
   let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
   let bulkSelectedTeam = '';
+  let bulkAction: '' | 'assign_team' | 'assign_season' | 'unassign_team' = '';
+  let bulkDestination = '';
   let operationMessage = '';
   let dataTable: DataTable;
   let bulkOperationSignature = '';
@@ -43,6 +45,13 @@
   });
 
   $: {
+    bulkSelectedTeam = bulkAction === 'unassign_team'
+      ? 'unassign'
+      : bulkAction === 'assign_season' && bulkDestination
+        ? `season:${bulkDestination}`
+        : bulkAction === 'assign_team'
+          ? bulkDestination
+          : '';
     const signature = JSON.stringify({
       tenantId: $tenantIdStore,
       selectedPlayerIds: [...selectedPlayerIds].sort(),
@@ -163,6 +172,8 @@
       dataTable?.clearSelection();
       selectedPlayerIds = [];
       bulkSelectedTeam = '';
+      bulkAction = '';
+      bulkDestination = '';
       bulkOperationKey = '';
       setTimeout(() => {
         if (submitState === 'success') submitState = 'idle';
@@ -257,25 +268,11 @@
         <div class="w-px h-4 bg-[var(--crm-brand-border)] mx-2"></div>
         <label>
           <span class="sr-only">Bulk roster action</span>
-          <select bind:value={bulkSelectedTeam} disabled={submitState === 'loading'} class="text-sm border-gray-300 rounded-md py-1 pl-2 pr-8 focus:outline-none focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-border)] disabled:opacity-50">
-          <option value="">Select Action...</option>
-          <optgroup label="Assign to Team">
-            {#each transferTeams as team (team.id)}
-              <option value={team.id}>{team.name}</option>
-            {/each}
-          </optgroup>
-          {#if transferSeasons.length > 0}
-            <optgroup label="Assign to Season">
-              {#each transferSeasons as season (season.id)}
-                <option value={`season:${season.id}`}>{season.name}</option>
-              {/each}
-            </optgroup>
-          {/if}
-          <optgroup label="Other Actions">
-            <option value="unassign">Unassign from Team</option>
-          </optgroup>
+          <select bind:value={bulkAction} on:change={() => bulkDestination = ''} disabled={submitState === 'loading'} class="text-sm border-gray-300 rounded-md py-1 pl-2 pr-8 focus:outline-none focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-border)] disabled:opacity-50">
+          <option value="">Choose action</option><option value="assign_team">Assign team</option><option value="assign_season">Assign season</option><option value="unassign_team">Unassign from team</option>
           </select>
         </label>
+        {#if bulkAction === 'assign_team'}<label><span class="sr-only">Destination team</span><select bind:value={bulkDestination} class="rounded-md border-gray-300 py-1 text-sm" disabled={submitState === 'loading'}><option value="">Choose team</option>{#each transferTeams as team}<option value={team.id}>{team.name}</option>{/each}</select></label>{:else if bulkAction === 'assign_season'}<label><span class="sr-only">Destination season</span><select bind:value={bulkDestination} class="rounded-md border-gray-300 py-1 text-sm" disabled={submitState === 'loading'}><option value="">Choose season</option>{#each transferSeasons as season}<option value={season.id}>{season.name}</option>{/each}</select></label>{/if}
         <StatusButton
           type="button"
           state={submitState}
@@ -288,6 +285,7 @@
           class="bg-[var(--crm-brand-control)] text-[var(--crm-on-primary)] px-3 py-1 rounded text-sm font-medium hover:bg-[var(--crm-brand-primary-hover)] disabled:opacity-50"
         />
       </div>
+      {#if bulkSelectedTeam}<p class="ml-4 text-xs text-gray-600">Review: {selectedPlayerIds.length} selected registration{selectedPlayerIds.length === 1 ? '' : 's'} will {bulkAction === 'assign_team' ? `move to team ${transferTeams.find((team) => team.id === bulkDestination)?.name || bulkDestination}` : bulkAction === 'assign_season' ? `be connected to season ${transferSeasons.find((season) => season.id === bulkDestination)?.name || bulkDestination}` : 'be unassigned from their current team'}.</p>{/if}
     {/if}
     {#if showAdvancedFilters && selectedPlayerIds.length === 0}
       <label>
@@ -344,7 +342,14 @@
           {/if}
         </div>
         <div class="ml-4">
-          <div class="text-sm font-medium text-gray-900">{row.name}</div>
+          <button
+            type="button"
+            class="text-left text-sm font-medium text-[var(--crm-brand-link)] hover:text-[var(--crm-brand-primary-hover)] hover:underline"
+            aria-label={`Open ${row.name} details`}
+            on:click={() => detailPlayer = row}
+          >
+            {row.name}
+          </button>
           <div class="text-sm text-gray-500">{row.email}</div>
         </div>
       </div>

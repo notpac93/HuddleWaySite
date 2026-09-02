@@ -392,6 +392,88 @@ describe('BackendApi', () => {
     });
   });
 
+  it('publishes and manages reusable media through audited backend contracts', async () => {
+    const reservationId = `image_upload_${'c'.repeat(40)}`;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(200, {
+        success: true,
+        tenantId: 'fixture-tenant',
+        reservationId,
+        publicationId: reservationId,
+        resourceType: 'program_media',
+        resourceIds: [reservationId],
+        status: 'published',
+        isVisible: true,
+        publicUrl: `https://api.example.test/public/media/fixture-tenant/${reservationId}`,
+        idempotentReplay: false,
+        operationId: 'media-library-publish',
+        requestId: 'media-library-request',
+      }))
+      .mockResolvedValueOnce(response(200, {
+        success: true,
+        idempotentReplay: false,
+        operationId: 'media-update-operation',
+        id: reservationId,
+        updated: true,
+        requestId: 'media-update-request',
+      }))
+      .mockResolvedValueOnce(response(200, {
+        success: true,
+        idempotentReplay: false,
+        operationId: 'media-delete-operation',
+        id: reservationId,
+        archived: true,
+        requestId: 'media-delete-request',
+      }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+    });
+    const metadata = {
+      fileName: 'team-banner.png',
+      category: 'Banners',
+      purpose: 'Reusable team banner',
+      altText: 'Players warming up',
+      width: 1200,
+      height: 800,
+    };
+
+    await expect(api.publishProgramMedia(
+      'fixture-tenant', reservationId, metadata,
+      'Add reviewed reusable media.', 'media-publish:stable',
+    )).resolves.toMatchObject({ resourceType: 'program_media' });
+    await expect(api.updateMedia(
+      'fixture-tenant', reservationId,
+      {
+        fileName: 'team-banner-updated.png',
+        category: metadata.category,
+        purpose: metadata.purpose,
+        altText: metadata.altText,
+      },
+      'Correct reusable media metadata.', 'media-update:stable',
+    )).resolves.toMatchObject({ updated: true });
+    await expect(api.deleteMedia(
+      'fixture-tenant', reservationId,
+      'Archive an unused duplicate image.', 'media-delete:stable',
+    )).resolves.toMatchObject({ archived: true });
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      tenantId: 'fixture-tenant',
+      resourceType: 'program_media',
+      metadata,
+    });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
+      action: 'media.update',
+      resourceId: reservationId,
+    });
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toMatchObject({
+      action: 'media.delete',
+      resourceId: reservationId,
+    });
+  });
+
   it('uses bearer auth, tenant query scope, and one forced-token retry', async () => {
     const fetchMock = vi
       .fn()
@@ -1042,6 +1124,7 @@ describe('BackendApi', () => {
         'fixture-tenant',
         'message-1',
         'message-recall:stable',
+        'Superseded announcement',
       ),
     ).resolves.toMatchObject({
       idempotentReplay: true,
@@ -1060,6 +1143,7 @@ describe('BackendApi', () => {
       expect(JSON.parse(call[1].body)).toEqual({
         tenantId: 'fixture-tenant',
         idempotencyKey: 'message-recall:stable',
+        auditReason: 'Superseded announcement',
       });
     }
   });
@@ -1102,6 +1186,9 @@ describe('BackendApi', () => {
       .mockResolvedValueOnce(response(200, {
         tenantId: 'fixture-tenant',
         mode: 'update',
+        configVersion: 7,
+        publishedAt: '2026-07-01T12:00:00.000Z',
+        publishedBy: 'owner-1',
         versionToken: 'version-before',
         configuration,
         requestId: 'configuration-read',
@@ -1146,6 +1233,36 @@ describe('BackendApi', () => {
     });
     expect(fetchMock.mock.calls[1][1].headers['Idempotency-Key']).toBe(
       'app-configuration:stable',
+    );
+  });
+
+  it('loads and validates retained app-configuration history', async () => {
+    const configuration = validAppConfiguration();
+    const fetchMock = vi.fn().mockResolvedValue(response(200, {
+      tenantId: 'fixture-tenant',
+      versions: [{
+        id: 'fixture-tenant__00000007',
+        configVersion: 7,
+        publishedAt: '2026-07-01T12:00:00.000Z',
+        publishedBy: 'owner-1',
+        auditReason: 'Published reviewed app configuration.',
+        configuration,
+      }],
+      truncated: false,
+      requestId: 'configuration-history',
+    }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+    });
+
+    await expect(api.appConfigurationHistory('fixture-tenant')).resolves.toMatchObject({
+      versions: [expect.objectContaining({ configVersion: 7 })],
+      truncated: false,
+    });
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      'https://api.example.test/admin/crm/app-configuration/history?tenantId=fixture-tenant',
     );
   });
 

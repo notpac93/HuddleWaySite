@@ -7,9 +7,10 @@ const loopbackHosts = new Set(['127.0.0.1', 'localhost', '::1']);
 const backendRoot = process.env.HUDDLEWAY_BACKEND_ROOT ?? resolve(process.cwd(), '..');
 const authEmulatorPort = process.env.PLAYWRIGHT_AUTH_EMULATOR_PORT ?? '9099';
 const firestoreEmulatorPort =
-  process.env.PLAYWRIGHT_FIRESTORE_EMULATOR_PORT ?? '8080';
+  process.env.PLAYWRIGHT_FIRESTORE_EMULATOR_PORT ?? '8181';
 const firebaseConfigPath =
-  process.env.PLAYWRIGHT_FIREBASE_CONFIG ?? resolve(backendRoot, 'firebase.json');
+  process.env.PLAYWRIGHT_FIREBASE_CONFIG
+  ?? resolve(backendRoot, 'firebase.e2e.json');
 
 for (const [name, value] of [
   ['PLAYWRIGHT_AUTH_EMULATOR_PORT', authEmulatorPort],

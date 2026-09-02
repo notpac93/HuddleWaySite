@@ -3,6 +3,7 @@ import {
   fireEvent,
   render,
   screen,
+  within,
   waitFor,
 } from '@testing-library/svelte';
 import type { Component } from 'svelte';
@@ -241,5 +242,36 @@ describe('CreateRegistrationForm guarded mutation states', () => {
     );
     expect(screen.getByRole('button', { name: 'Retry Save' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Saved!' })).toBeNull();
+  });
+
+  it('supports named steps, common question templates, collapsing, and family preview', async () => {
+    render(TestedCreateRegistrationForm);
+    await reachBuilder();
+
+    const addStep = screen.getByRole('button', { name: 'Add Step' });
+    expect(addStep).toBeDisabled();
+    await fireEvent.input(screen.getByLabelText('New step name'), {
+      target: { value: 'Medical Details' },
+    });
+    expect(addStep).toBeEnabled();
+    await fireEvent.click(addStep);
+
+    const medicalStep = screen.getByRole('region', {
+      name: /Registration step 3/,
+    });
+    expect(within(medicalStep).getByDisplayValue('Medical Details')).toBeVisible();
+    await fireEvent.click(within(medicalStep).getByRole('button', {
+      name: 'Add emergency contact',
+    }));
+    expect(within(medicalStep).getByDisplayValue('Emergency contact name')).toBeVisible();
+
+    await fireEvent.click(within(medicalStep).getByRole('button', { name: 'Collapse' }));
+    expect(within(medicalStep).getByRole('button', { name: 'Expand' })).toBeVisible();
+    expect(within(medicalStep).queryByText('Response preview:')).toBeNull();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Preview form' }));
+    const preview = screen.getByRole('region', { name: 'Registration form preview' });
+    expect(within(preview).getByText('Family response preview')).toBeVisible();
+    expect(within(preview).getByText(/Emergency contact name/)).toBeVisible();
   });
 });

@@ -78,4 +78,20 @@ describe('DataTable production interaction contract', () => {
       screen.getByText('No records match the current search or filters.'),
     ).toBeVisible();
   });
+
+  it('reviews the selected export scope before creating a CSV', async () => {
+    const view = render(TestedDataTableHarness);
+    const table = view.container.querySelector('table')!;
+    await fireEvent.click(
+      table.querySelector<HTMLInputElement>('input[aria-label="Select Alpha"]')!,
+    );
+    await fireEvent.click(screen.getByRole('button', { name: 'Export 1 selected' }));
+
+    const review = screen.getByRole('dialog', { name: 'Review CSV export' });
+    expect(review).toHaveTextContent('1 selected record');
+    expect(review).toHaveTextContent('Selected records across all table pages');
+    expect(review).toHaveTextContent('Name, Amount');
+    await fireEvent.click(screen.getByRole('button', { name: 'Cancel export' }));
+    expect(screen.queryByRole('dialog', { name: 'Review CSV export' })).toBeNull();
+  });
 });

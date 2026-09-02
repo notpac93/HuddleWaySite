@@ -283,6 +283,13 @@ describe("CRM modal stacking and navigation", () => {
     await fireEvent.input(screen.getByLabelText("Event Title"), {
       target: { value: "Summer Practice" },
     });
+    await fireEvent.change(screen.getByLabelText("Event Type *"), {
+      target: { value: "Practice" },
+    });
+    await fireEvent.change(screen.getByLabelText("Team *"), {
+      target: { value: "team-1" },
+    });
+    await fireEvent.click(screen.getByRole("radio", { name: /One-time/ }));
     await fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
     expect(screen.getByText("Choose the event days")).toBeVisible();

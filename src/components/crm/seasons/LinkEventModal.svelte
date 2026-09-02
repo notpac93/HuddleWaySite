@@ -22,6 +22,7 @@
   let lastPayloadSignature = '';
   let lastOperationKey = createIdempotencyKey('event-season-link');
   let operationGeneration = 0;
+  let selectedEventIds: string[] = [];
 
   $: normalizedEvents = $eventsStore.map((event) => ({
     ...event,
@@ -38,6 +39,37 @@
       || event.title.toLowerCase().includes(searchQuery.toLowerCase())
     )
   );
+
+  function eventDateKey(event: any) {
+    const value = event.date || event.startDate;
+    if (!value) return '';
+    const date = value.toDate ? value.toDate() : new Date(value);
+    return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10);
+  }
+
+  function conflictReason(event: any) {
+    const eventDate = eventDateKey(event);
+    const start = season?.startDate ? new Date(season.startDate.toMillis ? season.startDate.toMillis() : season.startDate).toISOString().slice(0, 10) : '';
+    const end = season?.endDate ? new Date(season.endDate.toMillis ? season.endDate.toMillis() : season.endDate).toISOString().slice(0, 10) : '';
+    if (eventDate && start && eventDate < start) return 'Event occurs before the season starts.';
+    if (eventDate && end && eventDate > end) return 'Event occurs after the season ends.';
+    return '';
+  }
+
+  function toggleSelected(eventId: string) {
+    selectedEventIds = selectedEventIds.includes(eventId)
+      ? selectedEventIds.filter((id) => id !== eventId)
+      : [...selectedEventIds, eventId];
+  }
+
+  async function linkSelectedEvents() {
+    const eligible = selectedEventIds.filter((id) => {
+      const event = availableEvents.find((candidate) => candidate.id === id);
+      return event && !conflictReason(event);
+    });
+    for (const eventId of eligible) await linkEvent(eventId);
+    selectedEventIds = selectedEventIds.filter((id) => !eligible.includes(id));
+  }
 
   function buildPayloadSignature(eventId: string) {
     return JSON.stringify({
@@ -186,18 +218,22 @@
           {:else}
             <ul class="divide-y divide-gray-200">
               {#each availableEvents as event (event.id)}
-                <li class="p-4 hover:bg-gray-50 flex justify-between items-center">
-                  <div>
+                <li class="p-4 hover:bg-gray-50 flex justify-between items-center gap-4">
+                  <label class="flex min-w-0 flex-1 items-start gap-3">
+                    <input type="checkbox" class="mt-1" checked={selectedEventIds.includes(event.id)} disabled={isSubmitting || Boolean(conflictReason(event))} on:change={() => toggleSelected(event.id)} />
+                    <div>
                     <h4 class="text-sm font-semibold text-[var(--crm-brand-link)]">{event.title}</h4>
                     <p class="text-xs text-gray-500 mt-1">
                       {event.date ? (event.date.toDate ? event.date.toDate() : new Date(event.date)).toLocaleDateString() : 'No date'}
                       {#if event.type}<span class="mx-1">•</span>{event.type}{/if}
                     </p>
-                  </div>
+                    {#if conflictReason(event)}<p class="mt-1 text-xs font-medium text-amber-700">{conflictReason(event)}</p>{/if}
+                    </div>
+                  </label>
                   <StatusButton
                     state={linkStates[event.id] || 'idle'}
                     on:click={() => linkEvent(event.id)}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || Boolean(conflictReason(event))}
                     idleText="Link to Season"
                     loadingText="Linking..."
                     successText="Linked!"
@@ -211,6 +247,7 @@
         </div>
       </div>
       <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-gray-200">
+        <button type="button" class="ml-3 rounded-md bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-semibold text-[var(--crm-on-primary)] disabled:opacity-50" disabled={isSubmitting || selectedEventIds.length === 0} on:click={linkSelectedEvents}>Link {selectedEventIds.length} selected</button>
         <button
           type="button"
           class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:w-auto sm:text-sm"

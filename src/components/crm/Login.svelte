@@ -17,6 +17,8 @@
   let successMessage = '';
   let isLoading = false;
   let view: 'login' | 'signup' | 'reset' = 'login';
+  let showPassword = false;
+  let resetDestination = '';
 
   function safeAuthError(
     operation: 'login' | 'signup' | 'reset',
@@ -88,13 +90,20 @@
     isLoading = true;
     try {
       await sendPasswordResetEmail(auth, email);
-      successMessage = 'If an account with that email exists, a password reset link has been sent.';
+      resetDestination = maskEmail(email);
+      successMessage = `If an account exists, a password reset link was sent to ${resetDestination}. You can request another link after 60 seconds.`;
       view = 'login';
     } catch (error: any) {
       errorMessage = safeAuthError('reset', error);
     } finally {
       isLoading = false;
     }
+  }
+
+  function maskEmail(value: string) {
+    const [name, domain] = value.trim().split('@');
+    if (!name || !domain) return 'the entered address';
+    return `${name.slice(0, 2)}${'*'.repeat(Math.max(2, name.length - 2))}@${domain}`;
   }
 </script>
 
@@ -148,8 +157,9 @@
               </div>
             </div>
             <div class="mt-1">
-              <input id="password" name="password" type="password" autocomplete="current-password" required minlength="6" bind:value={password} aria-describedby="login-password-help"
+              <input id="password" name="password" type={showPassword ? 'text' : 'password'} autocomplete="current-password" required minlength="6" bind:value={password} aria-describedby="login-password-help"
                 class="crm-ui-auth-input">
+              <button type="button" class="crm-auth-link mt-2" aria-pressed={showPassword} on:click={() => showPassword = !showPassword}>{showPassword ? 'Hide password' : 'Show password'}</button>
               <p id="login-password-help" class="crm-ui-hint">Use your existing account password (minimum 6 characters).</p>
             </div>
           </div>
@@ -198,6 +208,7 @@
           <p class="text-center text-sm text-gray-600">
             Creating and administering a program is free. Stripe is optional and only needed if your program chooses to collect payments.
           </p>
+          <p class="text-center text-xs text-gray-500">After sign-in, your last authorized organization and portal page will reopen.</p>
           <button
             type="button"
             class="crm-auth-button-secondary"
@@ -211,6 +222,7 @@
           <div class="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-900">
             No activation fee or payment method is required. Verify your email to protect your program, then complete the guided setup.
           </div>
+          <ol class="list-decimal space-y-1 pl-5 text-sm text-gray-700"><li>Create the administrator account.</li><li>Verify the email from your inbox.</li><li>Return and sign in.</li><li>Complete organization setup after HuddleWay grants or confirms access.</li></ol>
           <div>
             <label for="signup-email" class="crm-ui-label">Email address</label>
             <input
@@ -228,7 +240,7 @@
             <input
               id="signup-password"
               name="new-password"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               autocomplete="new-password"
               required
               minlength="8"
@@ -236,12 +248,13 @@
               class="crm-ui-auth-select"
             >
           </div>
+          <button type="button" class="crm-auth-link" aria-pressed={showPassword} on:click={() => showPassword = !showPassword}>{showPassword ? 'Hide passwords' : 'Show passwords'}</button>
           <div>
             <label for="signup-password-confirmation" class="crm-ui-label">Confirm password</label>
             <input
               id="signup-password-confirmation"
               name="new-password-confirmation"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               autocomplete="new-password"
               required
               minlength="8"

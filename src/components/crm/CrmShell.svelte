@@ -215,7 +215,11 @@
   }
 
   function setActiveTab(tab: any) {
-    if (tab === activeTab) return;
+    if (tab === activeTab) {
+      showMobileMenu = false;
+      void tick().then(() => pageHeading?.focus({ preventScroll: true }));
+      return;
+    }
     runWithDraftGuard(() => performActiveTabChange(tab));
   }
 

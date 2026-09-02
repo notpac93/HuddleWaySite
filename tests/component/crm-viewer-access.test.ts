@@ -131,7 +131,9 @@ describe("CrmApp authentication, role, module, and tenant boundaries", () => {
   it("limits editors to non-owner modules and rejects unsupported roles", async () => {
     role.set("editor");
     render(TestedCrmApp);
-    await screen.findByText(/Overview of your organization's key metrics/i);
+    await screen.findByText(
+      /Current organization totals and the latest registration activity/i,
+    );
 
     expect(screen.getAllByRole("button", { name: "Teams" })[0]).toBeVisible();
     expect(screen.queryByRole("button", { name: "Financials" })).toBeNull();
@@ -187,7 +189,9 @@ describe("CrmApp authentication, role, module, and tenant boundaries", () => {
     tenantChoices.set(["tenant-a", "tenant-b"]);
     tenantNames.set({ "tenant-a": "Alpha Club", "tenant-b": "Bravo Club" });
     render(TestedCrmApp);
-    await screen.findByText(/Overview of your organization's key metrics/i);
+    await screen.findByText(
+      /Current organization totals and the latest registration activity/i,
+    );
 
     await fireEvent.click(
       screen.getByRole("button", { name: "Open navigation menu" }),

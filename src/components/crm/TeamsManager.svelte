@@ -4,7 +4,13 @@
   import { backendClient } from '../../lib/api/backendClient';
   import { BackendApiError, createIdempotencyKey } from '../../lib/api/BackendApi';
   import type { PortalIconName } from '../../lib/ui/portalIcons';
-  import { teamsProjectionScope, teamsStore } from '../../lib/services/DataStore';
+  import {
+    eventsStore,
+    registrationsStore,
+    seasonsStore,
+    teamsProjectionScope,
+    teamsStore,
+  } from '../../lib/services/DataStore';
   import { modalFocus } from '../../lib/ui/modalFocus';
   import CreateTeamForm from './teams/CreateTeamForm.svelte';
   import EmptyState from './ui/EmptyState.svelte';
@@ -36,6 +42,50 @@
   let deleteReason = '';
   let deleteConfirmation = '';
   let deleteOperationKey = '';
+
+  function referencesTeam(record: any, teamId: string) {
+    return [record?.teamId, record?.team?.id, record?.metadata?.teamId]
+      .some((value) => String(value || '').trim() === teamId);
+  }
+
+  function teamRosterCount(team: any) {
+    const explicit = Number(team?.memberCount ?? team?.playerCount);
+    return Number.isSafeInteger(explicit) && explicit >= 0
+      ? explicit
+      : $registrationsStore.filter((record) => referencesTeam(record, String(team?.id || ''))).length;
+  }
+
+  function teamSeasons(team: any) {
+    return $seasonsStore.filter((record) => referencesTeam(record, String(team?.id || '')));
+  }
+
+  function activeSeasonName(team: any) {
+    const seasons = teamSeasons(team);
+    const active = seasons.find((season) => ['active', 'open', 'upcoming'].includes(String(season?.status || '').toLowerCase())) || seasons[0];
+    return String(active?.name || active?.title || '').trim() || 'No season connected';
+  }
+
+  function teamStatus(team: any) {
+    const status = String(team?.status || team?.lifecycleStatus || 'active').trim().toLowerCase();
+    return status ? `${status.charAt(0).toUpperCase()}${status.slice(1)}` : 'Active';
+  }
+
+  function eventDate(event: any) {
+    const value = event?.startAt || event?.date || event?.startDate;
+    if (value?.toDate) return value.toDate();
+    const parsed = new Date(value || 0);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  function upcomingTeamEventCount(team: any) {
+    const now = Date.now();
+    return $eventsStore.filter((event) => {
+      const date = eventDate(event);
+      return referencesTeam(event, String(team?.id || ''))
+        && !['archived', 'cancelled', 'deleted'].includes(String(event?.status || event?.lifecycleStatus || '').toLowerCase())
+        && Boolean(date && date.getTime() >= now);
+    }).length;
+  }
 
   function openCreateForm() {
     editingTeam = null;
@@ -134,7 +184,10 @@
     <div class="relative z-10 inline-block w-full max-w-md overflow-hidden rounded-lg bg-white text-left align-bottom shadow-xl sm:my-8 sm:align-middle" tabindex="-1" use:modalFocus={{ onEscape: cancelDelete }}>
       <div class="px-6 pb-4 pt-5">
         <h3 id="delete-team-title" class="text-lg font-semibold text-gray-900">Delete {pendingDeleteTeam.name}?</h3>
-        <p class="mt-2 text-sm text-gray-600">The team page will be removed, linked events and messages will be archived, and historical season records will remain.</p>
+        <p class="mt-2 text-sm text-gray-600">Permanent deletion is intended for teams created in error. The team page will be removed, linked events and messages will be archived, and seasons will be detached while their history remains.</p>
+        <div class="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+          <strong>Loaded impact:</strong> {teamRosterCount(pendingDeleteTeam)} roster record{teamRosterCount(pendingDeleteTeam) === 1 ? '' : 's'}, {teamSeasons(pendingDeleteTeam).length} season{teamSeasons(pendingDeleteTeam).length === 1 ? '' : 's'}, and {$eventsStore.filter((event) => referencesTeam(event, String(pendingDeleteTeam.id || ''))).length} event{ $eventsStore.filter((event) => referencesTeam(event, String(pendingDeleteTeam.id || ''))).length === 1 ? '' : 's'} reference this team. The server rechecks all tenant records at deletion time.
+        </div>
         <label for="team-delete-reason" class="crm-ui-label mt-4">Audit reason</label>
         <textarea id="team-delete-reason" bind:value={deleteReason} rows="2" disabled={deleteState === 'loading'} class="crm-ui-input mt-1" placeholder="Why is this team being deleted?"></textarea>
         <label for="team-delete-confirm" class="crm-ui-label mt-4">Type {pendingDeleteTeam.name} to confirm</label>
@@ -163,6 +216,12 @@
       <div class="mt-6">
         <StatusNotice tone="info" title={`${activeTeam.name || 'This team'} is your working context`} message="Team-aware pages open filtered to this team. Choose All teams in the scope bar to return to organization-wide work." />
       </div>
+      <section class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Team overview">
+        <div class="rounded-lg border bg-white p-4"><p class="text-xs font-semibold uppercase text-gray-500">Status</p><p class="mt-1 text-lg font-semibold">{teamStatus(activeTeam)}</p></div>
+        <button type="button" class="rounded-lg border bg-white p-4 text-left hover:border-[var(--crm-brand-focus)]" on:click={() => onNavigateTab('Roster')}><span class="text-xs font-semibold uppercase text-gray-500">Roster</span><span class="mt-1 block text-lg font-semibold">{teamRosterCount(activeTeam)} people</span></button>
+        <button type="button" class="rounded-lg border bg-white p-4 text-left hover:border-[var(--crm-brand-focus)]" on:click={() => onNavigateTab('Seasons')}><span class="text-xs font-semibold uppercase text-gray-500">Active season</span><span class="mt-1 block text-lg font-semibold">{activeSeasonName(activeTeam)}</span></button>
+        <button type="button" class="rounded-lg border bg-white p-4 text-left hover:border-[var(--crm-brand-focus)]" on:click={() => onNavigateTab('Events')}><span class="text-xs font-semibold uppercase text-gray-500">Upcoming events</span><span class="mt-1 block text-lg font-semibold">{upcomingTeamEventCount(activeTeam)}</span></button>
+      </section>
       <section class="mt-6" aria-labelledby="team-workspaces-title">
         <h3 id="team-workspaces-title" class="text-base font-semibold text-gray-900">Team workspaces</h3>
         <p class="mt-1 text-sm text-gray-600">Continue with the most common team management tasks.</p>
@@ -193,6 +252,7 @@
                 <button type="button" class="min-w-0 flex-1 text-left" on:click={() => setActiveTeam(team)}>
                   <span class="flex items-center justify-between gap-4"><span class="text-lg font-semibold text-[var(--crm-brand-link)]">{team.name}</span><span class="whitespace-nowrap text-sm font-semibold text-[var(--crm-brand-link)]">Open team</span></span>
                   <span class="mt-2 block text-sm text-gray-600">{team.description || 'No description provided.'}</span>
+                  <span class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500"><span>{teamStatus(team)}</span><span>{teamRosterCount(team)} people</span><span>{activeSeasonName(team)}</span></span>
                 </button>
                 <button type="button" class="crm-ui-button-secondary inline-flex items-center gap-2" aria-label={`Edit ${team.name}`} on:click={() => openEditForm(team)}><Icon name="pencil" size={16} /> Edit</button>
               </article>
