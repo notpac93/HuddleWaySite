@@ -34,6 +34,11 @@
   }
 
   function handleResultKeys(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeSearch();
+      return;
+    }
     if (!['ArrowDown', 'ArrowUp'].includes(event.key)) return;
     const container = (event.currentTarget as HTMLElement).closest('[data-search-panel]');
     const results = Array.from(container?.querySelectorAll<HTMLButtonElement>('[data-search-result]') || []);
