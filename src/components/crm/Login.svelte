@@ -4,8 +4,10 @@
     createUserWithEmailAndPassword,
     sendEmailVerification,
     sendPasswordResetEmail,
+    setPersistence,
     signInWithEmailAndPassword,
     signOut,
+    browserLocalPersistence,
   } from 'firebase/auth';
 
   let email = '';
@@ -67,6 +69,10 @@
     successMessage = '';
     isLoading = true;
     try {
+      // Require durable same-origin storage before accepting credentials. This
+      // prevents an apparently successful, memory-only session from vanishing
+      // when the browser replaces or suspends the current page context.
+      await setPersistence(auth, browserLocalPersistence);
       await signInWithEmailAndPassword(auth, email, password);
     } catch (error: any) {
       errorMessage = safeAuthError('login', error);
