@@ -14,6 +14,9 @@ vi.mock("../../src/lib/authStore", async () => {
   };
 });
 vi.mock("../../src/lib/api/backendClient", () => ({ backendClient: mocks }));
+vi.mock("../../src/lib/api/BillingOperationsApi", () => ({
+  billingOperationsApi: mocks,
+}));
 vi.mock("../../src/lib/services/DataStore", async () => {
   const { writable } = await import("svelte/store");
   return { seasonsStore: writable([]), teamsStore: writable([]) };

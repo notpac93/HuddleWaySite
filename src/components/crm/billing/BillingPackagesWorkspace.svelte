@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { tenantIdStore } from '../../../lib/authStore';
-  import { backendClient } from '../../../lib/api/backendClient';
+  import { billingOperationsApi } from '../../../lib/api/BillingOperationsApi';
   import {
     BackendApiError,
     createIdempotencyKey,
@@ -79,7 +79,7 @@
     loadError = '';
     requestId = '';
     try {
-      packages = await backendClient.billingPackages(tenantId);
+      packages = await billingOperationsApi.billingPackages(tenantId);
     } catch (error) {
       loadError = 'Payment setup could not be loaded.';
       requestId = error instanceof BackendApiError ? error.requestId || '' : '';
@@ -153,7 +153,7 @@
         : []),
     ];
     try {
-      await backendClient.saveBillingPackage(
+      await billingOperationsApi.saveBillingPackage(
         tenantId,
         {
           name: name.trim(),

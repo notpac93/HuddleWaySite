@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/svelte";
+import { fireEvent, render, screen, waitFor } from "@testing-library/svelte";
 import type { Component } from "svelte";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -18,6 +18,9 @@ vi.mock("../../src/lib/authStore", async () => {
   };
 });
 vi.mock("../../src/lib/api/backendClient", () => ({ backendClient: mocks }));
+vi.mock("../../src/lib/api/BillingOperationsApi", () => ({
+  billingOperationsApi: mocks,
+}));
 
 import ParticipantDetailPanel from "../../src/components/crm/roster/ParticipantDetailPanel.svelte";
 
@@ -87,8 +90,10 @@ describe("participant detail panel", () => {
     expect(mocks.commitRosterTransfer).not.toHaveBeenCalled();
     await fireEvent.change(select, { target: { value: "unassigned" } });
     await fireEvent.click(screen.getByRole("button", { name: "Publish" }));
-    expect(mocks.previewRosterTransfer).toHaveBeenCalledTimes(1);
-    expect(mocks.commitRosterTransfer).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(mocks.previewRosterTransfer).toHaveBeenCalledTimes(1);
+      expect(mocks.commitRosterTransfer).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("proposes participant-specific future payment changes", async () => {

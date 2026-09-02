@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { activeTenantRole, tenantIdStore } from '../../../lib/authStore';
   import { backendClient } from '../../../lib/api/backendClient';
+  import { billingOperationsApi } from '../../../lib/api/BillingOperationsApi';
   import { BackendApiError, createIdempotencyKey, type ParticipantInstallmentAgreement, type ParticipantRelationships, type RosterPlayerRecord } from '../../../lib/api/BackendApi';
 
   export let player: RosterPlayerRecord;
@@ -44,8 +45,8 @@
     const tenantId = $tenantIdStore;
     try {
       const [relationshipResult, agreementResult] = await Promise.all([
-        backendClient.participantRelationships(tenantId, player.participantId, player.id),
-        backendClient.participantInstallmentAgreements(tenantId, player.participantId),
+        billingOperationsApi.participantRelationships(tenantId, player.participantId, player.id),
+        billingOperationsApi.participantInstallmentAgreements(tenantId, player.participantId),
       ]);
       if ($tenantIdStore !== tenantId) return;
       relationships = relationshipResult;
@@ -85,7 +86,7 @@
     technicalOpen = true;
     technicalLoading = true;
     try {
-      const result = await backendClient.participantTechnicalDetails($tenantIdStore, player.participantId, player.id);
+      const result = await billingOperationsApi.participantTechnicalDetails($tenantIdStore, player.participantId, player.id);
       technicalEntries = result.entries;
     } catch (error) {
       errorMessage = 'Technical details could not be loaded.';
@@ -122,7 +123,7 @@
     revisionSaving = true;
     errorMessage = '';
     try {
-      await backendClient.proposeParticipantInstallmentRevision({
+      await billingOperationsApi.proposeParticipantInstallmentRevision({
         tenantId: $tenantIdStore,
         participantId: player.participantId,
         agreementId: editingAgreement.id,

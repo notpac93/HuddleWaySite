@@ -17,7 +17,9 @@ vi.mock("../../src/lib/services/DataStore", async () => {
     teamsStore: writable([{ id: "team-secret", name: "Falcons" }]),
   };
 });
-vi.mock("../../src/lib/api/backendClient", () => ({ backendClient: mocks }));
+vi.mock("../../src/lib/api/BillingOperationsApi", () => ({
+  billingOperationsApi: mocks,
+}));
 
 import BillingPackagesWorkspace from "../../src/components/crm/billing/BillingPackagesWorkspace.svelte";
 
