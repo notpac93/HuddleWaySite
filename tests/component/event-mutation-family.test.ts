@@ -152,6 +152,26 @@ async function openInlineEditor() {
   );
 }
 
+async function completeRequiredEventSchedule() {
+  await fireEvent.change(screen.getByLabelText('Event Type *'), {
+    target: { value: 'Practice' },
+  });
+  await fireEvent.change(screen.getByLabelText('Team *'), {
+    target: { value: 'team-1' },
+  });
+  await fireEvent.click(screen.getByRole('radio', { name: /One-time/ }));
+  await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+  await fireEvent.input(screen.getByLabelText('Event date *'), {
+    target: { value: '2030-08-20' },
+  });
+  await fireEvent.input(screen.getByLabelText('Start Time'), {
+    target: { value: '17:00' },
+  });
+  await fireEvent.input(screen.getByLabelText('End Time'), {
+    target: { value: '19:00' },
+  });
+}
+
 describe('event mutation family', () => {
   beforeEach(() => {
     tenants.set('tenant-a');
@@ -185,7 +205,7 @@ describe('event mutation family', () => {
     await fireEvent.change(screen.getByLabelText('Cover Image (Optional)'), {
       target: { files: [coverFile] },
     });
-    await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await completeRequiredEventSchedule();
     await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     await fireEvent.click(
       screen.getByRole('button', { name: 'Save event drafts' }),
@@ -232,7 +252,7 @@ describe('event mutation family', () => {
     });
     render(TestedEventScheduler);
 
-    const input = screen.getByLabelText('Import events CSV');
+    const input = screen.getByLabelText('Choose CSV');
     expect(input).toHaveAttribute('accept', '.csv,text/csv');
     const file = new File([
       'title,date,start_time,end_time,team,type,location\n'
@@ -246,6 +266,10 @@ describe('event mutation family', () => {
         + 'Tryouts,2030-08-20,18:00,19:00,team-1,Tryout,Main Gym\n',
     });
     await fireEvent.change(input, { target: { files: [file] } });
+
+    expect(backendMocks.createEventSeries).not.toHaveBeenCalled();
+    expect(await screen.findByText('1 valid · 0 rejected · 0 created')).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Apply import · 1 draft' }));
 
     await waitFor(() => {
       expect(backendMocks.createEventSeries).toHaveBeenCalledTimes(1);
@@ -264,10 +288,10 @@ describe('event mutation family', () => {
           endTime: '19:00',
         })],
       }),
-      'Event draft imported from CSV.',
-      expect.stringMatching(/^crm-event-csv-import:/),
+      'Import event draft from CSV line 2.',
+      expect.stringMatching(/^crm-event-csv-import:.*:2$/),
     );
-    expect(await screen.findByText('1 event drafts created.')).toBeVisible();
+    expect(await screen.findByText('1 draft created.')).toBeVisible();
   });
 
   it('creates a shareable registration link only for a live published registration', async () => {
@@ -318,7 +342,7 @@ describe('event mutation family', () => {
     await fireEvent.input(screen.getByLabelText('Event Title'), {
       target: { value: 'Summer practice' },
     });
-    await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await completeRequiredEventSchedule();
     await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     await fireEvent.click(
       screen.getByRole('button', { name: 'Save event drafts' }),
@@ -346,17 +370,14 @@ describe('event mutation family', () => {
     await fireEvent.input(screen.getByLabelText('Event Title'), {
       target: { value: 'Summer practice' },
     });
-    await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    await fireEvent.click(
-      screen.getByRole('button', { name: /Event Time/ }),
-    );
+    await completeRequiredEventSchedule();
     await fireEvent.click(
       screen.getByRole('button', { name: /Add another time/ }),
     );
     await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
     expect(await screen.findByText(
-      'Select at least one event date and provide valid, unique event times.',
+      'Select at least one date and provide valid, unique, non-overlapping event times.',
     )).toBeVisible();
     expect(backendMocks.createEventSeries).not.toHaveBeenCalled();
   });

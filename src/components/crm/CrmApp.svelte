@@ -51,7 +51,6 @@
     Seasons: () => import('./seasons/SeasonsManager.svelte'),
     Registration: () => import('./registration/RegistrationManager.svelte'),
     Roster: () => import('./roster/RosterManager.svelte'),
-    Rostering: () => import('./roster/RosterManager.svelte'),
     Events: () => import('./EventScheduler.svelte'),
     Financials: () => import('./FinancialOperationsWorkspace.svelte'),
     Staff: () => import('./StaffManager.svelte'),
@@ -129,16 +128,6 @@
     globalTabs.push({ name: 'Design System', icon: 'dashboard' });
   }
 
-  const teamTabs = [
-    globalTabs[2],
-    globalTabs[6],
-    globalTabs[5],
-    { ...globalTabs[3], name: 'Rostering' },
-    globalTabs[4],
-    globalTabs[7],
-    globalTabs[8],
-  ];
-
   const ownerOnlyTabs = new Set(['Financials', 'Staff', 'Activity']);
   $: isOwner =
     $activeTenantRole === 'owner'
@@ -148,11 +137,6 @@
     canManageTenant || $activeTenantRole === 'viewer';
   $: canViewCrm = canViewTenant || $canViewTenantOperationsStore;
   $: visibleGlobalTabs = globalTabs.filter(
-    (tab) =>
-      canManageTenant
-      && (isOwner || !ownerOnlyTabs.has(tab.name)),
-  );
-  $: visibleTeamTabs = teamTabs.filter(
     (tab) =>
       canManageTenant
       && (isOwner || !ownerOnlyTabs.has(tab.name)),
@@ -168,9 +152,7 @@
       ? [tenantOperationsTab]
       : $activeTenantRole === 'viewer'
         ? [globalTabs[0]]
-        : activeTeam
-          ? visibleTeamTabs
-          : tenantTabsWithOperations;
+        : tenantTabsWithOperations;
   $: contextKey =
     $userStore?.uid && $tenantIdStore
       ? `${$userStore.uid}:${$tenantIdStore}`
@@ -212,10 +194,19 @@
   }
   $: activeComponentProps = {
     ...(activeTab === 'Teams'
-      ? { activeTeam, setActiveTeam, activeResultId, onTargetConsumed }
+      ? {
+          activeTeam,
+          setActiveTeam,
+          activeResultId,
+          onTargetConsumed,
+          onNavigateTab: (tab: string) => {
+            activeResultId = null;
+            activeTab = tab;
+          },
+        }
       : {}),
     ...(activeTab === 'Seasons' ? { activeTeam } : {}),
-    ...(activeTab === 'Roster' || activeTab === 'Rostering'
+    ...(activeTab === 'Roster'
       ? { activeTeam, setActiveTeam, activeResultId, onTargetConsumed }
       : {}),
     ...(activeTab === 'Events'
@@ -264,7 +255,7 @@
   function setActiveTeam(team: any) {
     activeResultId = null;
     activeTeam = team;
-    activeTab = 'Rostering'; // default tab for a team
+    activeTab = 'Teams';
   }
 
   function onTargetConsumed(id: string) {

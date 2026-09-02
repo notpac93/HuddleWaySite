@@ -24,6 +24,7 @@
   import StatusButton from './ui/StatusButton.svelte';
   import { modalFocus } from '../../lib/ui/modalFocus';
   import ConsumerAdminInbox from './ConsumerAdminInbox.svelte';
+  import AnnouncementPublishReview from './messages/AnnouncementPublishReview.svelte';
 
   export let registrationEmailDraft: {
     token: string;
@@ -94,6 +95,11 @@
   let connectedMailboxLoading = false;
   let connectedMailboxError = '';
   let selectedDeliveryMode: 'huddleway' | 'connected_mailbox' = 'huddleway';
+  let announcementReview: {
+    eligibleAccountCount: number;
+    eligibleDeviceCount: number;
+    truncated: boolean;
+  } | null = null;
 
   $: normalizedSearch = searchQuery.trim().toLocaleLowerCase();
   $: eventOptions = $eventsStore
@@ -201,6 +207,7 @@
       emailQuota = null;
       emailQuotaError = '';
       emailReview = null;
+      announcementReview = null;
       senderSettingsOpen = false;
       connectedMailbox = null;
       connectedMailboxError = '';
@@ -234,6 +241,7 @@
     selectedSeasonId = '';
     submitState = 'idle';
     emailReview = null;
+    announcementReview = null;
     selectedDeliveryMode = 'huddleway';
   }
 
@@ -313,6 +321,33 @@
   function closeEmailReview() {
     if (submitState === 'loading') return;
     emailReview = null;
+  }
+
+  function closeAnnouncementReview() {
+    if (submitState === 'loading') return;
+    announcementReview = null;
+  }
+
+  async function handleAnnouncementReview() {
+    if (submitState === 'loading' || !canPublish) return;
+    const tenantId = $tenantIdStore;
+    const generation = tenantGeneration;
+    if (!tenantId) return;
+    submitState = 'loading';
+    operationMessage = 'Reviewing the account and device audience…';
+    operationRequestId = '';
+    try {
+      const preview = await backendClient.announcementAudiencePreview(tenantId);
+      if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
+      announcementReview = preview;
+      submitState = 'idle';
+      operationMessage = '';
+    } catch (error) {
+      if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
+      submitState = 'error';
+      operationMessage = 'The announcement audience could not be reviewed. Nothing was published.';
+      operationRequestId = requestIdFrom(error);
+    }
   }
 
   async function handleEmailReview() {
@@ -459,6 +494,16 @@
     return 'All organization';
   }
 
+  function draftAttachmentLabel() {
+    if (attachmentScope === 'event') {
+      return `Event · ${eventOptions.find((event) => event.id === selectedEventId)?.title || 'Selected event'}`;
+    }
+    if (attachmentScope === 'season') {
+      return `Season · ${seasonOptions.find((season) => season.id === selectedSeasonId)?.title || 'Selected season'}`;
+    }
+    return 'All organization';
+  }
+
   function toggleMessageDetails(messageId: string) {
     const nextExpandedIds = new Set(expandedMessageIds);
     if (nextExpandedIds.has(messageId)) {
@@ -581,6 +626,7 @@
       if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
       await fetchMessages(tenantId);
       if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
+      announcementReview = null;
       submitState = 'success';
       if (result.publicCount === 1 && result.notifications.successCount > 0) {
         const deviceWord = result.notifications.successCount === 1 ? 'device' : 'devices';
@@ -753,7 +799,21 @@
   }
 </script>
 
-{#if emailReview}
+  {#if announcementReview}
+    <AnnouncementPublishReview
+      {subject}
+      {body}
+      audienceCount={announcementReview.eligibleAccountCount}
+      deviceCount={announcementReview.eligibleDeviceCount}
+      audienceTruncated={announcementReview.truncated}
+      attachment={draftAttachmentLabel()}
+      busy={submitState === 'loading'}
+      onCancel={closeAnnouncementReview}
+      onConfirm={handleAddMessage}
+    />
+  {/if}
+
+  {#if emailReview}
   <div class="crm-ui-modal-root" role="dialog" aria-modal="true" aria-labelledby="email-review-title">
     <div class="flex min-h-full items-center justify-center p-4">
       <button
@@ -1207,14 +1267,14 @@
           <StatusButton
             type="button"
             state={submitState}
-            on:click={composerKind === 'announcement' ? handleAddMessage : handleEmailReview}
+            on:click={composerKind === 'announcement' ? handleAnnouncementReview : handleEmailReview}
             disabled={!canPublish || submitState === 'loading'}
             idleText={composerKind === 'announcement'
               ? 'Publish announcement'
               : composerKind === 'registration_email'
                 ? 'Review registration email'
                 : 'Review email'}
-            loadingText={composerKind === 'announcement' ? 'Publishing…' : 'Checking allowance…'}
+            loadingText={composerKind === 'announcement' ? 'Reviewing audience…' : 'Checking allowance…'}
             successText={composerKind === 'announcement' ? 'Published' : 'Email sent'}
             errorText={composerKind === 'announcement'
               ? 'Retry publish'

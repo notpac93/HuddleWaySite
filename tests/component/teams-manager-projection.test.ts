@@ -84,10 +84,10 @@ describe('TeamsManager complete projection states', () => {
     );
 
     scope.set({ ...healthyScope });
-    expect(await screen.findByText('No teams')).toBeVisible();
+    expect(await screen.findByText('No teams yet')).toBeVisible();
 
     await fireEvent.click(
-      screen.getAllByRole('button', { name: 'Create Team' })[1],
+      screen.getAllByRole('button', { name: 'Create team' })[0],
     );
     expect(
       screen.getByRole('dialog', { name: 'Create New Team' }),
@@ -160,19 +160,30 @@ describe('TeamsManager complete projection states', () => {
     teams.set([
       { id: 'team-1', name: 'Falcons', description: '12U program' },
     ]);
-    render(TestedTeamsManager);
+    render(TestedTeamsManager, {
+      activeTeam: { id: 'team-1', name: 'Falcons', description: '12U program' },
+    });
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Delete Falcons' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Delete team' }));
     expect(
       screen.getByRole('dialog', { name: 'Delete Falcons?' }),
     ).toBeVisible();
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Delete Team' }));
+    const deleteButton = screen.getByRole('button', { name: 'Permanently delete team' });
+    expect(deleteButton).toBeDisabled();
+    await fireEvent.input(screen.getByLabelText('Audit reason'), {
+      target: { value: 'The program has been retired.' },
+    });
+    await fireEvent.input(screen.getByLabelText('Type Falcons to confirm'), {
+      target: { value: 'Falcons' },
+    });
+    expect(deleteButton).toBeEnabled();
+    await fireEvent.click(deleteButton);
     await waitFor(() => {
       expect(backendClient.deleteTeam).toHaveBeenCalledWith(
         'tenant-a',
         'team-1',
-        'Delete Falcons and archive its linked team content.',
+        'The program has been retired.',
         expect.stringMatching(/^team-delete:/),
       );
     });

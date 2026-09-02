@@ -2492,6 +2492,35 @@ export class BackendApi {
     return payload;
   }
 
+  async announcementAudiencePreview(tenantId: string) {
+    const payload = await this.send<{
+      success: boolean;
+      tenantId: string;
+      scope: "tenant_account_holders";
+      eligibleAccountCount: number;
+      eligibleDeviceCount: number;
+      truncated: boolean;
+      requestId: string;
+    }>("/admin/messages/announcement-preview", {
+      method: "POST",
+      body: { tenantId },
+    });
+    if (
+      payload.success !== true ||
+      payload.tenantId !== tenantId ||
+      payload.scope !== "tenant_account_holders" ||
+      !Number.isSafeInteger(payload.eligibleAccountCount) ||
+      payload.eligibleAccountCount < 0 ||
+      !Number.isSafeInteger(payload.eligibleDeviceCount) ||
+      payload.eligibleDeviceCount < 0 ||
+      typeof payload.truncated !== "boolean" ||
+      !String(payload.requestId || "").trim()
+    ) {
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
+    }
+    return payload;
+  }
+
   async adminInboxThreads(tenantId: string) {
     const payload = await this.send<{
       success: boolean;

@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   startMailboxConnection: vi.fn(),
   disconnectMailbox: vi.fn(),
   messageAudiencePreview: vi.fn(),
+  announcementAudiencePreview: vi.fn(),
   replyAdminInbox: vi.fn(),
   getDocs: vi.fn(),
   recallMessage: vi.fn(),
@@ -63,6 +64,7 @@ vi.mock('../../src/lib/api/backendClient', () => ({
     adminInboxThreads: mocks.adminInboxThreads,
     replyAdminInbox: mocks.replyAdminInbox,
     recallMessage: mocks.recallMessage,
+    announcementAudiencePreview: mocks.announcementAudiencePreview,
     sendMessageBatch: mocks.sendMessageBatch,
   },
 }));
@@ -197,6 +199,29 @@ function audiencePreview(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function announcementAudiencePreview(overrides: Record<string, unknown> = {}) {
+  return {
+    success: true,
+    tenantId: 'tenant-a',
+    scope: 'tenant_account_holders',
+    eligibleAccountCount: 12,
+    eligibleDeviceCount: 9,
+    truncated: false,
+    requestId: 'announcement-preview-request',
+    ...overrides,
+  };
+}
+
+async function confirmAnnouncementReview() {
+  const review = await screen.findByRole('dialog', {
+    name: 'Review app announcement',
+  });
+  await fireEvent.click(within(review).getByRole('checkbox'));
+  await fireEvent.click(within(review).getByRole('button', {
+    name: 'Confirm and publish',
+  }));
+}
+
 describe('CommunicationsManager recall boundary', () => {
   beforeEach(() => {
     tenants.set('tenant-a');
@@ -229,6 +254,10 @@ describe('CommunicationsManager recall boundary', () => {
     mocks.disconnectMailbox.mockReset();
     mocks.messageAudiencePreview.mockReset();
     mocks.messageAudiencePreview.mockResolvedValue(audiencePreview());
+    mocks.announcementAudiencePreview.mockReset();
+    mocks.announcementAudiencePreview.mockResolvedValue(
+      announcementAudiencePreview(),
+    );
     mocks.replyAdminInbox.mockReset();
     mocks.createRegistrationInviteLink.mockReset();
     mocks.recallMessage.mockReset();
@@ -387,6 +416,20 @@ describe('CommunicationsManager recall boundary', () => {
     expect(publishButton).toBeEnabled();
 
     await fireEvent.click(publishButton);
+
+    const review = await screen.findByRole('dialog', {
+      name: 'Review app announcement',
+    });
+    expect(backendClient.announcementAudiencePreview).toHaveBeenCalledWith(
+      'tenant-a',
+    );
+    expect(within(review).getByText('12 eligible accounts')).toBeVisible();
+    expect(within(review).getByText('Up to 9 active devices')).toBeVisible();
+    expect(backendClient.sendMessageBatch).not.toHaveBeenCalled();
+    await fireEvent.click(within(review).getByRole('checkbox'));
+    await fireEvent.click(within(review).getByRole('button', {
+      name: 'Confirm and publish',
+    }));
 
     await waitFor(() => {
       expect(backendClient.sendMessageBatch).toHaveBeenCalledTimes(1);
@@ -975,6 +1018,7 @@ describe('CommunicationsManager recall boundary', () => {
       target: { value: 'No-device tenant announcement.' },
     });
     await fireEvent.click(screen.getByRole('button', { name: 'Publish announcement' }));
+    await confirmAnnouncementReview();
 
     expect(await screen.findByText(
       'Announcement published. No registered devices were available for this organization.',
@@ -1014,6 +1058,7 @@ describe('CommunicationsManager recall boundary', () => {
     });
     expect(screen.getByRole('button', { name: 'Publish announcement' })).toBeEnabled();
     await fireEvent.click(screen.getByRole('button', { name: 'Publish announcement' }));
+    await confirmAnnouncementReview();
     await waitFor(() => expect(backendClient.sendMessageBatch).toHaveBeenCalledTimes(1));
     expect(vi.mocked(backendClient.sendMessageBatch).mock.calls[0][1][0]).toEqual(
       expect.objectContaining({
@@ -1057,6 +1102,7 @@ describe('CommunicationsManager recall boundary', () => {
     });
     expect(screen.getByRole('button', { name: 'Publish announcement' })).toBeEnabled();
     await fireEvent.click(screen.getByRole('button', { name: 'Publish announcement' }));
+    await confirmAnnouncementReview();
     await waitFor(() => expect(backendClient.sendMessageBatch).toHaveBeenCalledTimes(1));
     expect(vi.mocked(backendClient.sendMessageBatch).mock.calls[0][1][0]).toEqual(
       expect.objectContaining({

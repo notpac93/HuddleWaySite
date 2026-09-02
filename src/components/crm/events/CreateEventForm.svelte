@@ -20,13 +20,15 @@
   const dispatch = createEventDispatcher();
 
   export let seasonId: string | null = null;
+  export let teamId: string | null = null;
 
   // Step state: 1 = Basics, 2 = When/Where, 3 = Review & Save
   let currentStep = 1;
 
   // Form State
   let title = '';
-  let eventType = 'Practice'; // Smart default
+  let eventType = '';
+  let scheduleKind: 'one_time' | 'recurring' | '' = '';
 
   let teams: {id: string, name: string}[] = [];
   let selectedTeamId = '';
@@ -37,7 +39,7 @@
   $: if (selectedTeamId && !teams.some((team) => team.id === selectedTeamId)) {
     selectedTeamId = '';
   }
-  $: if (!selectedTeamId && teams.length > 0) selectedTeamId = teams[0].id;
+  $: if (teamId && teams.some((team) => team.id === teamId)) selectedTeamId = teamId;
 
   let registrationForms: any[] = [];
   let selectedFormId = '';
@@ -87,10 +89,6 @@
     showCreateForm = false;
   }
 
-  // Default to today at 5 PM for start time
-  const today = new Date();
-  today.setHours(17, 0, 0, 0);
-
   function formatDateKey(date: Date) {
     const year = date.getFullYear();
     const month = `${date.getMonth() + 1}`.padStart(2, '0');
@@ -107,10 +105,14 @@
     isSelected: boolean;
   };
 
-  let selectedDateKeys = [formatDateKey(today)];
-  let timeSlots = [{ startTime: '17:00', endTime: '19:00' }];
+  let selectedDateKeys: string[] = [];
+  let oneTimeDate = '';
+  let timeSlots = [{ startTime: '', endTime: '' }];
 
-  let showTimes = false;
+  let showTimes = true;
+  $: if (scheduleKind === 'one_time') {
+    selectedDateKeys = oneTimeDate ? [oneTimeDate] : [];
+  }
 
   function formatTime12hr(time24: string) {
     if (!time24) return '';
@@ -157,6 +159,7 @@
     tenantId: $tenantIdStore,
     title: title.trim(),
     eventType,
+    scheduleKind,
     selectedTeamId,
     selectedDateKeys,
     timeSlots,
@@ -225,8 +228,8 @@
   function handleNext() {
     errorMessage = '';
     if (currentStep === 1) {
-      if (!title.trim()) {
-        errorMessage = 'Please provide an event title.';
+      if (!title.trim() || !eventType || !selectedTeamId || !scheduleKind) {
+        errorMessage = 'Provide a title, event type, team, and one-time or recurring schedule choice.';
         return;
       }
       imageValidationMessage = validateImageFile(imageFile);
@@ -235,8 +238,8 @@
       }
       currentStep++;
     } else if (currentStep === 2) {
-      if (selectedDateKeys.length === 0 || !hasValidTimeSlots() || !hasUniqueTimeSlots()) {
-        errorMessage = 'Select at least one event date and provide valid, unique event times.';
+      if (selectedDateKeys.length === 0 || !hasValidTimeSlots() || !hasUniqueTimeSlots() || hasOverlappingTimeSlots()) {
+        errorMessage = 'Select at least one date and provide valid, unique, non-overlapping event times.';
         return;
       }
       currentStep++;
@@ -269,6 +272,11 @@
     ).size === timeSlots.length;
   }
 
+  function hasOverlappingTimeSlots() {
+    const sorted = [...timeSlots].sort((first, second) => first.startTime.localeCompare(second.startTime));
+    return sorted.some((slot, index) => index > 0 && slot.startTime < sorted[index - 1].endTime);
+  }
+
   async function handleSave() {
     if (submitState === 'loading') return;
     const tenantId = $tenantIdStore;
@@ -293,6 +301,11 @@
     }
     if (!hasUniqueTimeSlots()) {
       errorMessage = 'Remove duplicate event time slots before saving.';
+      currentStep = 2;
+      return;
+    }
+    if (hasOverlappingTimeSlots()) {
+      errorMessage = 'Event time slots cannot overlap.';
       currentStep = 2;
       return;
     }
@@ -454,9 +467,10 @@
 
               <div class="crm-ui-grid-two">
                 <div>
-                  <label for="type" class="crm-ui-label">Event Type</label>
+                  <label for="type" class="crm-ui-label">Event Type *</label>
                   <div class="mt-1">
                     <select id="type" name="type" bind:value={eventType} class="crm-ui-input-teal-compact">
+                      <option value="" disabled>Choose an event type</option>
                       <option value="Practice">Practice</option>
                       <option value="Game">Game</option>
                       <option value="Meeting">Meeting</option>
@@ -467,9 +481,10 @@
                 </div>
 
                 <div>
-                  <label for="team" class="crm-ui-label">Team</label>
+                  <label for="team" class="crm-ui-label">Team *{teamId ? ' · scope locked' : ''}</label>
                   <div class="mt-1">
-                    <select id="team" name="team" bind:value={selectedTeamId} class="crm-ui-input-teal-compact">
+                    <select id="team" name="team" bind:value={selectedTeamId} disabled={Boolean(teamId)} class="crm-ui-input-teal-compact disabled:bg-gray-100">
+                      <option value="" disabled>Choose a team</option>
                       {#each teams as team}
                         <option value={team.id}>{team.name}</option>
                       {/each}
@@ -486,6 +501,14 @@
                     {/if}
                   </div>
                 </div>
+
+                <fieldset class="col-span-2 rounded-lg border border-gray-200 p-3">
+                  <legend class="px-1 text-sm font-medium text-gray-700">Schedule type *</legend>
+                  <div class="mt-1 grid gap-2 sm:grid-cols-2">
+                    <label class="flex items-start gap-2 rounded-md border border-gray-200 p-3 text-sm"><input type="radio" bind:group={scheduleKind} value="one_time" class="mt-0.5" /><span><strong>One-time</strong><span class="mt-1 block text-xs text-gray-600">One date with one or more time slots.</span></span></label>
+                    <label class="flex items-start gap-2 rounded-md border border-gray-200 p-3 text-sm"><input type="radio" bind:group={scheduleKind} value="recurring" class="mt-0.5" /><span><strong>Recurring</strong><span class="mt-1 block text-xs text-gray-600">Generate and review multiple dates.</span></span></label>
+                  </div>
+                </fieldset>
 
                 <div class="col-span-2">
                   <label for="season" class="crm-ui-label">Season (Optional)</label>
@@ -512,11 +535,14 @@
             <h3 class="crm-ui-modal-title" id="modal-title">
               Choose the event days
             </h3>
-            <p class="mt-1 text-sm text-gray-500">Generate a recurring schedule or manually select dates on the calendar.</p>
-            <div class="mt-4">
-              <RecurrenceSelector bind:selectedDateKeys />
-            </div>
+            <p class="mt-1 text-sm text-gray-500">{scheduleKind === 'one_time' ? 'Choose the single event date.' : 'Generate or select every occurrence date.'}</p>
+            {#if scheduleKind === 'one_time'}
+              <div class="mt-4"><label for="event-one-time-date" class="crm-ui-label">Event date *</label><input id="event-one-time-date" type="date" bind:value={oneTimeDate} class="crm-ui-input-teal-compact mt-1" /></div>
+            {:else}
+              <div class="mt-4"><RecurrenceSelector bind:selectedDateKeys /></div>
+            {/if}
 
+            {#if scheduleKind === 'recurring'}
             <div class="rounded-xl border border-gray-200 bg-white p-3 shadow-sm mt-4">
                 <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Selected dates ({selectedDateKeys.length})</p>
                 {#if selectedDateKeys.length > 0}
@@ -537,6 +563,7 @@
                     <p class="mt-1 text-xs text-red-600">Select at least one date.</p>
                   {/if}
                 </div>
+            {/if}
 
               {#if !showTimes}
                 <button type="button" class="crm-ui-event-time-preview" on:click={() => showTimes = true}>
@@ -553,7 +580,7 @@
               {:else}
                 <div class="crm-ui-event-time-editor">
                   <div class="flex justify-between items-center mb-3">
-                    <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Event Time{timeSlots.length > 1 ? 's' : ''}</span>
+                    <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Event Time{timeSlots.length > 1 ? 's' : ''} · each applies to {selectedDateKeys.length} selected date{selectedDateKeys.length === 1 ? '' : 's'}</span>
                     <button type="button" on:click={() => showTimes = false} class="text-[var(--crm-brand-link)] text-xs font-semibold">Done</button>
                   </div>
                   <div class="space-y-4">
@@ -576,7 +603,7 @@
                       </div>
                     {/each}
                   </div>
-                  <button type="button" on:click={() => timeSlots = [...timeSlots, { startTime: '17:00', endTime: '19:00' }]} class="crm-ui-event-link mt-3">
+                  <button type="button" on:click={() => timeSlots = [...timeSlots, { startTime: '', endTime: '' }]} class="crm-ui-event-link mt-3">
                     + Add another time
                   </button>
                 </div>
@@ -597,6 +624,8 @@
               <h4 class="font-bold text-gray-900">{title} <span class="crm-ui-event-type-pill">{eventType}</span></h4>
 
               <div class="mt-2 text-sm text-gray-600 space-y-1">
+                <p><strong>Schedule:</strong> {scheduleKind === 'one_time' ? 'One-time event' : 'Recurring event'} · {selectedDateKeys.length * timeSlots.length} draft{selectedDateKeys.length * timeSlots.length === 1 ? '' : 's'} will be created</p>
+                <p><strong>Team:</strong> {teams.find((team) => team.id === selectedTeamId)?.name || 'Team unavailable'}</p>
                 <p><strong>Dates:</strong> {selectedDateKeys.map(readableDate).join(', ')}</p>
                 <p><strong>Times:</strong></p>
                 <ul class="list-disc pl-5">

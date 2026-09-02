@@ -12,6 +12,10 @@
   } from '../../lib/authStore';
   import { modalFocus } from '../../lib/ui/modalFocus';
   import {
+    clearPortalDraft,
+    portalDraftStore,
+  } from '../../lib/ui/portalDraftGuard';
+  import {
     buildCrmThemeTokens,
     serializeCrmThemeVariables,
   } from '../../lib/ui/crmTheme';
@@ -37,6 +41,9 @@
   let globalSearchLoadError = '';
   let logoutState: 'idle' | 'loading' | 'error' = 'idle';
   let logoutError = '';
+  let pendingDraftAction: (() => void | Promise<void>) | null = null;
+  let draftResolutionState: 'idle' | 'loading' | 'error' = 'idle';
+  let draftResolutionError = '';
 
   const sidebarPreferenceKey = 'huddleway.crm.sidebar.expanded';
   let isSidebarExpanded = true;
@@ -65,6 +72,10 @@
     logoutState = 'loading';
     logoutError = '';
     try {
+      if ($portalDraftStore) {
+        await $portalDraftStore.onDiscard();
+        clearPortalDraft($portalDraftStore.id);
+      }
       await signOut(auth);
       showLogoutModal = false;
     } catch {
@@ -74,8 +85,8 @@
     }
   }
 
-  async function switchTenant(tenant: any) {
-    const preferredTab = activeTab === 'Rostering' ? 'Roster' : activeTab;
+  async function performTenantSwitch(tenant: any) {
+    const preferredTab = activeTab;
     showOrgSwitcher = false;
     showGlobalSearch = false;
     showMobileMenu = false;
@@ -84,6 +95,10 @@
     if (activeTeam) onExitTeam();
     activeTab = preferredTab;
     await onSwitchTenant(tenant, preferredTab);
+  }
+
+  function switchTenant(tenant: any) {
+    runWithDraftGuard(() => performTenantSwitch(tenant));
   }
 
   let appName = 'HuddleWay';
@@ -192,11 +207,58 @@
   // generation, which keeps current snapshot callbacks valid.
   unsubscribeTenant = tenantIdStore.subscribe(subscribeToTenantBranding);
 
-  function setActiveTab(tab: any) {
+  function performActiveTabChange(tab: any) {
     activeResultId = null;
     activeTab = tab;
     showMobileMenu = false;
     void tick().then(() => pageHeading?.focus({ preventScroll: true }));
+  }
+
+  function setActiveTab(tab: any) {
+    if (tab === activeTab) return;
+    runWithDraftGuard(() => performActiveTabChange(tab));
+  }
+
+  function runWithDraftGuard(action: () => void | Promise<void>) {
+    if (!$portalDraftStore) {
+      void action();
+      return;
+    }
+    pendingDraftAction = action;
+    draftResolutionState = 'idle';
+    draftResolutionError = '';
+  }
+
+  function stayWithDraft() {
+    if (draftResolutionState === 'loading') return;
+    pendingDraftAction = null;
+    draftResolutionState = 'idle';
+    draftResolutionError = '';
+  }
+
+  async function resolveDraft(retain: boolean) {
+    const draft = $portalDraftStore;
+    const action = pendingDraftAction;
+    if (!draft || !action || draftResolutionState === 'loading') return;
+    draftResolutionState = 'loading';
+    draftResolutionError = '';
+    try {
+      if (retain && draft.onRetain) await draft.onRetain();
+      else await draft.onDiscard();
+      clearPortalDraft(draft.id);
+      pendingDraftAction = null;
+      draftResolutionState = 'idle';
+      await action();
+    } catch {
+      draftResolutionState = 'error';
+      draftResolutionError = retain
+        ? 'The draft could not be saved in this browser.'
+        : 'The draft could not be discarded safely.';
+    }
+  }
+
+  function exitTeam() {
+    runWithDraftGuard(onExitTeam);
   }
 
   function organizationName(tenantId: string, index: number) {
@@ -204,27 +266,29 @@
   }
 
   function openActiveTeamHome() {
-    setActiveTab('Rostering');
+    setActiveTab('Teams');
   }
 
   $: breadcrumbItems = activeTeam
     ? [
-        { label: 'Organization', onSelect: onExitTeam },
+        { label: 'All teams', onSelect: exitTeam },
         {
           label: String(activeTeam.name || 'Team'),
-          onSelect: activeTab === 'Rostering' ? undefined : openActiveTeamHome,
-          current: activeTab === 'Rostering',
+          onSelect: activeTab === 'Teams' ? undefined : openActiveTeamHome,
+          current: activeTab === 'Teams',
         },
-        ...(activeTab === 'Rostering'
+        ...(activeTab === 'Teams'
           ? []
-          : [{ label: activeTab, current: true }]),
+          : [{ label: currentTabLabel(), current: true }]),
       ]
     : [{ label: currentTabLabel(), current: true }];
 
   function handleSearchNavigate(event: CustomEvent<{ tab: string; id: string }>) {
-    activeResultId = event.detail.id;
-    activeTab = event.detail.tab;
-    showMobileMenu = false;
+    runWithDraftGuard(() => {
+      activeResultId = event.detail.id;
+      activeTab = event.detail.tab;
+      showMobileMenu = false;
+    });
   }
 
   async function openGlobalSearch() {
@@ -263,9 +327,15 @@
     showMobileMenu = false;
     mobileMenuTrigger?.focus();
   }
+
+  function handleBeforeUnload(event: BeforeUnloadEvent) {
+    if (!$portalDraftStore) return;
+    event.preventDefault();
+    event.returnValue = '';
+  }
 </script>
 
-<svelte:window on:keydown={handleGlobalShortcut} />
+<svelte:window on:keydown={handleGlobalShortcut} on:beforeunload={handleBeforeUnload} />
 
 <div class="crm-ui-shell-root" style={themeStyle} data-branding-state={brandingState}>
   {#if showMobileMenu}
@@ -483,7 +553,7 @@
           <button
             type="button"
             class="portal-motion-color rounded px-1.5 py-1 font-semibold text-[var(--crm-brand-link)] hover:bg-[var(--crm-brand-surface)]"
-            on:click={onExitTeam}
+            on:click={exitTeam}
           >All teams</button>
         {/if}
       </div>
@@ -551,6 +621,9 @@
                   <p class="text-sm text-gray-500">
                     Are you sure you want to sign out? You will need to log back in to manage your organization.
                   </p>
+                  {#if $portalDraftStore}
+                    <p class="mt-2 text-sm font-medium text-amber-800">Signing out will discard {$portalDraftStore.title.toLowerCase()}.</p>
+                  {/if}
                 </div>
               </div>
             </div>
@@ -565,6 +638,29 @@
           </div>
           {#if logoutError}
             <p class="bg-red-50 px-6 pb-4 text-sm text-red-800" role="alert">{logoutError}</p>
+          {/if}
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if pendingDraftAction && $portalDraftStore}
+    <div class="crm-ui-modal-root" role="dialog" aria-modal="true" aria-labelledby="draft-navigation-title">
+      <button type="button" class="crm-ui-backdrop" aria-label="Stay on this page" tabindex="-1" disabled={draftResolutionState === 'loading'} on:click={stayWithDraft}></button>
+      <span class="crm-ui-modal-spacer" aria-hidden="true">&#8203;</span>
+      <div class="relative z-10 inline-block w-full max-w-lg overflow-hidden rounded-lg bg-white text-left align-bottom shadow-xl sm:my-8 sm:align-middle" tabindex="-1" use:modalFocus={{ onEscape: stayWithDraft }}>
+        <div class="p-6">
+          <h2 id="draft-navigation-title" class="text-lg font-semibold text-gray-950">{$portalDraftStore.title}</h2>
+          <p class="mt-2 text-sm leading-5 text-gray-600">{$portalDraftStore.message}</p>
+          {#if draftResolutionError}<p class="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-800" role="alert">{draftResolutionError}</p>{/if}
+        </div>
+        <div class="flex flex-col-reverse gap-3 bg-gray-50 px-6 py-4 sm:flex-row sm:justify-end">
+          <button type="button" class="crm-ui-button-secondary" disabled={draftResolutionState === 'loading'} on:click={stayWithDraft}>Stay</button>
+          <button type="button" class="crm-ui-button-danger-outline" disabled={draftResolutionState === 'loading'} on:click={() => resolveDraft(false)}>Discard changes</button>
+          {#if $portalDraftStore.onRetain}
+            <button type="button" class="crm-ui-button-primary" disabled={draftResolutionState === 'loading'} on:click={() => resolveDraft(true)}>
+              {draftResolutionState === 'loading' ? 'Saving…' : $portalDraftStore.retainLabel || 'Save draft and leave'}
+            </button>
           {/if}
         </div>
       </div>

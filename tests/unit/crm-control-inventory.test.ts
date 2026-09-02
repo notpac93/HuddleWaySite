@@ -12,10 +12,10 @@ const reviewedControlCounts: Record<string, number> = {
   'ConsumerAdminInbox.svelte': 6,
   'CrmApp.svelte': 3,
   'CrmBreadcrumbs.svelte': 1,
-  'CrmShell.svelte': 16,
+  'CrmShell.svelte': 20,
   'DataTable.svelte': 9,
   'DocumentsManager.svelte': 7,
-  'EventScheduler.svelte': 27,
+  'EventScheduler.svelte': 26,
   'FinancialOperationsWorkspace.svelte': 6,
   'FinancialPeriodManager.svelte': 14,
   'Financials.svelte': 30,
@@ -24,18 +24,23 @@ const reviewedControlCounts: Record<string, number> = {
   'InviteStaffModal.svelte': 6,
   'Login.svelte': 13,
   'MediaManager.svelte': 2,
-  'MyAppStudio.svelte': 11,
+  'MyAppStudio.svelte': 14,
   'SettingsManager.svelte': 6,
   'SetupWorkflow.svelte': 11,
   'StaffManager.svelte': 14,
-  'TeamsManager.svelte': 7,
+  'TeamsManager.svelte': 11,
   'TenantOperations.svelte': 10,
   'TransactionDetails.svelte': 35,
+  'app/AppPublishReview.svelte': 4,
+  'messages/AnnouncementPublishReview.svelte': 4,
   'billing/BillingPackagesWorkspace.svelte': 21,
   'billing/EventPaymentTermsEditor.svelte': 7,
-  'events/CreateEventForm.svelte': 18,
+  'events/CreateEventForm.svelte': 21,
   'events/DuplicateEventModal.svelte': 9,
   'events/EditEventModal.svelte': 12,
+  'events/EventBatchPublishReview.svelte': 4,
+  'events/EventCsvImport.svelte': 4,
+  'events/EventFilters.svelte': 7,
   'events/EventRegistrantsModal.svelte': 2,
   'events/RecurrenceSelector.svelte': 13,
   'registration/CreateRegistrationForm.svelte': 21,
@@ -131,7 +136,7 @@ describe('exhaustive CRM control inventory', () => {
     );
 
     expect(actual).toEqual(reviewedControlCounts);
-    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(492);
+    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(528);
   });
 
   it('keeps every inventoried CRM component reachable from a production entry point', () => {

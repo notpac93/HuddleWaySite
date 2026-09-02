@@ -1029,6 +1029,37 @@ describe('BackendApi', () => {
     }
   });
 
+  it('previews an announcement audience without publishing', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response(200, {
+      success: true,
+      tenantId: 'fixture-tenant',
+      scope: 'tenant_account_holders',
+      eligibleAccountCount: 12,
+      eligibleDeviceCount: 9,
+      truncated: false,
+      requestId: 'announcement-preview-request',
+    }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+    });
+
+    await expect(
+      api.announcementAudiencePreview('fixture-tenant'),
+    ).resolves.toMatchObject({
+      eligibleAccountCount: 12,
+      eligibleDeviceCount: 9,
+      truncated: false,
+    });
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      'https://api.example.test/admin/messages/announcement-preview',
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      tenantId: 'fixture-tenant',
+    });
+  });
+
   it('validates app-configuration read and publish envelopes', async () => {
     const configuration = validAppConfiguration();
     const fetchMock = vi

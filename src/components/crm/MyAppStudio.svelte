@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { tenantIdStore } from '../../lib/authStore';
+  import { onDestroy, onMount } from 'svelte';
+  import { tenantIdStore, tenantNamesStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
   import {
     publicEnvironment,
@@ -14,6 +14,15 @@
   import StatusButton from './ui/StatusButton.svelte';
   import ImageFilePicker from './ui/ImageFilePicker.svelte';
   import { validateImageFile } from '../../lib/media/imageUpload';
+  import {
+    describeAppConfigurationChanges,
+    hasDuplicateTabLabels,
+  } from '../../lib/ui/appConfigurationReview';
+  import {
+    clearPortalDraft,
+    registerPortalDraft,
+  } from '../../lib/ui/portalDraftGuard';
+  import AppPublishReview from './app/AppPublishReview.svelte';
 
 
   // Form Configurator State
@@ -30,6 +39,7 @@
   let logoPreviewSequence = 0;
   let logoValidationMessage = '';
   let configVersionToken = '';
+  let loadedConfiguration: CrmAppConfiguration | null = null;
   let configMode: 'initialize' | 'update' = 'initialize';
   let configLoadState: 'idle' | 'loading' | 'ready' | 'error' | 'permission' = 'idle';
   let configLoadMessage = '';
@@ -46,6 +56,12 @@
   let previewLoadState: 'idle' | 'loading' | 'ready' = 'idle';
   let previewDraftSyncState: 'idle' | 'awaiting' | 'synced' = 'idle';
   let previewDraftRetryTimers: number[] = [];
+  let showPublishReview = false;
+  let savedDraft: {
+    versionToken: string;
+    savedAt: string;
+    configuration: CrmAppConfiguration;
+  } | null = null;
 
   const previewBaseUrl = resolveCrmAppPreviewUrl(publicEnvironment);
 
@@ -113,6 +129,17 @@
     });
   }
 
+  function currentConfiguration(): CrmAppConfiguration {
+    return {
+      name: appName.trim(),
+      primaryColor,
+      secondaryColor,
+      tertiaryColor,
+      logoUrl,
+      navigationTabs: tabsConfig.map((tab) => ({ ...tab, label: tab.label.trim() })),
+    };
+  }
+
   function buildAttemptSignature() {
     return JSON.stringify({
       tenantId: $tenantIdStore,
@@ -150,6 +177,7 @@
     && tabsConfig.length > 0
     && tabsConfig.length <= 12
     && tabsConfig.filter((tab) => tab.enabled).length <= maxActiveTabs
+    && !hasDuplicateTabLabels(currentConfiguration())
     && new Set(tabsConfig.map((tab) => tab.key)).size === tabsConfig.length
     && tabsConfig.every(
       (tab) =>
@@ -161,6 +189,16 @@
         && !tab.route.startsWith('//'),
     );
   $: activeTabCount = tabsConfig.filter((tab) => tab.enabled).length;
+  $: reviewChanges = describeAppConfigurationChanges(
+    configMode === 'initialize' ? null : loadedConfiguration,
+    currentConfiguration(),
+  );
+  $: selectedOrganizationName = $tenantNamesStore[activeTenantId]
+    || activeTenantId
+    || 'the selected organization';
+  $: versionLabel = configMode === 'initialize'
+    ? 'Initial configuration'
+    : `Authoritative version ${configVersionToken.slice(0, 8)}…`;
   $: canPublish =
     configLoadState === 'ready'
     && Boolean(configVersionToken)
@@ -228,6 +266,9 @@
     logoValidationMessage = '';
     loadedConfigSignature = '';
     configVersionToken = '';
+    loadedConfiguration = null;
+    savedDraft = null;
+    showPublishReview = false;
     publishAttemptSignature = '';
     publishIdempotencyKey =
       createIdempotencyKey('app-configuration-publish');
@@ -245,6 +286,21 @@
       configLoadMessage = '';
     }
   }
+
+  $: if (isDirty && activeTenantId) {
+    registerPortalDraft({
+      id: 'my-app-configuration',
+      title: 'Unpublished family app changes',
+      message: 'You can stay, discard the changes, or save a browser draft before leaving this page.',
+      retainLabel: 'Save draft and leave',
+      onDiscard: discardLocalChanges,
+      onRetain: retainLocalDraft,
+    });
+  } else {
+    clearPortalDraft('my-app-configuration');
+  }
+
+  onDestroy(() => clearPortalDraft('my-app-configuration'));
 
   function buildPreviewSrc(tenantId: string) {
     if (!previewBaseUrl || !tenantId) return '';
@@ -367,6 +423,69 @@
     return 'The authoritative app configuration could not be loaded. Publishing is disabled.';
   }
 
+  function draftStorageKey(tenantId: string) {
+    return `huddleway.crm.app-configuration-draft:${tenantId}`;
+  }
+
+  function retainLocalDraft() {
+    if (!activeTenantId) return;
+    const draft = {
+      versionToken: configVersionToken,
+      savedAt: new Date().toISOString(),
+      configuration: currentConfiguration(),
+    };
+    window.localStorage.setItem(draftStorageKey(activeTenantId), JSON.stringify(draft));
+    savedDraft = draft;
+  }
+
+  function removeLocalDraft() {
+    if (activeTenantId) window.localStorage.removeItem(draftStorageKey(activeTenantId));
+    savedDraft = null;
+  }
+
+  function discardLocalChanges() {
+    if (loadedConfiguration) {
+      appName = loadedConfiguration.name;
+      primaryColor = loadedConfiguration.primaryColor;
+      secondaryColor = loadedConfiguration.secondaryColor;
+      tertiaryColor = loadedConfiguration.tertiaryColor;
+      logoUrl = loadedConfiguration.logoUrl;
+      tabsConfig = loadedConfiguration.navigationTabs.map((tab) => ({ ...tab }));
+    }
+    logoFile = null;
+    removeLocalDraft();
+  }
+
+  function readLocalDraft(tenantId: string) {
+    try {
+      const raw = window.localStorage.getItem(draftStorageKey(tenantId));
+      if (!raw) return null;
+      const draft = JSON.parse(raw);
+      if (
+        !draft
+        || typeof draft.versionToken !== 'string'
+        || typeof draft.savedAt !== 'string'
+        || !draft.configuration
+        || !Array.isArray(draft.configuration.navigationTabs)
+      ) return null;
+      return draft as typeof savedDraft;
+    } catch {
+      return null;
+    }
+  }
+
+  function restoreLocalDraft() {
+    if (!savedDraft || savedDraft.versionToken !== configVersionToken) return;
+    const configuration = savedDraft.configuration;
+    appName = configuration.name;
+    primaryColor = configuration.primaryColor;
+    secondaryColor = configuration.secondaryColor;
+    tertiaryColor = configuration.tertiaryColor;
+    logoUrl = configuration.logoUrl;
+    tabsConfig = configuration.navigationTabs.map((tab) => ({ ...tab }));
+    savedDraft = null;
+  }
+
   async function loadTenantConfig(tenantId) {
     const sequence = ++configLoadSequence;
     configLoadState = 'loading';
@@ -393,6 +512,7 @@
         logoUrl = configuration.logoUrl;
         tabsConfig = configuration.navigationTabs.map((tab) => ({ ...tab }));
         loadedConfigSignature = buildConfigSignature();
+        loadedConfiguration = currentConfiguration();
         tabsConfig = completeFiveTabSlots(tabsConfig);
       } else {
         primaryColor = '';
@@ -403,8 +523,10 @@
         // Defaults are offered only after the backend confirms initialize mode.
         tabsConfig = initialTabs.map((tab) => ({ ...tab }));
         loadedConfigSignature = buildConfigSignature();
+        loadedConfiguration = currentConfiguration();
       }
       configLoadState = 'ready';
+      savedDraft = readLocalDraft(tenantId);
     } catch (e) {
       console.error('App configuration load failed.');
       if (
@@ -490,6 +612,7 @@
         createIdempotencyKey('app-configuration-publish');
       submitState = 'success';
       publishMessage = 'App configuration published and reloaded from the server.';
+      removeLocalDraft();
     } catch (e) {
       console.error('App configuration publish failed.');
       if ($tenantIdStore !== tenantId) return;
@@ -508,6 +631,16 @@
     }
   }
 
+  function requestPublishReview() {
+    if (!canPublish) return;
+    showPublishReview = true;
+  }
+
+  function confirmPublish() {
+    showPublishReview = false;
+    void handlePublish();
+  }
+
   const defaultLogoUrl = '/logo.webp';
   $: safeLogoPreviewUrl =
     typeof logoUrl === 'string'
@@ -520,6 +653,18 @@
 
 </script>
 
+{#if showPublishReview}
+  <AppPublishReview
+    organizationName={selectedOrganizationName}
+    {versionLabel}
+    changes={reviewChanges}
+    configuration={currentConfiguration()}
+    busy={submitState === 'loading'}
+    onCancel={() => showPublishReview = false}
+    onConfirm={confirmPublish}
+  />
+{/if}
+
 <div class="crm-ui-studio-root">
 
   <!-- Left Pane: Configuration Form -->
@@ -527,6 +672,9 @@
     <div class="px-8 pt-6 pb-4 border-b border-gray-200">
       <h1 class="crm-ui-page-title">My App</h1>
       <p class="text-sm text-gray-500 mt-1">Preview changes here, then publish them to your family app.</p>
+      {#if configLoadState === 'ready'}
+        <p class="mt-2 text-xs font-medium text-gray-600">{versionLabel} · Previewing {isDirty ? 'unpublished draft' : 'published configuration'}</p>
+      {/if}
     </div>
 
     <div class="flex border-b border-gray-200 px-6 pt-2">
@@ -573,6 +721,22 @@
       </div>
     {/if}
 
+    {#if savedDraft}
+      <div class="mx-6 mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950" role="status">
+        <p class="font-semibold">A browser draft was saved {new Date(savedDraft.savedAt).toLocaleString()}.</p>
+        {#if savedDraft.versionToken === configVersionToken}
+          <p class="mt-1">It matches the current authoritative version and can be restored safely.</p>
+          <div class="mt-3 flex gap-2">
+            <button type="button" class="crm-ui-button-primary" on:click={restoreLocalDraft}>Restore draft</button>
+            <button type="button" class="crm-ui-button-secondary bg-white" on:click={removeLocalDraft}>Discard saved draft</button>
+          </div>
+        {:else}
+          <p class="mt-1">The server changed after this draft was saved. It cannot be restored because doing so could overwrite newer work.</p>
+          <button type="button" class="crm-ui-button-secondary mt-3 bg-white" on:click={removeLocalDraft}>Discard outdated draft</button>
+        {/if}
+      </div>
+    {/if}
+
     <div class="flex-1 overflow-y-auto p-8 bg-gray-50/50">
       {#if activeTab === 'Branding'}
         <div class="space-y-6">
@@ -613,6 +777,9 @@
               <p class="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-800" role="alert">
                 The app can show up to five tabs. Turn off at least {activeTabCount - maxActiveTabs} tab{activeTabCount - maxActiveTabs === 1 ? '' : 's'} before publishing.
               </p>
+            {/if}
+            {#if hasDuplicateTabLabels(currentConfiguration())}
+              <p class="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-800" role="alert">Active app tabs must have unique names so families can distinguish each destination.</p>
             {/if}
 
             <div class="space-y-4">
@@ -657,7 +824,7 @@
       <StatusButton
         type="button"
         state={submitState}
-        on:click={handlePublish}
+        on:click={requestPublishReview}
         disabled={!canPublish}
         idleText="Publish App"
         loadingText="Publishing..."
@@ -690,8 +857,9 @@
           previewAlt="Logo preview"
           bind:selectedFile={logoFile}
           bind:validationMessage={logoValidationMessage}
-          disabled={submitState === 'loading'}
+          disabled={true}
         />
+        <p class="max-w-xs text-xs text-amber-800">Logo replacement is temporarily unavailable while private uploads are connected to family-app publication. Existing logos remain unchanged.</p>
 
         <div class="border-l border-gray-200 pl-6">
           <p class="crm-ui-label-caps">Brand Colors</p>

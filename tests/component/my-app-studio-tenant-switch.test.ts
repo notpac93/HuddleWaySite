@@ -31,6 +31,10 @@ vi.mock('../../src/lib/authStore', async () => {
   const { writable } = await import('svelte/store');
   return {
     tenantIdStore: writable('tenant-a'),
+    tenantNamesStore: writable({
+      'tenant-a': 'Alpha organization',
+      'tenant-b': 'Beta organization',
+    }),
   };
 });
 
@@ -200,6 +204,16 @@ async function findTenantPreview(name: string) {
   return screen.getByTitle(`${name} mobile app preview`);
 }
 
+async function reviewAndPublish(buttonName: 'Publish App' | 'Retry Publish' = 'Publish App') {
+  await fireEvent.click(screen.getByRole('button', { name: buttonName }));
+  const review = await screen.findByRole('dialog', { name: 'Review family app publication' });
+  await fireEvent.click(screen.getByRole('checkbox', {
+    name: /I confirm these changes should be published/,
+  }));
+  await fireEvent.click(screen.getByRole('button', { name: 'Confirm and publish' }));
+  return review;
+}
+
 describe('MyAppStudio tenant preview isolation', () => {
   beforeEach(() => {
     snapshotSubscriptions.length = 0;
@@ -226,18 +240,8 @@ describe('MyAppStudio tenant preview isolation', () => {
 
   it('fails closed when logo publication has no approved private-media contract', async () => {
     render(TestedMyAppStudio);
-    const logoFile = new File(['logo-bytes'], 'tenant-logo.png', {
-      type: 'image/png',
-    });
-
-    await fireEvent.change(await screen.findByLabelText('Logo'), {
-      target: { files: [logoFile] },
-    });
-    await fireEvent.click(screen.getByRole('button', { name: 'Publish App' }));
-
-    expect(await screen.findByText(
-      'Logo upload is temporarily unavailable while publication privacy is being finalized. Remove the selected logo to publish other app settings safely.',
-    )).toBeVisible();
+    expect(await screen.findByLabelText('Logo')).toBeDisabled();
+    expect(screen.getByText(/Logo replacement is temporarily unavailable/)).toBeVisible();
     expect(appMocks.uploadImageAsset).not.toHaveBeenCalled();
     expect(appMocks.publishAppConfiguration).not.toHaveBeenCalled();
   });
@@ -333,7 +337,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     });
     await fireEvent.click(screen.getByRole('button', { name: 'Hide Teams tab' }));
     expect(screen.getByText('4 of 5 active')).toBeVisible();
-    await fireEvent.click(screen.getByRole('button', { name: 'Publish App' }));
+    await reviewAndPublish();
 
     expect(
       await screen.findByText(
@@ -468,7 +472,11 @@ describe('MyAppStudio tenant preview isolation', () => {
     });
     const publish = screen.getByRole('button', { name: 'Publish App' });
     await fireEvent.click(publish);
-    await fireEvent.click(publish);
+    expect(appMocks.publishAppConfiguration).not.toHaveBeenCalled();
+    await fireEvent.click(screen.getByRole('checkbox', {
+      name: /I confirm these changes should be published/,
+    }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Confirm and publish' }));
 
     expect(appMocks.publishAppConfiguration).toHaveBeenCalledTimes(1);
     expect(nameInput).toBeDisabled();
@@ -508,7 +516,7 @@ describe('MyAppStudio tenant preview isolation', () => {
       await screen.findByLabelText('Secondary brand color hex value'),
       { target: { value: '#AABBCC' } },
     );
-    await fireEvent.click(screen.getByRole('button', { name: 'Publish App' }));
+    await reviewAndPublish();
 
     expect(
       await screen.findByText(
@@ -534,9 +542,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     await fireEvent.input(await screen.findByLabelText('App Name'), {
       target: { value: 'Alpha League Retitled' },
     });
-    await fireEvent.click(
-      screen.getByRole('button', { name: 'Publish App' }),
-    );
+    await reviewAndPublish();
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(
       'The app configuration could not be published.',
@@ -544,9 +550,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     expect(alert).not.toHaveTextContent('publish-support-8');
     expect(alert).not.toHaveTextContent('raw provider detail');
 
-    await fireEvent.click(
-      screen.getByRole('button', { name: 'Retry Publish' }),
-    );
+    await reviewAndPublish('Retry Publish');
     await screen.findByText(
       'App configuration published and reloaded from the server.',
     );
@@ -562,9 +566,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     await fireEvent.input(await screen.findByLabelText('App Name'), {
       target: { value: 'Not Persisted' },
     });
-    await fireEvent.click(
-      screen.getByRole('button', { name: 'Publish App' }),
-    );
+    await reviewAndPublish();
     expect(
       await screen.findByText(/server readback did not match/i),
     ).toBeVisible();
@@ -574,9 +576,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     await fireEvent.input(screen.getByLabelText('App Name'), {
       target: { value: 'Pending Tenant A' },
     });
-    await fireEvent.click(
-      screen.getByRole('button', { name: 'Publish App' }),
-    );
+    await reviewAndPublish();
     await act(async () => {
       tenants.set('tenant-b');
     });
