@@ -193,6 +193,41 @@ describe('BackendApi', () => {
     });
   });
 
+  it('previews roster participants without creating records', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(response(200, {
+      success: true,
+      tenantId: 'fixture-tenant',
+      validCount: 1,
+      rejectedCount: 1,
+      rows: [
+        { rowNumber: 2, participantName: 'Jordan Player', registrationEmail: 'parent@example.test', status: 'valid', reasonCode: null, message: null },
+        { rowNumber: 3, participantName: 'Existing Player', registrationEmail: 'existing@example.test', status: 'rejected', reasonCode: 'duplicate_roster_participant', message: 'Already in the program.' },
+      ],
+      requestId: 'preview-request',
+    }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+    });
+    const rows = [
+      { rowNumber: 2, formData: { player_name: 'Jordan Player', parent_email: 'parent@example.test' } },
+      { rowNumber: 3, formData: { player_name: 'Existing Player', parent_email: 'existing@example.test' } },
+    ];
+
+    await expect(api.previewRosterParticipants(
+      'fixture-tenant',
+      rows,
+    )).resolves.toMatchObject({ validCount: 1, rejectedCount: 1 });
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      'https://api.example.test/admin/roster/participants/preview',
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      tenantId: 'fixture-tenant',
+      rows,
+    });
+  });
+
   it('imports roster participants through the tenant-scoped idempotent route', async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(response(201, {
       tenantId: 'fixture-tenant',

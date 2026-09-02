@@ -219,6 +219,14 @@
     if (!wasEditing) goBackToOverview();
   }
 
+  function handleLifecycleChange(event) {
+    const updated = event.detail || {};
+    selectedForm = { ...selectedForm, ...updated };
+    forms = forms.map((form) => form.id === updated.id
+      ? { ...form, ...updated }
+      : form);
+  }
+
   $: filteredForms = forms.filter(f => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
@@ -232,6 +240,11 @@
         ? form.status === 'Closed'
         : form.status !== 'Open' && form.status !== 'Closed',
   );
+  $: lifecycleCounts = {
+    Active: forms.filter((form) => ['active', 'open'].includes(String(form.rawStatus || form.status || '').toLowerCase())).length,
+    Retired: forms.filter((form) => ['archived', 'closed'].includes(String(form.rawStatus || form.status || '').toLowerCase())).length,
+    'Needs Review': forms.filter((form) => !['active', 'open', 'archived', 'closed'].includes(String(form.rawStatus || form.status || '').toLowerCase())).length,
+  };
 
   function exportVisibleForms() {
     downloadCsv(
@@ -288,24 +301,28 @@
     <div class="border-b border-gray-200">
       <nav class="-mb-px flex space-x-8">
         <button
+          aria-label="Active"
           class="crm-ui-registration-tab {activeTab === 'Active' ? 'crm-ui-registration-tab-active' : 'crm-ui-registration-tab-idle'}"
           on:click={() => activeTab = 'Active'}
         >
-          Active
+          Active ({lifecycleCounts.Active})
         </button>
         <button
+          aria-label="Retired"
           class="crm-ui-registration-tab {activeTab === 'Retired' ? 'crm-ui-registration-tab-active' : 'crm-ui-registration-tab-idle'}"
           on:click={() => activeTab = 'Retired'}
         >
-          Retired
+          Retired ({lifecycleCounts.Retired})
         </button>
         <button
+          aria-label="Needs Review"
           class="crm-ui-registration-tab {activeTab === 'Needs Review' ? 'crm-ui-registration-tab-active' : 'crm-ui-registration-tab-idle'}"
           on:click={() => activeTab = 'Needs Review'}
         >
-          Needs Review
+          Needs Review ({lifecycleCounts['Needs Review']})
         </button>
       </nav>
+      {#if activeTab === 'Needs Review'}<p class="py-3 text-sm text-amber-800">Needs Review contains legacy or unsupported lifecycle records that must be checked before editing or publishing.</p>{/if}
     </div>
 
     <!-- Toolbar -->
@@ -367,8 +384,10 @@
       {eventsTruncated}
       {participantCount}
       {eventCount}
+      tenantId={activeTenantId}
       on:back={goBackToOverview}
       on:edit={openRegistrationFormEditor}
+      on:lifecycle={handleLifecycleChange}
       on:retry={retryFormDetail}
     />
   {/if}

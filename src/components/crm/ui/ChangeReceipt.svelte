@@ -6,6 +6,7 @@
   export let message: string;
   export let reference = '';
   export let retryLabel = '';
+  export let dismissLabel = 'Dismiss';
   export let onRetry: () => void = () => {};
   export let onDismiss: () => void = () => {};
 
@@ -22,7 +23,7 @@
       {#if reference}<p class="mt-2 break-all text-xs font-medium opacity-75">Reference: {reference}</p>{/if}
       <div class="mt-3 flex flex-wrap gap-2">
         {#if retryLabel}<button type="button" class="crm-ui-button-secondary bg-white" on:click={onRetry}>{retryLabel}</button>{/if}
-        <button type="button" class="rounded-md px-3 py-2 text-sm font-semibold hover:bg-white/60" on:click={onDismiss}>Dismiss</button>
+        {#if dismissLabel}<button type="button" class="rounded-md px-3 py-2 text-sm font-semibold hover:bg-white/60" on:click={onDismiss}>{dismissLabel}</button>{/if}
       </div>
     </div>
   </div>

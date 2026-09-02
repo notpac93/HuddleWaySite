@@ -55,8 +55,8 @@ describe("CRM payment setup", () => {
     await fireEvent.input(screen.getByLabelText("Refund information"), {
       target: { value: "Refunds follow the posted policy." },
     });
-    expect(screen.getByText("Payment 1: $333.33")).toBeVisible();
-    expect(screen.getByText("Payment 3: $333.34")).toBeVisible();
+    expect(screen.getByText(/Payment 1: \$333\.33 · due at enrollment/)).toBeVisible();
+    expect(screen.getByText(/Payment 3: \$333\.34 · due 2 months after enrollment \(final payment\)/)).toBeVisible();
     expect(screen.queryByText("season-secret")).toBeNull();
     await fireEvent.click(
       screen.getByRole("button", { name: "Save payment setup" }),

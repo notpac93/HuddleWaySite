@@ -3,6 +3,7 @@
   import { backendClient } from '../../../lib/api/backendClient';
   import { createIdempotencyKey } from '../../../lib/api/BackendApi';
   import { normalizeCsvHeader, parseCsv } from '../../../lib/ui/csvImport';
+  import ChangeReceipt from '../ui/ChangeReceipt.svelte';
 
   export let tenantId = '';
   export let teams: Array<Record<string, any>> = [];
@@ -24,9 +25,22 @@
   let csvRows: ParticipantRow[] = [];
   let csvFileName = '';
   let csvSummary = '';
+  let reviewState: 'idle' | 'loading' | 'ready' | 'error' = 'idle';
+  let reviewedRows: Array<{
+    rowNumber: number;
+    participantName: string;
+    registrationEmail: string;
+    status: 'valid' | 'rejected';
+    reasonCode: string | null;
+    message: string | null;
+  }> = [];
   let error = '';
   let isSaving = false;
   let batchKey = '';
+  let committedRows: ParticipantRow[] = [];
+  let committedRegistrationIds: string[] = [];
+  let committedSavedCount = 0;
+  let assignmentRecoveryRequired = false;
 
   const manualFields = [
     { id: 'player_name', label: 'Person name', type: 'text', required: true },
@@ -57,6 +71,12 @@
   function resetOperation() {
     batchKey = '';
     error = '';
+    reviewState = 'idle';
+    reviewedRows = [];
+    committedRows = [];
+    committedRegistrationIds = [];
+    committedSavedCount = 0;
+    assignmentRecoveryRequired = false;
   }
 
   function setField(id: string, value: string) {
@@ -71,7 +91,8 @@
     else next.add(id);
     if (kind === 'team') selectedTeamIds = next;
     else selectedSeasonIds = next;
-    resetOperation();
+    batchKey = '';
+    error = '';
   }
 
   function resolveAssignments(
@@ -161,9 +182,31 @@
     resetOperation();
     try {
       csvRows = buildCsvRows(await file.text());
-      csvSummary = `${csvRows.length} ${csvRows.length === 1 ? 'person' : 'people'} ready to add.`;
+      csvSummary = `${csvRows.length} ${csvRows.length === 1 ? 'row' : 'rows'} parsed locally.`;
+      await reviewParticipants(csvRows);
     } catch (caught) {
       error = caught instanceof Error ? caught.message : 'The CSV file could not be read.';
+    }
+  }
+
+  async function reviewParticipants(rows: ParticipantRow[]) {
+    if (!tenantId || !rows.length) return;
+    reviewState = 'loading';
+    reviewedRows = [];
+    error = '';
+    try {
+      const preview = await backendClient.previewRosterParticipants(
+        tenantId,
+        rows.map((row) => ({ rowNumber: row.rowNumber, formData: row.formData })),
+      );
+      reviewedRows = preview.rows;
+      reviewState = 'ready';
+      csvSummary = `${preview.validCount} valid · ${preview.rejectedCount} rejected · no people created yet.`;
+    } catch (caught) {
+      reviewState = 'error';
+      error = caught instanceof Error
+        ? caught.message
+        : 'The participant preview could not be completed.';
     }
   }
 
@@ -171,7 +214,12 @@
     const rows = mode === 'manual'
       ? [{ rowNumber: 2, formData, teamIds: [], seasonIds: [] }]
       : csvRows;
-    return rows.map((row) => ({
+    const validRowNumbers = new Set(
+      reviewedRows
+        .filter((row) => row.status === 'valid')
+        .map((row) => row.rowNumber),
+    );
+    return rows.filter((row) => validRowNumbers.has(row.rowNumber)).map((row) => ({
       ...row,
       teamIds: Array.from(new Set([...row.teamIds, ...selectedTeamIds])),
       seasonIds: Array.from(new Set([...row.seasonIds, ...selectedSeasonIds])),
@@ -222,13 +270,45 @@
   async function submit() {
     if (!tenantId || isSaving) return;
     error = '';
-    const rows = rowsForSubmission();
+    const candidateRows = mode === 'manual'
+      ? [{ rowNumber: 2, formData, teamIds: [], seasonIds: [] }]
+      : csvRows;
     if (mode === 'manual' && (!formData.player_name?.trim() || !/^\S+@\S+\.\S+$/.test(formData.parent_email || ''))) {
       error = 'Enter a person name and valid email address.';
       return;
     }
-    if (!rows.length) {
+    if (!candidateRows.length) {
       error = 'Choose a CSV file first.';
+      return;
+    }
+    if (assignmentRecoveryRequired) {
+      isSaving = true;
+      try {
+        const assignment = await applyAssignments(
+          committedRows,
+          committedRegistrationIds,
+        );
+        assignmentRecoveryRequired = false;
+        dispatch('success', {
+          savedCount: committedSavedCount,
+          teamCount: assignment.teamCount,
+          seasonCount: assignment.seasonCount,
+          recoveredAssignments: true,
+        });
+      } catch {
+        error = 'The people are still saved, but assignments could not be completed. Retry assignments without importing the people again.';
+      } finally {
+        isSaving = false;
+      }
+      return;
+    }
+    if (reviewState !== 'ready') {
+      await reviewParticipants(candidateRows);
+      return;
+    }
+    const rows = rowsForSubmission();
+    if (!rows.length) {
+      error = 'No valid people are available to add. Correct the rejected rows and review again.';
       return;
     }
     if (!batchKey) batchKey = createIdempotencyKey('crm-roster-participant-import');
@@ -241,6 +321,9 @@
         batchKey,
       );
       peopleCreated = true;
+      committedRows = rows;
+      committedRegistrationIds = result.registrationIds;
+      committedSavedCount = result.savedCount;
       const assignment = await applyAssignments(rows, result.registrationIds);
       dispatch('success', {
         savedCount: result.savedCount,
@@ -248,8 +331,9 @@
         seasonCount: assignment.seasonCount,
       });
     } catch (caught) {
+      assignmentRecoveryRequired = peopleCreated;
       error = peopleCreated
-        ? 'People were added to the program, but at least one team or season assignment failed. Retry to finish the assignments.'
+        ? 'People were added to the program, but at least one team or season assignment failed. Retry assignments without importing the people again.'
         : caught instanceof Error
           ? caught.message
           : 'The people could not be added.';
@@ -266,7 +350,7 @@
         <h2 id="roster-entry-title" class="text-xl font-semibold text-[var(--crm-brand-link)]">Add players to the program</h2>
         <p class="mt-1 text-sm text-gray-600">Create program members, then optionally place them on teams and in seasons.</p>
       </div>
-      <button type="button" aria-label="Close" class="text-2xl leading-none text-gray-400 hover:text-gray-700" on:click={() => dispatch('cancel')}>×</button>
+      <button type="button" aria-label="Close" class="text-2xl leading-none text-gray-400 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40" disabled={isSaving || assignmentRecoveryRequired} on:click={() => dispatch('cancel')}>×</button>
     </div>
 
     <div class="mt-5 border-b border-gray-200">
@@ -290,8 +374,21 @@
         {:else}
           <div class="space-y-4">
             <p class="text-sm text-gray-600">Required CSV columns: <code>player_name</code> and <code>parent_email</code>. Optional assignment columns: <code>team_ids</code> and <code>season_ids</code>. Separate multiple IDs or names with a semicolon.</p>
-            <input class="block w-full rounded border border-gray-300 px-3 py-2 text-sm" type="file" accept=".csv,text/csv" on:change={handleFile} />
+            <input class="block w-full rounded border border-gray-300 px-3 py-2 text-sm" type="file" accept=".csv,text/csv" disabled={isSaving} on:change={handleFile} />
             {#if csvFileName}<p class="text-sm text-gray-700">{csvFileName}{csvSummary ? ` · ${csvSummary}` : ''}</p>{/if}
+            {#if reviewState === 'loading'}<p class="text-sm text-gray-600" role="status">Checking identities and duplicates against the program…</p>{/if}
+            {#if reviewedRows.length}
+              <div class="max-h-72 overflow-auto rounded-lg border border-gray-200">
+                <table class="min-w-full divide-y divide-gray-200 text-left text-sm">
+                  <thead class="sticky top-0 bg-gray-50 text-xs uppercase text-gray-500"><tr><th class="px-3 py-2">Row</th><th class="px-3 py-2">Person</th><th class="px-3 py-2">Email</th><th class="px-3 py-2">Review</th></tr></thead>
+                  <tbody class="divide-y divide-gray-100">
+                    {#each reviewedRows as row}
+                      <tr><td class="px-3 py-2">{row.rowNumber}</td><td class="px-3 py-2 font-medium text-gray-900">{row.participantName || 'Missing'}</td><td class="px-3 py-2">{row.registrationEmail || 'Missing'}</td><td class="px-3 py-2"><span class={row.status === 'valid' ? 'text-emerald-700' : 'text-red-700'}>{row.status === 'valid' ? 'Valid' : row.message}</span></td></tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            {/if}
           </div>
         {/if}
       </div>
@@ -322,11 +419,13 @@
       </aside>
     </div>
 
-    {#if error}<p class="mt-5 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">{error}</p>{/if}
+    {#if assignmentRecoveryRequired}
+      <div class="mt-5"><ChangeReceipt status="partial" title="People saved; assignments incomplete" message={error} reference={batchKey} retryLabel="Retry assignments only" dismissLabel="" onRetry={() => { void submit(); }} /></div>
+    {:else if error}<p class="mt-5 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">{error}</p>{/if}
 
     <div class="mt-6 flex justify-end gap-3 border-t border-gray-200 pt-5">
-      <button type="button" class="rounded border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700" on:click={() => dispatch('cancel')}>Cancel</button>
-      <button type="button" class="rounded bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-semibold text-[var(--crm-on-primary)] disabled:cursor-not-allowed disabled:opacity-50" disabled={isSaving || (mode === 'csv' && !csvRows.length)} on:click={submit}>{isSaving ? 'Saving…' : mode === 'manual' ? 'Add player' : 'Add players'}</button>
+      <button type="button" class="rounded border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700" disabled={isSaving || assignmentRecoveryRequired} on:click={() => dispatch('cancel')}>{assignmentRecoveryRequired ? 'Finish assignments to close' : 'Cancel'}</button>
+      {#if !assignmentRecoveryRequired}<button type="button" class="rounded bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-semibold text-[var(--crm-on-primary)] disabled:cursor-not-allowed disabled:opacity-50" disabled={isSaving || (mode === 'csv' && (!csvRows.length || reviewState === 'loading'))} on:click={submit}>{isSaving ? 'Saving…' : reviewState !== 'ready' ? (mode === 'manual' ? 'Review player' : 'Review CSV') : mode === 'manual' ? 'Add player' : `Add ${reviewedRows.filter((row) => row.status === 'valid').length} valid ${reviewedRows.filter((row) => row.status === 'valid').length === 1 ? 'player' : 'players'}`}</button>{/if}
     </div>
   </div>
 </div>

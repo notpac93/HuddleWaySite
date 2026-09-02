@@ -13,8 +13,8 @@ describe("event payment terms editor", () => {
       target: { value: "1000.00" },
     });
     await fireEvent.click(screen.getByLabelText("Allow split payments"));
-    expect(screen.getByText("3 payments")).toBeVisible();
-    expect(screen.getByText("Payment 1: $333.33")).toBeVisible();
-    expect(screen.getByText("Payment 3: $333.34")).toBeVisible();
+    expect(screen.getByText("3 family payments")).toBeVisible();
+    expect(screen.getByText(/Payment 1: \$333\.33 · due at enrollment/)).toBeVisible();
+    expect(screen.getByText(/Payment 3: \$333\.34 · due 2 months after enrollment \(final payment\)/)).toBeVisible();
   });
 });

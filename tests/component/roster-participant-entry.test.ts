@@ -3,6 +3,7 @@ import type { Component } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const backendMocks = vi.hoisted(() => ({
+  previewRosterParticipants: vi.fn(),
   importRosterParticipants: vi.fn(),
   previewRosterChanges: vi.fn(),
   commitRosterChanges: vi.fn(),
@@ -20,6 +21,21 @@ const TestedEntry = RosterParticipantEntry as unknown as Component;
 describe('Roster participant entry', () => {
   beforeEach(() => {
     Object.values(backendMocks).forEach((mock) => mock.mockReset());
+    backendMocks.previewRosterParticipants.mockResolvedValue({
+      success: true,
+      tenantId: 'tenant-a',
+      validCount: 1,
+      rejectedCount: 0,
+      rows: [{
+        rowNumber: 2,
+        participantName: 'Jordan Player',
+        registrationEmail: 'guardian@example.test',
+        status: 'valid',
+        reasonCode: null,
+        message: null,
+      }],
+      requestId: 'request-preview',
+    });
     backendMocks.importRosterParticipants.mockResolvedValue({
       tenantId: 'tenant-a',
       batchId: 'batch-a',
@@ -59,6 +75,9 @@ describe('Roster participant entry', () => {
     });
     await fireEvent.click(screen.getByLabelText('Boys Team'));
     await fireEvent.click(screen.getByLabelText('Fall Season'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Review player' }));
+    await waitFor(() => expect(backendMocks.previewRosterParticipants).toHaveBeenCalledTimes(1));
+    expect(backendMocks.importRosterParticipants).not.toHaveBeenCalled();
     await fireEvent.click(screen.getByRole('button', { name: 'Add player' }));
 
     await waitFor(() => expect(backendMocks.importRosterParticipants).toHaveBeenCalledTimes(1));
@@ -95,8 +114,35 @@ describe('Roster participant entry', () => {
     await fireEvent.input(screen.getByLabelText(/Email address/), {
       target: { value: 'not-an-email' },
     });
-    await fireEvent.click(screen.getByRole('button', { name: 'Add player' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Review player' }));
     expect(screen.getByRole('alert')).toHaveTextContent('valid email');
+    expect(backendMocks.previewRosterParticipants).not.toHaveBeenCalled();
     expect(backendMocks.importRosterParticipants).not.toHaveBeenCalled();
+  });
+
+  it('retries assignments without importing the person a second time', async () => {
+    backendMocks.commitRosterChanges
+      .mockRejectedValueOnce(new Error('assignment failed'))
+      .mockResolvedValueOnce({ success: true });
+    render(TestedEntry, {
+      tenantId: 'tenant-a',
+      teams: [{ id: 'team-a', name: 'Boys Team' }],
+    });
+    await fireEvent.input(screen.getByLabelText(/Person name/), {
+      target: { value: 'Jordan Player' },
+    });
+    await fireEvent.input(screen.getByLabelText(/Email address/), {
+      target: { value: 'guardian@example.test' },
+    });
+    await fireEvent.click(screen.getByLabelText('Boys Team'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Review player' }));
+    await screen.findByRole('button', { name: 'Add player' });
+    await fireEvent.click(screen.getByRole('button', { name: 'Add player' }));
+
+    expect(await screen.findByText('People saved; assignments incomplete')).toBeVisible();
+    expect(backendMocks.importRosterParticipants).toHaveBeenCalledTimes(1);
+    await fireEvent.click(screen.getByRole('button', { name: 'Retry assignments only' }));
+    await waitFor(() => expect(backendMocks.commitRosterChanges).toHaveBeenCalledTimes(2));
+    expect(backendMocks.importRosterParticipants).toHaveBeenCalledTimes(1);
   });
 });

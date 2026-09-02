@@ -16,9 +16,9 @@ const reviewedControlCounts: Record<string, number> = {
   'DataTable.svelte': 9,
   'DocumentsManager.svelte': 7,
   'EventScheduler.svelte': 26,
-  'FinancialOperationsWorkspace.svelte': 6,
+  'FinancialOperationsWorkspace.svelte': 2,
   'FinancialPeriodManager.svelte': 14,
-  'Financials.svelte': 30,
+  'Financials.svelte': 31,
   'GlobalDashboard.svelte': 2,
   'GlobalSearch.svelte': 5,
   'InviteStaffModal.svelte': 6,
@@ -45,7 +45,8 @@ const reviewedControlCounts: Record<string, number> = {
   'events/RecurrenceSelector.svelte': 13,
   'registration/CreateRegistrationForm.svelte': 21,
   'registration/FormsTable.svelte': 1,
-  'registration/RegistrationDetail.svelte': 10,
+  'registration/RegistrationDetail.svelte': 12,
+  'registration/RegistrationLifecycleReview.svelte': 5,
   'registration/RegistrationManager.svelte': 7,
   'roster/ImportCsv.svelte': 2,
   'roster/ParticipantDetailPanel.svelte': 13,
@@ -136,7 +137,7 @@ describe('exhaustive CRM control inventory', () => {
     );
 
     expect(actual).toEqual(reviewedControlCounts);
-    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(528);
+    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(532);
   });
 
   it('keeps every inventoried CRM component reachable from a production entry point', () => {
@@ -156,11 +157,7 @@ describe('exhaustive CRM control inventory', () => {
     const orphaned = componentFiles()
       .filter((file) => !reachable.has(file))
       .map((file) => relative(crmRoot, file));
-    expect(orphaned).toEqual([
-      'FinancialPeriodManager.svelte',
-      'Financials.svelte',
-      'TransactionDetails.svelte',
-    ]);
+    expect(orphaned).toEqual([]);
   });
 
   it('does not expose a native control without a handler, binding, link, or explicit disabled/read-only disposition', () => {

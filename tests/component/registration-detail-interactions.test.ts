@@ -2,6 +2,7 @@ import {
   fireEvent,
   render,
   screen,
+  within,
 } from '@testing-library/svelte';
 import type { Component } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,6 +11,13 @@ const dataMocks = vi.hoisted(() => ({
   getRegistrationFormFinancials: vi.fn(),
   getUserFinancialsForEvents: vi.fn(),
   downloadCsv: vi.fn(),
+}));
+const mutationMocks = vi.hoisted(() => ({
+  updateRegistrationForm: vi.fn(),
+}));
+
+vi.mock('../../src/lib/api/backendClient', () => ({
+  backendClient: mutationMocks,
 }));
 
 vi.mock('../../src/lib/services/DataStore', async () => {
@@ -60,6 +68,8 @@ describe('RegistrationDetail table interactions', () => {
     dataMocks.downloadCsv.mockReset();
     dataMocks.getRegistrationFormFinancials.mockReset();
     dataMocks.getUserFinancialsForEvents.mockReset();
+    mutationMocks.updateRegistrationForm.mockReset();
+    mutationMocks.updateRegistrationForm.mockResolvedValue({ id: 'form-1' });
     dataMocks.getRegistrationFormFinancials.mockReturnValue({
       totalCollected: 12_500,
       totalFees: 500,
@@ -75,6 +85,36 @@ describe('RegistrationDetail table interactions', () => {
         paymentStatus: userId === 'user-2' ? 'Open Balance' : 'Paid',
       }),
     );
+  });
+
+  it('reviews connected-event impact and requires a reason before retiring', async () => {
+    render(TestedRegistrationDetail, {
+      tenantId: 'tenant-a',
+      selectedForm,
+      connectedEvents: [{ id: 'event-1', title: 'Fall League' }],
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Retire form' }));
+    const dialog = screen.getByRole('dialog', {
+      name: 'Retire form: Fall Registration',
+    });
+    expect(dialog).toHaveTextContent('1 connected event');
+    expect(dialog).toHaveTextContent('Historical responses stay readable');
+    const submit = within(dialog).getByRole('button', { name: 'Retire form' });
+    expect(submit).toBeDisabled();
+    await fireEvent.input(within(dialog).getByLabelText(/Reason for lifecycle change/), {
+      target: { value: 'Season registration has closed.' },
+    });
+    await fireEvent.click(within(dialog).getByRole('checkbox'));
+    await fireEvent.click(submit);
+
+    expect(mutationMocks.updateRegistrationForm).toHaveBeenCalledWith(
+      'tenant-a',
+      'form-1',
+      expect.objectContaining({ status: 'archived' }),
+      'Season registration has closed.',
+      expect.stringMatching(/^registration-form-lifecycle:/),
+    );
+    expect(await screen.findByText(/Registration form retired/)).toBeVisible();
   });
 
   it('paginates stable IDs, exports selected rows, and clears hidden selection on search', async () => {

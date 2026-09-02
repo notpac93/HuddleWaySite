@@ -2,6 +2,11 @@
   import { createEventDispatcher } from 'svelte';
   import { DataStore, transactionsStore, invoicesStore, refundsStore, eventsStore } from '../../../lib/services/DataStore';
   import { downloadCsv } from '../../../lib/ui/csvExport';
+  import {
+    registrationSectionsFromForm,
+    validateRegistrationSections,
+  } from '../../../lib/registration/registrationFormBuilder';
+  import RegistrationLifecycleReview from './RegistrationLifecycleReview.svelte';
 
   export let selectedForm: any = null;
   export let participants: any[] = [];
@@ -12,8 +17,25 @@
   export let eventsTruncated = false;
   export let participantCount: number | null = null;
   export let eventCount: number | null = null;
+  export let tenantId = '';
 
   const dispatch = createEventDispatcher();
+  let lifecycleTarget: 'active' | 'archived' | null = null;
+  let lifecycleReceipt = '';
+
+  $: lifecycleStatus = String(selectedForm?.rawStatus || selectedForm?.status || '').toLowerCase();
+  $: isRetired = lifecycleStatus === 'archived' || lifecycleStatus === 'closed';
+  $: reactivationError = validateRegistrationSections(
+    registrationSectionsFromForm(selectedForm),
+  );
+
+  function handleLifecycleSuccess(updated: any) {
+    lifecycleReceipt = updated.rawStatus === 'archived'
+      ? 'Registration form retired. Historical responses remain available.'
+      : 'Registration form reactivated and available for event registration.';
+    lifecycleTarget = null;
+    dispatch('lifecycle', updated);
+  }
 
   $: financialProjection = [
     $transactionsStore,
@@ -185,6 +207,17 @@
 
 </script>
 
+{#if lifecycleTarget}
+  <RegistrationLifecycleReview
+    {tenantId}
+    form={selectedForm}
+    {connectedEvents}
+    targetStatus={lifecycleTarget}
+    onCancel={() => lifecycleTarget = null}
+    onSuccess={handleLifecycleSuccess}
+  />
+{/if}
+
 <div class="flex justify-between items-start mb-1">
   <div class="flex items-center space-x-3">
     <button type="button" aria-label="Back to registration forms" on:click={goBack} class="text-gray-400 hover:text-gray-600 transition-colors bg-gray-50 hover:bg-gray-100 p-1.5 rounded-md">
@@ -192,15 +225,17 @@
     </button>
     <h1 class="text-[28px] font-extrabold text-[var(--crm-brand-link)] leading-none tracking-tight">{selectedForm.name}</h1>
   </div>
-  <button
-    type="button"
-    on:click={() => dispatch('edit')}
-    class="bg-[var(--crm-brand-surface)] text-[var(--crm-brand-link)] border border-[var(--crm-brand-border)] px-4 py-1.5 rounded text-sm font-semibold hover:bg-[var(--crm-brand-surface-strong)] flex items-center transition-colors"
-  >
-    <svg class="w-3.5 h-3.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 11l6-6 4 4-6 6H9v-4z"></path></svg>
-    Edit Registration Form
-  </button>
+  <div class="flex flex-wrap justify-end gap-2">
+    <button type="button" on:click={() => dispatch('edit')} class="bg-[var(--crm-brand-surface)] text-[var(--crm-brand-link)] border border-[var(--crm-brand-border)] px-4 py-1.5 rounded text-sm font-semibold hover:bg-[var(--crm-brand-surface-strong)] flex items-center transition-colors">Edit Registration Form</button>
+    {#if isRetired}
+      <button type="button" class="crm-ui-button-primary" disabled={Boolean(reactivationError)} title={reactivationError ? `Cannot reactivate: ${reactivationError}` : undefined} on:click={() => lifecycleTarget = 'active'}>Reactivate form</button>
+    {:else}
+      <button type="button" class="crm-ui-button-secondary" on:click={() => lifecycleTarget = 'archived'}>Retire form</button>
+    {/if}
+  </div>
 </div>
+
+{#if lifecycleReceipt}<p class="mb-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800" role="status">{lifecycleReceipt}</p>{/if}
 
 {#if error}
   <div class="mb-4 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">

@@ -65,6 +65,13 @@
     );
   }
 
+  function installmentTiming(index: number, count: number) {
+    if (index === 0) return 'due at enrollment';
+    const unit = cadence === 'weekly' ? 'week' : 'month';
+    const offset = index;
+    return `due ${offset} ${unit}${offset === 1 ? '' : 's'} after enrollment${index === count - 1 ? ' (final payment)' : ''}`;
+  }
+
   function policyText(record: BillingPackageRecord, key: 'cancellation' | 'refund') {
     const value = record.paymentPolicies?.[key];
     return value && typeof value === 'object'
@@ -95,7 +102,11 @@
     teamId = record?.eligibleTeamIds?.[0] || '';
     const seasonLine = record?.lineItems.find((item) => item.kind === 'season');
     const teamLine = record?.lineItems.find((item) => item.kind === 'team');
-    packageKind = seasonLine && teamLine ? 'combined' : teamLine ? 'team' : 'season';
+    packageKind = seasonLine && teamLine
+      ? 'combined'
+      : teamLine || (!record && $seasonsStore.length === 0 && $teamsStore.length > 0)
+        ? 'team'
+        : 'season';
     seasonAmount = seasonLine ? (seasonLine.amountCents / 100).toFixed(2) : '';
     teamAmount = teamLine ? (teamLine.amountCents / 100).toFixed(2) : '';
     const terms = record?.paymentTerms || {};
@@ -199,7 +210,7 @@
       <h2 id="payment-setup-title" class="text-lg font-semibold text-gray-950">Payment setup</h2>
       <p class="mt-1 text-sm text-gray-600">Set season and team costs, then choose whether families may pay in full or split the total.</p>
     </div>
-    <button type="button" class="crm-ui-button-primary" on:click={() => openEditor()}>Add payment setup</button>
+    <button type="button" class="crm-ui-button-primary" disabled={$seasonsStore.length === 0 && $teamsStore.length === 0} title={$seasonsStore.length === 0 && $teamsStore.length === 0 ? 'Create a season or team before adding payment setup.' : undefined} on:click={() => openEditor()}>Add payment setup</button>
   </header>
   {#if loading}
     <p class="p-6 text-sm text-gray-600" role="status">Loading payment setup…</p>
@@ -209,7 +220,7 @@
       <button type="button" class="mt-3 crm-ui-button-secondary bg-white" on:click={loadPackages}>Retry</button>
     </div>
   {:else if packages.length === 0}
-    <p class="p-6 text-sm text-gray-600">No season or team payment setup has been added.</p>
+    <div class="p-6 text-sm text-gray-600"><p>No season or team payment setup has been added.</p>{#if $seasonsStore.length === 0 && $teamsStore.length === 0}<p class="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">Create a season or team first so every payment setup has a valid offering scope.</p>{:else if $seasonsStore.length === 0}<p class="mt-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-blue-900">Season pricing remains unavailable until a season exists. You can still create team-scoped pricing.</p>{/if}</div>
   {:else}
     <div class="divide-y divide-gray-100">
       {#each packages as record (record.id)}
@@ -241,7 +252,7 @@
         {#if ['team', 'combined'].includes(packageKind)}<div class="grid gap-3 sm:grid-cols-2"><label><span class="crm-ui-label">Team</span><select class="crm-ui-input mt-1" bind:value={teamId}><option value="">Choose team</option>{#each $teamsStore as team}<option value={team.id}>{team.name || team.title || 'Unnamed team'}</option>{/each}</select></label><label><span class="crm-ui-label">Team amount</span><input class="crm-ui-input mt-1" inputmode="decimal" bind:value={teamAmount} placeholder="250.00" /></label></div>{/if}
         <fieldset><legend class="crm-ui-label">How families may pay</legend><div class="mt-2 grid gap-2 sm:grid-cols-2"><label class="rounded-lg border border-gray-200 p-3 text-sm"><input type="radio" bind:group={paymentMode} value="pay_in_full" /> <span class="ml-1 font-medium">Pay in full only</span></label><label class="rounded-lg border border-gray-200 p-3 text-sm"><input type="radio" bind:group={paymentMode} value="installments" /> <span class="ml-1 font-medium">Allow split payments</span></label></div></fieldset>
         {#if paymentMode === 'installments'}<div class="grid gap-3 sm:grid-cols-2"><label><span class="crm-ui-label">Number of payments</span><select class="crm-ui-input mt-1" bind:value={installmentCount}>{#each Array.from({length: 11}, (_, i) => i + 2) as count}<option value={count}>{count}</option>{/each}</select></label><label><span class="crm-ui-label">Frequency</span><select class="crm-ui-input mt-1" bind:value={cadence}><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></label></div>{/if}
-        {#if installmentAmounts.length > 0}<div class="rounded-lg border border-[var(--crm-brand-border)] bg-[var(--crm-brand-surface)] p-4 text-[var(--crm-on-brand-surface)]"><p class="font-semibold">{money(totalCents)} total</p><ol class="mt-2 grid gap-1 text-sm sm:grid-cols-2">{#each installmentAmounts as amount, index}<li>Payment {index + 1}: {money(amount)}</li>{/each}</ol></div>{/if}
+        {#if installmentAmounts.length > 0}<div class="rounded-lg border border-[var(--crm-brand-border)] bg-[var(--crm-brand-surface)] p-4 text-[var(--crm-on-brand-surface)]"><p class="font-semibold">Family payment preview · {money(totalCents)} total</p><p class="mt-1 text-xs">Dates are calculated from each family’s enrollment date.</p><ol class="mt-2 grid gap-1 text-sm">{#each installmentAmounts as amount, index}<li>Payment {index + 1}: {money(amount)} · {paymentMode === 'pay_in_full' ? 'due at enrollment' : installmentTiming(index, installmentAmounts.length)}</li>{/each}</ol></div>{/if}
         <div class="grid gap-3 sm:grid-cols-2"><label><span class="crm-ui-label">Cancellation information</span><textarea class="crm-ui-input mt-1 min-h-24" bind:value={cancellationPolicy} maxlength="4000"></textarea></label><label><span class="crm-ui-label">Refund information</span><textarea class="crm-ui-input mt-1 min-h-24" bind:value={refundPolicy} maxlength="4000"></textarea></label></div>
         <details class="rounded-lg border border-gray-200 p-4"><summary class="cursor-pointer font-medium text-gray-900">More payment options</summary><div class="mt-4 space-y-3"><label class="block"><span class="crm-ui-label">Processing fees</span><select class="crm-ui-input mt-1" bind:value={feeHandling}><option value="organization_pays">Organization pays</option><option value="registrant_pays">Registrant pays</option></select></label><label class="flex gap-2 text-sm"><input type="checkbox" bind:checked={cashAccepted} /> Accept cash payments</label><label class="flex gap-2 text-sm"><input type="checkbox" bind:checked={discountsEnabled} /> Allow discounts</label><label class="flex gap-2 text-sm"><input type="checkbox" bind:checked={active} /> Available for new offers</label></div></details>
         {#if saveError}<p class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">{saveError}</p>{/if}

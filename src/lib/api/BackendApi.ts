@@ -712,6 +712,24 @@ export interface RosterParticipantImportResult {
   requestId: string;
 }
 
+export interface RosterParticipantPreviewRow {
+  rowNumber: number;
+  participantName: string;
+  registrationEmail: string;
+  status: "valid" | "rejected";
+  reasonCode: string | null;
+  message: string | null;
+}
+
+export interface RosterParticipantPreviewResult {
+  success: true;
+  tenantId: string;
+  validCount: number;
+  rejectedCount: number;
+  rows: RosterParticipantPreviewRow[];
+  requestId: string;
+}
+
 export interface RosterPlayerRecord {
   id: string;
   participantId: string | null;
@@ -1365,6 +1383,41 @@ export class BackendApi {
         (id) => typeof id !== "string" || !id.trim(),
       ) ||
       typeof payload.idempotentReplay !== "boolean" ||
+      !String(payload.requestId || "").trim()
+    ) {
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
+    }
+    return payload;
+  }
+
+  async previewRosterParticipants(
+    tenantId: string,
+    rows: RosterParticipantImportRow[],
+  ): Promise<RosterParticipantPreviewResult> {
+    const payload = await this.send<RosterParticipantPreviewResult>(
+      "/admin/roster/participants/preview",
+      { method: "POST", body: { tenantId, rows } },
+    );
+    assertTenantEnvelope(
+      payload as unknown as Record<string, unknown>,
+      tenantId,
+    );
+    if (
+      payload.success !== true ||
+      !Number.isSafeInteger(payload.validCount) ||
+      payload.validCount < 0 ||
+      !Number.isSafeInteger(payload.rejectedCount) ||
+      payload.rejectedCount < 0 ||
+      !Array.isArray(payload.rows) ||
+      payload.rows.length !== payload.validCount + payload.rejectedCount ||
+      payload.rows.some((row) =>
+        !Number.isSafeInteger(row?.rowNumber) ||
+        row.rowNumber < 2 ||
+        !["valid", "rejected"].includes(row.status) ||
+        typeof row.participantName !== "string" ||
+        typeof row.registrationEmail !== "string" ||
+        (row.status === "rejected" && !String(row.message || "").trim())
+      ) ||
       !String(payload.requestId || "").trim()
     ) {
       invalidBackendResponse(payload as unknown as Record<string, unknown>);

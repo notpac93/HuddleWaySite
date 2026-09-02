@@ -1297,6 +1297,14 @@
     </div>
   {:else if loadState === 'ready' || (loadState === 'loading' && overview)}
     <div class="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+      <section class="mb-4 flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-700 shadow-sm sm:flex-row sm:items-center sm:justify-between" aria-label="Financial data status">
+        <div>
+          <p class="font-semibold text-gray-950">Authoritative financial snapshot</p>
+          <p class="mt-1">As of {lastLoadedAt ? lastLoadedAt.toLocaleString() : 'the latest completed load'} · {overview.complete ? 'all expected sources loaded' : 'partial source coverage'} · {overview.tracking.sourceCollections.length} source {overview.tracking.sourceCollections.length === 1 ? 'collection' : 'collections'}.</p>
+          {#if !overview.tracking.complete}<p class="mt-1 text-amber-800">Needs attention: {overview.tracking.unreconciledTransactionCount} transaction {overview.tracking.unreconciledTransactionCount === 1 ? 'record' : 'records'} and {overview.tracking.unreconciledDepositCount} {overview.tracking.unreconciledDepositCount === 1 ? 'deposit' : 'deposits'} are not reconciled.</p>{/if}
+        </div>
+        {#if !overview.tracking.complete}<button type="button" class="crm-ui-button-secondary shrink-0 bg-white" on:click={() => setView('Reconciliation')}>Review reconciliation issues</button>{/if}
+      </section>
       {#if teamId}
         <div class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950" role="status">
           Records without trustworthy team scope are hidden. Switch to organization scope; transaction and core-invoice rows remain limited to team {teamId}.
