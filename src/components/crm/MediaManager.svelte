@@ -2,36 +2,67 @@
   import { onMount } from 'svelte';
   import { db } from '../../lib/firebase';
   import {
-    collection,
-    documentId,
-    limit,
-    onSnapshot,
-    orderBy,
-    query,
-    where,
+    collection, doc, documentId, limit, onSnapshot, orderBy, query,
+    serverTimestamp, setDoc, updateDoc, where,
   } from 'firebase/firestore';
-  import { tenantIdStore } from '../../lib/authStore';
+  import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+  import { activeTenantRole, tenantIdStore, userStore } from '../../lib/authStore';
+  import { eventsStore, seasonsStore } from '../../lib/services/DataStore';
+  import { modalFocus } from '../../lib/ui/modalFocus';
+  import PageHeader from './ui/PageHeader.svelte';
+  import EmptyState from './ui/EmptyState.svelte';
 
   type MediaFile = {
-    id: string;
-    name: string | null;
-    url: string;
-    category: string | null;
-    createdAt: Date | null;
-    size: string;
+    id: string; name: string | null; url: string; storagePath: string;
+    category: string | null; purpose: string | null; altText: string | null;
+    createdAt: Date | null; sizeBytes: number | null; contentType: string | null;
+    width: number | null; height: number | null; uploadedBy: string | null;
   };
 
   let mediaFiles: MediaFile[] = [];
   let unsubscribe = () => {};
   let activeCategory = 'All';
-  const categories = ['All', 'Logos', 'Banners', 'Flyers', 'Uncategorized'];
-
+  const baseCategories = ['All', 'Logos', 'Banners', 'Flyers', 'Uncategorized'];
   let searchQuery = '';
   let mediaLoadState: 'idle' | 'loading' | 'ready' | 'error' = 'idle';
   let mediaLoadMessage = '';
+  let operationMessage = '';
   let mediaTruncated = false;
   let loadGeneration = 0;
+  let selected: MediaFile | null = null;
+  let selectedIds: string[] = [];
+  let bulkCategory = 'Banners';
+  let uploadOpen = false;
+  let uploadFile: File | null = null;
+  let uploadCategory = 'Banners';
+  let uploadPurpose = 'Reusable program image';
+  let uploadAltText = '';
+  let uploadState: 'idle' | 'review' | 'saving' | 'error' = 'idle';
+  let deleteReason = '';
+  let deleteState: 'idle' | 'confirm' | 'saving' | 'error' = 'idle';
   const MEDIA_LIMIT = 100;
+
+  $: canManage = ['owner', 'editor', 'platform_admin'].includes(String($activeTenantRole || ''));
+  $: categories = [...new Set([...baseCategories, ...mediaFiles.map((media) => media.category || 'Uncategorized')])];
+  $: usageByUrl = (() => {
+    const usage = new Map<string, string[]>();
+    const add = (url: string, label: string) => {
+      if (!url) return;
+      usage.set(url, [...(usage.get(url) || []), label]);
+    };
+    $eventsStore.forEach((event) => add(String(event.imageUrl || ''), `Event: ${event.title || event.name || event.id}`));
+    $seasonsStore.forEach((season) => add(String(season.imageUrl || ''), `Season: ${season.name || season.title || season.id}`));
+    return usage;
+  })();
+  $: filteredMedia = mediaFiles.filter((media) => {
+    const matchesCategory = activeCategory === 'All'
+      || (activeCategory === 'Uncategorized' && !media.category)
+      || media.category === activeCategory;
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    const usage = (usageByUrl.get(media.url) || []).join(' ');
+    return matchesCategory && (!normalizedQuery || [media.name, media.category, media.altText, media.purpose, usage]
+      .some((value) => String(value || '').toLowerCase().includes(normalizedQuery)));
+  });
 
   $: {
     if ($tenantIdStore) {
@@ -42,47 +73,38 @@
       mediaTruncated = false;
       mediaLoadState = 'loading';
       mediaLoadMessage = '';
-      const q = query(
-        collection(db, 'program_images'),
-        where('tenantId', '==', tenantId),
-        orderBy(documentId(), 'asc'),
-        limit(MEDIA_LIMIT + 1),
-      );
-      unsubscribe = onSnapshot(
-        q,
-        (snapshot) => {
-          if (generation !== loadGeneration || $tenantIdStore !== tenantId) return;
-          mediaTruncated = snapshot.docs.length > MEDIA_LIMIT;
-          mediaFiles = snapshot.docs.slice(0, MEDIA_LIMIT).map(doc => {
-            const d = doc.data();
-            return {
-              id: doc.id,
-              name:
-                typeof (d.fileName || d.name) === 'string'
-                && String(d.fileName || d.name).trim()
-                  ? String(d.fileName || d.name).trim()
-                  : null,
-              url: d.imageUrl || d.url || '',
-              category:
-                typeof d.category === 'string' && d.category.trim()
-                  ? d.category.trim()
-                  : null,
-              createdAt: d.uploadedAt?.toDate
-                ? d.uploadedAt.toDate()
-                : (d.createdAt?.toDate ? d.createdAt.toDate() : null),
-              size: d.size || 'Size unavailable'
-            };
-          });
-          mediaLoadState = 'ready';
-        },
-        () => {
-          if (generation !== loadGeneration || $tenantIdStore !== tenantId) return;
-          console.error('Media files could not be loaded.');
-          mediaFiles = [];
-          mediaLoadState = 'error';
-          mediaLoadMessage = 'Media files could not be loaded. Check your access and try again.';
-        },
-      );
+      const q = query(collection(db, 'program_images'), where('tenantId', '==', tenantId), orderBy(documentId(), 'asc'), limit(MEDIA_LIMIT + 1));
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        if (generation !== loadGeneration || $tenantIdStore !== tenantId) return;
+        const activeDocs = snapshot.docs.filter((entry) => entry.data().isActive !== false);
+        mediaTruncated = activeDocs.length > MEDIA_LIMIT;
+        mediaFiles = activeDocs.slice(0, MEDIA_LIMIT).map((entry) => {
+          const data = entry.data();
+          const size = Number(data.sizeBytes ?? data.size);
+          return {
+            id: entry.id,
+            name: typeof (data.fileName || data.name) === 'string' && String(data.fileName || data.name).trim() ? String(data.fileName || data.name).trim() : null,
+            url: String(data.imageUrl || data.url || ''),
+            storagePath: String(data.storagePath || ''),
+            category: typeof data.category === 'string' && data.category.trim() ? data.category.trim() : null,
+            purpose: typeof data.purpose === 'string' && data.purpose.trim() ? data.purpose.trim() : null,
+            altText: typeof data.altText === 'string' && data.altText.trim() ? data.altText.trim() : null,
+            createdAt: data.uploadedAt?.toDate ? data.uploadedAt.toDate() : (data.createdAt?.toDate ? data.createdAt.toDate() : null),
+            sizeBytes: Number.isFinite(size) ? size : null,
+            contentType: typeof data.contentType === 'string' ? data.contentType : null,
+            width: Number.isFinite(Number(data.width)) ? Number(data.width) : null,
+            height: Number.isFinite(Number(data.height)) ? Number(data.height) : null,
+            uploadedBy: typeof data.uploadedBy === 'string' ? data.uploadedBy : null,
+          };
+        });
+        mediaLoadState = 'ready';
+      }, () => {
+        if (generation !== loadGeneration || $tenantIdStore !== tenantId) return;
+        console.error('Media files could not be loaded.');
+        mediaFiles = [];
+        mediaLoadState = 'error';
+        mediaLoadMessage = 'Media files could not be loaded. Check your access and try again.';
+      });
     } else {
       loadGeneration += 1;
       unsubscribe();
@@ -92,136 +114,154 @@
     }
   }
 
-  $: filteredMedia = mediaFiles.filter((media) => {
-    const matchesCategory =
-      activeCategory === 'All'
-      || (activeCategory === 'Uncategorized' && !media.category)
-      || media.category === activeCategory;
-    const normalizedQuery = searchQuery.trim().toLowerCase();
-    return matchesCategory && (
-      !normalizedQuery
-      || (media.name || '').toLowerCase().includes(normalizedQuery)
-      || (media.category || '').toLowerCase().includes(normalizedQuery)
-    );
-  });
-
-  onMount(() => {
-    return () => {
-      loadGeneration += 1;
-      unsubscribe();
-    };
-  });
+  onMount(() => () => { loadGeneration += 1; unsubscribe(); });
 
   function safeMediaUrl(value: string) {
+    try { const parsed = new URL(value); return parsed.protocol === 'https:' ? parsed.toString() : ''; } catch { return ''; }
+  }
+  function bytes(value: number | null) {
+    if (value == null) return 'Size unavailable';
+    return value >= 1024 * 1024 ? `${(value / 1024 / 1024).toFixed(2)} MB` : `${Math.max(1, Math.round(value / 1024))} KB`;
+  }
+  function imageDimensions(file: File): Promise<{ width: number; height: number }> {
+    return new Promise((resolve) => {
+      const image = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      image.onload = () => { URL.revokeObjectURL(objectUrl); resolve({ width: image.naturalWidth, height: image.naturalHeight }); };
+      image.onerror = () => { URL.revokeObjectURL(objectUrl); resolve({ width: 0, height: 0 }); };
+      image.src = objectUrl;
+    });
+  }
+
+  async function uploadMedia() {
+    const tenantId = $tenantIdStore;
+    if (!tenantId || !uploadFile || uploadState === 'saving') return;
+    uploadState = 'saving'; operationMessage = '';
     try {
-      const parsed = new URL(value);
-      return parsed.protocol === 'https:' ? parsed.toString() : '';
-    } catch {
-      return '';
+      if (mediaFiles.some((media) => media.name?.toLowerCase() === uploadFile?.name.toLowerCase())) {
+        throw new Error('An active asset already uses this filename. Rename the file or replace the existing asset deliberately.');
+      }
+      const id = `media-${Date.now()}-${globalThis.crypto.randomUUID().slice(0, 8)}`;
+      const storagePath = `program_media/${tenantId}/${id}-${uploadFile.name.replace(/[^A-Za-z0-9._-]/g, '-')}`;
+      const { getFirebaseStorage } = await import('../../lib/firebaseStorage');
+      const storageReference = ref(getFirebaseStorage(), storagePath);
+      await uploadBytes(storageReference, uploadFile, { contentType: uploadFile.type });
+      const imageUrl = await getDownloadURL(storageReference);
+      const dimensions = await imageDimensions(uploadFile);
+      await setDoc(doc(db, 'program_images', id), {
+        tenantId, imageUrl, storagePath, fileName: uploadFile.name,
+        uploadedBy: $userStore?.email || $userStore?.uid || 'operations-portal',
+        contentType: uploadFile.type, sizeBytes: uploadFile.size,
+        width: dimensions.width || null, height: dimensions.height || null,
+        category: uploadCategory, purpose: uploadPurpose.trim(), altText: uploadAltText.trim(),
+        isActive: true, uploadedAt: serverTimestamp(), updatedAt: serverTimestamp(),
+      });
+      operationMessage = `Uploaded ${uploadFile.name} to the reusable program library.`;
+      closeUpload();
+    } catch (error) {
+      uploadState = 'error';
+      operationMessage = error instanceof Error ? error.message : 'Image upload failed. Please try again.';
     }
+  }
+  function closeUpload() {
+    if (uploadState === 'saving') return;
+    uploadOpen = false; uploadFile = null; uploadAltText = ''; uploadPurpose = 'Reusable program image'; uploadState = 'idle';
+  }
+  async function applyBulkCategory() {
+    if (!canManage || selectedIds.length === 0) return;
+    operationMessage = '';
+    try {
+      await Promise.all(selectedIds.map((id) => updateDoc(doc(db, 'program_images', id), { category: bulkCategory, updatedAt: serverTimestamp() })));
+      operationMessage = `Categorized ${selectedIds.length} asset${selectedIds.length === 1 ? '' : 's'} as ${bulkCategory}.`;
+      selectedIds = [];
+    } catch { operationMessage = 'Selected assets could not be categorized.'; }
+  }
+  async function saveMetadata() {
+    if (!selected || !canManage) return;
+    try {
+      await updateDoc(doc(db, 'program_images', selected.id), {
+        fileName: selected.name || '', category: selected.category || '', purpose: selected.purpose || '', altText: selected.altText || '', updatedAt: serverTimestamp(),
+      });
+      operationMessage = 'Asset metadata updated.';
+    } catch { operationMessage = 'Asset metadata could not be updated.'; }
+  }
+  async function copyUrl() {
+    if (!selected || !safeMediaUrl(selected.url)) return;
+    try { await navigator.clipboard.writeText(selected.url); operationMessage = 'Asset URL copied.'; } catch { operationMessage = 'The browser could not copy the asset URL.'; }
+  }
+  async function removeAsset() {
+    if (!selected || !canManage || deleteReason.trim().length < 8 || deleteState === 'saving') return;
+    if ((usageByUrl.get(selected.url) || []).length > 0) return;
+    deleteState = 'saving'; operationMessage = '';
+    try {
+      await updateDoc(doc(db, 'program_images', selected.id), { isActive: false, deletedAt: serverTimestamp(), deletionReason: deleteReason.trim(), updatedAt: serverTimestamp() });
+      if (selected.storagePath) {
+        try { const { getFirebaseStorage } = await import('../../lib/firebaseStorage'); await deleteObject(ref(getFirebaseStorage(), selected.storagePath)); }
+        catch { operationMessage = 'Asset archived, but stored-object cleanup requires support.'; }
+      }
+      if (!operationMessage) operationMessage = 'Asset removed from the active library.';
+      selected = null; deleteState = 'idle'; deleteReason = '';
+    } catch { deleteState = 'error'; operationMessage = 'Asset removal failed. Retry after checking your access.'; }
   }
 </script>
 
-<div class="h-full flex flex-col p-6 space-y-6 overflow-y-auto bg-gray-50">
-  <div class="flex justify-between items-center bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-    <div>
-      <h2 class="crm-ui-page-title">Media Library</h2>
-      <p class="text-sm text-gray-500 mt-1">Review program image records.</p>
+{#if uploadOpen}
+  <div class="crm-ui-modal-root" role="dialog" aria-modal="true" aria-labelledby="media-upload-title">
+    <div class="flex min-h-full items-center justify-center p-4">
+      <button type="button" class="fixed inset-0 z-0 h-full w-full bg-slate-950/70" aria-label="Close upload image" disabled={uploadState === 'saving'} on:click={closeUpload}></button>
+      <div class="relative z-10 w-full max-w-lg rounded-xl bg-white p-6 shadow-xl" tabindex="-1" use:modalFocus={{ onEscape: closeUpload, initialFocusSelector: 'input' }}>
+        <h3 id="media-upload-title" class="text-lg font-semibold">{uploadState === 'review' || uploadState === 'saving' || uploadState === 'error' ? 'Review image upload' : 'Upload image'}</h3>
+        {#if uploadState === 'review' || uploadState === 'saving' || uploadState === 'error'}
+          <div class="mt-4 rounded-md border border-gray-200 bg-gray-50 p-4 text-sm"><p><strong>File:</strong> {uploadFile?.name}</p><p><strong>Category:</strong> {uploadCategory}</p><p><strong>Purpose:</strong> {uploadPurpose}</p><p><strong>Alt text:</strong> {uploadAltText}</p></div>
+        {:else}
+          <div class="mt-4 space-y-4">
+            <label class="block text-sm font-medium">Image<input class="mt-1 block w-full rounded-md border p-2" type="file" accept="image/png,image/jpeg,image/gif,image/webp" on:change={(event) => uploadFile = (event.currentTarget as HTMLInputElement).files?.[0] || null} /></label>
+            <label class="block text-sm font-medium">Category<select class="mt-1 block w-full rounded-md border p-2" bind:value={uploadCategory}><option>Logos</option><option>Banners</option><option>Flyers</option></select></label>
+            <label class="block text-sm font-medium">Purpose<input class="mt-1 block w-full rounded-md border p-2" bind:value={uploadPurpose} maxlength="120" /></label>
+            <label class="block text-sm font-medium">Alt text<textarea class="mt-1 block w-full rounded-md border p-2" bind:value={uploadAltText} maxlength="240" rows="2"></textarea></label>
+          </div>
+        {/if}
+        {#if uploadState === 'error'}<p class="mt-3 text-sm text-red-700" role="alert">{operationMessage}</p>{/if}
+        <div class="mt-6 flex justify-end gap-3"><button type="button" class="rounded-md border px-4 py-2 text-sm" disabled={uploadState === 'saving'} on:click={() => uploadState === 'idle' ? closeUpload() : uploadState = 'idle'}>{uploadState === 'idle' ? 'Cancel' : 'Back'}</button>{#if uploadState === 'idle'}<button type="button" class="crm-ui-primary-button" disabled={!uploadFile || !uploadPurpose.trim() || !uploadAltText.trim()} on:click={() => uploadState = 'review'}>Review upload</button>{:else}<button type="button" class="crm-ui-primary-button" disabled={uploadState === 'saving'} on:click={uploadMedia}>{uploadState === 'saving' ? 'Uploading…' : 'Upload to library'}</button>{/if}</div>
+      </div>
     </div>
   </div>
+{/if}
 
-  <div class="flex flex-1 flex-col gap-4 overflow-hidden md:flex-row md:space-x-6 md:gap-0">
-    <!-- Sidebar -->
-    <div class="w-full flex-shrink-0 md:w-64">
-      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Categories</h3>
-        <nav class="space-y-1">
-          {#each categories as category}
-            <button
-              class="w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors {activeCategory === category ? 'crm-theme-selected' : 'text-gray-700 hover:bg-gray-50'}"
-              on:click={() => activeCategory = category}
-            >
-              {category}
-              <span class="float-right text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                {category === 'All' ? mediaFiles.length : mediaFiles.filter(m => category === 'Uncategorized' ? !m.category : m.category === category).length}
-              </span>
-            </button>
-          {/each}
-        </nav>
+{#if selected}
+  <div class="fixed inset-0 z-50 flex justify-end bg-slate-950/40" role="dialog" aria-modal="true" aria-labelledby="media-detail-title">
+    <button type="button" class="absolute inset-0" aria-label="Close media details" on:click={() => selected = null}></button>
+    <aside class="relative z-10 h-full w-full max-w-lg overflow-y-auto bg-white p-6 shadow-xl">
+      <div class="flex items-start justify-between"><div><h3 id="media-detail-title" class="text-xl font-semibold">Asset details</h3><p class="text-sm text-gray-500">Identity: {selected.id}</p></div><button type="button" class="rounded-md border px-3 py-2 text-sm" on:click={() => selected = null}>Close</button></div>
+      {#if safeMediaUrl(selected.url)}<img class="mt-5 max-h-80 w-full rounded-lg bg-gray-100 object-contain" src={safeMediaUrl(selected.url)} alt={selected.altText || selected.name || 'Media name unavailable'} width="640" height="480" />{/if}
+      <div class="mt-5 grid gap-4 sm:grid-cols-2">
+        <label class="text-sm font-medium">Filename<input class="mt-1 block w-full rounded-md border p-2" bind:value={selected.name} disabled={!canManage} /></label>
+        <label class="text-sm font-medium">Category<select class="mt-1 block w-full rounded-md border p-2" bind:value={selected.category} disabled={!canManage}><option value="">Uncategorized</option><option>Logos</option><option>Banners</option><option>Flyers</option></select></label>
+        <label class="text-sm font-medium sm:col-span-2">Purpose<input class="mt-1 block w-full rounded-md border p-2" bind:value={selected.purpose} disabled={!canManage} /></label>
+        <label class="text-sm font-medium sm:col-span-2">Alt text<textarea class="mt-1 block w-full rounded-md border p-2" bind:value={selected.altText} disabled={!canManage} rows="2"></textarea></label>
       </div>
-    </div>
+      <dl class="mt-5 grid grid-cols-2 gap-3 text-sm"><div><dt class="text-gray-500">Dimensions</dt><dd>{selected.width && selected.height ? `${selected.width} × ${selected.height}` : 'Unavailable'}</dd></div><div><dt class="text-gray-500">Size</dt><dd>{bytes(selected.sizeBytes)}</dd></div><div><dt class="text-gray-500">Type</dt><dd>{selected.contentType || 'Unavailable'}</dd></div><div><dt class="text-gray-500">Uploaded</dt><dd>{selected.createdAt ? selected.createdAt.toLocaleDateString() : 'Unavailable'}</dd></div><div class="col-span-2"><dt class="text-gray-500">Uploaded by</dt><dd>{selected.uploadedBy || 'Unavailable'}</dd></div></dl>
+      <section class="mt-5 rounded-md border p-4"><h4 class="font-semibold">Usage locations ({usageByUrl.get(selected.url)?.length || 0})</h4>{#if usageByUrl.get(selected.url)?.length}<ul class="mt-2 list-disc pl-5 text-sm">{#each usageByUrl.get(selected.url) || [] as location}<li>{location}</li>{/each}</ul>{:else}<p class="mt-1 text-sm text-gray-600">No event or season currently references this exact asset URL.</p>{/if}</section>
+      <div class="mt-5 flex flex-wrap gap-2"><button type="button" class="crm-ui-primary-button" disabled={!canManage} on:click={saveMetadata}>Save metadata</button><button type="button" class="rounded-md border px-3 py-2 text-sm" disabled={!safeMediaUrl(selected.url)} on:click={copyUrl}>Copy URL</button>{#if safeMediaUrl(selected.url)}<a class="rounded-md border px-3 py-2 text-sm" href={safeMediaUrl(selected.url)} download target="_blank" rel="noopener noreferrer">Download</a>{/if}<button type="button" class="crm-ui-danger-button" disabled={!canManage || (usageByUrl.get(selected.url)?.length || 0) > 0} on:click={() => deleteState = 'confirm'}>Remove asset</button></div>
+      {#if (usageByUrl.get(selected.url)?.length || 0) > 0}<p class="mt-2 text-sm text-amber-700">Replace this asset in every usage location before removal.</p>{/if}
+      {#if deleteState !== 'idle'}<div class="mt-5 rounded-md border border-red-200 bg-red-50 p-4"><p class="text-sm">This soft-deletes the record and removes the stored object when possible.</p><label class="mt-3 block text-sm font-medium">Removal reason<textarea class="mt-1 block w-full rounded-md border p-2" bind:value={deleteReason} rows="2"></textarea></label><button type="button" class="crm-ui-danger-button mt-3" disabled={deleteReason.trim().length < 8 || deleteState === 'saving'} on:click={removeAsset}>{deleteState === 'saving' ? 'Removing…' : deleteState === 'error' ? 'Retry removal' : 'Confirm removal'}</button></div>{/if}
+    </aside>
+  </div>
+{/if}
 
-    <!-- Main Content -->
-    <div class="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 p-6 overflow-y-auto">
-      <div class="flex flex-col gap-3 mb-6 sm:flex-row sm:justify-between sm:items-center">
-        <h3 class="crm-ui-subtitle">{activeCategory} Media</h3>
-        <div class="relative w-full sm:w-64">
-          <div class="crm-ui-search-icon">
-            <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-          </div>
-          <label>
-            <span class="sr-only">Search media files</span>
-            <input
-            type="search"
-            bind:value={searchQuery}
-            class="block w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[var(--crm-brand-border)]"
-            placeholder="Search files..."
-            />
-          </label>
-        </div>
-      </div>
-      {#if mediaTruncated}
-        <p class="crm-ui-notice" role="status">
-          More than {MEDIA_LIMIT} image records exist. Categories, counts, and search apply only to the loaded records.
-        </p>
-      {/if}
-
-      {#if mediaLoadState === 'loading'}
-        <div class="py-20 text-center text-sm text-gray-600" role="status">
-          Loading media files…
-        </div>
-      {:else if mediaLoadState === 'error'}
-        <div class="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
-          {mediaLoadMessage}
-        </div>
-      {:else if filteredMedia.length === 0}
-        <div class="text-center py-20 border-2 border-dashed border-gray-200 rounded-lg">
-          <svg class="mx-auto h-12 w-12 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-          <h3 class="text-sm font-medium text-gray-900">No media files</h3>
-          <p class="mt-1 text-sm text-gray-500">No matching image record is available in the loaded scope.</p>
-        </div>
-      {:else}
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {#each filteredMedia as media (media.id)}
-            <div class="group relative rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow bg-white">
-              <div class="aspect-w-1 aspect-h-1 w-full overflow-hidden bg-gray-100 h-40">
-                {#if safeMediaUrl(media.url)}
-                  <img
-                    src={safeMediaUrl(media.url)}
-                    alt={media.name || 'Media name unavailable'}
-                    width="320"
-                    height="320"
-                    loading="lazy"
-                    decoding="async"
-                    class="h-full w-full object-cover object-center group-hover:opacity-75"
-                  />
-                {:else}
-                  <div class="flex h-full items-center justify-center">
-                    <svg class="h-10 w-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                  </div>
-                {/if}
-              </div>
-              <div class="p-3">
-                <p class="text-sm font-medium text-gray-900 truncate" title={media.name || 'Media name unavailable'}>{media.name || 'Media name unavailable'}</p>
-                <div class="flex justify-between items-center mt-1">
-                  <p class="crm-ui-hint-xs">{media.size}</p>
-                  <p class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{media.category || 'Category unavailable'}</p>
-                </div>
-              </div>
-            </div>
-          {/each}
-        </div>
-      {/if}
-    </div>
+<div class="flex h-full flex-col space-y-6 overflow-y-auto bg-gray-50 p-4 sm:p-6">
+  <PageHeader title="Media Library" support="Manage reusable program images, their purpose, accessibility metadata, and usage references."><svelte:fragment slot="actions"><button type="button" class="crm-ui-primary-button" disabled={!canManage} title={!canManage ? 'Viewer access is read-only.' : undefined} on:click={() => uploadOpen = true}>Upload image</button></svelte:fragment></PageHeader>
+  {#if operationMessage}<p class="rounded-md border bg-white p-3 text-sm" role="status">{operationMessage}</p>{/if}
+  <div class="grid gap-4 lg:grid-cols-[14rem,1fr]">
+    <nav class="h-fit rounded-lg border bg-white p-4" aria-label="Media categories"><h3 class="mb-3 text-xs font-semibold uppercase text-gray-500">Categories</h3>{#each categories as category}<button class="mb-1 w-full rounded-md px-3 py-2 text-left text-sm {activeCategory === category ? 'crm-theme-selected' : 'hover:bg-gray-50'}" on:click={() => activeCategory = category}>{category}<span class="float-right text-xs">{category === 'All' ? mediaFiles.length : mediaFiles.filter((media) => category === 'Uncategorized' ? !media.category : media.category === category).length}</span></button>{/each}</nav>
+    <main class="rounded-lg border bg-white p-5">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><label class="text-sm font-medium">Search media files<input type="search" class="mt-1 block w-full rounded-md border p-2 sm:w-80" bind:value={searchQuery} placeholder="Filename, category, alt text, or usage" /></label>{#if searchQuery}<button type="button" class="rounded-md border px-3 py-2 text-sm" on:click={() => searchQuery = ''}>Clear search</button>{/if}</div>
+      {#if mediaFiles.some((media) => !media.category)}<div class="mt-4 flex flex-wrap items-end gap-2 rounded-md border border-amber-200 bg-amber-50 p-3"><p class="mr-auto text-sm text-amber-900">{mediaFiles.filter((media) => !media.category).length} uncategorized assets. Select cards to categorize them together.</p><select class="rounded-md border p-2 text-sm" bind:value={bulkCategory}><option>Logos</option><option>Banners</option><option>Flyers</option></select><button type="button" class="rounded-md border bg-white px-3 py-2 text-sm" disabled={!canManage || selectedIds.length === 0} on:click={applyBulkCategory}>Apply to {selectedIds.length} selected</button></div>{/if}
+      {#if mediaTruncated}<p class="crm-ui-notice mt-4" role="status">More than {MEDIA_LIMIT} image records exist. Categories, counts, and search apply only to the loaded records.</p>{/if}
+      {#if mediaLoadState === 'loading'}<div class="py-20 text-center text-sm" role="status">Loading media files…</div>
+      {:else if mediaLoadState === 'error'}<div class="mt-4 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">{mediaLoadMessage}</div>
+      {:else if filteredMedia.length === 0}<div class="mt-5"><EmptyState title="No media files" message="No matching active image record is available in the loaded scope." primaryLabel={searchQuery || activeCategory !== 'All' ? 'Clear filters' : canManage ? 'Upload image' : ''} onPrimary={() => { if (searchQuery || activeCategory !== 'All') { searchQuery = ''; activeCategory = 'All'; } else uploadOpen = true; }} /></div>
+      {:else}<div class="mt-5 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">{#each filteredMedia as media (media.id)}<article class="group overflow-hidden rounded-lg border bg-white hover:shadow-md"><button type="button" aria-label={`Open details for ${media.name || 'unnamed media'}`} class="block w-full text-left" on:click={() => selected = { ...media }}><div class="h-36 overflow-hidden bg-gray-100">{#if safeMediaUrl(media.url)}<img src={safeMediaUrl(media.url)} alt={media.altText || media.name || 'Media name unavailable'} width="320" height="320" loading="lazy" decoding="async" class="h-full w-full object-cover" />{:else}<div class="flex h-full items-center justify-center text-sm text-gray-500">Preview unavailable</div>{/if}</div><div class="p-3"><p class="truncate text-sm font-medium" title={media.name || 'Media name unavailable'}>{media.name || 'Media name unavailable'}</p><p class="mt-1 text-xs text-gray-500">{media.width && media.height ? `${media.width} × ${media.height}` : 'Dimensions unavailable'} · {bytes(media.sizeBytes)}</p><p class="mt-1 text-xs"><span class="rounded bg-gray-100 px-2 py-0.5">{media.category || 'Category unavailable'}</span> · {usageByUrl.get(media.url)?.length || 0} uses</p></div></button><label class="flex items-center gap-2 border-t px-3 py-2 text-xs"><input type="checkbox" checked={selectedIds.includes(media.id)} disabled={!canManage} on:change={() => selectedIds = selectedIds.includes(media.id) ? selectedIds.filter((id) => id !== media.id) : [...selectedIds, media.id]} /> Select for bulk category</label></article>{/each}</div>{/if}
+    </main>
   </div>
 </div>

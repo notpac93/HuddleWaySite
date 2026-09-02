@@ -409,6 +409,25 @@ export type CrmDocumentRecord = {
   canDelete: boolean;
   deleteUnavailableReason: string | null;
   uploadedAt: string | null;
+  uploadedBy: string | null;
+  linkedEventIds: string[];
+  storagePath: string | null;
+  storageSizeBytes: number | null;
+  storageContentType: string | null;
+};
+
+export type CrmDocumentInput = {
+  title: string;
+  downloadUrl: string;
+  storagePath: string;
+  isAvailable: boolean;
+  eventId: string | null;
+  linkedEventIds: string[];
+  availabilityScope: "organization" | "selected_live_events" | "saved_for_later";
+  category: string;
+  uploadedAt: string;
+  uploadedBy: string;
+  fileType: string;
 };
 
 export type AdminStaffDirectory = {
@@ -1836,6 +1855,106 @@ export class BackendApi {
   ) {
     return this.crmResourceMutation(tenantId, "document.delete", {
       resourceId: documentId,
+      auditReason,
+      idempotencyKey,
+    });
+  }
+
+  async uploadDocumentAsset(
+    tenantId: string,
+    documentId: string,
+    file: File,
+    idempotencyKey = createIdempotencyKey("document-upload"),
+  ) {
+    const reservation = await this.send<{
+      success: boolean;
+      documentId: string;
+      storagePath: string;
+      uploadUrl: string;
+      contentType: string;
+      expiresAt: string;
+      requestId: string;
+    }>("/admin/crm/documents/upload-reservations", {
+      method: "POST",
+      body: {
+        tenantId,
+        documentId,
+        fileName: file.name,
+        contentType: file.type,
+        sizeBytes: file.size,
+        idempotencyKey,
+      },
+      idempotencyKey,
+    });
+    if (
+      reservation.success !== true
+      || reservation.documentId !== documentId
+      || !String(reservation.storagePath || "").startsWith(`documents/${tenantId}/documents/${documentId}/`)
+      || !/^https:\/\//i.test(String(reservation.uploadUrl || ""))
+      || reservation.contentType !== file.type
+      || !validIsoTimestamp(reservation.expiresAt)
+    ) {
+      invalidBackendResponse(reservation as unknown as Record<string, unknown>);
+    }
+    let response: Response;
+    try {
+      response = await this.fetchImplementation(reservation.uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+        credentials: "omit",
+      });
+    } catch {
+      throw new BackendApiError({
+        message: "The selected document could not be uploaded.",
+        status: 503,
+        code: "document_upload_failed",
+        requestId: reservation.requestId,
+      });
+    }
+    if (!response.ok) {
+      throw new BackendApiError({
+        message: "The selected document could not be uploaded.",
+        status: response.status || 503,
+        code: "document_upload_failed",
+        requestId: reservation.requestId,
+      });
+    }
+    return {
+      storagePath: reservation.storagePath,
+      requestId: reservation.requestId,
+    };
+  }
+
+  createDocument(
+    tenantId: string,
+    documentId: string,
+    data: CrmDocumentInput,
+    auditReason: string,
+    idempotencyKey: string,
+  ) {
+    return this.crmResourceMutation(tenantId, "document.create", {
+      resourceId: documentId,
+      data,
+      auditReason,
+      idempotencyKey,
+    });
+  }
+
+  managedDocumentDownloadUrl(documentId: string) {
+    return `${this.baseUrl}/documents/${encodeURIComponent(documentId)}/download`;
+  }
+
+  updateDocument(
+    tenantId: string,
+    documentId: string,
+    data: CrmDocumentInput,
+    auditReason: string,
+    idempotencyKey: string,
+  ) {
+    return this.crmResourceMutation(tenantId, "document.update", {
+      resourceId: documentId,
+      data,
       auditReason,
       idempotencyKey,
     });

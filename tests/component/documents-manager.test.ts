@@ -10,7 +10,13 @@ vi.mock('../../src/lib/authStore', async () => {
     activeTenantRole: roleStore,
     setActiveTenantRole: (role: string) => roleStore.set(role),
     tenantIdStore: writable('tenant-a'),
+    userStore: writable({ uid: 'owner-a', email: 'owner@example.test' }),
   };
+});
+
+vi.mock('../../src/lib/services/DataStore', async () => {
+  const { writable } = await import('svelte/store');
+  return { eventsStore: writable([]) };
 });
 
 vi.mock('../../src/lib/api/backendClient', () => ({

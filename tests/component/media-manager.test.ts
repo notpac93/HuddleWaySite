@@ -13,7 +13,7 @@ const firestoreMocks = vi.hoisted(() => ({
   unsubscribe: vi.fn(),
 }));
 
-vi.mock('../../src/lib/firebase', () => ({ db: {} }));
+vi.mock('../../src/lib/firebase', () => ({ db: {}, firebaseApp: {} }));
 vi.mock('firebase/firestore', () => ({
   collection: vi.fn((_db: unknown, name: string) => ({ name })),
   documentId: vi.fn(() => '__name__'),
@@ -40,13 +40,30 @@ vi.mock('firebase/firestore', () => ({
       return firestoreMocks.unsubscribe;
     },
   ),
+  doc: vi.fn((_db: unknown, collectionName: string, id: string) => ({ collectionName, id })),
+  setDoc: vi.fn(),
+  updateDoc: vi.fn(),
+  serverTimestamp: vi.fn(() => 'server-time'),
+}));
+vi.mock('firebase/storage', () => ({
+  deleteObject: vi.fn(),
+  getDownloadURL: vi.fn(),
+  ref: vi.fn(),
+  uploadBytes: vi.fn(),
 }));
 
 vi.mock('../../src/lib/authStore', async () => {
   const { writable } = await import('svelte/store');
   return {
     tenantIdStore: writable('tenant-a'),
+    activeTenantRole: writable('owner'),
+    userStore: writable({ uid: 'owner-a', email: 'owner@example.test' }),
   };
+});
+
+vi.mock('../../src/lib/services/DataStore', async () => {
+  const { writable } = await import('svelte/store');
+  return { eventsStore: writable([]), seasonsStore: writable([]) };
 });
 
 import { tenantIdStore } from '../../src/lib/authStore';
