@@ -5,7 +5,11 @@
   import { auth, db } from '../../lib/firebase';
   import { signOut } from 'firebase/auth';
   import { doc, onSnapshot } from 'firebase/firestore';
-  import { tenantIdStore, availableTenants } from '../../lib/authStore';
+  import {
+    tenantIdStore,
+    availableTenants,
+    tenantNamesStore,
+  } from '../../lib/authStore';
   import { modalFocus } from '../../lib/ui/modalFocus';
   import {
     buildCrmThemeTokens,
@@ -186,6 +190,10 @@
     showMobileMenu = false;
   }
 
+  function organizationName(tenantId: string, index: number) {
+    return $tenantNamesStore[tenantId] || `Organization ${index + 1}`;
+  }
+
   function openActiveTeamHome() {
     setActiveTab('Rostering');
   }
@@ -309,14 +317,14 @@
         <div class="crm-theme-sidebar-divider-top space-y-2 p-4">
           {#if $availableTenants.length > 1}
             <p class="px-2 text-xs font-semibold uppercase tracking-wide text-[var(--crm-on-sidebar-muted)]">Organization</p>
-            {#each $availableTenants as tenant}
+            {#each $availableTenants as tenant, index}
               <button
                 type="button"
                 class="w-full rounded-md px-2 py-2 text-left text-sm {$tenantIdStore === tenant ? 'crm-theme-sidebar-active' : 'crm-theme-sidebar-idle'}"
                 aria-current={$tenantIdStore === tenant ? 'true' : undefined}
                 on:click={() => { switchTenant(tenant); closeMobileMenu(); }}
               >
-                Organization ID: {tenant}
+                {organizationName(tenant, index)}
               </button>
             {/each}
           {/if}
@@ -408,13 +416,13 @@
 
       {#if showOrgSwitcher && $availableTenants.length > 0}
         <div class="crm-ui-shell-org-menu">
-          {#each $availableTenants as tenant}
+          {#each $availableTenants as tenant, index}
             <button
               type="button"
               class="w-full text-left px-4 py-2 text-sm {$tenantIdStore === tenant ? 'crm-theme-sidebar-active font-semibold' : 'crm-theme-sidebar-idle'} whitespace-nowrap"
               on:click={() => switchTenant(tenant)}
             >
-              Organization ID: {tenant}
+              {organizationName(tenant, index)}
             </button>
           {/each}
         </div>

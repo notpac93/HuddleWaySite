@@ -24,6 +24,7 @@
   let playersError = '';
   let playersTruncated = {
     registrations: false,
+    privateRegistrations: false,
     memberships: false,
     teams: false,
   };
@@ -53,6 +54,7 @@
     playersError = '';
     playersTruncated = {
       registrations: false,
+      privateRegistrations: false,
       memberships: false,
       teams: false,
     };
