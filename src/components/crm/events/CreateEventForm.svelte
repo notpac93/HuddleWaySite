@@ -15,6 +15,7 @@
   import ImageFilePicker from '../ui/ImageFilePicker.svelte';
   import { validateImageFile } from '../../../lib/media/imageUpload';
   import { modalFocus } from '../../../lib/ui/modalFocus';
+  import EventPaymentTermsEditor from '../billing/EventPaymentTermsEditor.svelte';
 
   const dispatch = createEventDispatcher();
 
@@ -131,6 +132,12 @@
 
   let location = '';
   let notes = '';
+  let price = '0';
+  let paymentChoice: 'pay_in_full' | 'installments' = 'pay_in_full';
+  let installmentCount = 3;
+  let installmentCadence: 'weekly' | 'monthly' = 'monthly';
+  let cancellationPolicy = '';
+  let refundPolicy = '';
   let imageFile: File | null = null;
   let imageValidationMessage = '';
 
@@ -160,6 +167,12 @@
       : null,
     seasonId,
     selectedFormId,
+    price,
+    paymentChoice,
+    installmentCount,
+    installmentCadence,
+    cancellationPolicy,
+    refundPolicy,
     auditReason: auditReason.trim(),
   });
   $: {
@@ -288,6 +301,20 @@
       currentStep = 2;
       return;
     }
+    const normalizedPrice = price.trim();
+    if (!/^\d+(\.\d{1,2})?$/.test(normalizedPrice)) {
+      errorMessage = 'Enter a valid registration price with no more than two decimal places.';
+      return;
+    }
+    const priceCents = Math.round(Number(normalizedPrice) * 100);
+    if (priceCents > 0 && !selectedFormId) {
+      errorMessage = 'Select a registration form before charging for this event.';
+      return;
+    }
+    if (priceCents > 0 && (!cancellationPolicy.trim() || !refundPolicy.trim())) {
+      errorMessage = 'Add the cancellation and refund policies families should see.';
+      return;
+    }
     const generation = ++operationGeneration;
     const submittedSignature = currentPayloadSignature;
     if (submittedSignature !== payloadSignature) {
@@ -328,6 +355,19 @@
           seasonId: seasonId || null,
           registrationFormId: selectedFormId || null,
           publishMode,
+          priceCents,
+          paymentTerms: {
+            mode: paymentChoice,
+            adminChoiceConfirmed: true,
+            installmentCount: paymentChoice === 'installments' ? installmentCount : 1,
+            cadence: paymentChoice === 'installments' ? installmentCadence : null,
+            currency: 'usd',
+            version: 1,
+          },
+          paymentPolicies: priceCents > 0 ? {
+            cancellation: cancellationPolicy.trim(),
+            refund: refundPolicy.trim(),
+          } : null,
         },
         auditReason.trim(),
         operationKey,
@@ -598,11 +638,10 @@
                 <p class="mt-2 text-xs text-red-700" role="alert">{registrationFormsError}</p>
               {/if}
 
-              {#if selectedFormId && selectedFormId !== 'CREATE_NEW'}
-                <div class="mt-4 rounded-md border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900">
-                  Registration pricing and installment plans are managed by the authoritative billing workflow and are not configured from event setup.
-                </div>
-              {/if}
+            </div>
+
+            <div class="mt-4 border-t border-gray-100 pt-4">
+              <EventPaymentTermsEditor bind:price bind:choice={paymentChoice} bind:installmentCount bind:cadence={installmentCadence} bind:cancellationPolicy bind:refundPolicy />
             </div>
           {/if}
 
