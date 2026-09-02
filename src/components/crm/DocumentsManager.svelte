@@ -218,7 +218,6 @@
           class="crm-theme-link mt-2 inline-flex break-all font-medium underline"
         >Open secure document link</a>
       {/if}
-      {#if operationRequestId}<p class="mt-1 text-xs">Support request: {operationRequestId}</p>{/if}
     </div>
   {/if}
 
@@ -237,7 +236,6 @@
     {:else if loadError}
       <div class="p-8 text-center" role="alert">
         <p class="text-sm text-red-700">{loadError}</p>
-        {#if requestId}<p class="mt-1 text-xs text-red-700">Support request: {requestId}</p>{/if}
         <button type="button" class="mt-4 rounded-md border border-gray-300 px-3 py-2 text-sm" on:click={() => activeTenantId && fetchDocuments(activeTenantId)}>Try again</button>
       </div>
     {:else if documents.length === 0}

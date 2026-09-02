@@ -570,7 +570,6 @@
         role={submitState === 'error' ? 'alert' : 'status'}
       >
         <p>{publishMessage}</p>
-        {#if publishRequestId}<p class="mt-1 text-xs">Support request: {publishRequestId}</p>{/if}
       </div>
     {/if}
 

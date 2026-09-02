@@ -831,7 +831,6 @@
           {#if submitMessage}
             <div class="crm-ui-operation-message {submitState === 'error' ? 'border-red-200 bg-red-50 text-red-800' : 'border-green-200 bg-green-50 text-green-800'}" role={submitState === 'error' ? 'alert' : 'status'}>
               {submitMessage}
-              {#if requestId}<span class="mt-1 block text-xs">Support request: {requestId}</span>{/if}
             </div>
           {/if}
 
@@ -907,7 +906,7 @@
               {#if ledgerState === 'loading'}
                 <p class="mt-2 text-sm text-gray-500" role="status">Loading the authoritative invoice ledger…</p>
               {:else if ledgerState === 'error'}
-                <div class="crm-ui-danger mt-2" role="alert">{ledgerError}{#if requestId}<span class="block text-xs">Support request: {requestId}</span>{/if}</div>
+                <div class="crm-ui-danger mt-2" role="alert">{ledgerError}</div>
               {:else if ledger && ledger.events.length + ledger.payments.length + ledger.refunds.length > 0}
                 {#if ledger.providerAccounting}
                   <dl class="mt-2 grid gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm sm:grid-cols-2" aria-label="Stripe-authoritative accounting">
@@ -1047,7 +1046,6 @@
             {#if submitMessage}
               <div class="crm-ui-operation-message {submitState === 'error' ? 'border-red-200 bg-red-50 text-red-800' : 'border-green-200 bg-green-50 text-green-800'}" role={submitState === 'error' ? 'alert' : 'status'}>
                 {submitMessage}
-                {#if requestId}<span class="mt-1 block text-xs">Support request: {requestId}</span>{/if}
               </div>
             {/if}
 

@@ -1733,6 +1733,195 @@ describe('BackendApi', () => {
     });
   });
 
+  it('loads and validates the tenant monthly email allowance', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response(200, {
+      success: true,
+      tenantId: 'fixture-tenant',
+      monthKey: '2026-08',
+      resetsAt: '2026-09-01T00:00:00.000Z',
+      monthlyLimit: 40000,
+      usedCount: 425,
+      sentCount: 420,
+      localSentCount: 420,
+      providerSentCount: 420,
+      reservedCount: 5,
+      remainingCount: 39575,
+      capacityMode: 'normal',
+      monthlyAllowanceVisible: true,
+      providerReconciliationStatus: 'verified',
+      providerReconciledAt: '2026-08-28T12:00:00.000Z',
+      emailSendingStatus: 'enabled',
+      emailSuspensionReason: null,
+      bounceRate: 0.01,
+      complaintRate: 0.0002,
+      perSendLimit: 400,
+      requestId: 'quota-request',
+    }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+    });
+
+    const outreachApi = new RegistrationOutreachApi(api);
+    await expect(outreachApi.emailQuota('fixture-tenant')).resolves.toMatchObject({
+      monthlyLimit: 40000,
+      remainingCount: 39575,
+      perSendLimit: 400,
+    });
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      'https://api.example.test/admin/messages/email-quota?tenantId=fixture-tenant',
+    );
+  });
+
+  it('loads, starts, and disconnects a connected admin mailbox without exposing credentials', async () => {
+    const disconnected = {
+      success: true,
+      tenantId: 'fixture-tenant',
+      connected: false,
+      status: 'not_connected',
+      provider: null,
+      email: null,
+      displayName: null,
+      connectedAt: null,
+      lastCheckedAt: null,
+      availableProviders: ['google', 'microsoft'],
+      requestId: 'mailbox-status-request',
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(200, disconnected))
+      .mockResolvedValueOnce(response(200, {
+        success: true,
+        tenantId: 'fixture-tenant',
+        authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?state=signed',
+        requestId: 'mailbox-start-request',
+      }))
+      .mockResolvedValueOnce(response(200, {
+        ...disconnected,
+        requestId: 'mailbox-disconnect-request',
+      }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+    });
+    const outreachApi = new RegistrationOutreachApi(api);
+
+    await expect(outreachApi.connectedMailbox('fixture-tenant')).resolves.toMatchObject({
+      connected: false,
+      availableProviders: ['google', 'microsoft'],
+    });
+    await expect(
+      outreachApi.startMailboxConnection('fixture-tenant', 'google'),
+    ).resolves.toMatchObject({ authorizationUrl: expect.stringMatching(/^https:\/\//) });
+    await expect(outreachApi.disconnectMailbox('fixture-tenant')).resolves.toMatchObject({
+      connected: false,
+    });
+
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      'https://api.example.test/admin/communications/connected-mailbox?tenantId=fixture-tenant',
+    );
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
+      tenantId: 'fixture-tenant',
+      provider: 'google',
+    });
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({
+      tenantId: 'fixture-tenant',
+    });
+  });
+
+  it('previews and sends direct email through the protected quota boundary', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(200, {
+        tenantId: 'fixture-tenant',
+        requestedCount: 2,
+        uniqueRecipientCount: 2,
+        inAppReadyCount: 1,
+        retainedPendingActivationCount: 1,
+        emailEligibleCount: 2,
+        emailSuppressedCount: 0,
+        invalidCount: 0,
+        duplicateCount: 0,
+        publicMessageCount: 0,
+        excludedCount: 0,
+        chunkSize: 2,
+        chunkCount: 1,
+        emailRecipientLimit: 400,
+        tenantEmailRemaining: 39575,
+        tenantEmailMonthlyLimit: 40000,
+        tenantEmailMonthKey: '2026-08',
+        tenantEmailResetsAt: '2026-09-01T00:00:00.000Z',
+        platformEmailRemaining: 9000,
+        capacityMode: 'normal',
+        monthlyAllowanceVisible: true,
+        requestId: 'preview-request',
+      }))
+      .mockResolvedValueOnce(response(200, {
+        success: true,
+        tenantId: 'fixture-tenant',
+        communicationId: 'communication-1',
+        audienceMode: 'direct',
+        recipientCount: 2,
+        sentCount: 2,
+        sentRecipients: ['family@example.com', 'second@example.com'],
+        failedCount: 0,
+        failures: [],
+        suppressedCount: 0,
+        requestId: 'send-request',
+      }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+    });
+    const recipientEmails = ['family@example.com', 'second@example.com'];
+
+    const outreachApi = new RegistrationOutreachApi(api);
+    await expect(outreachApi.messageAudiencePreview({
+      tenantId: 'fixture-tenant',
+      emails: recipientEmails,
+    })).resolves.toMatchObject({
+      emailEligibleCount: 2,
+      tenantEmailRemaining: 39575,
+    });
+    await expect(outreachApi.sendOneWayEmail({
+      tenantId: 'fixture-tenant',
+      recipientEmails,
+      subject: 'Practice update',
+      message: 'Practice starts at six.',
+      idempotencyKey: 'email-send:stable',
+    })).resolves.toMatchObject({ sentCount: 2 });
+
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      'https://api.example.test/admin/messages/audience-preview',
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      tenantId: 'fixture-tenant',
+      emails: recipientEmails,
+      emailRequested: true,
+    });
+    expect(String(fetchMock.mock.calls[1][0])).toBe(
+      'https://api.example.test/communications/one-way-email',
+    );
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
+      tenantId: 'fixture-tenant',
+      deliveryMode: 'huddleway',
+      audience: { mode: 'direct', emails: recipientEmails },
+      channels: { push: false },
+      communication: {
+        type: 'update',
+        subject: 'Practice update',
+        message: 'Practice starts at six.',
+      },
+    });
+    expect(fetchMock.mock.calls[1][1].headers).toMatchObject({
+      'Idempotency-Key': 'email-send:stable',
+      'X-Idempotency-Key': 'email-send:stable',
+    });
+  });
+
   it('creates a scoped registration link and sends it through the protected email route', async () => {
     const fetchMock = vi
       .fn()

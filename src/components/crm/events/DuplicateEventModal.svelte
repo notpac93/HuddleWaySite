@@ -252,7 +252,7 @@
       console.error('Event duplication failed.', {
         requestId: supportId || 'unavailable',
       });
-      saveError = `The draft event dates could not be added.${supportId ? ` Support request: ${supportId}` : ''}`;
+      saveError = 'The draft event dates could not be added.';
       submitState = 'error';
     }
   }

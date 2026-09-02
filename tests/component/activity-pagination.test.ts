@@ -121,7 +121,7 @@ describe('ActivityManager cursor pagination', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('Activity is temporarily unavailable.');
-    expect(alert).toHaveTextContent('Support request: request-failed-audit');
+    expect(alert).not.toHaveTextContent('request-failed-audit');
     await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByText('Recovered Owner')).toBeVisible();
     expect(apiMocks.auditEventPage).toHaveBeenCalledTimes(2);

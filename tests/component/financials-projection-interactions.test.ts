@@ -280,8 +280,7 @@ describe('Financials projection and controls', () => {
     expect(
       await screen.findByText(/Financial records could not be loaded/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Support request: financial-request/i))
-      .toBeInTheDocument();
+    expect(screen.queryByText(/financial-request/i)).not.toBeInTheDocument();
     expect(screen.queryByText('Private database diagnostic'))
       .not.toBeInTheDocument();
 
@@ -334,8 +333,7 @@ describe('Financials projection and controls', () => {
     expect(
       await screen.findByText(/The invoice export could not be created/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Support request: export-request/i))
-      .toBeInTheDocument();
+    expect(screen.queryByText(/export-request/i)).not.toBeInTheDocument();
     expect(screen.queryByText('Private export worker detail'))
       .not.toBeInTheDocument();
     const firstKey = backendMocks.createCrmExport.mock.calls[0][1];
@@ -383,7 +381,7 @@ describe('Financials projection and controls', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('HW-invoice-1')).not.toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Create' }),
+      screen.getByRole('button', { name: 'Create invoice' }),
     ).toBeDisabled();
   });
 

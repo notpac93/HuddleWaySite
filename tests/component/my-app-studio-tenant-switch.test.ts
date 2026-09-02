@@ -541,7 +541,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     expect(alert).toHaveTextContent(
       'The app configuration could not be published.',
     );
-    expect(alert).toHaveTextContent('Support request: publish-support-8');
+    expect(alert).not.toHaveTextContent('publish-support-8');
     expect(alert).not.toHaveTextContent('raw provider detail');
 
     await fireEvent.click(

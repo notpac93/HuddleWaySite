@@ -359,7 +359,7 @@
       console.error('Event draft creation failed.', {
         requestId: supportId || 'unavailable',
       });
-      errorMessage = `The event drafts could not be created.${supportId ? ` Support request: ${supportId}` : ''}`;
+      errorMessage = 'The event drafts could not be created.';
       submitState = 'error';
     }
   }

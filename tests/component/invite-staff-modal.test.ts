@@ -138,9 +138,8 @@ describe('InviteStaffModal command states', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Send Invite' }));
     const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent(
-      'The staff invitation could not be sent. Support request: invite-request-safe',
-    );
+    expect(alert).toHaveTextContent('The staff invitation could not be sent.');
+    expect(alert).not.toHaveTextContent('invite-request-safe');
     expect(alert).not.toHaveTextContent('provider token');
     const firstKey = inviteMock.mock.calls[0][0].idempotencyKey;
 

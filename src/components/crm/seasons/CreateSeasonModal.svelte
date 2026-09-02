@@ -199,7 +199,7 @@
       console.error('Season creation failed.', {
         requestId: supportId || 'unavailable',
       });
-      errorMessage = `The season could not be created.${supportId ? ` Support request: ${supportId}` : ''}`;
+      errorMessage = 'The season could not be created.';
       submitState = 'error';
     }
   }

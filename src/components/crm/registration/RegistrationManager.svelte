@@ -273,12 +273,16 @@
 <div class="h-full flex flex-col p-8 space-y-6 overflow-y-auto bg-white">
   {#if !selectedFormId}
     <!-- Overview Dashboard -->
-    <div class="flex justify-end items-center mb-2">
-      <button on:click={openNewRegistrationForm} class="bg-[var(--crm-brand-control)] text-[var(--crm-on-primary)] px-4 py-2 rounded text-sm font-semibold hover:bg-[var(--crm-brand-primary-hover)] flex items-center shadow-sm">
+    <header class="mb-2 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <h2 class="crm-ui-page-title">Registration forms</h2>
+        <p class="mt-1 text-sm text-gray-500">Create enrollment experiences, review responses, and retire forms you no longer use.</p>
+      </div>
+      <button on:click={openNewRegistrationForm} class="flex shrink-0 items-center rounded bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-semibold text-[var(--crm-on-primary)] shadow-sm hover:bg-[var(--crm-brand-primary-hover)]">
         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
         Create New Registration Form
       </button>
-    </div>
+    </header>
 
     <!-- Tabs -->
     <div class="border-b border-gray-200">
@@ -305,7 +309,7 @@
     </div>
 
     <!-- Toolbar -->
-    <div class="flex space-x-3 mt-4">
+    <section class="mt-4 flex flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3 sm:flex-row" aria-label="Registration form list tools">
       <div class="relative flex-1">
         <div class="crm-ui-search-icon">
           <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
@@ -330,7 +334,7 @@
         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
         Export
       </button>
-    </div>
+    </section>
 
     <FormsTable
       forms={filteredForms}

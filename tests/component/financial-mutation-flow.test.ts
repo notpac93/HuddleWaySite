@@ -395,8 +395,7 @@ describe('financial mutation drawer', () => {
         /The financial operation could not be completed/i,
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Support request: request-first/i))
-      .toBeInTheDocument();
+    expect(screen.queryByText(/request-first/i)).not.toBeInTheDocument();
     expect(screen.queryByText('Sensitive gateway failure detail'))
       .not.toBeInTheDocument();
     const firstKey =

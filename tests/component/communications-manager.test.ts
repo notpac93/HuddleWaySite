@@ -20,10 +20,16 @@ import {
 const mocks = vi.hoisted(() => ({
   createRegistrationInviteLink: vi.fn(),
   adminInboxThreads: vi.fn(),
+  emailQuota: vi.fn(),
+  connectedMailbox: vi.fn(),
+  startMailboxConnection: vi.fn(),
+  disconnectMailbox: vi.fn(),
+  messageAudiencePreview: vi.fn(),
   replyAdminInbox: vi.fn(),
   getDocs: vi.fn(),
   recallMessage: vi.fn(),
   sendRegistrationEmail: vi.fn(),
+  sendOneWayEmail: vi.fn(),
   sendMessageBatch: vi.fn(),
 }));
 
@@ -64,7 +70,13 @@ vi.mock('../../src/lib/api/backendClient', () => ({
 vi.mock('../../src/lib/api/RegistrationOutreachApi', () => ({
   registrationOutreachApi: {
     createInvite: mocks.createRegistrationInviteLink,
+    emailQuota: mocks.emailQuota,
+    connectedMailbox: mocks.connectedMailbox,
+    startMailboxConnection: mocks.startMailboxConnection,
+    disconnectMailbox: mocks.disconnectMailbox,
+    messageAudiencePreview: mocks.messageAudiencePreview,
     sendEmail: mocks.sendRegistrationEmail,
+    sendOneWayEmail: mocks.sendOneWayEmail,
   },
 }));
 
@@ -130,6 +142,61 @@ function notificationSummary(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function quotaSnapshot(overrides: Record<string, unknown> = {}) {
+  return {
+    success: true,
+    tenantId: 'tenant-a',
+    monthKey: '2026-08',
+    resetsAt: '2026-09-01T00:00:00.000Z',
+    monthlyLimit: 40000,
+    usedCount: 425,
+    sentCount: 425,
+    localSentCount: 425,
+    providerSentCount: 425,
+    reservedCount: 0,
+    remainingCount: 39575,
+    capacityMode: 'normal',
+    monthlyAllowanceVisible: true,
+    providerReconciliationStatus: 'verified',
+    providerReconciledAt: '2026-08-28T12:00:00.000Z',
+    emailSendingStatus: 'enabled',
+    emailSuspensionReason: null,
+    bounceRate: 0,
+    complaintRate: 0,
+    perSendLimit: 400,
+    requestId: 'quota-request',
+    ...overrides,
+  };
+}
+
+function audiencePreview(overrides: Record<string, unknown> = {}) {
+  return {
+    tenantId: 'tenant-a',
+    requestedCount: 2,
+    uniqueRecipientCount: 2,
+    inAppReadyCount: 0,
+    retainedPendingActivationCount: 2,
+    emailEligibleCount: 2,
+    emailSuppressedCount: 0,
+    invalidCount: 0,
+    duplicateCount: 0,
+    publicMessageCount: 0,
+    excludedCount: 0,
+    chunkSize: 2,
+    chunkCount: 1,
+    emailRecipientLimit: 400,
+    tenantEmailRemaining: 39575,
+    tenantEmailMonthlyLimit: 40000,
+    tenantEmailMonthKey: '2026-08',
+    tenantEmailResetsAt: '2026-09-01T00:00:00.000Z',
+    platformEmailRemaining: 9000,
+    capacityMode: 'normal',
+    monthlyAllowanceVisible: true,
+    requestId: 'preview-request',
+    ...overrides,
+  };
+}
+
 describe('CommunicationsManager recall boundary', () => {
   beforeEach(() => {
     tenants.set('tenant-a');
@@ -142,10 +209,31 @@ describe('CommunicationsManager recall boundary', () => {
       truncated: false,
       requestId: 'inbox-request',
     });
+    mocks.emailQuota.mockReset();
+    mocks.emailQuota.mockResolvedValue(quotaSnapshot());
+    mocks.connectedMailbox.mockReset();
+    mocks.connectedMailbox.mockResolvedValue({
+      success: true,
+      tenantId: 'tenant-a',
+      connected: false,
+      status: 'not_connected',
+      provider: null,
+      email: null,
+      displayName: null,
+      connectedAt: null,
+      lastCheckedAt: null,
+      availableProviders: ['google', 'microsoft'],
+      requestId: 'mailbox-request',
+    });
+    mocks.startMailboxConnection.mockReset();
+    mocks.disconnectMailbox.mockReset();
+    mocks.messageAudiencePreview.mockReset();
+    mocks.messageAudiencePreview.mockResolvedValue(audiencePreview());
     mocks.replyAdminInbox.mockReset();
     mocks.createRegistrationInviteLink.mockReset();
     mocks.recallMessage.mockReset();
     mocks.sendRegistrationEmail.mockReset();
+    mocks.sendOneWayEmail.mockReset();
     mocks.sendMessageBatch.mockReset();
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
@@ -255,7 +343,7 @@ describe('CommunicationsManager recall boundary', () => {
     expect(
       await screen.findByText('The announcement could not be deleted.'),
     ).toBeVisible();
-    expect(screen.getByText('Support request: safe-recall-request')).toBeVisible();
+    expect(screen.queryByText(/safe-recall-request/i)).not.toBeInTheDocument();
     expect(screen.queryByText('raw backend detail')).not.toBeInTheDocument();
     const firstCall = vi.mocked(backendClient.recallMessage).mock.calls[0];
 
@@ -289,7 +377,7 @@ describe('CommunicationsManager recall boundary', () => {
     await fireEvent.click(
       screen.getByRole('button', { name: 'New announcement' }),
     );
-    expect(screen.getByText('Only account holders in this organization can receive this announcement. Publishing sends a notification only to their registered devices.')).toBeVisible();
+    expect(screen.getByText('Only this organization’s account holders receive this announcement and notification.')).toBeVisible();
     await fireEvent.input(screen.getByLabelText('Message'), {
       target: { value: 'A valid announcement body.' },
     });
@@ -319,6 +407,378 @@ describe('CommunicationsManager recall boundary', () => {
       }),
     ]);
     expect(await screen.findByText('Announcement published and notification sent to 2 registered devices.')).toBeVisible();
+  });
+
+  it('shows the monthly allowance and sends a reviewed one-off or bulk email', async () => {
+    mocks.getDocs.mockResolvedValueOnce(emptySnapshot());
+    mocks.sendOneWayEmail.mockResolvedValueOnce({
+      success: true,
+      tenantId: 'tenant-a',
+      communicationId: 'communication-bulk-1',
+      audienceMode: 'direct',
+      recipientCount: 2,
+      sentCount: 2,
+      sentRecipients: ['family@example.com', 'second@example.com'],
+      failedCount: 0,
+      failures: [],
+      suppressedCount: 0,
+      requestId: 'bulk-email-request',
+    });
+    render(TestedCommunicationsManager);
+
+    expect(await screen.findByText(
+      '39,575 of 40,000 emails left this month',
+    )).toBeVisible();
+    expect(screen.getByText(/Email usage checked/)).toBeVisible();
+    expect(screen.queryByText(/Amazon SES|Resend|provider fallback/i)).not.toBeInTheDocument();
+    await fireEvent.click(screen.getByRole('button', { name: 'New email' }));
+    await fireEvent.input(screen.getByLabelText('Recipient emails'), {
+      target: {
+        value: 'Family@example.com\nfamily@example.com\nsecond@example.com',
+      },
+    });
+    await fireEvent.input(screen.getByLabelText('Subject'), {
+      target: { value: 'Practice update' },
+    });
+    await fireEvent.input(screen.getByLabelText('Message'), {
+      target: { value: 'Practice starts at six.' },
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Review email' }));
+
+    const review = await screen.findByRole('dialog', {
+      name: 'Review email send',
+    });
+    expect(within(review).getByText('39,575 of 40,000 left')).toBeVisible();
+    expect(within(review).getByText('39,573 left')).toBeVisible();
+    expect(registrationOutreachApi.sendOneWayEmail).not.toHaveBeenCalled();
+    await fireEvent.click(within(review).getByRole('button', {
+      name: 'Send 2 emails',
+    }));
+
+    await waitFor(() => {
+      expect(registrationOutreachApi.sendOneWayEmail).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.sendOneWayEmail).toHaveBeenCalledWith({
+      tenantId: 'tenant-a',
+      recipientEmails: ['family@example.com', 'second@example.com'],
+      subject: 'Practice update',
+      message: 'Practice starts at six.',
+      deliveryMode: 'huddleway',
+      idempotencyKey: expect.stringMatching(/^message-batch:/),
+    });
+    expect(await screen.findByText('2 emails sent.')).toBeVisible();
+    expect(screen.queryByText(/Amazon SES|Resend|backup/i)).not.toBeInTheDocument();
+    expect(mocks.emailQuota).toHaveBeenCalledTimes(3);
+  });
+
+  it('shows a provider-neutral error and retains failed addresses when delivery fails', async () => {
+    mocks.getDocs.mockResolvedValueOnce(emptySnapshot());
+    mocks.messageAudiencePreview.mockResolvedValueOnce(audiencePreview({
+      requestedCount: 1,
+      uniqueRecipientCount: 1,
+      retainedPendingActivationCount: 1,
+      emailEligibleCount: 1,
+      chunkSize: 1,
+      tenantEmailRemaining: 39575,
+    }));
+    mocks.sendOneWayEmail.mockResolvedValueOnce({
+      success: false,
+      tenantId: 'tenant-a',
+      communicationId: 'communication-failed-1',
+      audienceMode: 'direct',
+      recipientCount: 1,
+      sentCount: 0,
+      sentRecipients: [],
+      failedCount: 1,
+      failures: [{
+        email: 'family@example.com',
+        error: 'The email could not be delivered.',
+      }],
+      suppressedCount: 0,
+      requestId: 'failed-email-request',
+    });
+    render(TestedCommunicationsManager);
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'New email' }));
+    await fireEvent.input(screen.getByLabelText('Recipient emails'), {
+      target: { value: 'family@example.com' },
+    });
+    await fireEvent.input(screen.getByLabelText('Subject'), {
+      target: { value: 'Practice update' },
+    });
+    await fireEvent.input(screen.getByLabelText('Message'), {
+      target: { value: 'Practice starts at six.' },
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Review email' }));
+    await fireEvent.click(within(await screen.findByRole('dialog', {
+      name: 'Review email send',
+    })).getByRole('button', { name: 'Send 1 email' }));
+
+    expect(await screen.findByText(
+      '0 emails sent; 1 failed. Only failed addresses remain in the form.',
+    )).toBeVisible();
+    expect(screen.queryByText(/failed-email-request/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Recipient emails')).toHaveValue('family@example.com');
+    expect(screen.queryByText(/Amazon SES|Resend|backup|provider/i)).not.toBeInTheDocument();
+    const retryButton = screen.getByRole('button', { name: 'Review email again' });
+    expect(retryButton).toBeEnabled();
+    await fireEvent.click(retryButton);
+    expect(await screen.findByRole('dialog', { name: 'Review email send' })).toBeVisible();
+  });
+
+  it('offers a connected mailbox at review for 100 or fewer recipients', async () => {
+    mocks.getDocs.mockResolvedValueOnce(emptySnapshot());
+    mocks.messageAudiencePreview.mockResolvedValueOnce(audiencePreview({
+      requestedCount: 1,
+      uniqueRecipientCount: 1,
+      retainedPendingActivationCount: 1,
+      emailEligibleCount: 1,
+      chunkSize: 1,
+    }));
+    mocks.connectedMailbox.mockResolvedValueOnce({
+      success: true,
+      tenantId: 'tenant-a',
+      connected: true,
+      status: 'connected',
+      provider: 'google',
+      email: 'owner@gmail.com',
+      displayName: 'Owner',
+      connectedAt: null,
+      lastCheckedAt: null,
+      availableProviders: ['google', 'microsoft'],
+      requestId: 'mailbox-connected',
+    });
+    mocks.sendOneWayEmail.mockResolvedValueOnce({
+      success: true,
+      tenantId: 'tenant-a',
+      communicationId: 'communication-personal-1',
+      audienceMode: 'direct',
+      deliveryMode: 'connected_mailbox',
+      recipientCount: 1,
+      sentCount: 1,
+      sentRecipients: ['family@example.com'],
+      failedCount: 0,
+      failures: [],
+      suppressedCount: 0,
+      requestId: 'personal-send',
+    });
+    render(TestedCommunicationsManager);
+    await fireEvent.click(await screen.findByRole('button', { name: 'New email' }));
+    await fireEvent.input(screen.getByLabelText('Recipient emails'), { target: { value: 'family@example.com' } });
+    await fireEvent.input(screen.getByLabelText('Subject'), { target: { value: 'Practice' } });
+    await fireEvent.input(screen.getByLabelText('Message'), { target: { value: 'Starts at six.' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Review email' }));
+    const review = await screen.findByRole('dialog', { name: 'Review email send' });
+    await fireEvent.click(within(review).getByRole('radio', { name: /My email · owner@gmail.com/ }));
+    expect(within(review).getByText('Up to 100 recipients for this message.')).toBeVisible();
+    expect(within(review).getByText(/Personal sends do not use the HuddleWay allowance/)).toBeVisible();
+    expect(within(review).queryByText('39,575 of 40,000 left')).not.toBeInTheDocument();
+    await fireEvent.click(within(review).getByRole('button', { name: 'Send 1 email' }));
+    await waitFor(() => expect(mocks.sendOneWayEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ deliveryMode: 'connected_mailbox' }),
+    ));
+  });
+
+  it('shows the connected address and lets the current admin disconnect it', async () => {
+    mocks.getDocs.mockResolvedValueOnce(emptySnapshot());
+    mocks.connectedMailbox.mockResolvedValueOnce({
+      success: true,
+      tenantId: 'tenant-a',
+      connected: true,
+      status: 'connected',
+      provider: 'microsoft',
+      email: 'owner@outlook.com',
+      displayName: 'Owner',
+      connectedAt: null,
+      lastCheckedAt: null,
+      availableProviders: ['google', 'microsoft'],
+      requestId: 'mailbox-connected',
+    });
+    mocks.disconnectMailbox.mockResolvedValueOnce({
+      success: true,
+      tenantId: 'tenant-a',
+      connected: false,
+      status: 'not_connected',
+      provider: null,
+      email: null,
+      displayName: null,
+      connectedAt: null,
+      lastCheckedAt: null,
+      availableProviders: ['google', 'microsoft'],
+      requestId: 'mailbox-disconnected',
+    });
+    render(TestedCommunicationsManager);
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'Email connection' }));
+    expect(await screen.findByText('Connected: owner@outlook.com')).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }));
+    await waitFor(() => expect(mocks.disconnectMailbox).toHaveBeenCalledWith('tenant-a'));
+    expect(await screen.findByRole('button', { name: 'Connect Google or Gmail' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Connect Microsoft or Outlook' })).toBeEnabled();
+  });
+
+  it('shows HuddleWay as mandatory when the final audience exceeds 100', async () => {
+    mocks.getDocs.mockResolvedValueOnce(emptySnapshot());
+    const emails = Array.from({ length: 101 }, (_, index) => `family${index}@example.com`);
+    mocks.messageAudiencePreview.mockResolvedValueOnce(audiencePreview({
+      requestedCount: 101,
+      uniqueRecipientCount: 101,
+      retainedPendingActivationCount: 101,
+      emailEligibleCount: 101,
+      chunkSize: 101,
+    }));
+    render(TestedCommunicationsManager);
+    await fireEvent.click(await screen.findByRole('button', { name: 'New email' }));
+    await fireEvent.input(screen.getByLabelText('Recipient emails'), { target: { value: emails.join('\n') } });
+    await fireEvent.input(screen.getByLabelText('Subject'), { target: { value: 'Schedule' } });
+    await fireEvent.input(screen.getByLabelText('Message'), { target: { value: 'Season schedule.' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Review email' }));
+    const review = await screen.findByRole('dialog', { name: 'Review email send' });
+    expect(within(review).getByText('101 recipients · HuddleWay delivery')).toBeVisible();
+    expect(within(review).queryByRole('radio', { name: /My email/ })).not.toBeInTheDocument();
+  });
+
+  it('clearly explains why an invalid recipient blocks review', async () => {
+    mocks.getDocs.mockResolvedValueOnce(emptySnapshot());
+    render(TestedCommunicationsManager);
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'New email' }));
+    const recipients = screen.getByLabelText('Recipient emails');
+    await fireEvent.input(recipients, {
+      target: { value: 'family@example.com\nnot-an-email' },
+    });
+    await fireEvent.input(screen.getByLabelText('Subject'), {
+      target: { value: 'Practice update' },
+    });
+    await fireEvent.input(screen.getByLabelText('Message'), {
+      target: { value: 'Practice starts at six.' },
+    });
+
+    expect(recipients).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /1\/\d+ unique valid addresses · Remove 1 invalid entry to continue/,
+    );
+    expect(screen.getByRole('button', { name: 'Review email' })).toBeDisabled();
+  });
+
+  it('keeps email sending available when Wall announcements fail to load', async () => {
+    mocks.getDocs.mockRejectedValueOnce(new Error('missing index'));
+    render(TestedCommunicationsManager);
+
+    expect(await screen.findByText(
+      'Wall announcements could not be loaded. Check your connection and try again.',
+    )).toBeVisible();
+    expect(screen.getByRole('button', { name: 'New email' })).toBeEnabled();
+    expect(screen.getByLabelText('Email allowance')).toHaveTextContent(
+      '39,575 of 40,000 emails left this month',
+    );
+  });
+
+  it('hides the monthly count and shows a neutral temporary 100-recipient limit', async () => {
+    mocks.getDocs.mockResolvedValueOnce(emptySnapshot());
+    mocks.emailQuota.mockResolvedValueOnce(quotaSnapshot({
+      capacityMode: 'temporary_limited',
+      monthlyAllowanceVisible: false,
+      perSendLimit: 100,
+    }));
+    mocks.messageAudiencePreview.mockResolvedValueOnce(audiencePreview({
+      emailRecipientLimit: 100,
+      capacityMode: 'temporary_limited',
+      monthlyAllowanceVisible: false,
+    }));
+    render(TestedCommunicationsManager);
+
+    const allowance = await screen.findByLabelText('Email allowance');
+    expect(allowance).toHaveTextContent('Temporary sending limit');
+    expect(allowance).toHaveTextContent('Up to 100 recipients per email are available. Larger sends will return automatically.');
+    expect(allowance).not.toHaveTextContent('39,575');
+    expect(allowance).not.toHaveTextContent('40,000');
+    expect(allowance).toHaveTextContent('HuddleWay sender ready');
+    expect(allowance).not.toHaveTextContent('demo@huddleway.com');
+    expect(allowance).not.toHaveTextContent(/AWS|SES|Resend|fallback|backup/i);
+    await fireEvent.click(screen.getByRole('button', { name: 'Email connection' }));
+    expect(screen.getByRole('heading', { name: 'Connect your email' })).toBeVisible();
+    expect(screen.queryByText(/AWS|Resend|fallback|backup/i)).not.toBeInTheDocument();
+    await fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.getByRole('button', { name: 'New email' })).toBeEnabled();
+    await fireEvent.click(screen.getByRole('button', { name: 'New email' }));
+    await fireEvent.input(screen.getByLabelText('Recipient emails'), {
+      target: { value: 'family@example.com' },
+    });
+    await fireEvent.input(screen.getByLabelText('Subject'), {
+      target: { value: 'Temporary capacity' },
+    });
+    await fireEvent.input(screen.getByLabelText('Message'), {
+      target: { value: 'This remains available.' },
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Review email' }));
+    const review = await screen.findByRole('dialog', { name: 'Review email send' });
+    expect(review).toHaveTextContent('Up to 100 recipients per email are available right now.');
+    expect(review).not.toHaveTextContent('39,575');
+    expect(review).not.toHaveTextContent('40,000');
+  });
+
+  it('disables email actions with a neutral message when delivery is unavailable', async () => {
+    mocks.getDocs.mockResolvedValueOnce(emptySnapshot());
+    mocks.emailQuota.mockResolvedValueOnce(quotaSnapshot({
+      capacityMode: 'unavailable',
+      monthlyAllowanceVisible: false,
+      perSendLimit: 0,
+    }));
+    render(TestedCommunicationsManager);
+
+    const allowance = await screen.findByLabelText('Email allowance');
+    expect(allowance).toHaveTextContent('Email sending is temporarily unavailable');
+    expect(allowance).not.toHaveTextContent(/AWS|SES|Resend|fallback|backup/i);
+    expect(screen.getByRole('button', { name: 'New email' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Start registration email' })).toBeDisabled();
+  });
+
+  it('makes a tenant reputation pause clear and blocks every email composer', async () => {
+    mocks.getDocs.mockResolvedValueOnce(emptySnapshot());
+    mocks.emailQuota.mockResolvedValueOnce(quotaSnapshot({
+      emailSendingStatus: 'suspended',
+      emailSuspensionReason: 'complaint_rate_threshold',
+      bounceRate: 0.01,
+      complaintRate: 0.001,
+    }));
+    render(TestedCommunicationsManager);
+
+    expect(await screen.findByText('Email sending is paused for this organization')).toBeVisible();
+    expect(screen.getByText(/Email is paused after high bounce or complaint rates. Review is required./)).toBeVisible();
+    expect(screen.queryByText(/Amazon SES|Resend|provider fallback/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'New email' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Start registration email' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Email connection' })).toBeEnabled();
+  });
+
+  it('does not send when the audience preview reports the monthly limit', async () => {
+    mocks.getDocs.mockResolvedValueOnce(emptySnapshot());
+    mocks.messageAudiencePreview.mockRejectedValueOnce(new BackendApiError({
+      message: 'This send has 2 eligible email recipients, but only 1 remains available right now.',
+      status: 429,
+      code: 'email_quota_preview_exceeded',
+      requestId: 'quota-preview-block',
+    }));
+    render(TestedCommunicationsManager);
+    await screen.findByText('No Wall announcements have been published.');
+    await fireEvent.click(screen.getByRole('button', { name: 'New email' }));
+    await fireEvent.input(screen.getByLabelText('Recipient emails'), {
+      target: { value: 'one@example.com\ntwo@example.com' },
+    });
+    await fireEvent.input(screen.getByLabelText('Subject'), {
+      target: { value: 'Limit check' },
+    });
+    await fireEvent.input(screen.getByLabelText('Message'), {
+      target: { value: 'This send should be reviewed first.' },
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Review email' }));
+
+    expect(await screen.findByText(
+      'This send has 2 eligible email recipients, but only 1 remains available right now.',
+    )).toBeVisible();
+    expect(screen.queryByText(/quota-preview-block/i)).not.toBeInTheDocument();
+    expect(registrationOutreachApi.sendOneWayEmail).not.toHaveBeenCalled();
   });
 
   it('emails a temporary event registration page to deduped recipients', async () => {
@@ -358,7 +818,7 @@ describe('CommunicationsManager recall boundary', () => {
     await fireEvent.click(
       screen.getByRole('button', { name: 'Start registration email' }),
     );
-    expect(screen.getByText(/without marking them registered/)).toBeVisible();
+    expect(screen.getByText(/temporary registration link using the same form and payment rules as the app/)).toBeVisible();
     await fireEvent.change(screen.getByLabelText('Event'), {
       target: { value: 'event-1' },
     });
@@ -371,10 +831,17 @@ describe('CommunicationsManager recall boundary', () => {
       target: { value: 'Registration is open.' },
     });
     const sendButton = screen.getByRole('button', {
-      name: 'Create link and send email',
+      name: 'Review registration email',
     });
     expect(sendButton).toBeEnabled();
     await fireEvent.click(sendButton);
+    const review = await screen.findByRole('dialog', {
+      name: 'Review email send',
+    });
+    expect(registrationOutreachApi.createInvite).not.toHaveBeenCalled();
+    await fireEvent.click(within(review).getByRole('button', {
+      name: 'Send 2 emails',
+    }));
 
     await waitFor(() => {
       expect(registrationOutreachApi.createInvite).toHaveBeenCalledTimes(1);
@@ -401,6 +868,13 @@ describe('CommunicationsManager recall boundary', () => {
 
   it('creates a season invitation without trusting a client-selected event', async () => {
     mocks.getDocs.mockResolvedValueOnce(emptySnapshot());
+    mocks.messageAudiencePreview.mockResolvedValueOnce(audiencePreview({
+      requestedCount: 1,
+      uniqueRecipientCount: 1,
+      retainedPendingActivationCount: 1,
+      emailEligibleCount: 1,
+      chunkSize: 1,
+    }));
     mocks.createRegistrationInviteLink.mockResolvedValueOnce({
       linkId: 'registration-link-season',
       tenantId: 'tenant-a',
@@ -448,7 +922,13 @@ describe('CommunicationsManager recall boundary', () => {
       target: { value: 'Season registration is open.' },
     });
     await fireEvent.click(screen.getByRole('button', {
-      name: 'Create link and send email',
+      name: 'Review registration email',
+    }));
+    const review = await screen.findByRole('dialog', {
+      name: 'Review email send',
+    });
+    await fireEvent.click(within(review).getByRole('button', {
+      name: 'Send 1 email',
     }));
 
     await waitFor(() => {

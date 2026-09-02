@@ -130,7 +130,7 @@ describe('StaffManager audited lifecycle controls', () => {
         'Staff access could not be changed.',
       ),
     ).toBeVisible();
-    expect(manageDialog).toHaveTextContent('Support request: staff-support-3');
+    expect(manageDialog).not.toHaveTextContent('staff-support-3');
     expect(manageDialog).not.toHaveTextContent('raw membership failure');
     await fireEvent.click(
       within(manageDialog).getByRole('button', { name: 'Retry change' }),
@@ -182,7 +182,7 @@ describe('StaffManager audited lifecycle controls', () => {
     expect(alert).toHaveTextContent(
       'Only organization owners can view and manage staff access.',
     );
-    expect(alert).toHaveTextContent('Support request: staff-directory-4');
+    expect(alert).not.toHaveTextContent('staff-directory-4');
     expect(alert).not.toHaveTextContent('raw policy detail');
 
     await fireEvent.click(

@@ -22,7 +22,6 @@
   let playerSubscriptionGeneration = 0;
   let playersLoading = true;
   let playersError = '';
-  let playersRequestId = '';
   let playersTruncated = {
     registrations: false,
     memberships: false,
@@ -52,7 +51,6 @@
     const tenantId = $tenantIdStore;
     rawData = [];
     playersError = '';
-    playersRequestId = '';
     playersTruncated = {
       registrations: false,
       memberships: false,
@@ -74,7 +72,6 @@
         ) return;
         rawData = Array.isArray(players) ? players : [];
         playersTruncated = scope.truncated;
-        playersRequestId = scope.requestId;
         playersLoading = false;
       },
       (error) => {
@@ -82,9 +79,6 @@
           generation !== playerSubscriptionGeneration
           || $tenantIdStore !== tenantId
         ) return;
-        playersRequestId = String(
-          (error as { requestId?: unknown })?.requestId || '',
-        ).trim();
         playersError = 'Roster players could not be loaded. Check your connection and try again.';
         playersLoading = false;
       },
@@ -173,7 +167,6 @@
       loading={playersLoading}
       error={playersError}
       truncated={Object.values(playersTruncated).some(Boolean)}
-      requestId={playersRequestId}
       {setActiveTeam}
       {activeResultId}
       {onTargetConsumed}

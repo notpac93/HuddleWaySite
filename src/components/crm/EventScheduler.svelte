@@ -776,15 +776,25 @@ import {
 />
 
 <div class="p-6 md:p-8 space-y-6">
-  <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-    <div>
-      <h2 class="crm-ui-page-title">Events</h2>
-      <p class="mt-1 text-sm text-gray-500">Create drafts and manage authoritative event records.</p>
-    </div>
-    <div class="flex flex-wrap gap-3">
-      <label class="crm-ui-button-secondary cursor-pointer">Import events CSV<input class="sr-only" type="file" accept=".csv,text/csv" disabled={csvImporting} on:change={importEventsCsv} /></label>
-      <button type="button" disabled={inlineSaveState === 'loading'} class="crm-ui-event-top-primary" on:click={() => isCreateFormOpen = true}>New event</button>
-    </div>
+  <div>
+    <h2 class="crm-ui-page-title">Events</h2>
+    <p class="mt-1 text-sm text-gray-500">Create drafts and manage authoritative event records.</p>
+  </div>
+
+  <div class="grid gap-4 md:grid-cols-2">
+    <section class="crm-theme-border flex flex-col rounded-xl border bg-white p-5 shadow-sm" aria-labelledby="event-creation-heading">
+      <p class="crm-theme-link text-xs font-semibold uppercase tracking-wide">Planning</p>
+      <h3 id="event-creation-heading" class="mt-1 text-lg font-semibold text-gray-900">Create an event</h3>
+      <p class="mt-1 flex-1 text-sm text-gray-600">Add one event or build a recurring schedule with dates, teams, and registration settings.</p>
+      <button type="button" disabled={inlineSaveState === 'loading'} class="crm-ui-event-top-primary mt-4 w-full" on:click={() => isCreateFormOpen = true}>New event</button>
+    </section>
+
+    <section class="flex flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm" aria-labelledby="event-import-heading">
+      <p class="crm-theme-link text-xs font-semibold uppercase tracking-wide">Bulk setup</p>
+      <h3 id="event-import-heading" class="mt-1 text-lg font-semibold text-gray-900">Import event records</h3>
+      <p class="mt-1 flex-1 text-sm text-gray-600">Upload a CSV when you already have several events prepared outside HuddleWay.</p>
+      <label class="crm-ui-button-secondary mt-4 w-full cursor-pointer text-center">Import events CSV<input class="sr-only" type="file" accept=".csv,text/csv" disabled={csvImporting} on:change={importEventsCsv} /></label>
+    </section>
   </div>
 
   {#if csvImportMessage}<p class="crm-ui-notice-card" role="status">{csvImportMessage}</p>{/if}
@@ -1010,7 +1020,6 @@ import {
               {#if shareableLinkErrors[event.id]?.message}
                 <div class="mt-3 crm-ui-danger" role="alert">
                   <p>{shareableLinkErrors[event.id].message}</p>
-                  {#if shareableLinkErrors[event.id].requestId}<p class="mt-1 text-xs">Support request: {shareableLinkErrors[event.id].requestId}</p>{/if}
                 </div>
               {/if}
               {#if shareableLinkCopyMessage && shareableRegistrationLinks[event.id]}
@@ -1162,7 +1171,6 @@ import {
             {#if inlineError}
               <div class="crm-ui-danger" role="alert">
                 <p>{inlineError}</p>
-                {#if inlineRequestId}<p class="mt-1 text-xs">Support request: {inlineRequestId}</p>{/if}
               </div>
             {/if}
 

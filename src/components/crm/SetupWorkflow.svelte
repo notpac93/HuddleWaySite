@@ -304,7 +304,6 @@
           {#if setupError}
             <div class="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-left text-sm text-red-700" role="alert">
               {setupError}
-              {#if setupRequestId}<span class="mt-1 block text-xs">Support request: {setupRequestId}</span>{/if}
             </div>
           {/if}
           {#if setupComplete}

@@ -10,7 +10,12 @@
   import { db } from '../../lib/firebase';
   import { tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
-  import { registrationOutreachApi } from '../../lib/api/RegistrationOutreachApi';
+  import {
+    registrationOutreachApi,
+    type EmailQuotaSnapshot,
+    type ConnectedMailboxSnapshot,
+    type MessageAudiencePreview,
+  } from '../../lib/api/RegistrationOutreachApi';
   import { eventsStore, seasonsStore } from '../../lib/services/DataStore';
   import {
     BackendApiError,
@@ -25,6 +30,7 @@
     eventId: string;
     eventTitle: string;
   } | null = null;
+  export let mailboxConnectionResult: string | null = null;
 
   type WallMessage = {
     id: string;
@@ -41,11 +47,15 @@
   };
 
   type AttachmentScope = 'all' | 'event' | 'season';
-  type ComposerKind = 'announcement' | 'registration_email';
+  type ComposerKind = 'announcement' | 'email' | 'registration_email';
+  type EmailReview = {
+    kind: Extract<ComposerKind, 'email' | 'registration_email'>;
+    preview: MessageAudiencePreview;
+  };
 
   const SUBJECT_MAX_LENGTH = 200;
   const BODY_MAX_LENGTH = 4_000;
-  const REGISTRATION_RECIPIENT_LIMIT = 400;
+  const DEFAULT_EMAIL_RECIPIENT_LIMIT = 400;
 
   let messages: WallMessage[] = [];
   let isAdding = false;
@@ -75,6 +85,15 @@
   let tenantGeneration = 0;
   let recallTarget: WallMessage | null = null;
   let consumedRegistrationDraftToken = '';
+  let emailQuota: EmailQuotaSnapshot | null = null;
+  let emailQuotaLoading = false;
+  let emailQuotaError = '';
+  let emailReview: EmailReview | null = null;
+  let senderSettingsOpen = false;
+  let connectedMailbox: ConnectedMailboxSnapshot | null = null;
+  let connectedMailboxLoading = false;
+  let connectedMailboxError = '';
+  let selectedDeliveryMode: 'huddleway' | 'connected_mailbox' = 'huddleway';
 
   $: normalizedSearch = searchQuery.trim().toLocaleLowerCase();
   $: eventOptions = $eventsStore
@@ -104,26 +123,36 @@
         ].some((value) => value?.toLocaleLowerCase().includes(normalizedSearch)))
     : messages;
   $: registrationRecipientResult = parseRecipientEmails(registrationRecipientInput);
+  $: emailRecipientLimit = emailQuota?.perSendLimit ?? DEFAULT_EMAIL_RECIPIENT_LIMIT;
   $: registrationTargetId = attachmentScope === 'season'
     ? selectedSeasonId
     : selectedEventId;
-  $: postIsValid =
-    composerKind === 'announcement'
-      ? teamId === 'program'
+  $: postIsValid = composerKind === 'announcement'
+    ? teamId === 'program'
         && body.trim().length > 0
         && body.trim().length <= BODY_MAX_LENGTH
         && subject.trim().length <= SUBJECT_MAX_LENGTH
         && (attachmentScope === 'all'
           || (attachmentScope === 'event' && Boolean(selectedEventId))
           || (attachmentScope === 'season' && Boolean(selectedSeasonId)))
-      : body.trim().length > 0
+    : composerKind === 'email'
+      ? emailQuota?.emailSendingStatus !== 'suspended'
+        && subject.trim().length > 0
+        && subject.trim().length <= SUBJECT_MAX_LENGTH
+        && body.trim().length > 0
+        && body.trim().length <= BODY_MAX_LENGTH
+        && registrationRecipientResult.invalidCount === 0
+        && registrationRecipientResult.emails.length > 0
+        && registrationRecipientResult.emails.length <= emailRecipientLimit
+      : emailQuota?.emailSendingStatus !== 'suspended'
+        && body.trim().length > 0
         && body.trim().length <= BODY_MAX_LENGTH
         && subject.trim().length <= SUBJECT_MAX_LENGTH
         && ['event', 'season'].includes(attachmentScope)
         && Boolean(registrationTargetId)
         && registrationRecipientResult.invalidCount === 0
         && registrationRecipientResult.emails.length > 0
-        && registrationRecipientResult.emails.length <= REGISTRATION_RECIPIENT_LIMIT;
+        && registrationRecipientResult.emails.length <= emailRecipientLimit;
   $: canPublish = postIsValid;
   $: if (
     registrationEmailDraft
@@ -169,8 +198,18 @@
       operationMessage = '';
       operationRequestId = '';
       recallTarget = null;
+      emailQuota = null;
+      emailQuotaError = '';
+      emailReview = null;
+      senderSettingsOpen = false;
+      connectedMailbox = null;
+      connectedMailboxError = '';
+      selectedDeliveryMode = 'huddleway';
+      if (mailboxConnectionResult) senderSettingsOpen = true;
       if (tenantId) {
         void fetchMessages(tenantId);
+        void fetchEmailQuota(tenantId);
+        void fetchConnectedMailbox(tenantId);
       } else {
         isLoading = false;
         loadError = '';
@@ -194,6 +233,51 @@
     selectedEventId = '';
     selectedSeasonId = '';
     submitState = 'idle';
+    emailReview = null;
+    selectedDeliveryMode = 'huddleway';
+  }
+
+  async function fetchConnectedMailbox(tenantId: string) {
+    connectedMailboxLoading = true;
+    connectedMailboxError = '';
+    try {
+      const snapshot = await registrationOutreachApi.connectedMailbox(tenantId);
+      if (tenantId !== activeTenantId) return;
+      connectedMailbox = snapshot;
+    } catch {
+      if (tenantId === activeTenantId) {
+        connectedMailboxError = 'Email connection could not be loaded.';
+      }
+    } finally {
+      if (tenantId === activeTenantId) connectedMailboxLoading = false;
+    }
+  }
+
+  async function connectMailbox(provider: 'google' | 'microsoft') {
+    if (!activeTenantId || connectedMailboxLoading) return;
+    connectedMailboxLoading = true;
+    connectedMailboxError = '';
+    try {
+      const result = await registrationOutreachApi.startMailboxConnection(activeTenantId, provider);
+      window.location.assign(result.authorizationUrl);
+    } catch {
+      connectedMailboxError = 'Email connection is not available yet.';
+      connectedMailboxLoading = false;
+    }
+  }
+
+  async function disconnectMailbox() {
+    if (!activeTenantId || connectedMailboxLoading) return;
+    connectedMailboxLoading = true;
+    connectedMailboxError = '';
+    try {
+      connectedMailbox = await registrationOutreachApi.disconnectMailbox(activeTenantId);
+      selectedDeliveryMode = 'huddleway';
+    } catch {
+      connectedMailboxError = 'The email account could not be disconnected.';
+    } finally {
+      connectedMailboxLoading = false;
+    }
   }
 
   function openComposer(kind: ComposerKind) {
@@ -201,6 +285,133 @@
     composerKind = kind;
     attachmentScope = kind === 'registration_email' ? 'event' : 'all';
     isAdding = true;
+  }
+
+  async function fetchEmailQuota(tenantId: string, silent = false) {
+    if (!silent) emailQuotaLoading = true;
+    emailQuotaError = '';
+    try {
+      const quota = await registrationOutreachApi.emailQuota(tenantId);
+      if (tenantId !== activeTenantId) return null;
+      emailQuota = quota;
+      return quota;
+    } catch (error) {
+      if (tenantId !== activeTenantId) return null;
+      emailQuotaError = error instanceof BackendApiError
+        ? 'Email allowance is temporarily unavailable.'
+        : 'Email allowance could not be loaded. Check your connection and try again.';
+      return null;
+    } finally {
+      if (!silent && tenantId === activeTenantId) emailQuotaLoading = false;
+    }
+  }
+
+  function openSenderSettings() {
+    senderSettingsOpen = true;
+  }
+
+  function closeEmailReview() {
+    if (submitState === 'loading') return;
+    emailReview = null;
+  }
+
+  async function handleEmailReview() {
+    if (submitState === 'loading' || !canPublish) return;
+    const tenantId = $tenantIdStore;
+    const generation = tenantGeneration;
+    if (!tenantId) {
+      submitState = 'error';
+      operationMessage = 'Select an organization before sending.';
+      return;
+    }
+    submitState = 'loading';
+    operationMessage = 'Checking recipients and allowance…';
+    operationRequestId = '';
+    try {
+      const [, preview] = await Promise.all([
+        fetchEmailQuota(tenantId, true),
+        registrationOutreachApi.messageAudiencePreview({
+          tenantId,
+          emails: registrationRecipientResult.emails,
+          eventId: composerKind === 'registration_email' && attachmentScope === 'event'
+            ? selectedEventId
+            : undefined,
+        }),
+      ]);
+      if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
+      submitState = 'idle';
+      operationMessage = '';
+      emailReview = {
+        kind: composerKind === 'registration_email' ? 'registration_email' : 'email',
+        preview,
+      };
+      selectedDeliveryMode = 'huddleway';
+    } catch (error) {
+      if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
+      submitState = 'error';
+      operationMessage = error instanceof BackendApiError
+        ? error.message
+        : 'Recipients and email allowance could not be checked. Try again.';
+      operationRequestId = requestIdFrom(error);
+    }
+  }
+
+  async function handleOneWayEmail() {
+    if (submitState === 'loading' || emailReview?.kind !== 'email') return;
+    const tenantId = $tenantIdStore;
+    const generation = tenantGeneration;
+    if (!tenantId) return;
+    submitState = 'loading';
+    operationMessage = 'Sending email…';
+    operationRequestId = '';
+    try {
+      const delivery = await registrationOutreachApi.sendOneWayEmail({
+        tenantId,
+        recipientEmails: registrationRecipientResult.emails,
+        subject: subject.trim(),
+        message: body.trim(),
+        idempotencyKey: postIdempotencyKey,
+        deliveryMode: selectedDeliveryMode,
+      });
+      if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
+      await fetchEmailQuota(tenantId, true);
+      if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
+      emailReview = null;
+      submitState = delivery.failedCount > 0 ? 'error' : 'success';
+      const suppressedCopy = delivery.suppressedCount > 0
+        ? ` ${delivery.suppressedCount} opted-out recipient${delivery.suppressedCount === 1 ? ' was' : 's were'} skipped.`
+        : '';
+      operationMessage = delivery.failedCount > 0
+        ? `${delivery.sentCount} email${delivery.sentCount === 1 ? '' : 's'} sent; ${delivery.failedCount} failed.${suppressedCopy} Only failed addresses remain in the form.`
+        : `${delivery.sentCount} email${delivery.sentCount === 1 ? '' : 's'} sent.${suppressedCopy}`;
+      operationRequestId = delivery.failedCount > 0 ? delivery.requestId : '';
+      if (delivery.failedCount > 0) {
+        registrationRecipientInput = delivery.failures
+          .map((failure) => failure.email)
+          .filter(Boolean)
+          .join('\n');
+      } else {
+        isAdding = false;
+        resetComposer();
+      }
+    } catch (error) {
+      if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
+      emailReview = null;
+      submitState = 'error';
+      operationMessage = error instanceof BackendApiError
+        ? error.message
+        : 'The email could not be sent. Check your connection and try again.';
+      operationRequestId = requestIdFrom(error);
+      await fetchEmailQuota(tenantId, true);
+    }
+  }
+
+  function confirmEmailSend() {
+    if (emailReview?.kind === 'registration_email') {
+      void handleRegistrationEmail();
+    } else if (emailReview?.kind === 'email') {
+      void handleOneWayEmail();
+    }
   }
 
   function parseRecipientEmails(value: string) {
@@ -401,7 +612,11 @@
   }
 
   async function handleRegistrationEmail() {
-    if (submitState === 'loading' || !canPublish) return;
+    if (
+      submitState === 'loading'
+      || !canPublish
+      || emailReview?.kind !== 'registration_email'
+    ) return;
     const tenantId = $tenantIdStore;
     const generation = tenantGeneration;
     if (!tenantId) {
@@ -450,9 +665,13 @@
         currency: invite.currency,
         eventId: selectedEventId,
         idempotencyKey: `${postIdempotencyKey}:email`,
+        deliveryMode: selectedDeliveryMode,
       });
       if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
 
+      await fetchEmailQuota(tenantId, true);
+      if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
+      emailReview = null;
       submitState = delivery.failedCount > 0 ? 'error' : 'success';
       const expiration = new Date(invite.expiresAt).toLocaleString();
       const suppressedCopy = delivery.suppressedCount > 0
@@ -473,11 +692,13 @@
       }
     } catch (error) {
       if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
+      emailReview = null;
       submitState = 'error';
       operationMessage = error instanceof BackendApiError
         ? error.message
         : 'The registration email could not be sent. Check your connection and try again.';
       operationRequestId = requestIdFrom(error);
+      await fetchEmailQuota(tenantId, true);
     }
   }
 
@@ -532,6 +753,119 @@
   }
 </script>
 
+{#if emailReview}
+  <div class="crm-ui-modal-root" role="dialog" aria-modal="true" aria-labelledby="email-review-title">
+    <div class="flex min-h-full items-center justify-center p-4">
+      <button
+        type="button"
+        class="fixed inset-0 z-0 h-full w-full bg-slate-950/70"
+        aria-label="Close email review"
+        tabindex="-1"
+        disabled={submitState === 'loading'}
+        on:click={closeEmailReview}
+      ></button>
+      <div
+        class="crm-ui-message-modal-lg"
+        tabindex="-1"
+        use:modalFocus={{ onEscape: closeEmailReview, initialFocusSelector: '[data-email-review-cancel]' }}
+      >
+        <h3 id="email-review-title" class="text-lg font-semibold text-gray-900">Review email send</h3>
+        <p class="mt-2 text-sm text-gray-600">
+          This will send to {emailReview.preview.emailEligibleCount.toLocaleString()} eligible
+          {emailReview.preview.emailEligibleCount === 1 ? ' recipient' : ' recipients'}.
+        </p>
+        <fieldset class="mt-4 rounded-lg border border-gray-200 p-4">
+          <legend class="px-1 text-sm font-semibold text-gray-900">Send from</legend>
+          {#if emailReview.preview.emailEligibleCount > 100}
+            <div class="crm-theme-surface rounded-md p-3 text-sm">
+              <p class="font-medium">{emailReview.preview.emailEligibleCount.toLocaleString()} recipients · HuddleWay delivery</p>
+              <p class="mt-1 text-xs">Over 100 recipients use HuddleWay automatically. Replies go to your account email.</p>
+            </div>
+          {:else}
+            <label class="crm-ui-message-radio cursor-pointer">
+              <input type="radio" bind:group={selectedDeliveryMode} value="huddleway" class="mt-1" />
+              <span><span class="block text-sm font-medium text-gray-900">Organization via HuddleWay</span><span class="block text-xs text-gray-600">Reliable default.</span></span>
+            </label>
+            <label class="crm-ui-message-radio mt-2 {connectedMailbox?.connected ? 'cursor-pointer' : 'crm-ui-message-radio-disabled'}">
+              <input type="radio" bind:group={selectedDeliveryMode} value="connected_mailbox" disabled={!connectedMailbox?.connected} class="mt-1" />
+              <span>
+                <span class="block text-sm font-medium text-gray-900">{connectedMailbox?.connected ? `My email · ${connectedMailbox.email}` : 'My connected email'}</span>
+                <span class="block text-xs text-gray-600">{connectedMailbox?.connected ? 'Customers see your connected address.' : 'Connect Google or Microsoft first.'}</span>
+              </span>
+            </label>
+          {/if}
+        </fieldset>
+        <dl class="crm-ui-message-summary">
+          <div>
+            <dt class="crm-ui-message-term">Unique addresses</dt>
+            <dd class="mt-1 font-semibold text-gray-900">{emailReview.preview.uniqueRecipientCount.toLocaleString()}</dd>
+          </div>
+          <div>
+            <dt class="crm-ui-message-term">Opted out</dt>
+            <dd class="mt-1 font-semibold text-gray-900">{emailReview.preview.emailSuppressedCount.toLocaleString()}</dd>
+          </div>
+          {#if selectedDeliveryMode === 'connected_mailbox'}
+            <div class="sm:col-span-2">
+              <dt class="crm-ui-message-term">Personal email limit</dt>
+              <dd class="mt-1 font-semibold text-gray-900">Up to 100 recipients for this message.</dd>
+            </div>
+          {:else if emailReview.preview.monthlyAllowanceVisible}
+            <div>
+              <dt class="crm-ui-message-term">Monthly allowance before send</dt>
+              <dd class="mt-1 font-semibold text-gray-900">
+                {emailReview.preview.tenantEmailRemaining.toLocaleString()} of {emailReview.preview.tenantEmailMonthlyLimit.toLocaleString()} left
+              </dd>
+            </div>
+            <div>
+              <dt class="crm-ui-message-term">After this send</dt>
+              <dd class="mt-1 font-semibold text-gray-900">
+                {Math.max(0, emailReview.preview.tenantEmailRemaining - emailReview.preview.emailEligibleCount).toLocaleString()} left
+              </dd>
+            </div>
+          {:else}
+            <div class="sm:col-span-2">
+              <dt class="crm-ui-message-term">Temporary sending limit</dt>
+              <dd class="mt-1 font-semibold text-gray-900">Up to 100 recipients per email are available right now.</dd>
+            </div>
+          {/if}
+        </dl>
+        {#if selectedDeliveryMode === 'connected_mailbox'}
+          <p class="mt-3 text-xs text-gray-500">Your provider may apply its own limits. Personal sends do not use the HuddleWay allowance.</p>
+        {:else if emailReview.preview.monthlyAllowanceVisible}
+          <p class="mt-3 text-xs text-gray-500">
+            The allowance resets {new Date(emailReview.preview.tenantEmailResetsAt).toLocaleDateString()}.
+            The allowance resets monthly per organization. Accepted sends count toward the {emailReview.preview.tenantEmailMonthlyLimit.toLocaleString()}-email limit.
+          </p>
+        {:else}
+          <p class="mt-3 text-xs text-gray-500">Larger sends will return automatically when normal sending capacity is available.</p>
+        {/if}
+        {#if emailReview.preview.emailEligibleCount === 0}
+          <p class="mt-3 text-sm text-amber-800" role="alert">No eligible recipients remain after preferences are applied.</p>
+        {/if}
+        <div class="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            data-email-review-cancel
+            disabled={submitState === 'loading'}
+            class="crm-ui-button-secondary"
+            on:click={closeEmailReview}
+          >Cancel</button>
+          <button
+            type="button"
+            disabled={submitState === 'loading' || emailReview.preview.emailEligibleCount === 0}
+            class="crm-ui-button-primary"
+            on:click={confirmEmailSend}
+          >
+            {submitState === 'loading'
+              ? 'Sending…'
+              : `Send ${emailReview.preview.emailEligibleCount.toLocaleString()} email${emailReview.preview.emailEligibleCount === 1 ? '' : 's'}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
 {#if recallTarget}
   <div class="crm-ui-modal-root" role="dialog" aria-modal="true" aria-labelledby="recall-announcement-title">
     <div class="flex min-h-full items-center justify-center p-4">
@@ -544,7 +878,7 @@
         on:click={closeRecallDialog}
       ></button>
       <div
-        class="relative z-10 w-full max-w-md rounded-xl bg-white p-6 shadow-xl"
+        class="crm-ui-message-modal-md"
         tabindex="-1"
         use:modalFocus={{ onEscape: closeRecallDialog, initialFocusSelector: '[data-recall-cancel]' }}
       >
@@ -557,7 +891,7 @@
             type="button"
             data-recall-cancel
             disabled={Boolean(recallingMessageId)}
-            class="rounded-md border border-gray-300 px-4 py-2 text-sm disabled:opacity-50"
+            class="crm-ui-button-secondary"
             on:click={closeRecallDialog}
           >Cancel</button>
           <button
@@ -572,57 +906,190 @@
   </div>
 {/if}
 
-<div class="flex h-full flex-col space-y-6 overflow-y-auto p-4 sm:p-6">
-  <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-    <div>
-      <h2 class="text-xl font-bold text-gray-900">Messages & registration outreach</h2>
-      <p class="text-sm text-gray-500">Publish app announcements or email a temporary registration page to families who do not have the app.</p>
+<div class="crm-ui-message-root">
+  <div class="max-w-3xl">
+    <h2 class="text-xl font-bold text-gray-900">Messages & email</h2>
+    <p class="mt-1 text-sm text-gray-500">Choose the type of outreach you want to send. Each tool below serves a different audience and purpose.</p>
+  </div>
+
+  <section class="crm-ui-message-direct" aria-labelledby="direct-email-heading">
+    <div class="crm-ui-message-split">
+      <div class="max-w-2xl">
+        <p class="crm-ui-message-eyebrow">Customer outreach</p>
+        <h3 id="direct-email-heading" class="mt-1 text-lg font-semibold text-gray-900">Direct email</h3>
+        <p class="mt-1 text-sm text-gray-600">Send one email or a group message. Use your connected email for up to 100 recipients.</p>
+      </div>
+      <div class="flex shrink-0 flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={emailQuota?.emailSendingStatus === 'suspended' || emailQuota?.capacityMode === 'unavailable'}
+          class="crm-ui-message-primary"
+          on:click={() => openComposer('email')}
+        >
+          New email
+        </button>
+        <button
+          type="button"
+          class="crm-ui-message-secondary-blue"
+          on:click={openSenderSettings}
+        >
+          Email connection
+        </button>
+      </div>
     </div>
-    <div class="flex flex-wrap gap-2">
+    <div class="mt-4">
+      {#if emailQuota}
+        <div class="crm-ui-message-allowance {emailQuota.emailSendingStatus === 'suspended' ? 'crm-ui-message-allowance-paused' : emailQuota.capacityMode === 'normal' ? 'crm-ui-message-allowance-normal' : 'crm-ui-message-allowance-limited'}" role="status" aria-label="Email allowance">
+          {#if emailQuota.emailSendingStatus === 'suspended'}
+            <div class="mb-3 border-b border-red-200 pb-3">
+              <p class="text-sm font-semibold text-red-900">Email sending is paused for this organization</p>
+              <p class="mt-1 text-xs text-red-800">Email is paused after high bounce or complaint rates. Review is required.</p>
+            </div>
+          {/if}
+          <div class="crm-ui-message-allowance-heading">
+            {#if emailQuota.capacityMode === 'temporary_limited'}
+              <div>
+                <p class="text-sm font-semibold text-gray-800">Temporary sending limit</p>
+                <p class="mt-1 text-xs text-gray-600">Up to 100 recipients per email are available. Larger sends will return automatically.</p>
+              </div>
+            {:else if emailQuota.capacityMode === 'unavailable'}
+              <p class="text-sm font-semibold text-gray-700">Email sending is temporarily unavailable</p>
+            {:else}
+              <p class="text-sm font-semibold {emailQuota.emailSendingStatus === 'suspended' ? 'crm-ui-message-title-paused' : 'crm-ui-message-title-ready'}">
+                {emailQuota.remainingCount.toLocaleString()} of {emailQuota.monthlyLimit.toLocaleString()} emails left this month
+              </p>
+              <p class="crm-theme-link shrink-0 text-xs font-medium">Resets {new Date(emailQuota.resetsAt).toLocaleDateString()}</p>
+            {/if}
+          </div>
+          <div class="crm-ui-message-allowance-meta {emailQuota.capacityMode === 'normal' ? 'crm-ui-message-meta-normal' : 'crm-ui-message-meta-limited'}">
+            <p>
+              {emailQuota.providerReconciliationStatus === 'verified'
+                ? `Email usage checked${emailQuota.providerReconciledAt ? ` ${new Date(emailQuota.providerReconciledAt).toLocaleString()}` : ''}`
+                : emailQuota.providerReconciliationStatus === 'unavailable'
+                  ? 'Protected counter active · usage check will retry'
+                  : 'Protected tenant counter active'}
+            </p>
+            <p class="sm:text-right">
+              {connectedMailbox?.connected && connectedMailbox.email
+                ? `Personal sender available up to 100 · ${connectedMailbox.email}`
+                : 'HuddleWay sender ready · connect a personal email for smaller groups'}
+            </p>
+          </div>
+        </div>
+      {:else if emailQuotaLoading}
+        <p class="text-xs text-gray-500" role="status">Loading email allowance…</p>
+      {:else if emailQuotaError}
+        <button
+          type="button"
+          class="crm-ui-notice-sm"
+          on:click={() => activeTenantId && fetchEmailQuota(activeTenantId)}
+        >Email allowance unavailable · Retry</button>
+      {/if}
+    </div>
+  </section>
+
+  <div class="grid gap-4 md:grid-cols-2">
+    <section class="crm-ui-message-card" aria-labelledby="app-announcement-heading">
+      <p class="crm-ui-message-eyebrow">In-app communication</p>
+      <h3 id="app-announcement-heading" class="mt-1 text-lg font-semibold text-gray-900">App announcement</h3>
+      <p class="mt-1 flex-1 text-sm text-gray-600">Publish an update for registered account holders and notify their active devices.</p>
       <button
         type="button"
-        class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        class="crm-ui-message-secondary-blue mt-4 w-full"
         on:click={() => openComposer('announcement')}
       >
         New announcement
       </button>
+    </section>
+
+    <section class="crm-ui-message-card" aria-labelledby="registration-outreach-heading">
+      <p class="crm-ui-message-eyebrow">Enrollment</p>
+      <h3 id="registration-outreach-heading" class="mt-1 text-lg font-semibold text-gray-900">Registration outreach</h3>
+      <p class="mt-1 flex-1 text-sm text-gray-600">Create a temporary registration link and email it to prospective participants.</p>
       <button
         type="button"
-        class="rounded-md bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-medium text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)]"
+      disabled={emailQuota?.emailSendingStatus === 'suspended' || emailQuota?.capacityMode === 'unavailable'}
+        class="crm-ui-message-primary mt-4 w-full"
         on:click={() => openComposer('registration_email')}
       >
         Start registration email
       </button>
-    </div>
+    </section>
   </div>
+
+  {#if senderSettingsOpen}
+    <section class="crm-ui-message-settings" aria-labelledby="connected-email-heading">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <p class="crm-ui-message-eyebrow">Personal sender</p>
+          <h3 id="connected-email-heading" class="mt-1 text-lg font-semibold text-gray-900">Connect your email</h3>
+          <p class="mt-1 text-sm text-gray-600">Connect an email for groups of 100 or fewer. Larger groups use HuddleWay.</p>
+        </div>
+        <button type="button" class="crm-ui-button-secondary" on:click={() => { senderSettingsOpen = false; }}>Close</button>
+      </div>
+      {#if mailboxConnectionResult === 'connected'}
+        <p class="crm-ui-message-success" role="status">Email connected for messages to 100 or fewer recipients.</p>
+      {:else if mailboxConnectionResult === 'error'}
+        <p class="crm-ui-notice-card mt-4" role="alert">Email was not connected. Try again.</p>
+      {/if}
+      {#if connectedMailboxLoading}
+        <p class="mt-4 text-sm text-gray-500" role="status">Loading email connection…</p>
+      {:else if connectedMailbox?.connected}
+        <div class="crm-ui-message-connected-card">
+          <p class="font-semibold">Connected: {connectedMailbox.email}</p>
+          <p class="mt-1 text-sm">Ready for messages to 100 or fewer recipients.</p>
+          <button type="button" class="crm-ui-message-disconnect" on:click={disconnectMailbox}>Disconnect</button>
+        </div>
+      {:else}
+        <div class="mt-4 grid gap-3 sm:grid-cols-2">
+          <button type="button" disabled={!connectedMailbox?.availableProviders.includes('google')} class="crm-ui-message-provider" on:click={() => connectMailbox('google')}>
+            Connect Google or Gmail
+          </button>
+          <button type="button" disabled={!connectedMailbox?.availableProviders.includes('microsoft')} class="crm-ui-message-provider" on:click={() => connectMailbox('microsoft')}>
+            Connect Microsoft or Outlook
+          </button>
+        </div>
+        <p class="mt-3 text-xs text-gray-500">HuddleWay never receives your password.</p>
+      {/if}
+      {#if connectedMailboxError}
+        <p class="crm-ui-notice-card mt-4" role="alert">{connectedMailboxError}</p>
+      {/if}
+    </section>
+  {/if}
 
   {#if operationMessage}
     <div
-      class="rounded-md border px-4 py-3 text-sm {submitState === 'error' ? 'border-red-200 bg-red-50 text-red-800' : 'border-gray-200 bg-gray-50 text-gray-700'}"
+      class="crm-ui-message-operation {submitState === 'error' ? 'crm-ui-message-operation-error' : 'crm-ui-message-operation-ok'}"
       role={submitState === 'error' ? 'alert' : 'status'}
     >
       <p>{operationMessage}</p>
-      {#if operationRequestId}<p class="mt-1 text-xs">Support request: {operationRequestId}</p>{/if}
     </div>
   {/if}
 
   {#if isAdding}
-    <section class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-6" aria-labelledby="new-announcement-heading">
+    <section class="crm-ui-message-composer" aria-labelledby="new-announcement-heading">
       <h3 id="new-announcement-heading" class="mb-4 text-lg font-bold">
-        {composerKind === 'registration_email' ? 'Send registration email' : 'Create announcement'}
+        {composerKind === 'registration_email'
+          ? 'Send registration email'
+          : composerKind === 'email'
+            ? 'Send email'
+            : 'Create announcement'}
       </h3>
       <div class="space-y-4">
         <div>
           <p class="crm-ui-label">Audience</p>
-          <p class="mt-1 rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+          <p class="crm-ui-message-audience">
             {#if composerKind === 'registration_email'}
-              Paste the family email addresses below. HuddleWay creates their account-ready identities without marking them registered, then sends one temporary web link that uses the same registration form and payment rules as the app.
+              Paste recipient emails. HuddleWay sends a temporary registration link using the same form and payment rules as the app.
+            {:else if composerKind === 'email'}
+              Paste one or more addresses. Duplicates are removed before the allowance check.
             {:else}
-              Only account holders in this organization can receive this announcement. Publishing sends a notification only to their registered devices.
+              Only this organization’s account holders receive this announcement and notification.
             {/if}
           </p>
         </div>
-        <div>
+        {#if composerKind !== 'email'}
+          <div>
           <label for="announcement-attachment" class="crm-ui-label">
             {composerKind === 'registration_email' ? 'Registration for' : 'Attach announcement to'}
           </label>
@@ -630,7 +1097,7 @@
             id="announcement-attachment"
             bind:value={attachmentScope}
             on:change={handleAttachmentScopeChange}
-            class="mt-1 block w-full rounded-md border border-gray-300 bg-white p-2 shadow-sm focus:border-[var(--crm-brand-border)] focus:ring-[var(--crm-brand-focus)] sm:text-sm"
+            class="crm-ui-message-select"
           >
             {#if composerKind === 'announcement'}
               <option value="all">All organization account holders</option>
@@ -643,15 +1110,16 @@
               ? 'The link closes automatically when registration, the event, or the season ends.'
               : 'Choose one event, one season, or leave it for everyone.'}
           </p>
-        </div>
-        {#if attachmentScope === 'event'}
+          </div>
+        {/if}
+        {#if composerKind !== 'email' && attachmentScope === 'event'}
           <div>
             <label for="announcement-event" class="crm-ui-label">Event</label>
             <select
               id="announcement-event"
               bind:value={selectedEventId}
               disabled={eventOptions.length === 0}
-              class="mt-1 block w-full rounded-md border border-gray-300 bg-white p-2 shadow-sm focus:border-[var(--crm-brand-border)] focus:ring-[var(--crm-brand-focus)] disabled:bg-gray-100 sm:text-sm"
+              class="crm-ui-message-select disabled:bg-gray-100"
             >
               <option value="">Select an event</option>
               {#each eventOptions as event}
@@ -660,14 +1128,14 @@
             </select>
             {#if eventOptions.length === 0}<p class="crm-ui-hint">No events are available for this organization.</p>{/if}
           </div>
-        {:else if attachmentScope === 'season'}
+        {:else if composerKind !== 'email' && attachmentScope === 'season'}
           <div>
             <label for="announcement-season" class="crm-ui-label">Season</label>
             <select
               id="announcement-season"
               bind:value={selectedSeasonId}
               disabled={seasonOptions.length === 0}
-              class="mt-1 block w-full rounded-md border border-gray-300 bg-white p-2 shadow-sm focus:border-[var(--crm-brand-border)] focus:ring-[var(--crm-brand-focus)] disabled:bg-gray-100 sm:text-sm"
+              class="crm-ui-message-select disabled:bg-gray-100"
             >
               <option value="">Select a season</option>
               {#each seasonOptions as season}
@@ -677,7 +1145,7 @@
             {#if seasonOptions.length === 0}<p class="crm-ui-hint">No seasons are available for this organization.</p>{/if}
           </div>
         {/if}
-        {#if composerKind === 'registration_email'}
+        {#if composerKind !== 'announcement'}
           <div>
             <label for="registration-recipient-emails" class="crm-ui-label">Recipient emails</label>
             <textarea
@@ -685,25 +1153,32 @@
               bind:value={registrationRecipientInput}
               rows="5"
               placeholder="family@example.com&#10;another-family@example.com"
-              class="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-[var(--crm-brand-border)] focus:ring-[var(--crm-brand-focus)] sm:text-sm"
+              class="crm-ui-message-recipient {registrationRecipientResult.invalidCount > 0 ? 'crm-ui-message-recipient-invalid' : 'crm-ui-message-recipient-valid'}"
+              aria-invalid={registrationRecipientResult.invalidCount > 0 ? 'true' : 'false'}
               aria-describedby="registration-recipient-help"
             ></textarea>
-            <p id="registration-recipient-help" class="crm-ui-hint">
-              {registrationRecipientResult.emails.length}/{REGISTRATION_RECIPIENT_LIMIT} unique valid addresses
+            <p
+              id="registration-recipient-help"
+              class="{registrationRecipientResult.invalidCount > 0 ? 'crm-ui-message-invalid-hint' : 'crm-ui-hint'}"
+              role={registrationRecipientResult.invalidCount > 0 ? 'alert' : undefined}
+            >
+              {registrationRecipientResult.emails.length}/{emailRecipientLimit} unique valid addresses
               {#if registrationRecipientResult.invalidCount > 0}
-                · {registrationRecipientResult.invalidCount} invalid {registrationRecipientResult.invalidCount === 1 ? 'entry' : 'entries'}
+                · Remove {registrationRecipientResult.invalidCount} invalid {registrationRecipientResult.invalidCount === 1 ? 'entry' : 'entries'} to continue
               {/if}
             </p>
           </div>
         {/if}
         <div>
-          <label for="announcement-subject" class="crm-ui-label">Subject (optional)</label>
+          <label for="announcement-subject" class="crm-ui-label">
+            Subject{composerKind === 'email' ? '' : ' (optional)'}
+          </label>
           <input
             id="announcement-subject"
             type="text"
             bind:value={subject}
             maxlength={SUBJECT_MAX_LENGTH}
-            class="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-[var(--crm-brand-border)] focus:ring-[var(--crm-brand-focus)] sm:text-sm"
+            class="crm-ui-message-field"
             aria-describedby="announcement-subject-help"
           />
           <p id="announcement-subject-help" class="crm-ui-hint">{subject.length}/{SUBJECT_MAX_LENGTH} characters</p>
@@ -715,7 +1190,7 @@
             bind:value={body}
             rows="5"
             maxlength={BODY_MAX_LENGTH}
-            class="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-[var(--crm-brand-border)] focus:ring-[var(--crm-brand-focus)] sm:text-sm"
+            class="crm-ui-message-field"
             aria-describedby="announcement-body-help"
           ></textarea>
           <p id="announcement-body-help" class="crm-ui-hint">{body.length}/{BODY_MAX_LENGTH} characters</p>
@@ -723,7 +1198,7 @@
         <div class="flex flex-wrap justify-end gap-3">
           <button
             type="button"
-            class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            class="crm-ui-button-secondary bg-white text-gray-700"
             disabled={submitState === 'loading'}
             on:click={() => { isAdding = false; resetComposer(); }}
           >
@@ -732,12 +1207,21 @@
           <StatusButton
             type="button"
             state={submitState}
-            on:click={composerKind === 'registration_email' ? handleRegistrationEmail : handleAddMessage}
+            on:click={composerKind === 'announcement' ? handleAddMessage : handleEmailReview}
             disabled={!canPublish || submitState === 'loading'}
-            idleText={composerKind === 'registration_email' ? 'Create link and send email' : 'Publish announcement'}
-            loadingText={composerKind === 'registration_email' ? 'Preparing email…' : 'Publishing…'}
-            successText={composerKind === 'registration_email' ? 'Email sent' : 'Published'}
-            class="rounded-md bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-medium text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)] disabled:opacity-50"
+            idleText={composerKind === 'announcement'
+              ? 'Publish announcement'
+              : composerKind === 'registration_email'
+                ? 'Review registration email'
+                : 'Review email'}
+            loadingText={composerKind === 'announcement' ? 'Publishing…' : 'Checking allowance…'}
+            successText={composerKind === 'announcement' ? 'Published' : 'Email sent'}
+            errorText={composerKind === 'announcement'
+              ? 'Retry publish'
+              : composerKind === 'registration_email'
+                ? 'Review registration email again'
+                : 'Review email again'}
+            class="crm-ui-button-primary"
           />
         </div>
       </div>
@@ -746,9 +1230,9 @@
 
   <ConsumerAdminInbox />
 
-  <section class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" aria-labelledby="wall-announcements-heading">
+  <section class="crm-ui-message-list" aria-labelledby="wall-announcements-heading">
     <div class="border-b border-gray-200 p-4">
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div class="crm-ui-message-list-header">
         <div>
           <h3 id="wall-announcements-heading" class="font-semibold text-gray-900">Published announcements</h3>
           <p class="crm-ui-hint">
@@ -761,7 +1245,7 @@
             id="announcement-search"
             type="search"
             bind:value={searchQuery}
-            class="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm sm:w-72"
+            class="crm-ui-input sm:w-72"
           />
         </div>
       </div>
@@ -772,8 +1256,7 @@
     {:else if loadError}
       <div class="p-8 text-center" role="alert">
         <p class="text-sm text-red-700">{loadError}</p>
-        {#if loadRequestId}<p class="mt-1 text-xs text-red-700">Support request: {loadRequestId}</p>{/if}
-        <button type="button" class="mt-4 rounded-md border border-gray-300 px-3 py-2 text-sm" on:click={() => activeTenantId && fetchMessages(activeTenantId)}>Try again</button>
+        <button type="button" class="crm-ui-button-secondary mt-4" on:click={() => activeTenantId && fetchMessages(activeTenantId)}>Try again</button>
       </div>
     {:else if messages.length === 0}
       <div class="p-8 text-center text-gray-500">No Wall announcements have been published.</div>
@@ -786,7 +1269,7 @@
             <div class="flex items-start gap-4 p-4">
               <button
                 type="button"
-                class="min-w-0 flex-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--crm-brand-focus)] focus-visible:ring-offset-2"
+                class="crm-ui-message-row-button"
                 aria-expanded={expandedMessageIds.has(message.id)}
                 aria-controls={`announcement-details-${message.id}`}
                 on:click={() => toggleMessageDetails(message.id)}
@@ -802,14 +1285,14 @@
                       <p class="mt-1 break-words text-sm text-gray-600">{messagePreview(message.body)}</p>
                     {/if}
                   </div>
-                  <svg class="mt-1 h-5 w-5 shrink-0 text-gray-400 transition-transform {expandedMessageIds.has(message.id) ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <svg class="crm-ui-message-chevron {expandedMessageIds.has(message.id) ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                   </svg>
                 </div>
               </button>
               <button
                 type="button"
-                class="shrink-0 text-left text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50"
+                class="crm-ui-message-delete"
                 on:click={() => requestRecall(message)}
                 disabled={Boolean(recallingMessageId)}
               >
@@ -817,24 +1300,24 @@
               </button>
             </div>
             {#if expandedMessageIds.has(message.id)}
-              <div id={`announcement-details-${message.id}`} class="border-t border-gray-100 bg-gray-50 px-4 py-4 sm:px-6">
-                <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500">Details</h4>
-                <p class="mt-2 whitespace-pre-wrap break-words text-sm text-gray-800">{message.body || 'Message unavailable'}</p>
+              <div id={`announcement-details-${message.id}`} class="crm-ui-message-detail-panel">
+                <h4 class="crm-ui-message-details">Details</h4>
+                <p class="crm-ui-message-detail-body">{message.body || 'Message unavailable'}</p>
                 <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-3">
                   <div>
-                    <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">Audience</dt>
+                    <dt class="crm-ui-message-term">Audience</dt>
                     <dd class="mt-1 text-gray-900">{audienceLabel(message.teamId)}</dd>
                   </div>
                   <div>
-                    <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">Attachment</dt>
+                    <dt class="crm-ui-message-term">Attachment</dt>
                     <dd class="mt-1 text-gray-900">{attachmentLabel(message)}</dd>
                   </div>
                   <div>
-                    <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">Published by</dt>
+                    <dt class="crm-ui-message-term">Published by</dt>
                     <dd class="mt-1 text-gray-900">{message.authorName || 'Actor unavailable'}</dd>
                   </div>
                   <div>
-                    <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">Published</dt>
+                    <dt class="crm-ui-message-term">Published</dt>
                     <dd class="mt-1 text-gray-900">{message.createdAt ? message.createdAt.toLocaleString() : 'Timestamp unavailable'}</dd>
                   </div>
                 </dl>

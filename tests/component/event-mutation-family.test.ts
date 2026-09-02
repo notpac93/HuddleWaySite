@@ -440,9 +440,8 @@ describe('event mutation family', () => {
       screen.getByRole('button', { name: 'Save Event Changes' }),
     );
 
-    const failure = await screen.findByText(
-      'The event could not be updated. Support request: event-request-8',
-    );
+    const failure = await screen.findByText('The event could not be updated.');
+    expect(failure).not.toHaveTextContent('event-request-8');
     expect(failure).not.toHaveTextContent('raw event datastore failure');
     await fireEvent.click(
       screen.getByRole('button', { name: 'Retry Event Update' }),

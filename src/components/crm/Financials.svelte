@@ -1284,7 +1284,6 @@
       <h2 class="font-semibold">Owner permission required</h2>
       <p class="mt-1">Financial data is restricted to organization owners. No records were requested.</p>
       {#if loadError}<p class="mt-2">{loadError}</p>{/if}
-      {#if loadRequestId}<p class="mt-1 text-xs">Support request: {loadRequestId}</p>{/if}
     </div>
   {:else if loadState === 'loading' && !overview}
     <div class="m-4 rounded-lg border border-gray-200 bg-white p-8 text-center text-sm text-gray-600 sm:m-6" role="status">
@@ -1294,7 +1293,6 @@
     <div class="m-4 rounded-lg border border-red-200 bg-red-50 p-5 text-sm text-red-800 sm:m-6" role="alert">
       <h2 class="font-semibold">Financial records are unavailable</h2>
       <p class="mt-1">{loadError}</p>
-      {#if loadRequestId}<p class="mt-1 text-xs">Support request: {loadRequestId}</p>{/if}
       <button type="button" class="mt-3 rounded-md border border-red-300 bg-white px-3 py-2 font-medium" on:click={loadFinancials}>Retry</button>
     </div>
   {:else if loadState === 'ready' || (loadState === 'loading' && overview)}
@@ -1328,27 +1326,37 @@
         </section>
       {/if}
 
-      <section aria-label="Financial tools" class="mt-4 flex flex-wrap items-center gap-2">
-        {#each toolViews as tool}
+      <div class="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <section aria-labelledby="financial-record-tools-heading" class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <h2 id="financial-record-tools-heading" class="text-sm font-semibold text-gray-900">Records and financial tools</h2>
+          <p class="mt-1 text-xs text-gray-500">Choose the type of organization record you want to review.</p>
+          <div class="mt-3 flex flex-wrap items-center gap-2">
+            {#each toolViews as tool}
+              <button
+                type="button"
+                aria-pressed={activeView === tool.view}
+                class="rounded-lg border px-3 py-2 text-sm font-semibold {activeView === tool.view ? 'crm-theme-selected' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}"
+                on:click={() => setView(tool.view)}
+              >
+                {tool.label}
+              </button>
+            {/each}
+          </div>
+        </section>
+        <section aria-labelledby="new-invoice-heading" class="crm-theme-surface rounded-xl border p-4">
+          <h2 id="new-invoice-heading" class="text-sm font-semibold">New invoice</h2>
+          <p class="mt-1 text-xs">Request and track a new organization payment.</p>
           <button
             type="button"
-            aria-pressed={activeView === tool.view}
-            class="rounded-lg border px-3 py-2 text-sm font-semibold {activeView === tool.view ? 'crm-theme-selected' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}"
-            on:click={() => setView(tool.view)}
+            class="mt-3 w-full rounded-lg bg-[var(--crm-brand-control)] px-3 py-2 text-sm font-semibold text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!ownerAuthorized || Boolean(teamId) || loadState !== 'ready'}
+            title={teamId ? 'Switch to organization scope to create a tenant-scoped invoice.' : undefined}
+            on:click={openCreateInvoice}
           >
-            {tool.label}
+            Create invoice
           </button>
-        {/each}
-        <button
-          type="button"
-          class="rounded-lg bg-[var(--crm-brand-control)] px-3 py-2 text-sm font-semibold text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={!ownerAuthorized || Boolean(teamId) || loadState !== 'ready'}
-          title={teamId ? 'Switch to organization scope to create a tenant-scoped invoice.' : undefined}
-          on:click={openCreateInvoice}
-        >
-          Create
-        </button>
-      </section>
+        </section>
+      </div>
 
       {#if activeView === 'Overview'}
         <section aria-label="Financial periods">
@@ -1443,7 +1451,7 @@
                 {#if savedViewMessage}<p class="mt-2 text-xs text-gray-600" role="status">{savedViewMessage}</p>{/if}
               </div>
             {/if}
-            {#if exportMessage}<div class="crm-ui-operation-message mt-3 {exportState === 'error' ? 'border-red-200 bg-red-50 text-red-800' : 'border-green-200 bg-green-50 text-green-800'}" role={exportState === 'error' ? 'alert' : 'status'}>{exportMessage}{#if exportRequestId}<span class="block text-xs">Support request: {exportRequestId}</span>{/if}</div>{/if}
+            {#if exportMessage}<div class="crm-ui-operation-message mt-3 {exportState === 'error' ? 'border-red-200 bg-red-50 text-red-800' : 'border-green-200 bg-green-50 text-green-800'}" role={exportState === 'error' ? 'alert' : 'status'}>{exportMessage}</div>{/if}
           </div>
 
           <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
