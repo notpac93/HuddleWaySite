@@ -173,7 +173,7 @@ describe('RosterManager projection and navigation controls', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Roster players could not be loaded.',
     );
-    expect(screen.getByText('Support request: roster-load-7')).toBeVisible();
+    expect(screen.queryByText(/roster-load-7/i)).not.toBeInTheDocument();
     expect(screen.queryByText('raw provider detail')).toBeNull();
 
     await fireEvent.click(

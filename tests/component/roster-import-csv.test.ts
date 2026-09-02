@@ -251,7 +251,7 @@ describe('ImportCsv reviewed roster operation', () => {
     expect(alert).toHaveTextContent(
       'The reviewed roster changes could not be applied.',
     );
-    expect(alert).toHaveTextContent('Support request: request-roster-9');
+    expect(alert).not.toHaveTextContent('request-roster-9');
     expect(alert).not.toHaveTextContent('raw route detail');
 
     await fireEvent.click(

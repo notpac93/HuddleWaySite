@@ -65,7 +65,7 @@
       console.error('The staff invitation could not be sent.');
       if ($tenantIdStore !== tenantId) return;
       const supportId = e instanceof BackendApiError ? e.requestId : null;
-      errorMessage = `The staff invitation could not be sent.${supportId ? ` Support request: ${supportId}` : ''}`;
+      errorMessage = 'The staff invitation could not be sent.';
       submitState = 'error';
     }
   }

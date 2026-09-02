@@ -284,9 +284,7 @@ describe('SetupWorkflow corrective navigation and retries', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'That organization name is already in use.',
     );
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'Support request: setup-conflict-request',
-    );
+    expect(screen.getByRole('alert')).not.toHaveTextContent('setup-conflict-request');
 
     await fireEvent.click(
       screen.getByRole('button', { name: 'Create organization' }),

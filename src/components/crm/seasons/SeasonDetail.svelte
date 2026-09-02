@@ -548,7 +548,7 @@
           <input type="text" bind:value={unlinkConfirmation} disabled={unlinkState === 'loading'} autocomplete="off" class="crm-ui-field mt-1" />
         </label>
       </div>
-      {#if unlinkError}<p class="mt-2 text-sm text-red-900" role="alert">{unlinkError}{unlinkRequestId ? ` Support request: ${unlinkRequestId}` : ''}</p>{/if}
+      {#if unlinkError}<p class="mt-2 text-sm text-red-900" role="alert">{unlinkError}</p>{/if}
       <div class="mt-3 flex gap-2">
         <button type="button" disabled={unlinkState === 'loading' || unlinkReason.trim().length < 3 || unlinkConfirmation !== unlinkText} on:click={unlinkEvent} class="rounded bg-red-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">{unlinkState === 'loading' ? 'Unlinking…' : 'Confirm unlink'}</button>
         <button type="button" disabled={unlinkState === 'loading'} on:click={cancelUnlink} class="rounded border border-red-300 bg-white px-3 py-2 text-sm text-red-900 disabled:opacity-50">Cancel</button>

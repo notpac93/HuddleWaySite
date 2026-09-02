@@ -278,6 +278,54 @@
   .crm-ui-button-secondary { @apply rounded-md border border-gray-300 px-3 py-2 text-sm font-medium hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50; }
   .crm-ui-button-primary { @apply rounded-md bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-semibold text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50; }
   .crm-ui-button-danger-outline { @apply rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50; }
+  .crm-ui-message-modal-lg { @apply relative z-10 w-full max-w-lg rounded-xl bg-white p-6 shadow-xl; }
+  .crm-ui-message-modal-md { @apply relative z-10 w-full max-w-md rounded-xl bg-white p-6 shadow-xl; }
+  .crm-ui-message-radio { @apply flex items-start gap-3 rounded-md border border-gray-200 p-3; }
+  .crm-ui-message-summary { @apply mt-4 grid gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm sm:grid-cols-2; }
+  .crm-ui-message-card { @apply flex flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm; }
+  .crm-ui-message-provider { @apply min-h-12 rounded-md border border-gray-300 bg-white px-4 py-3 text-left text-sm font-medium text-gray-900 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500; }
+  .crm-ui-message-composer { @apply rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-6; }
+  .crm-ui-message-select { @apply mt-1 block w-full rounded-md border border-gray-300 bg-white p-2 shadow-sm focus:border-[var(--crm-brand-border)] focus:ring-[var(--crm-brand-focus)] sm:text-sm; }
+  .crm-ui-message-field { @apply mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-[var(--crm-brand-border)] focus:ring-[var(--crm-brand-focus)] sm:text-sm; }
+  .crm-ui-message-list { @apply overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm; }
+  .crm-ui-message-row-button { @apply min-w-0 flex-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--crm-brand-focus)] focus-visible:ring-offset-2; }
+  .crm-ui-message-root { @apply flex h-full flex-col space-y-6 overflow-y-auto p-4 sm:p-6; }
+  .crm-ui-message-direct { @apply rounded-xl border bg-white p-4 shadow-sm sm:p-5; border-color: var(--crm-brand-border); }
+  .crm-ui-message-split { @apply flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between; }
+  .crm-ui-message-eyebrow { @apply text-xs font-semibold uppercase tracking-wide; color: var(--crm-brand-link); }
+  .crm-ui-message-allowance { @apply rounded-xl border p-4; }
+  .crm-ui-message-allowance-heading { @apply flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4; }
+  .crm-ui-message-allowance-meta { @apply mt-3 grid gap-2 border-t pt-3 text-xs sm:grid-cols-2; }
+  .crm-ui-message-settings { @apply rounded-xl border bg-white p-5 shadow-sm; border-color: var(--crm-brand-border); }
+  .crm-ui-message-success { @apply mt-4 rounded-md border p-3 text-sm; border-color: var(--crm-brand-border); background: var(--crm-brand-surface); color: var(--crm-on-brand-surface); }
+  .crm-ui-message-operation { @apply rounded-md border px-4 py-3 text-sm; }
+  .crm-ui-message-audience { @apply mt-1 rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700; }
+  .crm-ui-message-recipient { @apply mt-1 block w-full rounded-md border p-2 shadow-sm focus:ring-[var(--crm-brand-focus)] sm:text-sm; }
+  .crm-ui-message-list-header { @apply flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between; }
+  .crm-ui-message-delete { @apply shrink-0 text-left text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50; }
+  .crm-ui-message-term { @apply text-xs font-medium uppercase tracking-wide text-gray-500; }
+  .crm-ui-message-primary { @apply min-h-11 rounded-md bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-semibold text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)] disabled:cursor-not-allowed disabled:bg-gray-400 disabled:opacity-50; }
+  .crm-ui-message-secondary-blue { @apply min-h-11 rounded-md border bg-white px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50; border-color: var(--crm-brand-border); color: var(--crm-brand-link); }
+  .crm-ui-message-secondary-blue:hover { background: var(--crm-brand-surface); }
+  .crm-ui-message-allowance-paused { @apply border-red-300 bg-red-50; }
+  .crm-ui-message-allowance-normal { border-color: var(--crm-brand-border); background: var(--crm-brand-surface); }
+  .crm-ui-message-allowance-limited { @apply border-gray-300 bg-gray-100; }
+  .crm-ui-message-meta-normal { border-color: var(--crm-brand-border); color: var(--crm-on-brand-surface); }
+  .crm-ui-message-meta-limited { @apply border-gray-300 text-gray-600; }
+  .crm-ui-message-connected-card { @apply mt-4 rounded-lg border p-4; border-color: var(--crm-brand-border); background: var(--crm-brand-surface); color: var(--crm-on-brand-surface); }
+  .crm-ui-message-operation-error { @apply border-red-200 bg-red-50 text-red-800; }
+  .crm-ui-message-operation-ok { @apply border-gray-200 bg-gray-50 text-gray-700; }
+  .crm-ui-message-radio-disabled { @apply bg-gray-50 opacity-70; }
+  .crm-ui-message-recipient-invalid { @apply border-red-400 focus:border-red-500; }
+  .crm-ui-message-recipient-valid { @apply border-gray-300 focus:border-[var(--crm-brand-border)]; }
+  .crm-ui-message-invalid-hint { @apply mt-1 text-sm font-medium text-red-700; }
+  .crm-ui-message-chevron { @apply mt-1 h-5 w-5 shrink-0 text-gray-400 transition-transform; }
+  .crm-ui-message-details { @apply text-xs font-semibold uppercase tracking-wide text-gray-500; }
+  .crm-ui-message-detail-body { @apply mt-2 whitespace-pre-wrap break-words text-sm text-gray-800; }
+  .crm-ui-message-title-paused { @apply text-red-950; }
+  .crm-ui-message-title-ready { color: var(--crm-on-brand-surface); }
+  .crm-ui-message-disconnect { @apply mt-3 rounded-md border bg-white px-3 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50; border-color: var(--crm-brand-border); color: var(--crm-brand-link); }
+  .crm-ui-message-detail-panel { @apply border-t border-gray-100 bg-gray-50 px-4 py-4 sm:px-6; }
   .crm-ui-line-input { @apply mt-1 w-full rounded-md border border-gray-300 px-2 py-2 text-sm; }
   .crm-ui-operation-message { @apply rounded-md border p-3 text-sm; }
   .crm-ui-modal-spacer { @apply hidden sm:inline-block sm:align-middle sm:h-screen; }

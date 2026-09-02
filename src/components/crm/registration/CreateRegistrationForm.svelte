@@ -273,7 +273,7 @@
       console.error('Registration form save failed.', {
         requestId: supportId || 'unavailable',
       });
-      errorMessage = `The registration form could not be saved.${supportId ? ` Support request: ${supportId}` : ''}`;
+      errorMessage = 'The registration form could not be saved.';
       submitState = 'error';
     }
   }

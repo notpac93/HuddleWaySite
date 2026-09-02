@@ -149,7 +149,7 @@
       console.error('Season update failed.', {
         requestId: supportId || 'unavailable',
       });
-      errorMessage = `The season could not be updated.${supportId ? ` Support request: ${supportId}` : ''}`;
+      errorMessage = 'The season could not be updated.';
       submitState = 'error';
     }
   }

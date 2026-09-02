@@ -26,12 +26,76 @@ export interface RegistrationEmailDeliveryResult {
   tenantId: string;
   communicationId: string;
   audienceMode: 'direct';
+  deliveryMode?: 'huddleway' | 'connected_mailbox';
   recipientCount: number;
   sentCount: number;
   sentRecipients: string[];
   failedCount: number;
   failures: Array<{ email: string; error: string }>;
   suppressedCount: number;
+  requestId: string;
+}
+
+export interface ConnectedMailboxSnapshot {
+  success: boolean;
+  tenantId: string;
+  connected: boolean;
+  status: string;
+  provider: 'google' | 'microsoft' | null;
+  email: string | null;
+  displayName: string | null;
+  connectedAt: string | null;
+  lastCheckedAt: string | null;
+  availableProviders: Array<'google' | 'microsoft'>;
+  requestId: string;
+}
+
+export interface MessageAudiencePreview {
+  tenantId: string;
+  requestedCount: number;
+  uniqueRecipientCount: number;
+  inAppReadyCount: number;
+  retainedPendingActivationCount: number;
+  emailEligibleCount: number;
+  emailSuppressedCount: number;
+  invalidCount: number;
+  duplicateCount: number;
+  publicMessageCount: number;
+  excludedCount: number;
+  chunkSize: number;
+  chunkCount: number;
+  emailRecipientLimit: number;
+  tenantEmailRemaining: number;
+  tenantEmailMonthlyLimit: number;
+  tenantEmailMonthKey: string;
+  tenantEmailResetsAt: string;
+  platformEmailRemaining: number;
+  capacityMode: 'normal' | 'temporary_limited' | 'unavailable';
+  monthlyAllowanceVisible: boolean;
+  requestId: string;
+}
+
+export interface EmailQuotaSnapshot {
+  success: boolean;
+  tenantId: string;
+  monthKey: string;
+  resetsAt: string;
+  monthlyLimit: number;
+  usedCount: number;
+  sentCount: number;
+  localSentCount: number;
+  providerSentCount: number;
+  reservedCount: number;
+  remainingCount: number;
+  capacityMode: 'normal' | 'temporary_limited' | 'unavailable';
+  monthlyAllowanceVisible: boolean;
+  providerReconciliationStatus: string | null;
+  providerReconciledAt: string | null;
+  emailSendingStatus: 'enabled' | 'suspended';
+  emailSuspensionReason: string | null;
+  bounceRate: number;
+  complaintRate: number;
+  perSendLimit: number;
   requestId: string;
 }
 
@@ -51,6 +115,148 @@ function validIsoTimestamp(value: string) {
 
 export class RegistrationOutreachApi {
   constructor(private readonly api: BackendApi) {}
+
+  async emailQuota(tenantId: string) {
+    const payload = await this.api.request<EmailQuotaSnapshot>(
+      '/admin/messages/email-quota',
+      { query: { tenantId } },
+    );
+    const counters = [
+      payload.monthlyLimit,
+      payload.usedCount,
+      payload.sentCount,
+      payload.localSentCount,
+      payload.providerSentCount,
+      payload.reservedCount,
+      payload.remainingCount,
+      payload.perSendLimit,
+    ];
+    if (
+      payload.success !== true
+      || payload.tenantId !== tenantId
+      || !/^\d{4}-\d{2}$/.test(payload.monthKey)
+      || !validIsoTimestamp(payload.resetsAt)
+      || counters.some((value) => !Number.isSafeInteger(value) || value < 0)
+      || payload.usedCount !== payload.sentCount + payload.reservedCount
+      || payload.remainingCount !== payload.monthlyLimit - payload.usedCount
+      || payload.perSendLimit < 0
+      || payload.perSendLimit > 500
+      || !['normal', 'temporary_limited', 'unavailable'].includes(payload.capacityMode)
+      || typeof payload.monthlyAllowanceVisible !== 'boolean'
+      || !['enabled', 'suspended'].includes(payload.emailSendingStatus)
+      || ![payload.bounceRate, payload.complaintRate].every(
+        (value) => Number.isFinite(value) && value >= 0 && value <= 1,
+      )
+      || !payload.requestId?.trim()
+    ) invalidResponse(payload);
+    return payload;
+  }
+
+  async connectedMailbox(tenantId: string) {
+    const payload = await this.api.request<ConnectedMailboxSnapshot>(
+      '/admin/communications/connected-mailbox',
+      { query: { tenantId } },
+    );
+    if (
+      payload.success !== true
+      || payload.tenantId !== tenantId
+      || typeof payload.connected !== 'boolean'
+      || !Array.isArray(payload.availableProviders)
+      || payload.availableProviders.some(
+        (provider) => !['google', 'microsoft'].includes(provider),
+      )
+      || (payload.connected && (
+        !['google', 'microsoft'].includes(String(payload.provider))
+        || !payload.email
+        || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)
+      ))
+      || (!payload.connected && payload.status === 'connected')
+      || (payload.connectedAt !== null && !validIsoTimestamp(payload.connectedAt))
+      || (payload.lastCheckedAt !== null && !validIsoTimestamp(payload.lastCheckedAt))
+      || !payload.requestId?.trim()
+    ) invalidResponse(payload);
+    return payload;
+  }
+
+  async startMailboxConnection(tenantId: string, provider: 'google' | 'microsoft') {
+    const payload = await this.api.request<{
+      success: true;
+      tenantId: string;
+      authorizationUrl: string;
+      requestId: string;
+    }>('/admin/communications/connected-mailbox/start', {
+      method: 'POST',
+      body: { tenantId, provider },
+    });
+    if (
+      payload.success !== true
+      || payload.tenantId !== tenantId
+      || !payload.authorizationUrl?.startsWith('https://')
+      || !payload.requestId?.trim()
+    ) invalidResponse(payload);
+    return payload;
+  }
+
+  async disconnectMailbox(tenantId: string) {
+    const payload = await this.api.request<ConnectedMailboxSnapshot>(
+      '/admin/communications/connected-mailbox/disconnect',
+      { method: 'POST', body: { tenantId } },
+    );
+    if (payload.success !== true || payload.tenantId !== tenantId || payload.connected) {
+      invalidResponse(payload);
+    }
+    return payload;
+  }
+
+  async messageAudiencePreview({
+    tenantId,
+    emails,
+    eventId,
+  }: {
+    tenantId: string;
+    emails: string[];
+    eventId?: string;
+  }) {
+    const payload = await this.api.request<MessageAudiencePreview>(
+      '/admin/messages/audience-preview',
+      {
+        method: 'POST',
+        body: {
+          tenantId,
+          emails,
+          ...(eventId ? { eventId } : {}),
+          emailRequested: true,
+          alsoPostPublicly: false,
+        },
+      },
+    );
+    const counters = [
+      payload.requestedCount,
+      payload.uniqueRecipientCount,
+      payload.emailEligibleCount,
+      payload.emailSuppressedCount,
+      payload.invalidCount,
+      payload.duplicateCount,
+      payload.emailRecipientLimit,
+      payload.tenantEmailRemaining,
+      payload.tenantEmailMonthlyLimit,
+      payload.platformEmailRemaining,
+    ];
+    if (
+      payload.tenantId !== tenantId
+      || counters.some((value) => !Number.isSafeInteger(value) || value < 0)
+      || payload.uniqueRecipientCount > payload.requestedCount
+      || payload.emailEligibleCount > payload.uniqueRecipientCount
+      || payload.emailRecipientLimit < 1
+      || payload.emailRecipientLimit > 500
+      || !['normal', 'temporary_limited', 'unavailable'].includes(payload.capacityMode)
+      || typeof payload.monthlyAllowanceVisible !== 'boolean'
+      || !/^\d{4}-\d{2}$/.test(payload.tenantEmailMonthKey)
+      || !validIsoTimestamp(payload.tenantEmailResetsAt)
+      || !payload.requestId?.trim()
+    ) invalidResponse(payload);
+    return payload;
+  }
 
   async createInvite({
     tenantId,
@@ -134,6 +340,7 @@ export class RegistrationOutreachApi {
     currency,
     eventId,
     idempotencyKey,
+    deliveryMode = 'huddleway',
   }: {
     tenantId: string;
     recipientEmails: string[];
@@ -146,6 +353,7 @@ export class RegistrationOutreachApi {
     currency: string;
     eventId?: string;
     idempotencyKey: string;
+    deliveryMode?: 'huddleway' | 'connected_mailbox';
   }) {
     const payload = await this.api.request<RegistrationEmailDeliveryResult>(
       '/communications/one-way-email',
@@ -153,6 +361,7 @@ export class RegistrationOutreachApi {
         method: 'POST',
         body: {
           tenantId,
+          deliveryMode,
           audience: { mode: 'direct', emails: recipientEmails },
           channels: { push: false },
           communication: {
@@ -173,6 +382,8 @@ export class RegistrationOutreachApi {
     if (
       payload.tenantId !== tenantId
       || payload.audienceMode !== 'direct'
+      || (payload.deliveryMode !== undefined
+        && !['huddleway', 'connected_mailbox'].includes(payload.deliveryMode))
       || !payload.communicationId?.trim()
       || ![
         payload.recipientCount,
@@ -184,7 +395,37 @@ export class RegistrationOutreachApi {
       || !Array.isArray(payload.failures)
       || !payload.requestId?.trim()
     ) invalidResponse(payload);
-    return payload;
+    return { ...payload, deliveryMode: payload.deliveryMode || 'huddleway' };
+  }
+
+  sendOneWayEmail({
+    tenantId,
+    recipientEmails,
+    subject,
+    message,
+    idempotencyKey,
+    deliveryMode = 'huddleway',
+  }: {
+    tenantId: string;
+    recipientEmails: string[];
+    subject: string;
+    message: string;
+    idempotencyKey: string;
+    deliveryMode?: 'huddleway' | 'connected_mailbox';
+  }) {
+    return this.sendEmail({
+      tenantId,
+      recipientEmails,
+      subject,
+      message,
+      eventTitle: '',
+      registrationUrl: '',
+      registrationLabel: '',
+      amountCents: 0,
+      currency: 'USD',
+      idempotencyKey,
+      deliveryMode,
+    });
   }
 }
 

@@ -124,7 +124,7 @@ describe('SettingsManager profile persistence', () => {
       'new-owner@example.test',
     );
     expect(await screen.findByRole('status')).toHaveTextContent(
-      'Verification is waiting for new-owner@example.test',
+      'Account verification is waiting for new-owner@example.test',
     );
   });
 

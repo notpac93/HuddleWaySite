@@ -166,7 +166,6 @@
   {:else if loadState === 'error'}
     <div class="p-8 text-center" role="alert">
       <p class="text-sm text-red-700">{loadMessage}</p>
-      {#if loadRequestId}<p class="mt-1 text-xs text-red-700">Support request: {loadRequestId}</p>{/if}
       <button type="button" class="mt-4 rounded-md border border-gray-300 px-3 py-2 text-sm" on:click={() => loadThreads(tenantId)}>Try again</button>
     </div>
   {:else if threads.length === 0}
@@ -228,7 +227,6 @@
             {#if replyStatus}
               <div class="rounded-md border px-3 py-2 text-sm {replyState === 'error' ? 'border-red-200 bg-red-50 text-red-800' : 'border-green-200 bg-green-50 text-green-800'}" role={replyState === 'error' ? 'alert' : 'status'}>
                 {replyStatus}
-                {#if replyRequestId}<span class="mt-1 block text-xs">Support request: {replyRequestId}</span>{/if}
               </div>
             {/if}
             <div class="flex justify-end">

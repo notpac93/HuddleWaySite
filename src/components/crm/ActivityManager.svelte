@@ -150,7 +150,6 @@
         <div class="rounded-lg border border-red-200 bg-red-50 p-6 text-center" role="alert">
           <h3 class="text-sm font-semibold text-red-900">Activity could not be loaded</h3>
           <p class="mt-1 text-sm text-red-800">{errorMessage}</p>
-          {#if requestId}<p class="mt-1 text-xs text-red-700">Support request: {requestId}</p>{/if}
           <button
             type="button"
             on:click={() => loadActivities(false)}
@@ -231,7 +230,6 @@
         {#if loadMoreError}
           <div class="mt-6 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">
             <p>{loadMoreError}</p>
-            {#if requestId}<p class="mt-1 text-xs">Support request: {requestId}</p>{/if}
           </div>
         {/if}
         {#if hasMore}

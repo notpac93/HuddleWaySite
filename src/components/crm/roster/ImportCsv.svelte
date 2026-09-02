@@ -265,9 +265,6 @@
     {#if importStatus}
       <span class="mr-4 text-sm font-medium {submitState === 'error' || commitState === 'error' ? 'text-red-600' : 'text-gray-700'}" role={submitState === 'error' || commitState === 'error' ? 'alert' : 'status'}>
         {importStatus}
-        {#if operationRequestId}
-          <span class="mt-1 block text-xs">Support request: {operationRequestId}</span>
-        {/if}
       </span>
     {/if}
     <StatusButton

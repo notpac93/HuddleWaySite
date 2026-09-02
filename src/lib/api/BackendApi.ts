@@ -541,24 +541,6 @@ export interface RosterTransferPreview {
   noOpCount: number;
 }
 
-export interface MessageAudiencePreview {
-  tenantId: string;
-  requestedCount: number;
-  uniqueRecipientCount: number;
-  inAppReadyCount: number;
-  retainedPendingActivationCount: number;
-  emailEligibleCount: number;
-  emailSuppressedCount: number;
-  invalidCount: number;
-  duplicateCount: number;
-  publicMessageCount: number;
-  excludedCount: number;
-  chunkSize: number;
-  chunkCount: number;
-  broadcastRecipientLimit: number;
-  requestId: string;
-}
-
 export interface FinancialOverview {
   tenantId: string;
   transactions: Array<Record<string, unknown>>;
@@ -1366,31 +1348,6 @@ export class BackendApi {
   async rosterPlayers(tenantId: string, teamId?: string) {
     const payload = await this.rosterPlayersPage(tenantId, teamId);
     return payload.players ?? [];
-  }
-
-  messageAudiencePreview({
-    tenantId,
-    emails,
-    eventId,
-    alsoPostPublicly = false,
-  }: {
-    tenantId: string;
-    emails: string[];
-    eventId?: string;
-    alsoPostPublicly?: boolean;
-  }) {
-    return this.send<MessageAudiencePreview>(
-      '/admin/messages/audience-preview',
-      {
-        method: 'POST',
-        body: {
-          tenantId,
-          emails,
-          ...(eventId ? { eventId } : {}),
-          alsoPostPublicly,
-        },
-      },
-    );
   }
 
   async auditEvents(tenantId: string, limit = 50) {

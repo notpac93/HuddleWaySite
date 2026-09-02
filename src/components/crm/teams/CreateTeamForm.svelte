@@ -144,9 +144,7 @@
         'Team save failed.',
         supportId ? { requestId: supportId } : {},
       );
-      errorMessage =
-        `The team could not be saved.`
-        + `${supportId ? ` Support request: ${supportId}` : ''}`;
+      errorMessage = 'The team could not be saved.';
       submitState = 'error';
     }
   }

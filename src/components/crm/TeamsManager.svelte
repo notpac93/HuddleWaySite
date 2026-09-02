@@ -74,7 +74,7 @@
         supportId ? { requestId: supportId } : {},
       );
       deleteState = 'error';
-      deleteError = `The team could not be deleted.${supportId ? ` Support request: ${supportId}` : ''}`;
+      deleteError = 'The team could not be deleted.';
     }
   }
 

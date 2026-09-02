@@ -128,9 +128,8 @@ describe('CreateTeamForm guarded mutation states', () => {
       screen.getByRole('button', { name: 'Create Team' }),
     );
     const firstAlert = await screen.findByRole('alert');
-    expect(firstAlert).toHaveTextContent(
-      'The team could not be saved. Support request: request-team-8',
-    );
+    expect(firstAlert).toHaveTextContent('The team could not be saved.');
+    expect(firstAlert).not.toHaveTextContent('request-team-8');
     expect(firstAlert).not.toHaveTextContent('raw internal team error');
 
     await fireEvent.click(

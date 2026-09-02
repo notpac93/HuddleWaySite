@@ -500,7 +500,6 @@
       {#if previewState === 'error'}
         <div class="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">
           <p>{previewError}</p>
-          {#if previewRequestId}<p class="mt-1 text-xs">Support request: {previewRequestId}</p>{/if}
         </div>
       {/if}
 
@@ -580,7 +579,6 @@
       {#if closeState === 'error'}
         <div class="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">
           <p>{closeError}</p>
-          {#if closeRequestId}<p class="mt-1 text-xs">Support request: {closeRequestId}</p>{/if}
         </div>
       {:else if closeSuccess}
         <p class="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900" role="status">
@@ -602,7 +600,6 @@
       {:else if listState === 'error'}
         <div class="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">
           <p>{listError}</p>
-          {#if listRequestId}<p class="mt-1 text-xs">Support request: {listRequestId}</p>{/if}
           <button type="button" class="mt-2 rounded border border-red-300 bg-white px-2 py-1 font-medium" on:click={loadPeriods}>
             Retry
           </button>
@@ -700,7 +697,6 @@
                   {#if reopenState === 'error'}
                     <div class="crm-ui-danger" role="alert">
                       <p>{reopenError}</p>
-                      {#if reopenRequestId}<p class="mt-1 text-xs">Support request: {reopenRequestId}</p>{/if}
                     </div>
                   {:else if reopenSuccess}
                     <p class="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900" role="status">

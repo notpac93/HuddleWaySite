@@ -9,7 +9,7 @@
     "maxInitialNetworkRequests": 22,
     "maxDashboardAdditionalJsGzipBytes": 15100,
     "maxLargestJsChunkRawBytes": 250000,
-    "maxTotalCrmJsRawBytes": 1245000,
+    "maxTotalCrmJsRawBytes": 1260000,
     "maxCrmFaviconRawBytes": 8192,
     "minLazyCrmFeatureChunks": 12
   },

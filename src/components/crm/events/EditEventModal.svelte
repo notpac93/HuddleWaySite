@@ -247,7 +247,7 @@
       console.error('Event update failed.', {
         requestId: supportId || 'unavailable',
       });
-      errorMessage = `The event could not be updated.${supportId ? ` Support request: ${supportId}` : ''}`;
+      errorMessage = 'The event could not be updated.';
       submitState = 'error';
     }
   }

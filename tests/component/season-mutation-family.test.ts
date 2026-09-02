@@ -301,9 +301,8 @@ describe('season mutation family', () => {
       name: 'Save Changes',
     }));
     const failure = await screen.findByRole('alert');
-    expect(failure).toHaveTextContent(
-      'The season could not be updated. Support request: season-request-4',
-    );
+    expect(failure).toHaveTextContent('The season could not be updated.');
+    expect(failure).not.toHaveTextContent('season-request-4');
     expect(failure).not.toHaveTextContent('raw season datastore failure');
     await fireEvent.click(screen.getByRole('button', {
       name: 'Retry Season Update',
@@ -341,9 +340,8 @@ describe('season mutation family', () => {
       name: 'Link to Season',
     }));
     const failure = await screen.findByRole('alert');
-    expect(failure).toHaveTextContent(
-      'The event could not be linked. Support request: event-link-request-7',
-    );
+    expect(failure).toHaveTextContent('The event could not be linked.');
+    expect(failure).not.toHaveTextContent('event-link-request-7');
     expect(failure).not.toHaveTextContent('raw event write failure');
     await fireEvent.click(screen.getByRole('button', {
       name: 'Retry Link',

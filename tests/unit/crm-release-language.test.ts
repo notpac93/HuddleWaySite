@@ -41,6 +41,14 @@ describe('CRM release language contract', () => {
     expect(failures).toEqual([]);
   });
 
+  it('keeps internal troubleshooting identifiers out of tenant-facing copy', () => {
+    const source = components()
+      .map((file) => readFileSync(file, 'utf8'))
+      .join('\n');
+
+    expect(source).not.toMatch(/support request:/i);
+  });
+
   it('keeps the free-admin and optional-payment boundary consistent', () => {
     const login = readFileSync(join(crmRoot, 'Login.svelte'), 'utf8');
     const setup = readFileSync(join(crmRoot, 'SetupWorkflow.svelte'), 'utf8');

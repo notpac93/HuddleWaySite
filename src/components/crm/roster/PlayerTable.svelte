@@ -18,7 +18,6 @@
   export let loading = false;
   export let error = '';
   export let truncated = false;
-  export let requestId = '';
   export let onAddPlayer: () => void = () => {};
 
   let roleFilter = '';
@@ -247,13 +246,7 @@
     {#if operationMessage}
       <span class="ml-4 text-sm text-gray-700" role={submitState === 'error' ? 'alert' : 'status'}>
         {operationMessage}
-        {#if operationRequestId}
-          <span class="block text-xs">Support request: {operationRequestId}</span>
-        {/if}
       </span>
-    {/if}
-    {#if requestId && error}
-      <span class="ml-4 text-xs text-red-700">Support request: {requestId}</span>
     {/if}
     {#if selectedPlayerIds.length > 0}
       <div class="crm-theme-selected flex items-center space-x-2 border rounded-md px-3 py-1.5 ml-4">

@@ -212,6 +212,9 @@
         </div>
 
         {#if emailChangeRequested}
+          <div class="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="note">
+            <strong>Before you change this address:</strong> HuddleWay will send account-verification instructions to <strong>{normalizedEmail}</strong>. This becomes your login and default reply address after verification. It does not change a personal mailbox connected in Messages.
+          </div>
           <div>
             <label for="settings-current-password" class="crm-ui-label">Current password</label>
             <input
@@ -228,8 +231,8 @@
         {/if}
 
         {#if pendingEmail}
-          <div class="rounded-md border border-cyan-200 bg-cyan-50 p-3 text-sm text-cyan-900" role="status">
-            Verification is waiting for <strong>{pendingEmail}</strong>. Check that inbox before using the new address.
+          <div class="crm-theme-surface crm-theme-border rounded-md border p-3 text-sm" role="status">
+            Account verification is waiting for <strong>{pendingEmail}</strong>. Follow the instructions sent there. If you also want customers to see this address as the sender, reconnect it from Messages after the login change is complete.
           </div>
         {/if}
 

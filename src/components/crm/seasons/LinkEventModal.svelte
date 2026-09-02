@@ -90,7 +90,7 @@
       console.error('Event-to-season link failed.', {
         requestId: supportId || 'unavailable',
       });
-      errorMessage = `The event could not be linked.${supportId ? ` Support request: ${supportId}` : ''}`;
+      errorMessage = 'The event could not be linked.';
       linkStates = { ...linkStates, [normalizedEventId]: 'error' };
     } finally {
       if (generation === operationGeneration) isSubmitting = false;

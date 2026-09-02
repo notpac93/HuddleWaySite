@@ -150,9 +150,8 @@ describe('CreateRegistrationForm guarded mutation states', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Save Form' }));
     const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent(
-      'The registration form could not be saved. Support request: registration-request-8',
-    );
+    expect(alert).toHaveTextContent('The registration form could not be saved.');
+    expect(alert).not.toHaveTextContent('registration-request-8');
     expect(alert).not.toHaveTextContent('raw persistence detail');
     const firstKey = backendMocks.createRegistrationForm.mock.calls[0][3];
 

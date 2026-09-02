@@ -176,26 +176,31 @@
         <h2 class="text-xl font-bold text-gray-900">Seasons & Leagues</h2>
         <p class="crm-ui-hint-xs">Manage seasons, registration links, graphics, and events.</p>
       </div>
-      <div class="flex items-center gap-3">
-        <div class="flex rounded-lg bg-gray-200 p-0.5">
-          <button type="button" aria-pressed={viewMode === 'cards'} on:click={() => viewMode = 'cards'} class="rounded-md px-3 py-1 text-xs font-semibold {viewMode === 'cards' ? 'bg-white shadow-xs' : ''}">Cards</button>
-          <button type="button" aria-pressed={viewMode === 'table'} on:click={() => viewMode = 'table'} class="rounded-md px-3 py-1 text-xs font-semibold {viewMode === 'table' ? 'bg-white shadow-xs' : ''}">Table</button>
-        </div>
-        <button
+      <button
           type="button"
           disabled={$seasonsProjectionScope.loading || Boolean($seasonsProjectionScope.error)}
           on:click={() => showCreateModal = true}
           class="rounded-lg bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-semibold text-[var(--crm-on-primary)] disabled:opacity-50"
         >
           Create Season
-        </button>
-      </div>
+      </button>
     </header>
 
-    <label class="mt-6 block">
-      <span class="sr-only">Search seasons</span>
-      <input type="search" bind:value={searchQuery} class="crm-ui-field" placeholder="Search seasons by name..." />
-    </label>
+    <section class="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-3" aria-label="Season list controls">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <label class="min-w-0 flex-1">
+          <span class="sr-only">Search seasons</span>
+          <input type="search" bind:value={searchQuery} class="crm-ui-field bg-white" placeholder="Search seasons by name..." />
+        </label>
+        <div class="flex shrink-0 items-center gap-2">
+          <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">View</span>
+          <div class="flex rounded-lg bg-gray-200 p-0.5">
+            <button type="button" aria-pressed={viewMode === 'cards'} on:click={() => viewMode = 'cards'} class="rounded-md px-3 py-1 text-xs font-semibold {viewMode === 'cards' ? 'bg-white shadow-xs' : ''}">Cards</button>
+            <button type="button" aria-pressed={viewMode === 'table'} on:click={() => viewMode = 'table'} class="rounded-md px-3 py-1 text-xs font-semibold {viewMode === 'table' ? 'bg-white shadow-xs' : ''}">Table</button>
+          </div>
+        </div>
+      </div>
+    </section>
 
     {#if $seasonsProjectionScope.truncated}
       <p class="crm-ui-notice-card mt-4" role="status">Only the first {$seasonsProjectionScope.limit} seasons are loaded. Search and counts may be incomplete.</p>

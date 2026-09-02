@@ -242,7 +242,7 @@ describe('PlayerTable atomic roster transfer', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('The roster update could not be applied.');
-    expect(alert).toHaveTextContent('Support request: request-transfer-9');
+    expect(alert).not.toHaveTextContent('request-transfer-9');
     expect(alert).not.toHaveTextContent('raw database failure');
 
     await fireEvent.click(

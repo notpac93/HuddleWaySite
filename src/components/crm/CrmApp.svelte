@@ -38,6 +38,10 @@
     eventId: string;
     eventTitle: string;
   } | null = null;
+  let mailboxConnectionResult = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('mailbox')
+    : null;
+  let mailboxReturnRequested = Boolean(mailboxConnectionResult);
 
   const tabLoaders: Record<string, () => Promise<{ default: Component<any> }>> = {
     Dashboard: () => import('./GlobalDashboard.svelte'),
@@ -170,6 +174,13 @@
       $tenantIdStore,
       allowedPages,
     );
+    if (mailboxReturnRequested && allowedPages.includes('Messages')) {
+      activeTab = 'Messages';
+      mailboxReturnRequested = false;
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete('mailbox');
+      window.history.replaceState({}, '', cleanUrl);
+    }
     activeResultId = null;
     restoredContextKey = contextKey;
   }
@@ -197,7 +208,7 @@
       ? { activeTeam, activeResultId, onTargetConsumed, onStartRegistrationEmail }
       : {}),
     ...(activeTab === 'Messages'
-      ? { registrationEmailDraft }
+      ? { registrationEmailDraft, mailboxConnectionResult }
       : {}),
     ...(activeTab === 'Financials'
       ? { activeTeam }

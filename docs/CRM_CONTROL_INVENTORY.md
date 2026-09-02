@@ -49,7 +49,7 @@ preservation.
 | Component | Native controls | Reviewed disposition |
 | --- | ---: | --- |
 | `ActivityManager.svelte` | 3 | Refresh and error-state retry execute the authenticated, scoped activity projection reload; loading, empty, and load-error copy are explicit. |
-| `CommunicationsManager.svelte` | 11 | Create and recall use authenticated, idempotent backend operations; recall requires an internal reason and keeps a stable replay key; inputs, cancel, disabled submit, progress, and result copy are wired. |
+| `CommunicationsManager.svelte` | 28 | Announcement create/recall, one-off and bulk email, registration outreach, allowance retry, sender-identity configuration/verification, and both confirmation dialogs are wired. Email preview is authenticated, deduplicated, preference-aware, quota-aware, and blocks delivery until the administrator confirms the eligible recipient count and remaining monthly allowance. |
 | `CrmApp.svelte` | 1 | The generic coming-soon branch was removed; every declared tab maps to a concrete lazily loaded component, with an actionable retry if a module fails to load. |
 | `CrmShell.svelte` | 15 | Navigation, accessible tenant switch, global search, and logout controls are wired. Search navigation preserves the selected result ID. The unsafe global browser-import entry point was removed. |
 | `DataTable.svelte` | 9 | Search, optional filtering, stable-ID selection, sorting, paging, row actions, and CSV export operate on the current view; empty export is explicitly disabled. |
