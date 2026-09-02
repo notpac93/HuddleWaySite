@@ -8,6 +8,7 @@
     authErrorStore,
     canViewTenantOperationsStore,
     isAuthLoading,
+    refreshAuthorization,
     tenantIdStore,
     tenantOperationsRoleStore,
     userStore,
@@ -303,10 +304,17 @@
     <div class="max-w-lg rounded-lg border border-red-200 bg-white p-8 shadow text-center">
       <h1 class="text-xl font-semibold text-gray-900">Access could not be verified</h1>
       <p class="mt-2 text-sm text-red-700">{$authErrorStore}</p>
-      <div class="mt-6 flex justify-center gap-3">
+      <div class="mt-6 flex flex-wrap justify-center gap-3">
         <button
           type="button"
           class="rounded-md bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-medium text-[var(--crm-on-primary)] shadow hover:bg-[var(--crm-brand-primary-hover)]"
+          on:click={() => refreshAuthorization($userStore)}
+        >
+          Retry access
+        </button>
+        <button
+          type="button"
+          class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
           on:click={async () => {
             try {
               await signOut(auth);
@@ -314,7 +322,7 @@
             authErrorStore.set('');
           }}
         >
-          Sign out & try again
+          Sign out
         </button>
       </div>
     </div>

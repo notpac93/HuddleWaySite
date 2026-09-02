@@ -24,8 +24,11 @@ vi.mock('../../src/lib/services/AuthService', () => ({
 }));
 
 import {
+  authErrorStore,
   availableTenants,
+  refreshAuthorization,
   tenantIdStore,
+  userStore,
 } from '../../src/lib/authStore';
 import {
   readCrmContext,
@@ -34,11 +37,62 @@ import {
 
 describe('CRM authorization restores persisted organization safely', () => {
   beforeEach(() => {
+    vi.useRealTimers();
     localStorage.clear();
     tenantIdStore.set(null);
     availableTenants.set([]);
     authMocks.fetchAuthorization.mockReset();
     authMocks.signOut.mockReset();
+  });
+
+  it('retries a temporary authorization read without signing the administrator out', async () => {
+    vi.useFakeTimers();
+    authMocks.fetchAuthorization
+      .mockRejectedValueOnce(new Error('temporary Firestore failure'))
+      .mockResolvedValue({
+        tenantAccess: [{ tenantId: 'eagle', role: 'owner' }],
+        canViewTenantOperations: false,
+        tenantOperationsRole: null,
+      });
+
+    const pending = authMocks.callback?.({ uid: 'admin-a' });
+    await vi.runAllTimersAsync();
+    await pending;
+
+    expect(authMocks.fetchAuthorization).toHaveBeenCalledTimes(2);
+    expect(authMocks.signOut).not.toHaveBeenCalled();
+    expect(get(availableTenants)).toEqual(['eagle']);
+    expect(get(authErrorStore)).toBe('');
+  });
+
+  it('keeps the Firebase session when organization access remains temporarily unavailable', async () => {
+    vi.useFakeTimers();
+    const signedInUser = { uid: 'admin-a' };
+    authMocks.fetchAuthorization.mockRejectedValue(
+      new Error('temporary Firestore failure'),
+    );
+
+    const pending = authMocks.callback?.(signedInUser);
+    await vi.runAllTimersAsync();
+    await pending;
+
+    expect(authMocks.fetchAuthorization).toHaveBeenCalledTimes(3);
+    expect(authMocks.signOut).not.toHaveBeenCalled();
+    expect(get(userStore)).toBe(signedInUser);
+    expect(get(authErrorStore)).toMatch(/retry/i);
+  });
+
+  it('allows access to be retried without signing out', async () => {
+    authMocks.fetchAuthorization.mockResolvedValue({
+      tenantAccess: [{ tenantId: 'release-club', role: 'owner' }],
+      canViewTenantOperations: false,
+      tenantOperationsRole: null,
+    });
+
+    await refreshAuthorization({ uid: 'admin-a' } as any);
+
+    expect(authMocks.signOut).not.toHaveBeenCalled();
+    expect(get(tenantIdStore)).toBe('release-club');
   });
 
   it('restores a stored tenant only after current membership validation', async () => {
