@@ -12,7 +12,7 @@ const reviewedControlCounts: Record<string, number> = {
   'ConsumerAdminInbox.svelte': 6,
   'CrmApp.svelte': 3,
   'CrmBreadcrumbs.svelte': 1,
-  'CrmShell.svelte': 14,
+  'CrmShell.svelte': 16,
   'DataTable.svelte': 9,
   'DocumentsManager.svelte': 7,
   'EventScheduler.svelte': 27,
@@ -54,8 +54,17 @@ const reviewedControlCounts: Record<string, number> = {
   'seasons/SeasonDetail.svelte': 13,
   'seasons/SeasonsManager.svelte': 8,
   'teams/CreateTeamForm.svelte': 4,
+  'ui/ChangeReceipt.svelte': 2,
+  'ui/DetailDrawer.svelte': 2,
+  'ui/EmptyState.svelte': 2,
+  'ui/FilterBar.svelte': 2,
+  'ui/Icon.svelte': 0,
   'ui/ImageFilePicker.svelte': 1,
+  'ui/LoadingState.svelte': 0,
+  'ui/PageHeader.svelte': 0,
+  'ui/PortalExperienceCatalog.svelte': 5,
   'ui/StatusButton.svelte': 1,
+  'ui/StatusNotice.svelte': 1,
 };
 
 function componentFiles(directory = crmRoot): string[] {
@@ -122,7 +131,7 @@ describe('exhaustive CRM control inventory', () => {
     );
 
     expect(actual).toEqual(reviewedControlCounts);
-    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(476);
+    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(492);
   });
 
   it('keeps every inventoried CRM component reachable from a production entry point', () => {

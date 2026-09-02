@@ -230,7 +230,7 @@ describe("CRM modal stacking and navigation", () => {
     expect(currentTenant).toBe("tenant-b");
     expect(
       screen.getByRole("status", { name: "current tab" }),
-    ).toHaveTextContent("Activity");
+    ).toHaveTextContent("Roster");
 
     tenants.set("tenant-a");
 

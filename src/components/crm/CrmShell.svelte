@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Component } from 'svelte';
-  import { onDestroy } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import { get } from 'svelte/store';
   import { auth, db } from '../../lib/firebase';
   import { signOut } from 'firebase/auth';
@@ -16,13 +16,14 @@
     serializeCrmThemeVariables,
   } from '../../lib/ui/crmTheme';
   import CrmBreadcrumbs from './CrmBreadcrumbs.svelte';
+  import Icon from './ui/Icon.svelte';
 
   export let activeTab = 'Dashboard';
   export let tabs: any[] = [];
   export let activeTeam: any = null;
   export let onExitTeam = () => {};
   export let activeResultId: string | null = null;
-  export let onSwitchTenant: (tenantId: string) => void | Promise<void> = (tenantId) => {
+  export let onSwitchTenant: (tenantId: string, preferredTab?: string) => void | Promise<void> = (tenantId) => {
     tenantIdStore.set(tenantId);
   };
 
@@ -37,19 +38,26 @@
   let logoutState: 'idle' | 'loading' | 'error' = 'idle';
   let logoutError = '';
 
-  let isSidebarHovered = false;
-  let hoverTimeout: any;
+  const sidebarPreferenceKey = 'huddleway.crm.sidebar.expanded';
+  let isSidebarExpanded = true;
+  let pageHeading: HTMLHeadingElement | null = null;
 
-  function handleSidebarMouseEnter() {
-    clearTimeout(hoverTimeout);
-    isSidebarHovered = true;
+  onMount(() => {
+    isSidebarExpanded = window.localStorage.getItem(sidebarPreferenceKey) !== 'false';
+  });
+
+  function tabLabel(tab: any) {
+    return String(tab?.label || tab?.name || 'Portal');
   }
 
-  function handleSidebarMouseLeave() {
-    hoverTimeout = setTimeout(() => {
-      isSidebarHovered = false;
-      showOrgSwitcher = false;
-    }, 150);
+  function currentTabLabel() {
+    return tabLabel(tabs.find((tab) => tab.name === activeTab) || { name: activeTab });
+  }
+
+  function toggleSidebar() {
+    isSidebarExpanded = !isSidebarExpanded;
+    window.localStorage.setItem(sidebarPreferenceKey, String(isSidebarExpanded));
+    if (!isSidebarExpanded) showOrgSwitcher = false;
   }
 
   async function handleLogout() {
@@ -67,14 +75,15 @@
   }
 
   async function switchTenant(tenant: any) {
+    const preferredTab = activeTab === 'Rostering' ? 'Roster' : activeTab;
     showOrgSwitcher = false;
     showGlobalSearch = false;
     showMobileMenu = false;
     showLogoutModal = false;
     activeResultId = null;
     if (activeTeam) onExitTeam();
-    activeTab = String(tabs[0]?.name || 'Dashboard');
-    await onSwitchTenant(tenant);
+    activeTab = preferredTab;
+    await onSwitchTenant(tenant, preferredTab);
   }
 
   let appName = 'HuddleWay';
@@ -94,7 +103,6 @@
     brandingGeneration += 1;
     unsubscribeTenant();
     unsubscribeBranding();
-    clearTimeout(hoverTimeout);
   });
 
   function resetBranding() {
@@ -188,6 +196,7 @@
     activeResultId = null;
     activeTab = tab;
     showMobileMenu = false;
+    void tick().then(() => pageHeading?.focus({ preventScroll: true }));
   }
 
   function organizationName(tenantId: string, index: number) {
@@ -210,7 +219,7 @@
           ? []
           : [{ label: activeTab, current: true }]),
       ]
-    : [{ label: activeTab, current: true }];
+    : [{ label: currentTabLabel(), current: true }];
 
   function handleSearchNavigate(event: CustomEvent<{ tab: string; id: string }>) {
     activeResultId = event.detail.id;
@@ -294,9 +303,7 @@
             data-mobile-close
             on:click={closeMobileMenu}
           >
-            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <Icon name="close" size={20} />
           </button>
         </div>
         <nav class="flex-1 space-y-1 overflow-y-auto p-3" aria-label="CRM sections">
@@ -307,10 +314,13 @@
               aria-current={activeTab === tab.name ? 'page' : undefined}
               on:click={() => setActiveTab(tab.name)}
             >
-              <svg class="mr-3 h-5 w-5 shrink-0 {activeTab === tab.name ? '' : 'crm-theme-sidebar-icon'}" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={tab.icon} />
-              </svg>
-              {tab.name}
+              <Icon
+                name={tab.icon}
+                size={20}
+                strokeWidth={1.5}
+                className="mr-3 shrink-0 {activeTab === tab.name ? '' : 'crm-theme-sidebar-icon'}"
+              />
+              {tabLabel(tab)}
             </button>
           {/each}
         </nav>
@@ -341,11 +351,10 @@
   {/if}
 
   <aside
-    class="crm-theme-sidebar {isSidebarHovered ? 'w-64' : 'w-20'} flex-col hidden md:flex transition-[width] duration-300 ease-in-out relative z-50 overflow-visible shrink-0 shadow-lg"
-    on:mouseenter={handleSidebarMouseEnter}
-    on:mouseleave={handleSidebarMouseLeave}
+    class="crm-theme-sidebar {isSidebarExpanded ? 'w-64' : 'w-20'} relative z-50 hidden shrink-0 flex-col overflow-visible shadow-lg transition-[width] duration-[var(--portal-motion-context)] ease-[var(--portal-ease-standard)] md:flex"
+    data-sidebar-expanded={isSidebarExpanded}
   >
-    <div class="crm-theme-sidebar-divider p-5 flex items-center {isSidebarHovered ? 'space-x-3' : 'justify-center'} h-[73px]">
+    <div class="crm-theme-sidebar-divider flex h-[73px] items-center {isSidebarExpanded ? 'gap-3 px-4' : 'justify-center px-3'}">
       <img
         src={resolvedLogoUrl}
         width="32"
@@ -356,61 +365,78 @@
         alt="{appName} logo"
         class="w-8 h-8 object-contain shrink-0"
       />
-      <span class="text-xl font-bold tracking-tight truncate flex-1 min-w-0 transition-opacity duration-300 {isSidebarHovered ? 'opacity-100' : 'opacity-0 hidden'}">{appName}</span>
+      {#if isSidebarExpanded}
+        <span class="min-w-0 flex-1 truncate text-xl font-bold tracking-tight">{appName}</span>
+      {/if}
+      <button
+        type="button"
+        class="portal-motion-color absolute -right-3 top-[25px] flex h-6 w-6 items-center justify-center rounded-full border bg-white text-gray-700 shadow-sm hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--crm-brand-focus)]"
+        aria-label={isSidebarExpanded ? 'Collapse navigation' : 'Expand navigation'}
+        aria-pressed={isSidebarExpanded}
+        title={isSidebarExpanded ? 'Collapse navigation' : 'Expand navigation'}
+        on:click={toggleSidebar}
+      >
+        <Icon name={isSidebarExpanded ? 'chevronLeft' : 'chevronRight'} size={16} />
+      </button>
     </div>
 
     <nav class="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto">
       {#each tabs as tab}
         <button
           type="button"
-          class="w-full flex items-center {isSidebarHovered ? 'px-3.5 justify-start' : 'px-0 justify-center'} py-2.5 text-sm font-semibold rounded-lg transition-all duration-150 {activeTab === tab.name ? 'crm-theme-sidebar-active shadow-md' : 'crm-theme-sidebar-idle'}"
+          class="portal-motion-color flex min-h-11 w-full items-center {isSidebarExpanded ? 'justify-start px-3.5' : 'justify-center px-0'} rounded-lg py-2.5 text-sm font-semibold {activeTab === tab.name ? 'crm-theme-sidebar-active shadow-md' : 'crm-theme-sidebar-idle'}"
           on:click={() => setActiveTab(tab.name)}
-          title={!isSidebarHovered ? tab.name : ''}
+          title={!isSidebarExpanded ? tabLabel(tab) : ''}
           aria-current={activeTab === tab.name ? 'page' : undefined}
+          aria-label={!isSidebarExpanded ? tabLabel(tab) : undefined}
         >
-          <svg class="shrink-0 h-5 w-5 {activeTab === tab.name ? '' : 'crm-theme-sidebar-icon'} {isSidebarHovered ? 'mr-3.5' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={tab.icon} />
-          </svg>
-          <span class="whitespace-nowrap font-medium transition-opacity duration-300 {isSidebarHovered ? 'opacity-100' : 'opacity-0 hidden'}">{tab.name}</span>
+          <Icon
+            name={tab.icon}
+            size={20}
+            strokeWidth={1.5}
+            className="shrink-0 {activeTab === tab.name ? '' : 'crm-theme-sidebar-icon'} {isSidebarExpanded ? 'mr-3.5' : ''}"
+          />
+          {#if isSidebarExpanded}
+            <span class="whitespace-nowrap font-medium">{tabLabel(tab)}</span>
+          {/if}
         </button>
       {/each}
     </nav>
 
     <div class="crm-ui-shell-account">
-      <div class="flex items-center w-full {isSidebarHovered ? 'justify-between' : 'justify-center'}">
+      <div class="flex w-full items-center {isSidebarExpanded ? 'justify-between' : 'justify-center'}">
         <button
           type="button"
-          class="flex items-center text-left {isSidebarHovered ? 'flex-1 min-w-0 mr-2' : ''}"
+          class="flex min-h-11 items-center text-left {isSidebarExpanded ? 'mr-2 min-w-0 flex-1' : ''}"
           aria-label="Switch organization"
           aria-expanded={showOrgSwitcher}
           on:click={() => {
-            isSidebarHovered = true;
+            isSidebarExpanded = true;
+            window.localStorage.setItem(sidebarPreferenceKey, 'true');
             showOrgSwitcher = !showOrgSwitcher;
           }}
         >
           <span class="crm-ui-shell-avatar shrink-0">
             C
           </span>
-          <span class="ml-3 flex-1 min-w-0 transition-opacity duration-300 {isSidebarHovered ? 'opacity-100' : 'opacity-0 hidden w-0 overflow-hidden'}">
+          {#if isSidebarExpanded}
+          <span class="ml-3 min-w-0 flex-1">
             <span class="text-sm font-medium flex items-center">
               <span class="truncate">{appName}</span>
-              <svg class="w-4 h-4 ml-1 shrink-0 text-[var(--crm-on-sidebar-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-              </svg>
+              <Icon name="chevronDown" size={16} className="ml-1 shrink-0 text-[var(--crm-on-sidebar-muted)]" />
             </span>
             <span class="block text-xs text-[var(--crm-on-sidebar-muted)] truncate">Switch organization</span>
           </span>
+          {/if}
         </button>
         <button
           type="button"
-          class="crm-ui-shell-signout-icon shrink-0 {isSidebarHovered ? 'block' : 'hidden'}"
+          class="crm-ui-shell-signout-icon shrink-0 {isSidebarExpanded ? 'block' : 'hidden'}"
           on:click={() => showLogoutModal = true}
           aria-label="Sign out"
           title="Sign out"
         >
-          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
+          <Icon name="logout" size={20} />
         </button>
       </div>
 
@@ -442,17 +468,29 @@
         aria-expanded={showMobileMenu}
         on:click={() => showMobileMenu = true}
       >
-        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
+        <Icon name="menu" size={20} />
       </button>
       <CrmBreadcrumbs items={breadcrumbItems} />
+      <div
+        class="hidden min-w-0 items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600 lg:flex"
+        aria-label="Current portal scope"
+      >
+        <span class="font-medium text-gray-500">Scope</span>
+        <span class="max-w-40 truncate font-semibold text-gray-900">{appName}</span>
+        {#if activeTeam}
+          <span aria-hidden="true">/</span>
+          <span class="max-w-40 truncate font-semibold text-[var(--crm-brand-link)]">{activeTeam.name || 'Team'}</span>
+          <button
+            type="button"
+            class="portal-motion-color rounded px-1.5 py-1 font-semibold text-[var(--crm-brand-link)] hover:bg-[var(--crm-brand-surface)]"
+            on:click={onExitTeam}
+          >All teams</button>
+        {/if}
+      </div>
       <div class="max-w-lg flex-1 sm:px-4 lg:px-8">
         <div class="relative group">
           <div class="crm-ui-shell-search-icon">
-            <svg class="crm-theme-search-icon h-4 w-4 transition-colors" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
-            </svg>
+            <Icon name="search" size={16} className="crm-theme-search-icon" />
           </div>
           <button
             type="button"
@@ -475,13 +513,16 @@
       <div class="flex space-x-3"></div>
     </header>
 
-    <div class="flex-1 flex flex-col">
+    <div class="flex min-h-0 flex-1 flex-col">
+      <h1 class="sr-only" tabindex="-1" bind:this={pageHeading}>{currentTabLabel()}</h1>
       {#if brandingState === 'error' || brandingState === 'permission'}
         <p class="crm-ui-shell-brand-error" role="alert">{brandingMessage}</p>
       {:else if brandingState === 'missing'}
         <p class="sr-only" role="status">{brandingMessage}</p>
       {/if}
-      <slot />
+      <div class="flex min-h-0 flex-1 flex-col">
+        <slot />
+      </div>
     </div>
   </main>
 
@@ -500,9 +541,7 @@
           <div class="crm-ui-modal-body">
             <div class="sm:flex sm:items-start">
               <div class="crm-ui-shell-logout-icon">
-                <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
+                <Icon name="logout" size={24} className="text-red-600" />
               </div>
               <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
                 <h3 class="crm-ui-modal-title" id="modal-title">
