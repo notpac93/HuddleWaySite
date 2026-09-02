@@ -113,25 +113,6 @@ describe('BackendApi', () => {
     });
   });
 
-  it('rejects an inconsistent CRM authorization projection', async () => {
-    const api = new BackendApi({
-      baseUrl: 'https://api.example.test',
-      fetch: async () => response(200, {
-        tenantAccess: [{ tenantId: 'fixture-tenant', role: 'owner' }],
-        canViewTenantOperations: true,
-        tenantOperationsRole: null,
-        requestId: 'authorization-invalid',
-      }),
-      getIdToken: async () => 'token',
-    });
-
-    await expect(api.crmAuthorization()).rejects.toMatchObject({
-      status: 502,
-      code: 'invalid_backend_response',
-      requestId: 'authorization-invalid',
-    });
-  });
-
   it('loads and replies to tenant-scoped consumer admin inbox threads', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(response(200, {

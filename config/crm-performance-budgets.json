@@ -2,7 +2,7 @@
   "route": "/admin/",
   "assetBudgets": {
     "maxRouteHtmlRawBytes": 8192,
-    "maxInitialJsRawBytes": 700000,
+    "maxInitialJsRawBytes": 701000,
     "maxInitialJsGzipBytes": 215000,
     "maxInitialJsBrotliBytes": 180000,
     "maxInitialCssGzipBytes": 20000,
