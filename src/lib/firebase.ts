@@ -42,7 +42,7 @@ function resolveAuth(): Auth {
     // popup/redirect resolver avoids loading Google's cross-origin auth iframe
     // on CRM routes that do not offer federated sign-in.
     return initializeAuth(firebaseApp, {
-      persistence: [indexedDBLocalPersistence, browserLocalPersistence],
+      persistence: [browserLocalPersistence, indexedDBLocalPersistence],
     });
   } catch (error) {
     const code = String((error as { code?: unknown })?.code || '');

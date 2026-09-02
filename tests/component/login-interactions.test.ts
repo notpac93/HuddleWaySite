@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const authMocks = vi.hoisted(() => ({
   createUser: vi.fn(),
   sendVerification: vi.fn(),
+  setPersistence: vi.fn(),
   signIn: vi.fn(),
   signOut: vi.fn(),
   reset: vi.fn(),
@@ -14,6 +15,8 @@ vi.mock('../../src/lib/firebase', () => ({ auth: {} }));
 vi.mock('firebase/auth', () => ({
   createUserWithEmailAndPassword: authMocks.createUser,
   sendEmailVerification: authMocks.sendVerification,
+  setPersistence: authMocks.setPersistence,
+  browserLocalPersistence: { type: 'LOCAL' },
   signInWithEmailAndPassword: authMocks.signIn,
   signOut: authMocks.signOut,
   sendPasswordResetEmail: authMocks.reset,
@@ -38,6 +41,8 @@ describe('Login safe interaction states', () => {
     authMocks.reset.mockReset();
     authMocks.createUser.mockReset();
     authMocks.sendVerification.mockReset();
+    authMocks.setPersistence.mockReset();
+    authMocks.setPersistence.mockResolvedValue(undefined);
     authMocks.signOut.mockReset();
   });
 
@@ -121,6 +126,10 @@ describe('Login safe interaction states', () => {
     await fireEvent.click(submit);
     await fireEvent.click(submit);
     expect(authMocks.signIn).toHaveBeenCalledTimes(1);
+    expect(authMocks.setPersistence).toHaveBeenCalledWith(
+      {},
+      { type: 'LOCAL' },
+    );
     resolveSignIn();
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Sign in' })).toBeEnabled(),
