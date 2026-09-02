@@ -569,6 +569,16 @@ export interface FinancialOverview {
   requestId: string;
 }
 
+export interface CrmAuthorization {
+  tenantAccess: Array<{
+    tenantId: string;
+    role: 'owner' | 'editor' | 'viewer' | 'platform_admin';
+  }>;
+  canViewTenantOperations: boolean;
+  tenantOperationsRole: 'platform_admin' | 'platform_operations_viewer' | null;
+  requestId: string;
+}
+
 export type CrmOperationalCollection =
   | 'events'
   | 'registration_forms'
@@ -1310,6 +1320,36 @@ export class BackendApi {
       invalidBackendResponse(
         payload as unknown as Record<string, unknown>,
       );
+    }
+    return payload;
+  }
+
+  async crmAuthorization() {
+    const payload = await this.send<CrmAuthorization>('/admin/crm/authorization');
+    const allowedRoles = new Set(['owner', 'editor', 'viewer', 'platform_admin']);
+    const allowedOperationsRoles = new Set([
+      'platform_admin',
+      'platform_operations_viewer',
+    ]);
+    if (
+      !Array.isArray(payload.tenantAccess)
+      || payload.tenantAccess.some((entry) =>
+        !entry
+        || typeof entry !== 'object'
+        || !String(entry.tenantId || '').trim()
+        || !allowedRoles.has(String(entry.role || '')),
+      )
+      || new Set(payload.tenantAccess.map((entry) => entry.tenantId)).size
+        !== payload.tenantAccess.length
+      || typeof payload.canViewTenantOperations !== 'boolean'
+      || (
+        payload.tenantOperationsRole !== null
+        && !allowedOperationsRoles.has(String(payload.tenantOperationsRole || ''))
+      )
+      || payload.canViewTenantOperations !== (payload.tenantOperationsRole !== null)
+      || !String(payload.requestId || '').trim()
+    ) {
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
   }
