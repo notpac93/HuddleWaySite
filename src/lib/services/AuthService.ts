@@ -1,5 +1,4 @@
 import { type User } from 'firebase/auth';
-import { backendClient } from '../api/backendClient';
 
 export type TenantRole = 'owner' | 'editor' | 'viewer' | 'platform_admin';
 
@@ -156,6 +155,7 @@ export class AuthService {
     // The user argument preserves the existing store contract; the backend
     // independently verifies the current ID token and resolves live access.
     void user;
+    const { backendClient } = await import('../api/backendClient');
     return backendClient.crmAuthorization();
   }
 
