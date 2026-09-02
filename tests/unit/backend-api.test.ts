@@ -83,6 +83,36 @@ function validAppConfiguration() {
 }
 
 describe('BackendApi', () => {
+  it('loads the minimum live CRM authorization projection', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response(200, {
+      tenantAccess: [{ tenantId: 'fixture-tenant', role: 'owner' }],
+      canViewTenantOperations: false,
+      tenantOperationsRole: null,
+      requestId: 'authorization-request',
+    }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+      getAppCheckToken: async () => 'app-check-token',
+      requireAppCheck: true,
+    });
+
+    await expect(api.crmAuthorization()).resolves.toEqual({
+      tenantAccess: [{ tenantId: 'fixture-tenant', role: 'owner' }],
+      canViewTenantOperations: false,
+      tenantOperationsRole: null,
+      requestId: 'authorization-request',
+    });
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      'https://api.example.test/admin/crm/authorization',
+    );
+    expect(fetchMock.mock.calls[0][1].headers).toMatchObject({
+      Authorization: 'Bearer token',
+      'X-Firebase-AppCheck': 'app-check-token',
+    });
+  });
+
   it('loads and replies to tenant-scoped consumer admin inbox threads', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(response(200, {

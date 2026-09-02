@@ -176,6 +176,19 @@ async function signIn(page: Page, email: string) {
 }
 
 async function mockAuthenticatedBackend(page: Page, tenantId: string) {
+  await page.route('**/admin/crm/authorization', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        tenantAccess: [{ tenantId, role: 'owner' }],
+        canViewTenantOperations: false,
+        tenantOperationsRole: null,
+        requestId: 'e2e-authorization',
+      }),
+    });
+  });
+
   await page.route('**/admin/crm/operational-records**', async (route) => {
     const url = new URL(route.request().url());
     const collection = url.searchParams.get('collection') || '';

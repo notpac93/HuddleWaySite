@@ -1,13 +1,5 @@
-import { db } from '../firebase';
 import { type User } from 'firebase/auth';
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  where,
-} from 'firebase/firestore';
+import { backendClient } from '../api/backendClient';
 
 export type TenantRole = 'owner' | 'editor' | 'viewer' | 'platform_admin';
 
@@ -161,26 +153,10 @@ export function parseCanonicalTenantAccess(
 
 export class AuthService {
   static async fetchAuthorization(user: User): Promise<CrmAuthorization> {
-    const [userDocSnap, canonicalMemberships] = await Promise.all([
-      getDoc(doc(db, 'users', user.uid)),
-      getDocs(query(
-        collection(db, 'tenant_memberships'),
-        where('uid', '==', user.uid),
-      )),
-    ]);
-    const data = userDocSnap.exists() ? userDocSnap.data() : {};
-    // Match the backend's revocation boundary: platform-wide access must be
-    // present in the live user document. A stale ID-token claim must never
-    // keep another organization's tenant visible after access is revoked.
-    const tenantOperationsRole = resolveTenantOperationsRole(data);
-    const isPlatformAdmin = tenantOperationsRole === 'platform_admin';
-    return {
-      tenantAccess: isPlatformAdmin
-        ? parseTenantAccess(data, true)
-        : parseCanonicalTenantAccess(canonicalMemberships.docs),
-      canViewTenantOperations: tenantOperationsRole !== null,
-      tenantOperationsRole,
-    };
+    // The user argument preserves the existing store contract; the backend
+    // independently verifies the current ID token and resolves live access.
+    void user;
+    return backendClient.crmAuthorization();
   }
 
   static async fetchUserAccess(user: User): Promise<TenantAccess[]> {

@@ -569,6 +569,16 @@ export interface FinancialOverview {
   requestId: string;
 }
 
+export interface CrmAuthorization {
+  tenantAccess: Array<{
+    tenantId: string;
+    role: 'owner' | 'editor' | 'viewer' | 'platform_admin';
+  }>;
+  canViewTenantOperations: boolean;
+  tenantOperationsRole: 'platform_admin' | 'platform_operations_viewer' | null;
+  requestId: string;
+}
+
 export type CrmOperationalCollection =
   | 'events'
   | 'registration_forms'
@@ -1312,6 +1322,10 @@ export class BackendApi {
       );
     }
     return payload;
+  }
+
+  async crmAuthorization() {
+    return this.send<CrmAuthorization>('/admin/crm/authorization');
   }
 
   async rosterPlayersPage(tenantId: string, teamId?: string) {
