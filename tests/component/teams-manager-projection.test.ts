@@ -27,7 +27,7 @@ vi.mock('../../src/lib/services/RosterService', () => ({
   RosterService: {
     subscribeToPlayers: vi.fn((_tenantId, _activeTeam, callback) => {
       callback(
-        [{ id: 'registration-1', teamId: 'team-1', teamIds: ['team-1'] }],
+        [{ id: 'registration-1', teamId: null, teamIds: [], team: 'Falcons' }],
         {
           truncated: {
             registrations: false,
@@ -151,6 +151,8 @@ describe('TeamsManager complete projection states', () => {
       setActiveTeam,
       onTargetConsumed,
     });
+
+    expect(screen.getByRole('button', { name: /Falcons.*1 people/ })).toBeVisible();
 
     await waitFor(() => {
       expect(onTargetConsumed).toHaveBeenCalledTimes(1);

@@ -90,11 +90,16 @@
 
   function teamRosterCount(team: any) {
     const teamId = String(team?.id || '').trim();
+    const teamName = String(team?.name || team?.title || '').trim().toLowerCase();
     if (rosterCountScopeComplete) {
       return rosterPlayers.filter((player) =>
         String(player?.teamId || '').trim() === teamId
         || (Array.isArray(player?.teamIds)
-          && player.teamIds.some((id) => String(id || '').trim() === teamId)),
+          && player.teamIds.some((id) => String(id || '').trim() === teamId))
+        || (teamName
+          && String(player?.team || '')
+            .split(',')
+            .some((name) => name.trim().toLowerCase() === teamName)),
       ).length;
     }
     const explicit = Number(team?.memberCount ?? team?.playerCount);
