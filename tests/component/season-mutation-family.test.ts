@@ -421,6 +421,26 @@ describe('season mutation family', () => {
       'Remove the incorrectly linked event.',
       expect.stringContaining('event-season-unlink:'),
     );
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Event unlinked from this season.',
+    );
+    expect(screen.queryByText('Opening practice')).toBeNull();
+  });
+
+  it('shows a linked event and receipt immediately without a store refresh', async () => {
+    backendMocks.updateEvent.mockResolvedValue(undefined);
+    render(TestedSeasonDetail, { season: fallLeague });
+    await fireEvent.click(screen.getByRole('button', { name: /Events/ }));
+    expect(screen.getByRole('button', { name: 'Events 0' })).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Add / Link Event' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Link to Season' }));
+    await waitFor(() => expect(backendMocks.updateEvent).toHaveBeenCalledTimes(1));
+    await fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    expect(screen.getByRole('button', { name: 'Events 1' })).toBeVisible();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Event linked to this season.',
+    );
+    expect(screen.getByText('Opening practice')).toBeVisible();
   });
 
   it('opens the canonical roster registration from a season participant', async () => {

@@ -110,6 +110,7 @@
         || buildPayloadSignature(normalizedEventId) !== submittedSignature
       ) return;
       linkStates = { ...linkStates, [normalizedEventId]: 'success' };
+      dispatch('linked', { eventId: normalizedEventId, seasonId });
     } catch (error) {
       if (
         generation !== operationGeneration

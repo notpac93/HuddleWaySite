@@ -290,6 +290,9 @@
     if (statusFilter && p.status !== statusFilter) return false;
     return true;
   });
+  $: statusOptions = [...new Set(playerRows.map((player) => player.status))]
+    .filter(Boolean)
+    .sort((left, right) => left.localeCompare(right));
 </script>
 
 {#if omittedPlayerCount > 0}
@@ -418,9 +421,9 @@
         <span class="sr-only">Filter players by status</span>
         <select bind:value={statusFilter} class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-border)]">
         <option value="">All Statuses</option>
-        <option value="Active">Active</option>
-        <option value="Inactive">Inactive</option>
-        <option value="Waitlisted">Waitlisted</option>
+        {#each statusOptions as status}
+          <option value={status}>{status}</option>
+        {/each}
         </select>
       </label>
     {/if}

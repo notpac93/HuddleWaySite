@@ -206,6 +206,34 @@ describe('RosterManager projection and navigation controls', () => {
     ).toBeVisible();
     expect(screen.getByLabelText(/Person name/)).toBeVisible();
   });
+
+  it('offers every status actually shown in the roster', async () => {
+    render(TestedRosterManager);
+    await act(async () => {
+      subscriptions[0].success(
+        [{
+          id: 'registration-confirmed',
+          name: 'Confirmed Player',
+          role: 'Player',
+          status: 'Confirmed',
+        }],
+        {
+          truncated: {
+            registrations: false,
+            memberships: false,
+            teams: false,
+          },
+          requestId: 'confirmed-request',
+        },
+      );
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: /^Filter$/ }));
+    const status = screen.getByLabelText('Filter players by status');
+    expect(status).toHaveTextContent('Confirmed');
+    await fireEvent.change(status, { target: { value: 'Confirmed' } });
+    expect(screen.getAllByText('Confirmed Player')[0]).toBeVisible();
+  });
 });
 
 describe('TeamTable row controls', () => {

@@ -48,6 +48,8 @@
   let unlinkKey = createIdempotencyKey('event-season-unlink');
   let unlinkSignature = '';
   let unlinkGeneration = 0;
+  let eventSeasonOverrides: Record<string, string | null> = {};
+  let eventMutationReceipt = '';
   const unlinkText = 'UNLINK EVENT';
 
   function goBack() {
@@ -153,6 +155,12 @@
     ...event,
     id: String(event?.id || '').trim(),
     title: String(event?.title || 'Event title unavailable'),
+    seasonId: Object.prototype.hasOwnProperty.call(
+      eventSeasonOverrides,
+      String(event?.id || '').trim(),
+    )
+      ? eventSeasonOverrides[String(event?.id || '').trim()]
+      : event?.seasonId,
   }));
   $: malformedEventCount =
     normalizedEvents.filter((event) => !event.id).length;
@@ -167,6 +175,13 @@
   function handleCreateNewEvent() {
     showLinkEventModal = false;
     showCreateEventModal = true;
+  }
+
+  function handleEventLinked(event: CustomEvent<{ eventId: string; seasonId: string }>) {
+    const eventId = String(event.detail?.eventId || '').trim();
+    if (!eventId) return;
+    eventSeasonOverrides = { ...eventSeasonOverrides, [eventId]: seasonId };
+    eventMutationReceipt = 'Event linked to this season.';
   }
 
   function exportParticipants() {
@@ -254,6 +269,8 @@
         || unlinkSignature !== signature
       ) return;
       unlinkCandidate = null;
+      eventSeasonOverrides = { ...eventSeasonOverrides, [eventId]: null };
+      eventMutationReceipt = 'Event unlinked from this season.';
       unlinkState = 'idle';
     } catch (error) {
       if (
@@ -278,7 +295,7 @@
 </script>
 
 {#if showLinkEventModal && seasonId}
-  <LinkEventModal {season} on:close={() => showLinkEventModal = false} on:createNew={handleCreateNewEvent} />
+  <LinkEventModal {season} on:close={() => showLinkEventModal = false} on:createNew={handleCreateNewEvent} on:linked={handleEventLinked} />
 {/if}
 
 {#if showCreateEventModal && seasonId}
@@ -490,6 +507,12 @@
       Add / Link Event
     </button>
   </div>
+
+  {#if eventMutationReceipt}
+    <p class="mb-4 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-900" role="status">
+      {eventMutationReceipt}
+    </p>
+  {/if}
 
   <!-- Events Table -->
   <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
