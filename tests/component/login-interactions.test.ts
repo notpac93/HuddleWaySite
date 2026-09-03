@@ -54,7 +54,7 @@ describe('Login safe interaction states', () => {
       '/logo.webp',
     );
     expect(screen.getByTestId('huddleway-background-logo')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Admin Portal' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Operations Portal' })).toBeVisible();
   });
 
   it('offers free self-service signup and maps raw sign-in failures safely', async () => {

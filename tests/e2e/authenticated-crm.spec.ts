@@ -162,7 +162,7 @@ async function seedVerifiedOwner(projectName: string) {
 async function signIn(page: Page, email: string) {
   await page.goto('/admin', { waitUntil: 'domcontentloaded' });
   await expect(
-    page.getByRole('heading', { name: 'Admin Portal' }),
+    page.getByRole('heading', { name: 'Operations Portal' }),
   ).toBeVisible();
   await expect(
     page.getByText(
