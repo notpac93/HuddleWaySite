@@ -46,6 +46,7 @@ vi.mock('../../src/lib/services/DataStore', async () => {
     permissionDenied: false,
   };
   return {
+    refreshOperationalCollections: vi.fn(),
     DataStore: {
       getEventRegistrationCount: () => 0,
     },

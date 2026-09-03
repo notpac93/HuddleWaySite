@@ -6,10 +6,12 @@
   import type { PortalIconName } from '../../lib/ui/portalIcons';
   import {
     eventsStore,
+    registrationsProjectionScope,
     registrationsStore,
     seasonsStore,
     teamsProjectionScope,
     teamsStore,
+    refreshOperationalCollections,
   } from '../../lib/services/DataStore';
   import { modalFocus } from '../../lib/ui/modalFocus';
   import CreateTeamForm from './teams/CreateTeamForm.svelte';
@@ -18,6 +20,7 @@
   import LoadingState from './ui/LoadingState.svelte';
   import PageHeader from './ui/PageHeader.svelte';
   import StatusNotice from './ui/StatusNotice.svelte';
+  import ChangeReceipt from './ui/ChangeReceipt.svelte';
 
   export let setActiveTeam: (team: any) => void = () => {};
   export let activeTeam: any = null;
@@ -42,6 +45,11 @@
   let deleteReason = '';
   let deleteConfirmation = '';
   let deleteOperationKey = '';
+  let teamReceipt: {
+    title: string;
+    message: string;
+    reference?: string;
+  } | null = null;
 
   function referencesTeam(record: any, teamId: string) {
     return [record?.teamId, record?.team?.id, record?.metadata?.teamId]
@@ -50,9 +58,16 @@
 
   function teamRosterCount(team: any) {
     const explicit = Number(team?.memberCount ?? team?.playerCount);
-    return Number.isSafeInteger(explicit) && explicit >= 0
-      ? explicit
-      : $registrationsStore.filter((record) => referencesTeam(record, String(team?.id || ''))).length;
+    const projected = $registrationsStore.filter(
+      (record) => referencesTeam(record, String(team?.id || '')),
+    ).length;
+    return !$registrationsProjectionScope.loading
+      && !$registrationsProjectionScope.error
+      && !$registrationsProjectionScope.truncated
+      ? projected
+      : Number.isSafeInteger(explicit) && explicit >= 0
+        ? explicit
+        : 0;
   }
 
   function teamSeasons(team: any) {
@@ -102,6 +117,16 @@
     isTeamFormOpen = false;
   }
 
+  function handleTeamSuccess(event: CustomEvent<{ action: string; name: string }>) {
+    const action = event.detail?.action === 'updated' ? 'updated' : 'created';
+    const name = event.detail?.name || 'Team';
+    teamReceipt = {
+      title: action === 'updated' ? 'Team updated' : 'Team created',
+      message: `${name} was ${action} and the team list was refreshed.`,
+    };
+    closeTeamForm();
+  }
+
   function requestDelete(team: any) {
     pendingDeleteTeam = team;
     deleteState = 'idle';
@@ -142,6 +167,12 @@
         deleteOperationKey || createIdempotencyKey('team-delete'),
       );
       if (String(activeTeam?.id || '') === teamId) setActiveTeam(null);
+      refreshOperationalCollections('teams', 'events', 'seasons');
+      teamReceipt = {
+        title: 'Team deleted',
+        message: `${teamName} was deleted and linked portal lists are refreshing.`,
+        reference: deleteOperationKey,
+      };
       deleteState = 'idle';
       cancelDelete();
     } catch (error) {
@@ -174,7 +205,7 @@
 </script>
 
 {#if isTeamFormOpen}
-  <CreateTeamForm team={editingTeam} on:cancel={closeTeamForm} on:success={closeTeamForm} />
+  <CreateTeamForm team={editingTeam} on:cancel={closeTeamForm} on:success={handleTeamSuccess} />
 {/if}
 
 {#if pendingDeleteTeam}
@@ -206,6 +237,17 @@
 
 <div class="h-full overflow-y-auto bg-white p-4 sm:p-8">
   <div class="mx-auto max-w-5xl">
+    {#if teamReceipt}
+      <div class="mb-6">
+        <ChangeReceipt
+          status="success"
+          title={teamReceipt.title}
+          message={teamReceipt.message}
+          reference={teamReceipt.reference}
+          onDismiss={() => teamReceipt = null}
+        />
+      </div>
+    {/if}
     {#if activeTeam}
       <PageHeader eyebrow="Selected team" title={activeTeam.name || 'Team overview'} support={activeTeam.description || 'Review this team and continue into a team-aware workspace.'}>
         <div slot="actions" class="flex flex-wrap gap-2">

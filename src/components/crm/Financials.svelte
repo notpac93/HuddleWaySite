@@ -477,10 +477,10 @@
       dateIso: recordIso(transaction, 'createdAt', 'updatedAt'),
       dateLabel: dateLabel(transaction.createdAt || transaction.updatedAt),
       recordLabel: String(
-        transaction.programName || transaction.id || 'Transaction',
+        transaction.programName || transaction.sourceLabel || 'Payment',
       ),
       partyLabel: String(
-        transaction.sourceLabel || transaction.sourceId || 'Payment',
+        transaction.memberName || 'Participant unavailable',
       ),
       contextLabel:
         kind === 'dispute'
@@ -509,9 +509,9 @@
       dateLabel: dateLabel(refund.createdAt || refund.updatedAt),
       recordLabel: String(refund.id || 'Refund'),
       partyLabel: String(
-        refund.transactionId || refund.invoiceId || 'Source unavailable',
+        refund.memberName || 'Participant unavailable',
       ),
-      contextLabel: humanizeStatus(refund.reason || 'processor refund'),
+      contextLabel: `${String(refund.programName || refund.sourceLabel || 'Program unavailable')} · ${humanizeStatus(refund.reason || 'processor refund')}`,
       status: String(refund.status || 'unavailable'),
       currency: rowCurrency(refund),
       primaryCents: safeMinorUnits(refund.amountCents),
@@ -1064,6 +1064,16 @@
     if (invoiceProjectionIncomplete) {
       warnings.push(
         `Direct-invoice pagination stopped after ${loadedDirectInvoiceCount.toLocaleString()} loaded records; balances and rows may be incomplete.`,
+      );
+    }
+    if ((financialOverview.tracking.providerAccounting?.failed ?? 0) > 0) {
+      warnings.push(
+        `${financialOverview.tracking.providerAccounting?.failed} processor accounting ${financialOverview.tracking.providerAccounting?.failed === 1 ? 'record could' : 'records could'} not be refreshed. Do not rely on fee or net totals until a retry succeeds.`,
+      );
+    }
+    if ((financialOverview.tracking.providerAccounting?.skipped ?? 0) > 0) {
+      warnings.push(
+        `${financialOverview.tracking.providerAccounting?.skipped} processor accounting ${financialOverview.tracking.providerAccounting?.skipped === 1 ? 'record remains' : 'records remain'} outside this bounded refresh.`,
       );
     }
     return warnings;

@@ -39,10 +39,13 @@
   }
 
   $: currentEmail = ($userStore?.email || '').trim().toLowerCase();
+  $: currentDisplayName = ($userStore?.displayName || '').trim();
   $: normalizedEmail = email.trim().toLowerCase();
   $: emailChangeRequested = Boolean(
     currentEmail && normalizedEmail && normalizedEmail !== currentEmail,
   );
+  $: profileChanged = displayName.trim() !== currentDisplayName
+    || emailChangeRequested;
   $: passwordChecks = {
     length: passwordNew.length >= 8,
     different: Boolean(passwordNew) && passwordNew !== passwordCurrent,
@@ -228,7 +231,7 @@
           >
         </div>
         <div>
-          <label for="settings-email" class="crm-ui-label">Email address</label>
+          <label for="settings-email" class="crm-ui-label">Login email address</label>
           <input
             id="settings-email"
             type="email"
@@ -281,6 +284,7 @@
             type="submit"
             state={submitState}
             disabled={!$userStore
+              || !profileChanged
               || displayName.trim().length < 2
               || displayName.trim().length > 120
               || !isValidEmail(normalizedEmail)

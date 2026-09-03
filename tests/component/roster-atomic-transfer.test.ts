@@ -55,11 +55,11 @@ const transferPreview = {
   registrationIds: ['registration-1'],
   rows: [{
     registrationId: 'registration-1',
-    participantName: 'Kai Reed',
-    before: [{ membershipId: 'membership-1', teamId: 'team-1', teamName: 'Falcons' }],
-    after: [{ membershipId: 'membership-2', teamId: 'team-2', teamName: 'Owls' }],
-    add: [{ membershipId: 'membership-2', teamId: 'team-2', teamName: 'Owls' }],
-    remove: [{ membershipId: 'membership-1', teamId: 'team-1', teamName: 'Falcons' }],
+    label: 'Kai Reed',
+    beforeTeamIds: ['team-1'],
+    afterTeamIds: ['team-2'],
+    addTeamIds: ['team-2'],
+    removeTeamIds: ['team-1'],
     noOp: false,
   }],
   changes: [
@@ -131,9 +131,14 @@ describe('PlayerTable atomic roster transfer', () => {
     });
     await prepareTransfer();
 
-    const apply = screen.getByRole('button', { name: 'Apply' });
-    await fireEvent.click(apply);
-    await fireEvent.click(apply);
+    const review = screen.getByRole('button', { name: 'Review change' });
+    await fireEvent.click(review);
+
+    expect(backendMocks.commitRosterTransfer).not.toHaveBeenCalled();
+    expect(await screen.findByText('Nothing has changed yet. Confirm only after checking this impact.')).toBeVisible();
+    const confirm = screen.getByRole('button', { name: 'Confirm roster change' });
+    await fireEvent.click(confirm);
+    await fireEvent.click(confirm);
 
     await waitFor(() => {
       expect(backendMocks.commitRosterTransfer).toHaveBeenCalledTimes(1);
@@ -185,7 +190,13 @@ describe('PlayerTable atomic roster transfer', () => {
     await fireEvent.change(destination, {
       target: { value: 'season-fall' },
     });
-    await fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Review change' }));
+
+    expect(backendMocks.assignSeasonParticipants).not.toHaveBeenCalled();
+    expect(await screen.findByText(
+      'Connect 1 registration to season Fall 2026.',
+    )).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Confirm roster change' }));
 
     await waitFor(() => {
       expect(backendMocks.assignSeasonParticipants).toHaveBeenCalledTimes(1);
@@ -208,7 +219,7 @@ describe('PlayerTable atomic roster transfer', () => {
     backendMocks.previewRosterTransfer.mockReturnValue(pendingPreview.promise);
     await prepareTransfer();
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Review change' }));
     expect(backendMocks.previewRosterTransfer).toHaveBeenCalledTimes(1);
     await act(async () => {
       (tenantIdStore as Writable<string>).set('tenant-b');
@@ -246,14 +257,15 @@ describe('PlayerTable atomic roster transfer', () => {
       });
     await prepareTransfer();
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Review change' }));
+    await fireEvent.click(await screen.findByRole('button', { name: 'Confirm roster change' }));
     const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent('The roster update could not be applied.');
-    expect(alert).not.toHaveTextContent('request-transfer-9');
+    expect(alert).toHaveTextContent('The reviewed roster update could not be applied.');
     expect(alert).not.toHaveTextContent('raw database failure');
+    expect(screen.getByText(/contact support with reference request-transfer-9/)).toBeVisible();
 
     await fireEvent.click(
-      screen.getByRole('button', { name: 'Retry Transfer' }),
+      screen.getByRole('button', { name: 'Retry confirmed change' }),
     );
     await screen.findByText(
       'Roster transfer complete: 1 added, 1 removed, and 0 unchanged.',
@@ -292,11 +304,12 @@ describe('PlayerTable atomic roster transfer', () => {
     await fireEvent.change(actionSelect, { target: { value: 'assign_team' } });
     const teamSelect = screen.getByLabelText('Destination team');
     await fireEvent.change(teamSelect, { target: { value: 'team-2' } });
-    await fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Review change' }));
+    await fireEvent.click(await screen.findByRole('button', { name: 'Confirm roster change' }));
 
     expect(actionSelect).toBeDisabled();
     expect(teamSelect).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Updating...' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Applying...' })).toBeDisabled();
 
     pendingCommit.resolve({
       success: true,

@@ -26,8 +26,16 @@ vi.mock('../../src/lib/api/backendClient', () => ({
 vi.mock('../../src/lib/services/DataStore', async () => {
   const { writable } = await import('svelte/store');
   return {
+    refreshOperationalCollections: vi.fn(),
     teamsStore: writable([]),
     registrationsStore: writable([]),
+    registrationsProjectionScope: writable({
+      limit: null,
+      truncated: false,
+      loading: false,
+      error: '',
+      permissionDenied: false,
+    }),
     seasonsStore: writable([]),
     eventsStore: writable([]),
     teamsProjectionScope: writable({

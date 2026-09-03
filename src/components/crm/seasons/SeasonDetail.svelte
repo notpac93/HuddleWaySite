@@ -14,12 +14,14 @@
     seasonRegistrationsProjectionScope,
     seasonRegistrationsStore,
     registrationNamesMap,
+    teamsStore,
     usersMap,
   } from '../../../lib/services/DataStore';
   import LinkEventModal from './LinkEventModal.svelte';
   import EditSeasonModal from './EditSeasonModal.svelte';
   import CreateEventForm from '../events/CreateEventForm.svelte';
   import { downloadCsv } from '../../../lib/ui/csvExport';
+  import { formatDateOnly } from '../../../lib/ui/dateOnly';
 
   export let season: any = null;
   export let onNavigateTab: (tab: string, id?: string | null) => void = () => {};
@@ -33,6 +35,10 @@
 
   let activeTab = 'participants'; // 'participants' | 'events'
   $: seasonId = String(season?.id || '').trim();
+  $: seasonTeamName = String(
+    $teamsStore.find((team) => String(team?.id || '') === String(season?.teamId || ''))?.name
+    || '',
+  ).trim();
   let unlinkCandidate: any = null;
   let unlinkReason = '';
   let unlinkConfirmation = '';
@@ -295,7 +301,7 @@
     <button type="button" aria-label="Back to seasons" on:click={goBack} class="text-gray-400 hover:text-gray-600 transition-colors bg-gray-50 hover:bg-gray-100 p-1.5 rounded-md">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
     </button>
-    <h1 class="text-[28px] font-extrabold text-[var(--crm-brand-link)] leading-none tracking-tight">{season?.name || season?.title || 'Unnamed Season'}</h1>
+    <h2 class="text-[28px] font-extrabold text-[var(--crm-brand-link)] leading-none tracking-tight">{season?.name || season?.title || 'Unnamed Season'}</h2>
   </div>
   <button type="button" disabled={!seasonId} on:click={() => showEditSeasonModal = true} class="bg-[var(--crm-brand-surface)] text-[var(--crm-brand-link)] border border-[var(--crm-brand-border)] px-4 py-1.5 rounded text-sm font-semibold hover:bg-[var(--crm-brand-surface-strong)] flex items-center transition-colors disabled:opacity-50">
     <svg class="w-3.5 h-3.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
@@ -310,9 +316,9 @@
 </div>
 
 <dl class="mb-6 ml-10 grid gap-3 rounded-lg border border-gray-200 bg-white p-4 text-sm sm:grid-cols-3">
-  <div><dt class="text-gray-500">Dates</dt><dd class="font-medium text-gray-900">{season?.startDate ? new Date(season.startDate.toMillis ? season.startDate.toMillis() : season.startDate).toLocaleDateString() : 'TBD'} – {season?.endDate ? new Date(season.endDate.toMillis ? season.endDate.toMillis() : season.endDate).toLocaleDateString() : 'TBD'}</dd></div>
+  <div><dt class="text-gray-500">Dates</dt><dd class="font-medium text-gray-900">{formatDateOnly(season?.startDate)} – {formatDateOnly(season?.endDate)}</dd></div>
   <div><dt class="text-gray-500">Registration form</dt><dd class="font-medium text-gray-900">{season?.registrationFormId || 'Not attached'}</dd></div>
-  <div><dt class="text-gray-500">Scope</dt><dd class="font-medium text-gray-900">{season?.teamId ? `Team · ${season.teamId}` : 'Organization-wide'}</dd></div>
+  <div><dt class="text-gray-500">Scope</dt><dd class="font-medium text-gray-900">{season?.teamId ? `Team · ${seasonTeamName || 'Team name unavailable'}` : 'Organization-wide'}</dd></div>
 </dl>
 
 {#if !seasonId}

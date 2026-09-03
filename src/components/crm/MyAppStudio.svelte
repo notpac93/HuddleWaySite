@@ -72,6 +72,7 @@
   let versionHistoryState: 'idle' | 'loading' | 'ready' | 'error' = 'idle';
   let versionHistoryTruncated = false;
   let brandingUndoSnapshot: Pick<CrmAppConfiguration, 'name' | 'primaryColor' | 'secondaryColor' | 'tertiaryColor'> | null = null;
+  let reviewChanges: string[] = [];
 
   const previewBaseUrl = resolveCrmAppPreviewUrl(publicEnvironment);
 
@@ -204,10 +205,16 @@
         && !tab.route.startsWith('//'),
     );
   $: activeTabCount = tabsConfig.filter((tab) => tab.enabled).length;
-  $: reviewChanges = describeAppConfigurationChanges(
-    configMode === 'initialize' ? null : loadedConfiguration,
-    currentConfiguration(),
-  );
+  $: {
+    // Svelte cannot infer the form dependencies hidden inside
+    // currentConfiguration(). Key this review projection to the explicit
+    // signature so nested tab-label edits are always included.
+    currentConfigSignature;
+    reviewChanges = describeAppConfigurationChanges(
+      configMode === 'initialize' ? null : loadedConfiguration,
+      currentConfiguration(),
+    );
+  }
   $: selectedOrganizationName = $tenantNamesStore[activeTenantId]
     || activeTenantId
     || 'the selected organization';
@@ -759,7 +766,7 @@
   <!-- Left Pane: Configuration Form -->
   <div class="crm-ui-studio-editor">
     <div class="px-8 pt-6 pb-4 border-b border-gray-200">
-      <h1 class="crm-ui-page-title">My App</h1>
+      <h2 class="crm-ui-page-title">My App</h2>
       <p class="text-sm text-gray-500 mt-1">Preview changes here, then publish them to your family app.</p>
       {#if configLoadState === 'ready'}
         <p class="mt-2 text-xs font-medium text-gray-600">Version {configVersion || 'initial'} · {versionLabel} · Previewing {isDirty ? 'unpublished draft' : 'published configuration'} · Last published {publishedAt ? new Date(publishedAt).toLocaleString() : 'not available'} by {publishedBy || 'actor unavailable'}</p>

@@ -28,6 +28,7 @@ const {
   dashboardOperationalCountScope,
   transactionsStore,
   participantNameFromRegistration,
+  refreshOperationalCollections,
 } = await import('../../src/lib/services/DataStore');
 
 function page(
@@ -108,6 +109,27 @@ describe('CRM data-store server paging boundaries', () => {
       'registrations',
       { limit: 100, cursor: undefined },
     );
+    unsubscribe();
+  });
+
+  it('refreshes a mounted operational projection after a successful mutation', async () => {
+    testState.crmOperationalPage
+      .mockResolvedValueOnce(page('teams', [{ id: 'team-1', name: 'Falcons' }]))
+      .mockResolvedValueOnce(page('teams', [
+        { id: 'team-1', name: 'Falcons' },
+        { id: 'team-2', name: 'Owls' },
+      ]));
+    tenantIdStore.set('fixture-tenant');
+    let latestTeams: any[] = [];
+    const unsubscribe = teamsStore.subscribe((records) => {
+      latestTeams = records;
+    });
+    await vi.waitFor(() => expect(latestTeams).toHaveLength(1));
+
+    refreshOperationalCollections('teams');
+
+    await vi.waitFor(() => expect(latestTeams).toHaveLength(2));
+    expect(testState.crmOperationalPage).toHaveBeenCalledTimes(2);
     unsubscribe();
   });
 

@@ -5,6 +5,8 @@
   import { BackendApiError, createIdempotencyKey } from '../../../lib/api/BackendApi';
   import StatusButton from '../ui/StatusButton.svelte';
   import { modalFocus } from '../../../lib/ui/modalFocus';
+  import { refreshOperationalCollections } from '../../../lib/services/DataStore';
+  import { dateOnlyKey, formatDateOnly } from '../../../lib/ui/dateOnly';
 
   export let season: any = null;
 
@@ -20,8 +22,8 @@
   let imageUrl = season ? season.imageUrl || '' : '';
   let description = season ? season.description || '' : '';
 
-  let startDate = season && season.startDate ? new Date(season.startDate.toMillis ? season.startDate.toMillis() : season.startDate).toISOString().slice(0, 10) : '';
-  let endDate = season && season.endDate ? new Date(season.endDate.toMillis ? season.endDate.toMillis() : season.endDate).toISOString().slice(0, 10) : '';
+  let startDate = dateOnlyKey(season?.startDate);
+  let endDate = dateOnlyKey(season?.endDate);
 
   let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
   let errorMessage = '';
@@ -121,6 +123,7 @@
         || $tenantIdStore !== tenantId
         || payloadSignature !== submittedSignature
       ) return;
+      refreshOperationalCollections('seasons');
       submitState = 'success';
       dispatch('success');
       dispatch('close');
@@ -214,7 +217,7 @@
           <section class="rounded-md border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950" aria-label="Season change review">
             <h4 class="font-semibold">Review downstream impact</h4>
             <p class="mt-2"><strong>Status:</strong> {season?.status || 'Unavailable'} → {status}</p>
-            <p><strong>Dates:</strong> {season?.startDate ? new Date(season.startDate.toMillis ? season.startDate.toMillis() : season.startDate).toLocaleDateString() : 'TBD'} – {season?.endDate ? new Date(season.endDate.toMillis ? season.endDate.toMillis() : season.endDate).toLocaleDateString() : 'TBD'} → {startDate || 'TBD'} – {endDate || 'TBD'}</p>
+            <p><strong>Dates:</strong> {formatDateOnly(season?.startDate)} – {formatDateOnly(season?.endDate)} → {formatDateOnly(startDate)} – {formatDateOnly(endDate)}</p>
             <p class="mt-2">Status or date changes can affect registration availability, event grouping, roster timing, and payment setup. Existing records are retained.</p>
           </section>
         {/if}

@@ -57,9 +57,9 @@
     return String(tab?.label || tab?.name || 'Portal');
   }
 
-  function currentTabLabel() {
-    return tabLabel(tabs.find((tab) => tab.name === activeTab) || { name: activeTab });
-  }
+  $: currentTabTitle = tabLabel(
+    tabs.find((tab) => tab.name === activeTab) || { name: activeTab },
+  );
 
   function toggleSidebar() {
     isSidebarExpanded = !isSidebarExpanded;
@@ -283,9 +283,9 @@
         },
         ...(activeTab === 'Teams'
           ? []
-          : [{ label: currentTabLabel(), current: true }]),
+          : [{ label: currentTabTitle, current: true }]),
       ]
-    : [{ label: currentTabLabel(), current: true }];
+    : [{ label: currentTabTitle, current: true }];
 
   function handleSearchNavigate(event: CustomEvent<{ tab: string; id: string }>) {
     runWithDraftGuard(() => {
@@ -588,7 +588,7 @@
     </header>
 
     <div class="flex min-h-0 flex-1 flex-col">
-      <h1 class="sr-only" tabindex="-1" bind:this={pageHeading}>{currentTabLabel()}</h1>
+      <h1 class="sr-only" tabindex="-1" bind:this={pageHeading}>{currentTabTitle}</h1>
       {#if brandingState === 'error' || brandingState === 'permission'}
         <p class="crm-ui-shell-brand-error" role="alert">{brandingMessage}</p>
       {:else if brandingState === 'missing'}

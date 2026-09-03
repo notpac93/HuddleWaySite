@@ -153,20 +153,24 @@ describe("CRM modal stacking and navigation", () => {
     );
     expect(currentTab).toHaveTextContent("Events");
     expect(currentResultId).toHaveTextContent("event-1");
+    expect(screen.getByRole("heading", { level: 1, name: "Events" })).toBeInTheDocument();
 
     await openSearchFor("Tigers");
     await fireEvent.click(screen.getByRole("button", { name: /Tigers/ }));
     expect(currentTab).toHaveTextContent("Teams");
     expect(currentResultId).toHaveTextContent("team-1");
+    expect(screen.getByRole("heading", { level: 1, name: "Teams" })).toBeInTheDocument();
 
     await openSearchFor("Alex");
     await fireEvent.click(screen.getByRole("button", { name: /Alex Morgan/ }));
     expect(currentTab).toHaveTextContent("Roster");
     expect(currentResultId).toHaveTextContent("player-1");
+    expect(screen.getByRole("heading", { level: 1, name: "Roster" })).toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole("button", { name: "Activity" }));
     expect(currentTab).toHaveTextContent("Activity");
     expect(currentResultId).toHaveTextContent("");
+    expect(screen.getByRole("heading", { level: 1, name: "Activity" })).toHaveFocus();
   });
 
   it("supports mobile navigation, Escape dismissal, and focus restoration", async () => {

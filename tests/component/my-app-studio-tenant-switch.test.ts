@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/svelte';
 import type { Component } from 'svelte';
 import type { Writable } from 'svelte/store';
@@ -211,6 +212,8 @@ async function findTenantPreview(name: string) {
 async function reviewAndPublish(buttonName: 'Publish App' | 'Retry Publish' = 'Publish App') {
   await fireEvent.click(screen.getByRole('button', { name: buttonName }));
   const review = await screen.findByRole('dialog', { name: 'Review family app publication' });
+  expect(within(review).getByRole('list').children.length).toBeGreaterThan(0);
+  expect(within(review).queryByText(/No publishable changes were detected/)).toBeNull();
   await fireEvent.click(screen.getByRole('checkbox', {
     name: /I confirm these changes should be published/,
   }));

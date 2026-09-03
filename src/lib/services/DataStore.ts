@@ -1,4 +1,4 @@
-import { readable, derived, get, type Readable } from 'svelte/store';
+import { readable, derived, get, writable, type Readable } from 'svelte/store';
 import { tenantIdStore } from '../authStore';
 import { backendClient } from '../api/backendClient';
 import {
@@ -22,13 +22,34 @@ const emptyCollectionProjection: CollectionProjection = {
   permissionDenied: false,
 };
 
+const operationalProjectionRefreshers = new Map<
+  CrmOperationalCollection,
+  () => void
+>();
+
+export function refreshOperationalCollections(
+  ...collectionNames: CrmOperationalCollection[]
+) {
+  for (const collectionName of collectionNames) {
+    operationalProjectionRefreshers.get(collectionName)?.();
+  }
+}
+
 function tenantCollectionProjectionStore(
   collectionName: CrmOperationalCollection,
 ): Readable<CollectionProjection> {
+  const refreshSignal = writable(0);
+  operationalProjectionRefreshers.set(collectionName, () => {
+    refreshSignal.update((value) => value + 1);
+  });
   return readable<CollectionProjection>(emptyCollectionProjection, (set) => {
     let disposed = false;
     let generation = 0;
-    const unsubscribeTenant = tenantIdStore.subscribe((tenantId) => {
+    const tenantAndRefresh = derived(
+      [tenantIdStore, refreshSignal],
+      ([$tenantId, $refresh]) => ({ tenantId: $tenantId, refresh: $refresh }),
+    );
+    const unsubscribeTenant = tenantAndRefresh.subscribe(({ tenantId }) => {
       const currentGeneration = ++generation;
       set({
         ...emptyCollectionProjection,
@@ -114,6 +135,14 @@ interface FinancialOverviewState {
     complete: boolean;
     unreconciledTransactionCount: number;
     unreconciledDepositCount: number;
+    currencyIntegrityErrorCount?: number;
+    providerAccounting?: {
+      attempted: number;
+      resolved: number;
+      failed: number;
+      skipped: number;
+      complete: boolean;
+    };
     sourceCollections: string[];
   };
   truncated: {

@@ -66,6 +66,7 @@ vi.mock('../../src/lib/services/DataStore', async () => {
     error: '',
   };
   return {
+    refreshOperationalCollections: vi.fn(),
     DataStore: {
       getSeasonFinancials: () => ({
         totalCollected: 15000,
@@ -91,6 +92,7 @@ vi.mock('../../src/lib/services/DataStore', async () => {
       endDate: '2030-11-01',
       teamId: 'team-1',
     }]),
+    teamsStore: writable([{ id: 'team-1', name: 'Tigers' }]),
     eventsStore: writable([{
       id: 'event-1',
       title: 'Opening practice',
@@ -424,7 +426,7 @@ describe('season mutation family', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'View Details' }));
     expect(screen.getByRole('heading', {
       name: 'Fall League',
-      level: 1,
+      level: 2,
     })).toBeVisible();
     await act(async () => {
       tenants.set('tenant-b');

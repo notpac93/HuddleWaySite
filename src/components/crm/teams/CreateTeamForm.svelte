@@ -5,6 +5,7 @@
   import { BackendApiError, createIdempotencyKey } from '../../../lib/api/BackendApi';
   import StatusButton from '../ui/StatusButton.svelte';
   import { modalFocus } from '../../../lib/ui/modalFocus';
+  import { refreshOperationalCollections } from '../../../lib/services/DataStore';
 
   const dispatch = createEventDispatcher();
 
@@ -129,9 +130,13 @@
         || $tenantIdStore !== tenantId
         || operationSignature !== submittedSignature
       ) return;
+      refreshOperationalCollections('teams');
       submitState = 'success';
       successTimer = setTimeout(() => {
-        dispatch('success');
+        dispatch('success', {
+          action: team?.id ? 'updated' : 'created',
+          name: name.trim(),
+        });
       }, 1500);
     } catch (e) {
       if (

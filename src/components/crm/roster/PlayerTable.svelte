@@ -5,6 +5,7 @@
   import {
     BackendApiError,
     createIdempotencyKey,
+    type RosterTransferPreview,
   } from '../../../lib/api/BackendApi';
   import StatusButton from '../ui/StatusButton.svelte';
   import { createEventDispatcher, onDestroy } from 'svelte';
@@ -37,6 +38,20 @@
   let operationGeneration = 0;
   let operationRequestId = '';
   let detailPlayer: any = null;
+  type BulkReview =
+    | {
+        kind: 'team';
+        signature: string;
+        preview: RosterTransferPreview;
+      }
+    | {
+        kind: 'season';
+        signature: string;
+        seasonId: string;
+        seasonName: string;
+        registrationIds: string[];
+      };
+  let bulkReview: BulkReview | null = null;
   const dispatch = createEventDispatcher();
   class RosterScopeChangedError extends Error {}
 
@@ -68,6 +83,7 @@
               : 'roster-atomic-transfer',
           )
         : '';
+      bulkReview = null;
       operationRequestId = '';
       if (changedWhileLoading) {
         submitState = 'error';
@@ -80,7 +96,23 @@
     }
   }
 
-  async function handleBulkAssign() {
+  function assertReviewedScope(
+    tenantId: string,
+    generation: number,
+    signature: string,
+  ) {
+    if (
+      generation !== operationGeneration
+      || $tenantIdStore !== tenantId
+      || bulkOperationSignature !== signature
+    ) {
+      throw new RosterScopeChangedError(
+        'The organization or reviewed selection changed while the roster operation was running. No transfer was submitted.',
+      );
+    }
+  }
+
+  async function reviewBulkAssignment() {
     if (
       !bulkSelectedTeam
       || !$tenantIdStore
@@ -90,6 +122,7 @@
     const tenantId = $tenantIdStore;
     const generation = ++operationGeneration;
     const registrationIds = [...selectedPlayerIds].sort();
+    const signature = bulkOperationSignature;
     const isSeasonAssignment = bulkSelectedTeam.startsWith('season:');
     const destinationSeasonId = isSeasonAssignment
       ? bulkSelectedTeam.slice('season:'.length)
@@ -97,39 +130,11 @@
     const destinationTeamId = isSeasonAssignment
       ? null
       : bulkSelectedTeam === 'unassign' ? null : bulkSelectedTeam;
-    const operationSignature = JSON.stringify({
-      tenantId,
-      registrationIds,
-      destinationSeasonId,
-      destinationTeamId,
-    });
-    const assertCurrentScope = () => {
-      const currentSignature = JSON.stringify({
-        tenantId: $tenantIdStore,
-        registrationIds: [...selectedPlayerIds].sort(),
-        destinationSeasonId: bulkSelectedTeam.startsWith('season:')
-          ? bulkSelectedTeam.slice('season:'.length)
-          : '',
-        destinationTeamId:
-          bulkSelectedTeam.startsWith('season:')
-            ? null
-            : bulkSelectedTeam === 'unassign' ? null : bulkSelectedTeam,
-      });
-      if (
-        generation !== operationGeneration
-        || $tenantIdStore !== tenantId
-        || currentSignature !== operationSignature
-      ) {
-        throw new RosterScopeChangedError(
-          'The organization or reviewed selection changed while the roster operation was running. No transfer was submitted.',
-        );
-      }
-    };
     submitState = 'loading';
-    operationMessage = '';
+    operationMessage = 'Preparing a safe roster review…';
     operationRequestId = '';
     try {
-      assertCurrentScope();
+      assertReviewedScope(tenantId, generation, signature);
       if (!bulkOperationKey) {
         bulkOperationKey = createIdempotencyKey(
           isSeasonAssignment
@@ -138,36 +143,79 @@
         );
       }
       if (isSeasonAssignment) {
-        const result = await backendClient.assignSeasonParticipants(
-          tenantId,
-          destinationSeasonId,
+        bulkReview = {
+          kind: 'season',
+          signature,
+          seasonId: destinationSeasonId,
+          seasonName: transferSeasons.find((season) => season.id === destinationSeasonId)?.name
+            || 'Season name unavailable',
           registrationIds,
-          bulkOperationKey,
-        );
-        assertCurrentScope();
-        operationMessage =
-          `Season assignment complete: ${result.assignedCount} assigned and `
-          + `${result.alreadyAssignedCount} already connected.`;
+        };
       } else {
         const preview = await backendClient.previewRosterTransfer(
           tenantId,
           registrationIds,
           destinationTeamId,
         );
-        assertCurrentScope();
-        const result = await backendClient.commitRosterTransfer(
+        assertReviewedScope(tenantId, generation, signature);
+        bulkReview = { kind: 'team', signature, preview };
+      }
+      assertReviewedScope(tenantId, generation, signature);
+      submitState = 'idle';
+      operationMessage = 'Review ready. Nothing has changed yet.';
+    } catch(e) {
+      if (generation !== operationGeneration || $tenantIdStore !== tenantId) return;
+      operationMessage =
+        e instanceof RosterScopeChangedError
+          ? e.message
+          : 'The roster change could not be reviewed. Nothing was changed.';
+      operationRequestId =
+        e instanceof BackendApiError ? e.requestId || '' : '';
+      submitState = 'error';
+    }
+  }
+
+  async function confirmBulkAssignment() {
+    const review = bulkReview;
+    const tenantId = $tenantIdStore;
+    if (!review || !tenantId || submitState === 'loading') return;
+    if (review.signature !== bulkOperationSignature) {
+      bulkReview = null;
+      submitState = 'error';
+      operationMessage = 'The reviewed selection changed. Review the roster change again.';
+      return;
+    }
+    const generation = ++operationGeneration;
+    submitState = 'loading';
+    operationMessage = 'Applying the reviewed roster change…';
+    operationRequestId = '';
+    try {
+      assertReviewedScope(tenantId, generation, review.signature);
+      if (review.kind === 'season') {
+        const result = await backendClient.assignSeasonParticipants(
           tenantId,
-          preview,
+          review.seasonId,
+          review.registrationIds,
           bulkOperationKey,
         );
-        assertCurrentScope();
+        assertReviewedScope(tenantId, generation, review.signature);
+        operationMessage =
+          `Season assignment complete: ${result.assignedCount} assigned and `
+          + `${result.alreadyAssignedCount} already connected.`;
+      } else {
+        const result = await backendClient.commitRosterTransfer(
+          tenantId,
+          review.preview,
+          bulkOperationKey,
+        );
+        assertReviewedScope(tenantId, generation, review.signature);
         operationMessage =
           `Roster transfer complete: ${result.preview.addCount} added, `
           + `${result.preview.removeCount} removed, and `
           + `${result.preview.noOpCount} unchanged.`;
       }
-      assertCurrentScope();
       submitState = 'success';
+      bulkReview = null;
       dispatch('changed');
       dataTable?.clearSelection();
       selectedPlayerIds = [];
@@ -178,16 +226,22 @@
       setTimeout(() => {
         if (submitState === 'success') submitState = 'idle';
       }, 1500);
-    } catch(e) {
+    } catch (error) {
       if (generation !== operationGeneration || $tenantIdStore !== tenantId) return;
-      operationMessage =
-        e instanceof RosterScopeChangedError
-          ? e.message
-          : 'The roster update could not be applied.';
-      operationRequestId =
-        e instanceof BackendApiError ? e.requestId || '' : '';
+      operationMessage = error instanceof RosterScopeChangedError
+        ? error.message
+        : 'The reviewed roster update could not be applied.';
+      operationRequestId = error instanceof BackendApiError ? error.requestId || '' : '';
       submitState = 'error';
     }
+  }
+
+  function cancelBulkReview() {
+    if (submitState === 'loading') return;
+    bulkReview = null;
+    submitState = 'idle';
+    operationMessage = 'Review cancelled. Nothing was changed.';
+    operationRequestId = '';
   }
 
   $: playerRows = (Array.isArray(players) ? players : [])
@@ -202,6 +256,10 @@
       teamId: String(player.teamId || '').trim(),
       status: String(player.status || '').trim() || 'Not provided',
     }));
+  $: if (activeResultId) {
+    const linkedPlayer = playerRows.find((player) => player.id === activeResultId);
+    if (linkedPlayer && detailPlayer?.id !== linkedPlayer.id) detailPlayer = linkedPlayer;
+  }
   $: omittedPlayerCount =
     (Array.isArray(players) ? players.length : 0) - playerRows.length;
   $: transferTeams = (Array.isArray(allTeams) ? allTeams : [])
@@ -210,6 +268,10 @@
       id: String(team.id).trim(),
       name: String(team.name || team.title || '').trim() || 'Unnamed team',
     }));
+  function transferTeamName(teamId: string) {
+    return transferTeams.find((team) => team.id === teamId)?.name
+      || 'Team name unavailable';
+  }
   $: transferSeasons = (Array.isArray(allSeasons) ? allSeasons : [])
     .filter((season) => {
       const id = String(season?.id || '').trim();
@@ -268,24 +330,72 @@
         <div class="w-px h-4 bg-[var(--crm-brand-border)] mx-2"></div>
         <label>
           <span class="sr-only">Bulk roster action</span>
-          <select bind:value={bulkAction} on:change={() => bulkDestination = ''} disabled={submitState === 'loading'} class="text-sm border-gray-300 rounded-md py-1 pl-2 pr-8 focus:outline-none focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-border)] disabled:opacity-50">
+          <select bind:value={bulkAction} on:change={() => bulkDestination = ''} disabled={submitState === 'loading' || Boolean(bulkReview)} class="text-sm border-gray-300 rounded-md py-1 pl-2 pr-8 focus:outline-none focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-border)] disabled:opacity-50">
           <option value="">Choose action</option><option value="assign_team">Assign team</option><option value="assign_season">Assign season</option><option value="unassign_team">Unassign from team</option>
           </select>
         </label>
-        {#if bulkAction === 'assign_team'}<label><span class="sr-only">Destination team</span><select bind:value={bulkDestination} class="rounded-md border-gray-300 py-1 text-sm" disabled={submitState === 'loading'}><option value="">Choose team</option>{#each transferTeams as team}<option value={team.id}>{team.name}</option>{/each}</select></label>{:else if bulkAction === 'assign_season'}<label><span class="sr-only">Destination season</span><select bind:value={bulkDestination} class="rounded-md border-gray-300 py-1 text-sm" disabled={submitState === 'loading'}><option value="">Choose season</option>{#each transferSeasons as season}<option value={season.id}>{season.name}</option>{/each}</select></label>{/if}
-        <StatusButton
-          type="button"
-          state={submitState}
-          on:click={handleBulkAssign}
-          disabled={submitState === 'loading' || !bulkSelectedTeam}
-          idleText="Apply"
-          loadingText="Updating..."
-          successText="Updated!"
-          errorText="Retry Transfer"
-          class="bg-[var(--crm-brand-control)] text-[var(--crm-on-primary)] px-3 py-1 rounded text-sm font-medium hover:bg-[var(--crm-brand-primary-hover)] disabled:opacity-50"
-        />
+        {#if bulkAction === 'assign_team'}<label><span class="sr-only">Destination team</span><select bind:value={bulkDestination} class="rounded-md border-gray-300 py-1 text-sm" disabled={submitState === 'loading' || Boolean(bulkReview)}><option value="">Choose team</option>{#each transferTeams as team}<option value={team.id}>{team.name}</option>{/each}</select></label>{:else if bulkAction === 'assign_season'}<label><span class="sr-only">Destination season</span><select bind:value={bulkDestination} class="rounded-md border-gray-300 py-1 text-sm" disabled={submitState === 'loading' || Boolean(bulkReview)}><option value="">Choose season</option>{#each transferSeasons as season}<option value={season.id}>{season.name}</option>{/each}</select></label>{/if}
+        {#if !bulkReview}
+          <StatusButton
+            type="button"
+            state={submitState}
+            on:click={reviewBulkAssignment}
+            disabled={submitState === 'loading' || !bulkSelectedTeam}
+            idleText="Review change"
+            loadingText="Reviewing..."
+            successText="Reviewed"
+            errorText="Retry review"
+            class="bg-[var(--crm-brand-control)] text-[var(--crm-on-primary)] px-3 py-1 rounded text-sm font-medium hover:bg-[var(--crm-brand-primary-hover)] disabled:opacity-50"
+          />
+        {/if}
       </div>
-      {#if bulkSelectedTeam}<p class="ml-4 text-xs text-gray-600">Review: {selectedPlayerIds.length} selected registration{selectedPlayerIds.length === 1 ? '' : 's'} will {bulkAction === 'assign_team' ? `move to team ${transferTeams.find((team) => team.id === bulkDestination)?.name || bulkDestination}` : bulkAction === 'assign_season' ? `be connected to season ${transferSeasons.find((season) => season.id === bulkDestination)?.name || bulkDestination}` : 'be unassigned from their current team'}.</p>{/if}
+      {#if bulkSelectedTeam && !bulkReview}<p class="ml-4 text-xs text-gray-600">Next: review how {selectedPlayerIds.length} selected registration{selectedPlayerIds.length === 1 ? '' : 's'} will {bulkAction === 'assign_team' ? `move to team ${transferTeams.find((team) => team.id === bulkDestination)?.name || bulkDestination}` : bulkAction === 'assign_season' ? `be connected to season ${transferSeasons.find((season) => season.id === bulkDestination)?.name || bulkDestination}` : 'be unassigned from their current team'}.</p>{/if}
+      {#if bulkReview}
+        <section class="ml-4 mt-3 rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950" aria-labelledby="roster-change-review-title">
+          <h3 id="roster-change-review-title" class="font-semibold">Review roster change</h3>
+          <p class="mt-1">Nothing has changed yet. Confirm only after checking this impact.</p>
+          {#if bulkReview.kind === 'team'}
+            <p class="mt-2 font-medium">
+              {bulkReview.preview.registrationIds.length} registration{bulkReview.preview.registrationIds.length === 1 ? '' : 's'}:
+              {bulkReview.preview.addCount} team assignment{bulkReview.preview.addCount === 1 ? '' : 's'} added,
+              {bulkReview.preview.removeCount} removed, and
+              {bulkReview.preview.noOpCount} unchanged.
+            </p>
+            <ul class="mt-2 list-disc space-y-1 pl-5">
+              {#each bulkReview.preview.rows.slice(0, 10) as row}
+                <li>
+                  {row.label || playerRows.find((player) => player.id === row.registrationId)?.name || 'Participant name unavailable'}:
+                  {row.beforeTeamIds.length ? row.beforeTeamIds.map(transferTeamName).join(', ') : 'Unassigned'}
+                  →
+                  {row.afterTeamIds.length ? row.afterTeamIds.map(transferTeamName).join(', ') : 'Unassigned'}
+                </li>
+              {/each}
+            </ul>
+            {#if bulkReview.preview.rows.length > 10}<p class="mt-2">Plus {bulkReview.preview.rows.length - 10} more reviewed registration{bulkReview.preview.rows.length - 10 === 1 ? '' : 's'}.</p>{/if}
+          {:else}
+            <p class="mt-2 font-medium">
+              Connect {bulkReview.registrationIds.length} registration{bulkReview.registrationIds.length === 1 ? '' : 's'} to season {bulkReview.seasonName}.
+            </p>
+          {/if}
+          <div class="mt-4 flex flex-wrap gap-3">
+            <StatusButton
+              type="button"
+              state={submitState}
+              on:click={confirmBulkAssignment}
+              disabled={submitState === 'loading'}
+              idleText="Confirm roster change"
+              loadingText="Applying..."
+              successText="Applied"
+              errorText="Retry confirmed change"
+              class="bg-[var(--crm-brand-control)] text-[var(--crm-on-primary)] px-3 py-1 rounded text-sm font-medium hover:bg-[var(--crm-brand-primary-hover)] disabled:opacity-50"
+            />
+            <button type="button" class="crm-ui-button-secondary px-3 py-1 text-sm" disabled={submitState === 'loading'} on:click={cancelBulkReview}>Cancel review</button>
+          </div>
+          {#if operationRequestId && submitState === 'error'}
+            <p class="mt-2 text-xs">If retrying does not work, contact support with reference {operationRequestId}.</p>
+          {/if}
+        </section>
+      {/if}
     {/if}
     {#if showAdvancedFilters && selectedPlayerIds.length === 0}
       <label>

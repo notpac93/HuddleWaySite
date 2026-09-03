@@ -132,6 +132,15 @@
     }
   }
 
+  function activityObjectLabel(activity: CrmAuditEventRecord) {
+    const details = activity.after || activity.before || {};
+    const displayName = String(details.displayName || '').trim();
+    const email = String(details.email || '').trim();
+    if (displayName && email) return `${displayName} · ${email}`;
+    if (displayName || email) return displayName || email;
+    return `${activity.resourceType} · ${activity.resourceId || 'ID unavailable'}`;
+  }
+
   $: actors = [...new Set(activities.map((activity) => activity.actorLabel).filter(Boolean))].sort();
   $: resources = [...new Set(activities.map((activity) => activity.resourceType).filter(Boolean))].sort();
   $: filteredActivities = activities.filter((activity) => {
@@ -172,7 +181,7 @@
     <button type="button" class="absolute inset-0" aria-label="Close activity details" on:click={() => selectedActivity = null}></button>
     <aside class="relative z-10 h-full w-full max-w-xl overflow-y-auto bg-white p-6 shadow-xl" tabindex="-1" use:modalFocus={{ onEscape: () => selectedActivity = null, initialFocusSelector: 'button' }}>
       <div class="flex justify-between gap-4"><div><h3 id="activity-detail-title" class="text-xl font-semibold">Audit record</h3><p class="text-sm text-gray-500">{selectedActivity.actionDescription}</p></div><button type="button" class="rounded-md border px-3 py-2 text-sm" on:click={() => selectedActivity = null}>Close</button></div>
-      <dl class="mt-6 grid gap-4 text-sm sm:grid-cols-2"><div><dt class="text-gray-500">Actor</dt><dd>{selectedActivity.actorLabel} ({selectedActivity.actorRole})</dd></div><div><dt class="text-gray-500">Outcome</dt><dd>{selectedActivity.outcome}</dd></div><div><dt class="text-gray-500">Object</dt><dd>{selectedActivity.resourceType} · {selectedActivity.resourceId || 'ID unavailable'}</dd></div><div><dt class="text-gray-500">Time</dt><dd>{formatTime(selectedActivity.timestamp)}</dd></div><div><dt class="text-gray-500">Source</dt><dd>{selectedActivity.source}</dd></div><div><dt class="text-gray-500">Correlation ID</dt><dd class="break-all">{selectedActivity.correlationId || 'Unavailable'}</dd></div></dl>
+      <dl class="mt-6 grid gap-4 text-sm sm:grid-cols-2"><div><dt class="text-gray-500">Actor</dt><dd>{selectedActivity.actorLabel} ({selectedActivity.actorRole}){#if selectedActivity.actorEmail && selectedActivity.actorEmail !== selectedActivity.actorLabel}<span class="block text-gray-600">{selectedActivity.actorEmail}</span>{/if}</dd></div><div><dt class="text-gray-500">Outcome</dt><dd>{selectedActivity.outcome}</dd></div><div><dt class="text-gray-500">Object</dt><dd>{activityObjectLabel(selectedActivity)}</dd></div><div><dt class="text-gray-500">Time</dt><dd>{formatTime(selectedActivity.timestamp)}</dd></div><div><dt class="text-gray-500">Source</dt><dd>{selectedActivity.source}</dd></div><div><dt class="text-gray-500">Correlation ID</dt><dd class="break-all">{selectedActivity.correlationId || 'Unavailable'}</dd></div></dl>
       <section class="mt-6"><h4 class="font-semibold">Reason</h4><p class="mt-1 text-sm">{selectedActivity.reason || 'No audit reason was recorded.'}</p></section>
       <div class="mt-6 grid gap-4 sm:grid-cols-2"><section class="rounded-md border bg-gray-50 p-4"><h4 class="font-semibold">Before</h4><pre class="mt-2 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify(selectedActivity.before, null, 2) || 'Not available'}</pre></section><section class="rounded-md border bg-gray-50 p-4"><h4 class="font-semibold">After</h4><pre class="mt-2 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify(selectedActivity.after, null, 2) || 'Not available'}</pre></section></div>
     </aside>
@@ -279,6 +288,7 @@
                         <p class="text-sm text-gray-500">
                           <span class="font-medium text-gray-900">{activity.actorLabel || 'Actor unavailable'}</span>
                           {activity.actionDescription || 'performed an action'}
+                          <span class="text-gray-600"> · {activityObjectLabel(activity)}</span>
                           {#if activity.outcome !== 'succeeded'}
                             <span class="ml-1 font-medium text-amber-700">({activity.outcome})</span>
                           {/if}

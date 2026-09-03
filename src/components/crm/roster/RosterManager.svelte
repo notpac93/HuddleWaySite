@@ -45,6 +45,22 @@
         (team) => String(team.parentTeamId || '').trim() === activeTeamId,
       )
     : projectedTeams;
+  $: teamsWithRosterCounts = teams.map((team) => {
+    const teamId = String(team?.id || '').trim();
+    const projectedCount = rawData.filter(
+      (player) => String(player?.teamId || '').trim() === teamId,
+    ).length;
+    return {
+      ...team,
+      memberCount: !playersLoading
+        && !playersError
+        && !Object.values(playersTruncated).some(Boolean)
+        ? projectedCount
+        : Number.isSafeInteger(Number(team?.memberCount))
+          ? Number(team.memberCount)
+          : 0,
+    };
+  });
 
   function subscribePlayers() {
     const generation = ++playerSubscriptionGeneration;
@@ -177,7 +193,7 @@
     />
   {:else if activeTab === 'Teams'}
     <TeamTable
-      {teams}
+      teams={teamsWithRosterCounts}
       parentTeam={typeof activeTeam === 'object' ? activeTeam : null}
       loading={$teamsProjectionScope.loading}
       error={$teamsProjectionScope.error}

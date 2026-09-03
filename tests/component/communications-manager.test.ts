@@ -417,7 +417,7 @@ describe('CommunicationsManager recall boundary', () => {
       target: { value: 'A valid announcement body.' },
     });
     const publishButton = screen.getByRole('button', {
-      name: 'Publish announcement',
+      name: 'Review announcement',
     });
     expect(publishButton).toBeEnabled();
 
@@ -1023,7 +1023,7 @@ describe('CommunicationsManager recall boundary', () => {
     await fireEvent.input(screen.getByLabelText('Message'), {
       target: { value: 'No-device tenant announcement.' },
     });
-    await fireEvent.click(screen.getByRole('button', { name: 'Publish announcement' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Review announcement' }));
     await confirmAnnouncementReview();
 
     expect(await screen.findByText(
@@ -1058,12 +1058,12 @@ describe('CommunicationsManager recall boundary', () => {
     await fireEvent.change(screen.getByLabelText('Attach announcement to'), {
       target: { value: 'event' },
     });
-    expect(screen.getByRole('button', { name: 'Publish announcement' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Review announcement' })).toBeDisabled();
     await fireEvent.change(screen.getByLabelText('Event'), {
       target: { value: 'event-1' },
     });
-    expect(screen.getByRole('button', { name: 'Publish announcement' })).toBeEnabled();
-    await fireEvent.click(screen.getByRole('button', { name: 'Publish announcement' }));
+    expect(screen.getByRole('button', { name: 'Review announcement' })).toBeEnabled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Review announcement' }));
     await confirmAnnouncementReview();
     await waitFor(() => expect(backendClient.sendMessageBatch).toHaveBeenCalledTimes(1));
     expect(vi.mocked(backendClient.sendMessageBatch).mock.calls[0][1][0]).toEqual(
@@ -1102,12 +1102,12 @@ describe('CommunicationsManager recall boundary', () => {
     await fireEvent.change(screen.getByLabelText('Attach announcement to'), {
       target: { value: 'season' },
     });
-    expect(screen.getByRole('button', { name: 'Publish announcement' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Review announcement' })).toBeDisabled();
     await fireEvent.change(screen.getByLabelText('Season'), {
       target: { value: 'season-1' },
     });
-    expect(screen.getByRole('button', { name: 'Publish announcement' })).toBeEnabled();
-    await fireEvent.click(screen.getByRole('button', { name: 'Publish announcement' }));
+    expect(screen.getByRole('button', { name: 'Review announcement' })).toBeEnabled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Review announcement' }));
     await confirmAnnouncementReview();
     await waitFor(() => expect(backendClient.sendMessageBatch).toHaveBeenCalledTimes(1));
     expect(vi.mocked(backendClient.sendMessageBatch).mock.calls[0][1][0]).toEqual(

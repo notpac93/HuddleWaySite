@@ -312,7 +312,9 @@
           <section class="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950" aria-label="Access change impact">
             <p><strong>Before:</strong> {manageTarget.role}, {manageTarget.active ? 'active' : 'inactive'}.</p>
             <p><strong>After:</strong> {selectedRole}, {selectedStatus}.</p>
-            {#if selectedStatus === 'inactive'}
+            {#if selectedRole === manageTarget.role && selectedStatus === (manageTarget.active ? 'active' : 'inactive')}
+              <p class="mt-2">No access change is currently selected.</p>
+            {:else if selectedStatus === 'inactive'}
               <p class="mt-2">This removes portal access after authorization refresh; authored program content remains attributed and intact. Reactivation is available later.</p>
             {:else if selectedRole === 'owner'}
               <p class="mt-2">Gains every portal tab plus financial, staff-access, and audit-log management.</p>

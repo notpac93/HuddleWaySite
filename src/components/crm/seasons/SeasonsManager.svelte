@@ -16,6 +16,7 @@
   import CreateSeasonModal from './CreateSeasonModal.svelte';
   import EditSeasonModal from './EditSeasonModal.svelte';
   import SeasonDetail from './SeasonDetail.svelte';
+  import ChangeReceipt from '../ui/ChangeReceipt.svelte';
 
   export let activeTeam: any = null;
   export let onNavigateTab: (tab: string, id?: string | null) => void = () => {};
@@ -31,6 +32,7 @@
   let loadedTenantId = '';
   let viewPreferenceLoaded = false;
   let filteredSeasons: any[] = [];
+  let seasonReceipt: { title: string; message: string } | null = null;
 
   const statuses = ['active', 'upcoming', 'completed', 'archived'];
   const fallbackImage = '/crm-season-placeholder.svg';
@@ -171,6 +173,20 @@
     selectedSeason = season;
   }
 
+  function handleSeasonCreated(event: CustomEvent<{ id: string; name: string }>) {
+    seasonReceipt = {
+      title: 'Season created',
+      message: `${event.detail?.name || 'The season'} was created and the season list was refreshed.`,
+    };
+  }
+
+  function handleSeasonUpdated() {
+    seasonReceipt = {
+      title: 'Season updated',
+      message: `${editingSeason?.displayName || editingSeason?.name || 'The season'} was updated and the season list was refreshed.`,
+    };
+  }
+
   function imageFallback(event: Event) {
     const image = event.currentTarget as HTMLImageElement;
     if (image.src !== fallbackImage) image.src = fallbackImage;
@@ -184,6 +200,11 @@
 </script>
 
 <div class="h-full overflow-y-auto bg-gray-50/50 p-6 md:p-8">
+  {#if seasonReceipt}
+    <div class="mb-6">
+      <ChangeReceipt status="success" title={seasonReceipt.title} message={seasonReceipt.message} onDismiss={() => seasonReceipt = null} />
+    </div>
+  {/if}
   {#if selectedSeason}
     <SeasonDetail
       season={selectedSeason}
@@ -295,8 +316,8 @@
 </div>
 
 {#if showCreateModal}
-  <CreateSeasonModal {activeTeam} on:close={() => showCreateModal = false} />
+  <CreateSeasonModal {activeTeam} on:success={handleSeasonCreated} on:close={() => showCreateModal = false} />
 {/if}
 {#if editingSeason}
-  <EditSeasonModal season={editingSeason} on:close={() => editingSeason = null} />
+  <EditSeasonModal season={editingSeason} on:success={handleSeasonUpdated} on:close={() => editingSeason = null} />
 {/if}

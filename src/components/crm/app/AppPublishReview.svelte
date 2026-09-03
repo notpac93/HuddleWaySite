@@ -31,11 +31,17 @@
     <div class="space-y-6 p-6">
       <section aria-labelledby="app-change-summary-title">
         <h3 id="app-change-summary-title" class="text-sm font-semibold text-gray-950">Changes families will receive</h3>
-        <ul class="mt-3 space-y-2">
-          {#each changes as change}
-            <li class="flex gap-2 text-sm text-gray-700"><Icon name="check" size={16} className="mt-0.5 shrink-0 text-emerald-700" /> <span>{change}</span></li>
-          {/each}
-        </ul>
+        {#if changes.length > 0}
+          <ul class="mt-3 space-y-2">
+            {#each changes as change}
+              <li class="flex gap-2 text-sm text-gray-700"><Icon name="check" size={16} className="mt-0.5 shrink-0 text-emerald-700" /> <span>{change}</span></li>
+            {/each}
+          </ul>
+        {:else}
+          <p class="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="alert">
+            No publishable changes were detected. Return to editing and review the draft.
+          </p>
+        {/if}
       </section>
       <section aria-labelledby="app-color-review-title">
         <h3 id="app-color-review-title" class="text-sm font-semibold text-gray-950">Color readability</h3>
@@ -57,7 +63,7 @@
     </div>
     <footer class="flex flex-col-reverse gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4 sm:flex-row sm:justify-end">
       <button type="button" class="crm-ui-button-secondary" disabled={busy} on:click={onCancel}>Back to editing</button>
-      <button type="button" class="crm-ui-button-primary" disabled={busy || !targetConfirmed} on:click={onConfirm}>{busy ? 'Publishing…' : 'Confirm and publish'}</button>
+      <button type="button" class="crm-ui-button-primary" disabled={busy || !targetConfirmed || changes.length === 0} on:click={onConfirm}>{busy ? 'Publishing…' : 'Confirm and publish'}</button>
     </footer>
   </div>
 </div>

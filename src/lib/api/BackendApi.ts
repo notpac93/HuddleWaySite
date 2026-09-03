@@ -582,6 +582,14 @@ export interface FinancialOverview {
     complete: boolean;
     unreconciledTransactionCount: number;
     unreconciledDepositCount: number;
+    currencyIntegrityErrorCount?: number;
+    providerAccounting?: {
+      attempted: number;
+      resolved: number;
+      failed: number;
+      skipped: number;
+      complete: boolean;
+    };
     sourceCollections: string[];
   };
   truncated: {
@@ -776,6 +784,7 @@ export interface CrmAuditEventRecord {
   outcome: "succeeded" | "failed" | "partial" | "denied";
   actorRole: string;
   actorLabel: string;
+  actorEmail?: string | null;
   timestamp: string | null;
   resourceId: string | null;
   correlationId: string | null;

@@ -7,6 +7,7 @@
   import CreateRegistrationForm from '../registration/CreateRegistrationForm.svelte';
   import StatusButton from '../ui/StatusButton.svelte';
   import { modalFocus } from '../../../lib/ui/modalFocus';
+  import { refreshOperationalCollections } from '../../../lib/services/DataStore';
 
   export let activeTeam: any = null;
 
@@ -168,6 +169,7 @@
         || $tenantIdStore !== tenantId
         || payloadSignature !== submittedSignature
       ) return;
+      refreshOperationalCollections('seasons');
       submitState = 'success';
       dispatch('success', { id: response.id, name: name.trim() });
       dispatch('close');

@@ -1,11 +1,4 @@
 <script lang="ts">
-import {
-    collection,
-    getCountFromServer,
-    query,
-    where,
-  } from 'firebase/firestore';
-  import { db } from '../../lib/firebase';
   import {
     DataStore,
     eventsProjectionScope,
@@ -15,6 +8,7 @@ import {
     seasonsStore,
     teamsProjectionScope,
     teamsStore,
+    refreshOperationalCollections,
   } from '../../lib/services/DataStore';
   import { tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
@@ -75,6 +69,7 @@ import {
   let publishingSelectedDrafts = false;
   let showBatchPublishReview = false;
   let batchPublishReceipt: { published: number; failed: number; reference: string } | null = null;
+  let eventChangeReceipt: { title: string; message: string } | null = null;
   let creatingShareableLinkForEventId = '';
   let shareableRegistrationLinks: Record<string, { url: string; expiresAt: string }> = {};
   let shareableLinkErrors: Record<string, { message: string; requestId: string }> = {};
@@ -93,11 +88,6 @@ import {
   let previousSelectedTeamId = '';
   let teams: Record<string, string> = {};
   let consumedTargetId = '';
-  let exactEventRegistrationCounts: Record<string, number | null> = {};
-  let exactEventCountSignature = '';
-  let exactEventCountGeneration = 0;
-  let exactEventCountLoading = false;
-  let exactEventCountError = '';
   const eventLifecycleStatuses = new Set(['draft', 'published', 'archived']);
   const MAX_SERIES_UPDATE_COUNT = 400;
   const publishConfirmationText = 'PUBLISH EVENT';
@@ -245,19 +235,11 @@ import {
     && (!eventToDate || event.dateKey <= eventToDate)
   );
   $: selectedDraftEvents = events.filter((event) => selectedDraftEventIds.has(event.id) && event.lifecycleStatus === 'draft');
-  $: exactEventCountScopeSignature = `${$tenantIdStore}|${visibleEvents.map((event) => event.id).sort().join(',')}`;
-  $: if (exactEventCountScopeSignature !== exactEventCountSignature) {
-    exactEventCountSignature = exactEventCountScopeSignature;
-    void loadExactEventRegistrationCounts(
-      exactEventCountScopeSignature,
-      visibleEvents,
-    );
-  }
-  $: exactEventCountIncomplete =
-    exactEventCountLoading
-    || visibleEvents.some((event) =>
-      typeof exactEventRegistrationCounts[event.id] !== 'number'
-    );
+  $: registrationProjectionIsAuthoritative =
+    !$registrationsProjectionScope.loading
+    && !$registrationsProjectionScope.error
+    && !$registrationsProjectionScope.truncated;
+  $: exactEventCountIncomplete = !registrationProjectionIsAuthoritative;
   $: publishConfirmationRequired =
     inlineEditStatus === 'published'
     && originalInlineStatus !== 'published';
@@ -333,7 +315,21 @@ import {
   }
 
   function handleCreateEventSuccess() {
+    refreshOperationalCollections('events');
+    eventChangeReceipt = {
+      title: 'Event created',
+      message: 'The event was created and the event list is refreshing.',
+    };
     isCreateFormOpen = false;
+  }
+
+  function handleEditEventSuccess() {
+    refreshOperationalCollections('events');
+    eventChangeReceipt = {
+      title: 'Event updated',
+      message: 'The reviewed event changes were saved and the event list is refreshing.',
+    };
+    editingEvent = null;
   }
 
   function toggleDraftSelection(eventId: string) {
@@ -369,53 +365,9 @@ import {
       }
     }
     publishingSelectedDrafts = false;
+    if (published > 0) refreshOperationalCollections('events');
     showBatchPublishReview = false;
     batchPublishReceipt = { published, failed, reference: batchKey };
-  }
-
-  async function loadExactEventRegistrationCounts(
-    signature: string,
-    targetEvents: any[],
-  ) {
-    const tenantId = $tenantIdStore;
-    const eventIds = Array.from(
-      new Set(
-        targetEvents
-          .map((event) => String(event.id || '').trim())
-          .filter(Boolean),
-      ),
-    );
-    const generation = ++exactEventCountGeneration;
-    exactEventCountError = '';
-    if (!tenantId || eventIds.length === 0) {
-      exactEventRegistrationCounts = {};
-      exactEventCountLoading = false;
-      return;
-    }
-    exactEventCountLoading = true;
-    const results = await Promise.allSettled(eventIds.map(async (eventId) => {
-      const aggregate = await getCountFromServer(query(
-        collection(db, 'registrations'),
-        where('tenantId', '==', tenantId),
-        where('eventId', '==', eventId),
-      ));
-      const count = Number(aggregate.data().count);
-      return [eventId, Number.isSafeInteger(count) && count >= 0 ? count : null] as const;
-    }));
-    if (
-      generation !== exactEventCountGeneration
-      || signature !== exactEventCountSignature
-      || tenantId !== $tenantIdStore
-    ) return;
-    exactEventRegistrationCounts = Object.fromEntries(
-      results
-        .filter((result): result is PromiseFulfilledResult<readonly [string, number | null]> => result.status === 'fulfilled')
-        .map((result) => result.value),
-    );
-    exactEventCountError = results.some((result) => result.status === 'rejected')
-      ? 'Some event registration counts are unavailable.'
-      : '';
-    exactEventCountLoading = false;
   }
 
   function toggleExpand(evt: any) {
@@ -693,8 +645,13 @@ import {
         || expandedEventId !== eventId
         || inlinePayloadSignature !== submittedSignature
       ) return;
+      refreshOperationalCollections('events');
       expandedEventId = null;
       inlineSaveState = 'success';
+      eventChangeReceipt = {
+        title: 'Event updated',
+        message: 'The inline event changes were saved and the event list is refreshing.',
+      };
     } catch (err: unknown) {
       if (
         generation !== inlineOperationGeneration
@@ -764,7 +721,7 @@ import {
       : 1}
     projectionComplete={!$eventsProjectionScope.truncated}
     on:cancel={() => editingEvent = null}
-    on:success={() => editingEvent = null}
+    on:success={handleEditEventSuccess}
   />
 {/if}
 
@@ -823,6 +780,14 @@ import {
       onDismiss={() => batchPublishReceipt = null}
     />
   {/if}
+  {#if eventChangeReceipt}
+    <ChangeReceipt
+      status="success"
+      title={eventChangeReceipt.title}
+      message={eventChangeReceipt.message}
+      onDismiss={() => eventChangeReceipt = null}
+    />
+  {/if}
 
   {#if $eventsProjectionScope.truncated || $teamsProjectionScope.truncated}
     <p class="crm-ui-notice-card" role="status">
@@ -831,7 +796,7 @@ import {
   {/if}
   {#if exactEventCountIncomplete}
     <p class="crm-ui-notice-card" role="status">
-      Exact event registration counts are loading or unavailable. The participant list remains safely limited to {$registrationsProjectionScope.limit} loaded records.
+      Event registration counts are loading or unavailable. The participant list remains safely limited to {$registrationsProjectionScope.limit} loaded records.
     </p>
   {/if}
   {#if malformedEventCount > 0}
@@ -964,11 +929,9 @@ import {
                 on:click={() => showRegistrantsForEvent = event}
               >
                 <div class="text-lg font-bold text-green-600">
-                  {typeof exactEventRegistrationCounts[event.id] === 'number'
-                    ? exactEventRegistrationCounts[event.id]
-                    : $registrationsProjectionScope.truncated
-                      ? '—'
-                      : DataStore.getEventRegistrationCount(event, $registrationsStore)}
+                  {$registrationsProjectionScope.truncated
+                    ? '—'
+                    : DataStore.getEventRegistrationCount(event, $registrationsStore)}
                 </div>
                 <div class="text-[10px] text-gray-500 uppercase font-semibold">Registered</div>
               </button>
@@ -1265,8 +1228,8 @@ import {
     event={showRegistrantsForEvent}
     registrations={$registrationsStore}
     incomplete={$registrationsProjectionScope.truncated}
-    exactCount={typeof exactEventRegistrationCounts[showRegistrantsForEvent.id] === 'number'
-      ? exactEventRegistrationCounts[showRegistrantsForEvent.id]
+    exactCount={registrationProjectionIsAuthoritative
+      ? DataStore.getEventRegistrationCount(showRegistrantsForEvent, $registrationsStore)
       : null}
     onClose={() => showRegistrantsForEvent = null}
   />

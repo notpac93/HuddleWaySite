@@ -70,7 +70,7 @@ describe('SettingsManager profile persistence', () => {
     render(TestedSettingsManager);
 
     const name = screen.getByLabelText('Display name');
-    const email = screen.getByLabelText('Email address');
+    const email = screen.getByLabelText('Login email address');
     expect(email).not.toBeDisabled();
     expect(email).toHaveValue('owner@example.test');
 
@@ -98,7 +98,7 @@ describe('SettingsManager profile persistence', () => {
     authMocks.updateProfile.mockResolvedValue(undefined);
     render(TestedSettingsManager);
 
-    await fireEvent.input(screen.getByLabelText('Email address'), {
+    await fireEvent.input(screen.getByLabelText('Login email address'), {
       target: { value: 'new-owner@example.test' },
     });
     await fireEvent.input(screen.getByLabelText('Current password', {
@@ -130,7 +130,7 @@ describe('SettingsManager profile persistence', () => {
 
   it('requires the current password for an email change', async () => {
     render(TestedSettingsManager);
-    await fireEvent.input(screen.getByLabelText('Email address'), {
+    await fireEvent.input(screen.getByLabelText('Login email address'), {
       target: { value: 'new-owner@example.test' },
     });
 
@@ -172,7 +172,7 @@ describe('SettingsManager profile persistence', () => {
     });
     await waitFor(() => {
       expect(screen.getByLabelText('Display name')).toHaveValue('Second Admin');
-      expect(screen.getByLabelText('Email address')).toHaveValue(
+      expect(screen.getByLabelText('Login email address')).toHaveValue(
         'second@example.test',
       );
     });

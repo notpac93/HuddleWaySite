@@ -181,6 +181,18 @@
     return new Date(date.getTime() - offset).toISOString().slice(0, 16);
   }
 
+  function agingLabel(value: unknown) {
+    const bucket = String(value || '').trim().toLowerCase();
+    const labels: Record<string, string> = {
+      current: 'Current',
+      '1_30_days': '1–30 days overdue',
+      '31_60_days': '31–60 days overdue',
+      '61_90_days': '61–90 days overdue',
+      '90_plus_days': 'More than 90 days overdue',
+    };
+    return labels[bucket] || humanizeStatus(value);
+  }
+
   function close() {
     if (submitState === 'loading') return;
     invalidatePanel();
@@ -863,7 +875,7 @@
             <dl class="divide-y divide-gray-100 rounded-lg border border-gray-200 text-sm">
               <div class="crm-ui-detail-row"><dt class="text-gray-500">Recipient</dt><dd class="crm-ui-detail-value">{directInvoice.recipientName || 'Name unavailable'}<span class="block text-gray-600">{directInvoice.recipientEmail || 'Email unavailable'}</span></dd></div>
               <div class="crm-ui-detail-row"><dt class="text-gray-500">Created</dt><dd class="crm-ui-detail-value">{dateLabel(directInvoice.createdAt)}</dd></div>
-              <div class="crm-ui-detail-row"><dt class="text-gray-500">Due</dt><dd class="crm-ui-detail-value">{dateLabel(directInvoice.dueAt)} · {humanizeStatus(directInvoice.agingBucket)}</dd></div>
+              <div class="crm-ui-detail-row"><dt class="text-gray-500">Due</dt><dd class="crm-ui-detail-value">{dateLabel(directInvoice.dueAt)} · {agingLabel(directInvoice.agingBucket)}</dd></div>
               <div class="crm-ui-detail-row"><dt class="text-gray-500">Activity</dt><dd class="crm-ui-detail-value">{directInvoice.reminderCount} reminders · {directInvoice.manualPaymentCount} manual payments · {directInvoice.refundCount} refunds</dd></div>
             </dl>
 
@@ -967,8 +979,22 @@
           </div>
         {:else}
           <dl class="mt-5 divide-y divide-gray-100 rounded-lg border border-gray-200 text-sm">
+            <div class="crm-ui-detail-row"><dt class="text-gray-500">Participant / recipient</dt><dd class="crm-ui-detail-value">{row.partyLabel}</dd></div>
+            <div class="crm-ui-detail-row"><dt class="text-gray-500">Program / source</dt><dd class="crm-ui-detail-value">{row.recordLabel}</dd></div>
             <div class="crm-ui-detail-row"><dt class="text-gray-500">Record ID</dt><dd class="col-span-2 break-all text-gray-900">{row.recordId || row.id}</dd></div>
             <div class="crm-ui-detail-row"><dt class="text-gray-500">Date</dt><dd class="crm-ui-detail-value">{row.dateLabel}</dd></div>
+            {#if row.kind === 'transaction' || row.kind === 'dispute'}
+              <div class="crm-ui-detail-row"><dt class="text-gray-500">Processor-reported total fees</dt><dd class="crm-ui-detail-value">{formatMinorUnits((row.original as FinanceRecord).feeAmount, row.currency)}</dd></div>
+              <div class="crm-ui-detail-row"><dt class="text-gray-500">HuddleWay application fee</dt><dd class="crm-ui-detail-value">{formatMinorUnits((row.original as FinanceRecord).applicationFeeAmount, row.currency)}</dd></div>
+              <div class="crm-ui-detail-row"><dt class="text-gray-500">Processor fee excluding application fee</dt><dd class="crm-ui-detail-value">{formatMinorUnits((row.original as FinanceRecord).processorFeeAmount, row.currency)}</dd></div>
+              <div class="crm-ui-detail-row"><dt class="text-gray-500">Connected-account net</dt><dd class="crm-ui-detail-value">{formatMinorUnits((row.original as FinanceRecord).netAmount, row.currency)}</dd></div>
+              <div class="crm-ui-detail-row"><dt class="text-gray-500">Payment intent</dt><dd class="col-span-2 break-all text-gray-900">{String((row.original as FinanceRecord).paymentIntentId || 'Unavailable')}</dd></div>
+              <div class="crm-ui-detail-row"><dt class="text-gray-500">Charge</dt><dd class="col-span-2 break-all text-gray-900">{String((row.original as FinanceRecord).chargeId || 'Unavailable')}</dd></div>
+              <div class="crm-ui-detail-row"><dt class="text-gray-500">Balance transaction</dt><dd class="col-span-2 break-all text-gray-900">{String((row.original as FinanceRecord).balanceTransactionId || 'Unavailable')}</dd></div>
+            {:else if row.kind === 'refund'}
+              <div class="crm-ui-detail-row"><dt class="text-gray-500">Source transaction</dt><dd class="col-span-2 break-all text-gray-900">{String((row.original as FinanceRecord).transactionId || (row.original as FinanceRecord).invoiceId || 'Unavailable')}</dd></div>
+              <div class="crm-ui-detail-row"><dt class="text-gray-500">Refund reason</dt><dd class="crm-ui-detail-value">{humanizeStatus((row.original as FinanceRecord).reason)}</dd></div>
+            {/if}
             {#if row.kind === 'dispute'}
               <div class="crm-ui-detail-row"><dt class="text-gray-500">Dispute state</dt><dd class="crm-ui-detail-value">{humanizeStatus((row.original as FinanceRecord).disputeStatus)}</dd></div>
             {/if}

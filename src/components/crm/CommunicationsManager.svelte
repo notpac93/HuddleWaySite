@@ -1424,7 +1424,7 @@
             on:click={composerKind === 'announcement' ? handleAnnouncementReview : handleEmailReview}
             disabled={!canPublish || submitState === 'loading'}
             idleText={composerKind === 'announcement'
-              ? 'Publish announcement'
+              ? 'Review announcement'
               : composerKind === 'registration_email'
                 ? 'Review registration email'
                 : 'Review email'}
