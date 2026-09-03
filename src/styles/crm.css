@@ -336,7 +336,7 @@
   .crm-ui-auth-select { @apply mt-1 appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-border)] sm:text-sm; }
   .crm-ui-select-primary { @apply w-full text-sm border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-border)]; }
   .crm-ui-input-teal-block { @apply mt-1 shadow-sm focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-border)] block w-full sm:text-sm border-gray-300 rounded-md; }
-  .crm-ui-modal-root { @apply fixed inset-0 z-50 overflow-y-auto; }
+  .crm-ui-modal-root { @apply fixed inset-0 z-[100] overflow-y-auto; }
   .crm-ui-search-icon { @apply absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none; }
   .crm-ui-meta { @apply text-[13px] text-gray-500 mb-1; }
   .crm-ui-th { @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600; }

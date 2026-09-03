@@ -30,6 +30,7 @@
 
   let isCreateFormOpen = false;
   let editingForm: any = null;
+  let formChangeReceipt = '';
 
   let unsubscribeForms = () => {};
 
@@ -100,6 +101,7 @@
       isCreateFormOpen = false;
       formsError = '';
       detailError = '';
+      formChangeReceipt = '';
       participantsTruncated = false;
       participantCount = null;
       eventsTruncated = false;
@@ -193,26 +195,50 @@
 
   function openNewRegistrationForm() {
     editingForm = null;
+    formChangeReceipt = '';
     isCreateFormOpen = true;
   }
 
   function openRegistrationFormEditor() {
     if (!selectedForm) return;
     editingForm = selectedForm;
+    formChangeReceipt = '';
     isCreateFormOpen = true;
+  }
+
+  function savedFormDisplayRecord(saved, previous: any = null) {
+    const rawStatus = String(saved?.status || previous?.rawStatus || previous?.status || '')
+      .toLowerCase();
+    const title = saved?.title || saved?.name || previous?.name || 'Form name unavailable';
+    return {
+      ...previous,
+      ...saved,
+      title,
+      name: title,
+      rawStatus,
+      status: ['archived', 'closed'].includes(rawStatus)
+        ? 'Closed'
+        : ['active', 'open'].includes(rawStatus)
+          ? 'Open'
+          : 'Status unavailable',
+      dateCreated: previous?.dateCreated || new Date(),
+      program: saved?.teamId || previous?.program || 'Program-wide',
+    };
   }
 
   function handleFormSaveSuccess(event) {
     const wasEditing = Boolean(editingForm?.id);
-    if (wasEditing && selectedFormId === editingForm.id) {
-      const saved = event.detail || {};
-      selectedForm = {
-        ...selectedForm,
-        ...saved,
-        name: saved.title || selectedForm.name,
-        rawStatus: saved.status || selectedForm.rawStatus,
-        status: saved.status === 'archived' ? 'Closed' : 'Open',
-      };
+    const saved = event.detail || {};
+    if (wasEditing) {
+      const previous = forms.find((form) => form.id === editingForm.id) || editingForm;
+      const updated = savedFormDisplayRecord(saved, previous);
+      forms = forms.map((form) => form.id === updated.id ? updated : form);
+      if (selectedFormId === updated.id) selectedForm = updated;
+      formChangeReceipt = `Registration form “${updated.name}” updated.`;
+    } else if (saved.id) {
+      const created = savedFormDisplayRecord(saved);
+      forms = [created, ...forms.filter((form) => form.id !== created.id)];
+      formChangeReceipt = `Registration form “${created.name}” created.`;
     }
     isCreateFormOpen = false;
     editingForm = null;
@@ -284,6 +310,12 @@
 {/if}
 
 <div class="h-full flex flex-col p-8 space-y-6 overflow-y-auto bg-white">
+  {#if formChangeReceipt}
+    <div class="flex items-start justify-between gap-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900" role="status">
+      <span>{formChangeReceipt}</span>
+      <button type="button" class="font-semibold underline" aria-label="Dismiss registration form receipt" on:click={() => formChangeReceipt = ''}>Dismiss</button>
+    </div>
+  {/if}
   {#if !selectedFormId}
     <!-- Overview Dashboard -->
     <header class="mb-2 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

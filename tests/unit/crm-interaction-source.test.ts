@@ -66,6 +66,10 @@ describe('CRM interaction hardening source evidence', () => {
       /\.crm-ui-backdrop\s*\{\s*@apply fixed inset-0 z-0 [^}]*bg-gray-500\/75/,
     );
     expect(crmStyles).toMatch(
+      /\.crm-ui-modal-root\s*\{\s*@apply fixed inset-0 z-\[100\] overflow-y-auto/,
+    );
+    expect(source('CrmShell.svelte')).toContain('relative z-50');
+    expect(crmStyles).toMatch(
       /\.crm-ui-modal-panel-lg\s*\{\s*@apply relative z-10 [^}]*bg-white/,
     );
     for (const modal of ['create', 'duplicate', 'edit']) {

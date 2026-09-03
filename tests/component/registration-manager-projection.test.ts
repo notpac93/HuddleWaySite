@@ -286,6 +286,37 @@ describe('RegistrationManager projection and detail lifecycle', () => {
     ).toBeNull();
   });
 
+  it('shows a newly created form and a durable receipt without reloading', async () => {
+    serviceMocks.createRegistrationForm.mockResolvedValue({ id: 'form-new' });
+    render(TestedRegistrationManager);
+    await act(async () => {
+      subscriptions[0].next([]);
+    });
+
+    await fireEvent.click(screen.getByRole('button', {
+      name: 'Create New Registration Form',
+    }));
+    await fireEvent.input(screen.getByLabelText('Registration Title *'), {
+      target: { value: 'Immediate Registration' },
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Save Form' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Registration form “Immediate Registration” created.',
+    );
+    expect(screen.getByRole('button', { name: 'Active' })).toHaveTextContent('Active (1)');
+    expect(screen.getAllByText('Immediate Registration').length).toBeGreaterThan(0);
+    expect(serviceMocks.createRegistrationForm).toHaveBeenCalledTimes(1);
+
+    await fireEvent.click(screen.getByRole('button', {
+      name: 'Dismiss registration form receipt',
+    }));
+    expect(screen.queryByText(
+      'Registration form “Immediate Registration” created.',
+    )).toBeNull();
+  });
+
   it('retries a permission-denied detail, applies live form updates, and backs out if removed', async () => {
     serviceMocks.fetchRegistrationDetailPage
       .mockRejectedValueOnce({ code: 'firestore/permission-denied' })
