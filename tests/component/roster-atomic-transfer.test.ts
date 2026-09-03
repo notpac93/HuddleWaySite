@@ -232,6 +232,29 @@ describe('PlayerTable atomic roster transfer', () => {
     });
   });
 
+  it('explains participant identity blockers and shows a support reference', async () => {
+    const { BackendApiError } = await import(
+      '../../src/lib/api/BackendApi'
+    );
+    backendMocks.previewRosterTransfer.mockRejectedValue(new BackendApiError({
+      message: 'safe participant identity blocker',
+      status: 409,
+      code: 'participant_team_assignment_identity_required',
+      requestId: 'request-preview-identity-1',
+    }));
+    await prepareTransfer();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Review change' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'needs participant identity repair',
+    );
+    expect(screen.getByText(
+      /contact support with reference request-preview-identity-1/,
+    )).toBeVisible();
+    expect(backendMocks.commitRosterTransfer).not.toHaveBeenCalled();
+  });
+
   it('masks commit failures and reuses the same operation key on retry', async () => {
     const { BackendApiError } = await import(
       '../../src/lib/api/BackendApi'

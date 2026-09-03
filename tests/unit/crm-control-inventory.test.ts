@@ -15,7 +15,7 @@ const reviewedControlCounts: Record<string, number> = {
   'CrmShell.svelte': 20,
   'DataTable.svelte': 12,
   'DocumentsManager.svelte': 14,
-  'EventScheduler.svelte': 26,
+  'EventScheduler.svelte': 18,
   'FinancialOperationsWorkspace.svelte': 2,
   'FinancialPeriodManager.svelte': 14,
   'Financials.svelte': 31,
@@ -138,7 +138,7 @@ describe('exhaustive CRM control inventory', () => {
     );
 
     expect(actual).toEqual(reviewedControlCounts);
-    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(654);
+    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(646);
   });
 
   it('keeps every inventoried CRM component reachable from a production entry point', () => {

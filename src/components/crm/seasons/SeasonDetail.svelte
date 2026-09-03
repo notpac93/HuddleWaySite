@@ -124,6 +124,7 @@
       );
       return {
         id: r.id,
+        registrationId: String(r.registrationId || '').trim() || r.id,
         userId: r.userId,
         name: String(
           r.participantName
@@ -470,7 +471,7 @@
             <td class="px-4 py-3 whitespace-nowrap text-sm text-[var(--crm-brand-link)] font-semibold">{p.id.substring(0, 8).toUpperCase()}</td>
             <td class="crm-ui-td">{p.status}</td>
             <td class="crm-ui-td">{p.date ? p.date.toLocaleDateString('en-US') : 'Unavailable'}</td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-[var(--crm-brand-link)]"><button type="button" class="hover:underline" on:click={() => onNavigateTab('Roster', p.id)}>{p.name}</button></td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-[var(--crm-brand-link)]"><button type="button" class="hover:underline" on:click={() => onNavigateTab('Roster', p.registrationId)}>{p.name}</button></td>
             <td class="crm-ui-td">{p.financialStatus}</td>
           </tr>
         {/each}

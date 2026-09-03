@@ -85,11 +85,35 @@
   }
 
   function formatEventPrice(event: any) {
-    const currency =
+    const directCurrency =
       typeof event.currency === 'string' && /^[A-Za-z]{3}$/.test(event.currency.trim())
         ? event.currency.trim().toUpperCase()
         : null;
-    return currency ? formatMoney(event.priceCents, currency) : 'Currency unavailable';
+    const registrationCurrencies = new Set(
+      participants
+        .filter((participant) => String(participant?.eventId || '').trim() === String(event?.id || '').trim())
+        .map((participant) => String(participant?.currency || '').trim().toUpperCase())
+        .filter((currency) => /^[A-Z]{3}$/.test(currency)),
+    );
+    const currency = directCurrency
+      || (registrationCurrencies.size === 1 ? [...registrationCurrencies][0] : null);
+    const priceCents = Number(event?.priceCents);
+    if (!Number.isSafeInteger(priceCents) || priceCents < 0) return 'Price unavailable';
+    if (priceCents === 0) return 'Free';
+    return currency ? formatMoney(priceCents, currency) : 'Currency unavailable';
+  }
+
+  function formatEventType(event: any) {
+    const type = String(event?.type || event?.eventType || '').trim();
+    return type || 'Type unavailable';
+  }
+
+  function formatPaymentStatus(value: unknown) {
+    const status = String(value || '').trim().toLowerCase();
+    if (!status) return '';
+    return status
+      .replaceAll('_', ' ')
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
   }
 
   function formatRegistrationDate(value: unknown) {
@@ -104,11 +128,17 @@
   // Calculate participant statuses (enriching the participant list)
   $: connectedEventIds = new Set(connectedEvents.map((event) => event.id).filter(Boolean));
   $: enrichedParticipants = participants.map(p => {
+    const explicitPaymentStatus = formatPaymentStatus(p.paymentStatus);
     const userFinancials =
-      eventsTruncated || !p.userId
+      explicitPaymentStatus
+        ? { paymentStatus: explicitPaymentStatus }
+        : eventsTruncated || !p.userId
         ? { paymentStatus: 'Unavailable' }
         : DataStore.getUserFinancialsForEvents(p.userId, connectedEventIds);
-    return { ...p, financialStatus: userFinancials.paymentStatus };
+    return {
+      ...p,
+      financialStatus: explicitPaymentStatus || userFinancials.paymentStatus,
+    };
   });
 
   // State for filtering, selection, and pagination
@@ -340,7 +370,7 @@
           {#each connectedEvents as evt (evt.id)}
             <tr class="hover:bg-gray-50">
               <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{evt.title}</td>
-              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{evt.type}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{formatEventType(evt)}</td>
               <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                 {formatEventDate(evt.date)}
               </td>

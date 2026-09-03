@@ -223,7 +223,7 @@ describe('RegistrationDetail table interactions', () => {
     expect(screen.getByText(/Showing 1 connected event\./)).toBeVisible();
     expect(screen.getByText('2')).toBeVisible();
     expect(screen.getByText('Date unavailable')).toBeVisible();
-    expect(screen.getByText('Currency unavailable')).toBeVisible();
+    expect(screen.getByText('Price unavailable')).toBeVisible();
     expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0);
     expect(screen.getAllByText('No financial activity')).toHaveLength(4);
     expect(
@@ -232,6 +232,29 @@ describe('RegistrationDetail table interactions', () => {
     expect(
       dataMocks.getUserFinancialsForEvents,
     ).not.toHaveBeenCalled();
+  });
+
+  it('uses same-event registration currency and explicit payment status for legacy events', () => {
+    render(TestedRegistrationDetail, {
+      selectedForm,
+      participants: [{
+        ...participant(1),
+        eventId: 'legacy-event-1',
+        currency: 'USD',
+        paymentStatus: 'paid',
+      }],
+      connectedEvents: [{
+        id: 'legacy-event-1',
+        title: 'Legacy priced event',
+        priceCents: 100,
+        date: '2026-09-01T12:00:00.000Z',
+      }],
+    });
+
+    expect(screen.getByText('Type unavailable')).toBeVisible();
+    expect(screen.getByText('$1.00')).toBeVisible();
+    expect(screen.getAllByText('Paid')).toHaveLength(2);
+    expect(dataMocks.getUserFinancialsForEvents).not.toHaveBeenCalled();
   });
 
   it('renders loading/error/empty states and disables empty export', () => {

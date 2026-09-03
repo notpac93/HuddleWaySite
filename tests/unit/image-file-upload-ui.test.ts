@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest';
 const imageEditors = [
   'src/components/crm/events/CreateEventForm.svelte',
   'src/components/crm/events/EditEventModal.svelte',
-  'src/components/crm/EventScheduler.svelte',
   'src/components/crm/MyAppStudio.svelte',
 ];
 

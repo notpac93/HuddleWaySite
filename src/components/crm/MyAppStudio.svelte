@@ -64,10 +64,10 @@
     savedAt: string;
     configuration: CrmAppConfiguration;
   } | null = null;
-  type AppVersion = { id: string; configVersion: number; publishedAt: string | null; publishedBy: string | null; auditReason: string | null; configuration: CrmAppConfiguration };
+  type AppVersion = { id: string; configVersion: number; publishedAt: string | null; publishedBy: string | null; publishedByLabel?: string | null; auditReason: string | null; configuration: CrmAppConfiguration };
   let configVersion = 0;
   let publishedAt: string | null = null;
-  let publishedBy: string | null = null;
+  let publishedByLabel: string | null = null;
   let versionHistory: AppVersion[] = [];
   let versionHistoryState: 'idle' | 'loading' | 'ready' | 'error' = 'idle';
   let versionHistoryTruncated = false;
@@ -290,7 +290,7 @@
     configVersionToken = '';
     configVersion = 0;
     publishedAt = null;
-    publishedBy = null;
+    publishedByLabel = null;
     versionHistory = [];
     versionHistoryState = 'idle';
     loadedConfiguration = null;
@@ -595,7 +595,7 @@
       configMode = snapshot.mode;
       configVersion = snapshot.configVersion;
       publishedAt = snapshot.publishedAt;
-      publishedBy = snapshot.publishedBy;
+      publishedByLabel = snapshot.publishedByLabel || (snapshot.publishedBy ? 'Portal administrator' : null);
       configVersionToken = snapshot.versionToken;
       if (snapshot.configuration) {
         const configuration = snapshot.configuration;
@@ -769,7 +769,7 @@
       <h2 class="crm-ui-page-title">My App</h2>
       <p class="text-sm text-gray-500 mt-1">Preview changes here, then publish them to your family app.</p>
       {#if configLoadState === 'ready'}
-        <p class="mt-2 text-xs font-medium text-gray-600">Version {configVersion || 'initial'} · {versionLabel} · Previewing {isDirty ? 'unpublished draft' : 'published configuration'} · Last published {publishedAt ? new Date(publishedAt).toLocaleString() : 'not available'} by {publishedBy || 'actor unavailable'}</p>
+        <p class="mt-2 text-xs font-medium text-gray-600">Version {configVersion || 'initial'} · {versionLabel} · Previewing {isDirty ? 'unpublished draft' : 'published configuration'} · Last published {publishedAt ? new Date(publishedAt).toLocaleString() : 'not available'} by {publishedByLabel || 'publisher unavailable'}</p>
       {/if}
     </div>
 
@@ -924,7 +924,7 @@
           </div>
         </div>
       {:else if activeTab === 'Version history'}
-        <div class="space-y-4"><div><h3 class="font-semibold text-gray-900">Published versions</h3><p class="mt-1 text-sm text-gray-600">Load an earlier configuration as a draft, inspect it in the mobile preview, then use the normal reviewed publish flow to roll back safely.</p></div>{#if versionHistoryState === 'loading'}<p role="status" class="text-sm text-gray-500">Loading version history…</p>{:else if versionHistoryState === 'error'}<div class="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">Version history could not be loaded. <button type="button" class="font-semibold underline" on:click={() => activeTenantId && loadVersionHistory(activeTenantId)}>Retry</button></div>{:else if versionHistory.length === 0}<p class="rounded-md border bg-white p-4 text-sm text-gray-600">No portal-published versions are retained yet. The next publication will start this history.</p>{:else}<ul class="divide-y rounded-lg border bg-white">{#each versionHistory as version}<li class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p class="font-semibold">Version {version.configVersion}{version.configVersion === configVersion ? ' · Current' : ''}</p><p class="text-xs text-gray-500">{version.publishedAt ? new Date(version.publishedAt).toLocaleString() : 'Time unavailable'} · {version.publishedBy || 'Actor unavailable'}</p></div><button type="button" class="crm-ui-button-secondary" disabled={version.configVersion === configVersion || submitState === 'loading'} on:click={() => useVersionAsRollbackDraft(version)}>Use as rollback draft</button></li>{/each}</ul>{#if versionHistoryTruncated}<p class="text-xs text-amber-800">Showing the 20 most recent retained versions.</p>{/if}{/if}</div>
+        <div class="space-y-4"><div><h3 class="font-semibold text-gray-900">Published versions</h3><p class="mt-1 text-sm text-gray-600">Load an earlier configuration as a draft, inspect it in the mobile preview, then use the normal reviewed publish flow to roll back safely.</p></div>{#if versionHistoryState === 'loading'}<p role="status" class="text-sm text-gray-500">Loading version history…</p>{:else if versionHistoryState === 'error'}<div class="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">Version history could not be loaded. <button type="button" class="font-semibold underline" on:click={() => activeTenantId && loadVersionHistory(activeTenantId)}>Retry</button></div>{:else if versionHistory.length === 0}<p class="rounded-md border bg-white p-4 text-sm text-gray-600">No portal-published versions are retained yet. The next publication will start this history.</p>{:else}<ul class="divide-y rounded-lg border bg-white">{#each versionHistory as version}<li class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p class="font-semibold">Version {version.configVersion}{version.configVersion === configVersion ? ' · Current' : ''}</p><p class="text-xs text-gray-500">{version.publishedAt ? new Date(version.publishedAt).toLocaleString() : 'Time unavailable'} · {version.publishedByLabel || (version.publishedBy ? 'Portal administrator' : 'Publisher unavailable')}</p></div><button type="button" class="crm-ui-button-secondary" disabled={version.configVersion === configVersion || submitState === 'loading'} on:click={() => useVersionAsRollbackDraft(version)}>Use as rollback draft</button></li>{/each}</ul>{#if versionHistoryTruncated}<p class="text-xs text-amber-800">Showing the 20 most recent retained versions.</p>{/if}{/if}</div>
       {/if}
     </div>
     <div class="crm-ui-studio-actions">

@@ -442,7 +442,7 @@
         {/if}
 
         {#if errorMessage}
-          <div class="crm-ui-danger">
+          <div class="crm-ui-danger" role="alert">
             {errorMessage}
           </div>
         {/if}

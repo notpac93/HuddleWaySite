@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import type { Component } from 'svelte';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -72,10 +72,9 @@ describe('event publication flow', () => {
     });
     render(TestedEventScheduler);
 
-    await fireEvent.click(
-      screen.getByRole('button', { name: 'Expand Opening practice' }),
-    );
-    await fireEvent.change(screen.getByLabelText('Publish Status'), {
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    const editor = screen.getByRole('dialog', { name: 'Edit Event' });
+    await fireEvent.change(within(editor).getByLabelText('Status'), {
       target: { value: 'published' },
     });
 
@@ -107,8 +106,8 @@ describe('event publication flow', () => {
         lifecycleStatus: 'published',
         applyToSeries: false,
       }),
-      'Event updated inline from CRM.',
-      expect.stringContaining('event-inline-update:'),
+      'Event updated from CRM.',
+      expect.stringContaining('event-update:'),
     );
   });
 });

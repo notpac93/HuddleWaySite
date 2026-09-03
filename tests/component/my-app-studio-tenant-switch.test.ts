@@ -102,6 +102,7 @@ function configurationSnapshot(tenantId: string) {
     configVersion: 3,
     publishedAt: '2026-07-01T12:00:00.000Z',
     publishedBy: 'owner-1',
+    publishedByLabel: 'HuddleWay Demo Admin',
     versionToken: `version-${tenantId}-${configNames.get(tenantId)}`,
     configuration: {
       name: configNames.get(tenantId)
@@ -255,6 +256,7 @@ describe('MyAppStudio tenant preview isolation', () => {
   it('fails closed when logo publication has no approved private-media contract', async () => {
     render(TestedMyAppStudio);
     expect(await screen.findByLabelText('Logo')).toBeDisabled();
+    expect(screen.getByText(/Last published .* by HuddleWay Demo Admin/)).toBeVisible();
     expect(screen.getByText(/Logo replacement is temporarily unavailable/)).toBeVisible();
     expect(appMocks.uploadImageAsset).not.toHaveBeenCalled();
     expect(appMocks.publishAppConfiguration).not.toHaveBeenCalled();

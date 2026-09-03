@@ -14,14 +14,11 @@
   import { backendClient } from '../../lib/api/backendClient';
   import { BackendApiError, createIdempotencyKey } from '../../lib/api/BackendApi';
   import { registrationOutreachApi } from '../../lib/api/RegistrationOutreachApi';
-  import { onDestroy, tick } from 'svelte';
+  import { tick } from 'svelte';
   import CreateEventForm from './events/CreateEventForm.svelte';
   import EditEventModal from './events/EditEventModal.svelte';
   import DuplicateEventModal from './events/DuplicateEventModal.svelte';
   import EventRegistrantsModal from './events/EventRegistrantsModal.svelte';
-  import StatusButton from './ui/StatusButton.svelte';
-  import ImageFilePicker from './ui/ImageFilePicker.svelte';
-  import { validateImageFile } from '../../lib/media/imageUpload';
   import EventCsvImport from './events/EventCsvImport.svelte';
   import EventBatchPublishReview from './events/EventBatchPublishReview.svelte';
   import ChangeReceipt from './ui/ChangeReceipt.svelte';
@@ -43,28 +40,6 @@
   let editingEvent: any = null;
   let expandedEventId: string | null = null;
 
-  let inlineEditTitle = '';
-  let inlineEditLocation = '';
-  let inlineEditTeamId = 'general';
-  let inlineEditStatus = 'published';
-  let inlineEditDate = '';
-  let inlineEditTime = '16:00';
-  let inlineEditEndTime = '18:00';
-  let inlineEditApplyToSeries = false;
-  let inlineImageFile: File | null = null;
-  let inlineImageValidationMessage = '';
-  const automaticInlineAuditReason = 'Event updated inline from CRM.';
-  let inlineAuditReason = automaticInlineAuditReason;
-  let inlineSaveState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
-  let inlineError = '';
-  let inlineRequestId = '';
-  let inlineOperationKey = '';
-  let inlineImageUploadKey = '';
-  let inlinePayloadSignature = '';
-  let currentInlinePayloadSignature = '';
-  let inlineOperationGeneration = 0;
-  let originalInlineStatus = '';
-  let inlinePublishConfirmation = '';
   let selectedDraftEventIds = new Set<string>();
   let publishingSelectedDrafts = false;
   let showBatchPublishReview = false;
@@ -89,8 +64,6 @@
   let teams: Record<string, string> = {};
   let consumedTargetId = '';
   const eventLifecycleStatuses = new Set(['draft', 'published', 'archived']);
-  const MAX_SERIES_UPDATE_COUNT = 400;
-  const publishConfirmationText = 'PUBLISH EVENT';
 
   function localDateKey(date: Date) {
     return [
@@ -168,6 +141,21 @@
               typeof data.type === 'string' && data.type.trim()
                 ? data.type.trim()
                 : null,
+            eventType:
+              typeof data.eventType === 'string' && data.eventType.trim()
+                ? data.eventType.trim()
+                : null,
+            priceCents: Number.isSafeInteger(Number(data.priceCents)) && Number(data.priceCents) >= 0
+              ? Number(data.priceCents)
+              : null,
+            currency:
+              typeof data.currency === 'string' && /^[A-Za-z]{3}$/.test(data.currency.trim())
+                ? data.currency.trim().toUpperCase()
+                : null,
+            registrationKind:
+              typeof data.registrationKind === 'string' && data.registrationKind.trim()
+                ? data.registrationKind.trim()
+                : null,
             notes: data.notes || '',
             seasonId: data.seasonId || null,
             registrationFormId: data.registrationFormId || null,
@@ -240,51 +228,6 @@
     && !$registrationsProjectionScope.error
     && !$registrationsProjectionScope.truncated;
   $: exactEventCountIncomplete = !registrationProjectionIsAuthoritative;
-  $: publishConfirmationRequired =
-    inlineEditStatus === 'published'
-    && originalInlineStatus !== 'published';
-  $: currentInlinePayloadSignature = JSON.stringify({
-    tenantId: $tenantIdStore,
-    eventId: expandedEventId || '',
-    inlineEditTitle,
-    inlineEditLocation,
-    inlineEditTeamId,
-    inlineEditStatus,
-    inlineEditDate,
-    inlineEditTime,
-    inlineEditEndTime,
-    inlineEditApplyToSeries,
-    inlineImageFile: inlineImageFile
-      ? { name: inlineImageFile.name, type: inlineImageFile.type, size: inlineImageFile.size }
-      : null,
-    inlineAuditReason,
-  });
-  $: {
-    const signature = currentInlinePayloadSignature;
-    if (signature !== inlinePayloadSignature && inlineSaveState !== 'loading') {
-      inlinePayloadSignature = signature;
-      inlineOperationKey = createIdempotencyKey('event-inline-update');
-      inlineImageUploadKey = createIdempotencyKey('event-inline-cover-upload');
-      if (inlineSaveState === 'error') {
-        inlineSaveState = 'idle';
-        inlineError = '';
-        inlineRequestId = '';
-      }
-    } else if (signature !== inlinePayloadSignature) {
-      inlinePayloadSignature = signature;
-      inlineOperationKey = createIdempotencyKey('event-inline-update');
-      inlineImageUploadKey = createIdempotencyKey('event-inline-cover-upload');
-      inlineOperationGeneration += 1;
-      inlineSaveState = 'error';
-      inlineError =
-        'The organization or event details changed while saving. Review the event and try again.';
-      inlineRequestId = '';
-    }
-  }
-  $: if (!publishConfirmationRequired && inlinePublishConfirmation) {
-    inlinePublishConfirmation = '';
-  }
-
   $: if (activeResultId && activeResultId !== consumedTargetId) {
     const targetEvent = events.find((event) => String(event.id) === activeResultId);
     if (targetEvent) {
@@ -371,37 +314,36 @@
   }
 
   function toggleExpand(evt: any) {
-    if (inlineSaveState === 'loading') return;
     if (expandedEventId === evt.id) {
       expandedEventId = null;
-      inlineEditApplyToSeries = false;
-      inlineImageFile = null;
-      inlineImageValidationMessage = '';
     } else {
       expandedEventId = evt.id;
-      inlineEditApplyToSeries = false;
-      inlineImageFile = null;
-      inlineImageValidationMessage = '';
-      inlineEditTitle = evt.title || '';
-      inlineEditLocation = evt.location || '';
-      inlineEditTeamId = evt.teamId || 'general';
-      inlineEditStatus = evt.lifecycleStatus || 'published';
-      originalInlineStatus = evt.lifecycleStatus || '';
-      inlineEditDate = evt.dateObj
-        ? localDateKey(new Date(evt.dateObj))
-        : '';
-      inlineEditTime = evt.dateObj
-        ? new Date(evt.dateObj).toTimeString().slice(0, 5)
-        : '';
-      inlineEditEndTime = evt.endDateObj
-        ? new Date(evt.endDateObj).toTimeString().slice(0, 5)
-        : '';
-      inlineAuditReason = automaticInlineAuditReason;
-      inlinePublishConfirmation = '';
-      inlineSaveState = 'idle';
-      inlineError = '';
-      inlineRequestId = '';
     }
+  }
+
+  function eventStatusLabel(value: unknown) {
+    const status = String(value || '').trim().toLowerCase();
+    if (!status || status === 'status_unavailable') return 'Status unavailable';
+    return status.charAt(0).toUpperCase() + status.slice(1).replaceAll('_', ' ');
+  }
+
+  function eventTypeLabel(event: any) {
+    return String(event?.type || event?.eventType || '').trim() || 'Type unavailable';
+  }
+
+  function eventPriceLabel(event: any) {
+    if (!Number.isSafeInteger(event?.priceCents) || event.priceCents < 0) return 'Price unavailable';
+    if (event.priceCents === 0) return 'Free';
+    if (!event.currency) return 'Currency unavailable';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: event.currency,
+    }).format(event.priceCents / 100);
+  }
+
+  function eventTeamLabel(event: any) {
+    if (event?.teamId === 'all') return 'Program-wide';
+    return teams[String(event?.teamId || '')] || 'Team unavailable';
   }
 
   function eventRegistrationIsLive(event: any) {
@@ -496,188 +438,9 @@
   }
 
   function openDuplicateModal(event: any) {
-    if (inlineSaveState === 'loading') return;
     eventToDuplicate = { ...event };
     isDuplicateModalOpen = true;
   }
-
-  async function saveInlineEdit(evt: any) {
-    if (inlineSaveState === 'loading') return;
-    const tenantId = $tenantIdStore;
-    if (!tenantId) {
-      failInlineEdit('Select an organization before editing events.');
-      return;
-    }
-    if (!eventLifecycleStatuses.has(inlineEditStatus)) {
-      failInlineEdit('Choose a valid event lifecycle status.');
-      return;
-    }
-    const sameSeriesCount = evt.eventSeriesId
-      ? events.filter((event) => event.eventSeriesId === evt.eventSeriesId).length
-      : 0;
-    if (
-      inlineEditApplyToSeries
-      && (
-        $eventsProjectionScope.truncated
-        || sameSeriesCount > MAX_SERIES_UPDATE_COUNT
-      )
-    ) {
-      failInlineEdit(
-        `Series updates require a complete series of at most ${MAX_SERIES_UPDATE_COUNT} events.`,
-      );
-      return;
-    }
-    if (!inlineEditTitle.trim() || !inlineEditDate || !inlineEditTime || !inlineEditEndTime || !inlineEditTeamId || inlineEditTeamId === 'general') {
-      failInlineEdit(
-        'Event title, date, start time, end time, and team are required.',
-      );
-      return;
-    }
-    if (inlineEditEndTime <= inlineEditTime) {
-      failInlineEdit('Event end time must be later than its start time.');
-      return;
-    }
-    inlineImageValidationMessage = validateImageFile(inlineImageFile);
-    if (inlineImageValidationMessage) return;
-    if (
-      publishConfirmationRequired
-      && inlinePublishConfirmation !== publishConfirmationText
-    ) {
-      failInlineEdit(
-        `Type ${publishConfirmationText} before publishing this event.`,
-      );
-      return;
-    }
-    const eventId = String(evt.id || '');
-    if (!eventId) {
-      failInlineEdit('This event record is missing its identifier and cannot be updated.');
-      return;
-    }
-    const generation = ++inlineOperationGeneration;
-    const submittedSignature = currentInlinePayloadSignature;
-    if (submittedSignature !== inlinePayloadSignature) {
-      inlinePayloadSignature = submittedSignature;
-      inlineOperationKey = createIdempotencyKey('event-inline-update');
-    }
-    const idempotencyKey = inlineOperationKey;
-    inlineSaveState = 'loading';
-    inlineError = '';
-    inlineRequestId = '';
-    try {
-      const uploadedImage = inlineImageFile
-        ? await backendClient.uploadImageAsset(
-          tenantId,
-          inlineImageFile,
-          'event-cover',
-          inlineImageUploadKey,
-        )
-        : null;
-      if (
-        generation !== inlineOperationGeneration
-        || $tenantIdStore !== tenantId
-        || expandedEventId !== eventId
-        || inlinePayloadSignature !== submittedSignature
-      ) return;
-      const update: Parameters<typeof backendClient.updateEvent>[2] = {
-        title: inlineEditTitle.trim(),
-        location: inlineEditLocation.trim(),
-        teamId: inlineEditTeamId,
-        applyToSeries: inlineEditApplyToSeries && Boolean(evt.eventSeriesId),
-      };
-      if (inlineEditStatus !== originalInlineStatus) {
-        update.lifecycleStatus = inlineEditStatus;
-      }
-      if (uploadedImage) {
-        update.imageReservationId = uploadedImage.reservationId;
-      }
-      if (!update.applyToSeries) {
-        const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const startAt = new Date(`${inlineEditDate}T${inlineEditTime}:00`);
-        const endAt = new Date(`${inlineEditDate}T${inlineEditEndTime}:00`);
-        const startTimeRoundTrip = startAt.toTimeString().slice(0, 5);
-        const endTimeRoundTrip = endAt.toTimeString().slice(0, 5);
-        if (
-          !timeZone
-          || Number.isNaN(startAt.getTime())
-          || Number.isNaN(endAt.getTime())
-          || localDateKey(startAt) !== inlineEditDate
-          || localDateKey(endAt) !== inlineEditDate
-          || startTimeRoundTrip !== inlineEditTime
-          || endTimeRoundTrip !== inlineEditEndTime
-        ) {
-          throw new Error('Your browser could not resolve the selected event date and time.');
-        }
-        Object.assign(update, {
-          dateKey: inlineEditDate,
-          startTime: inlineEditTime,
-          endTime: inlineEditEndTime,
-          startAt: startAt.toISOString(),
-          endAt: endAt.toISOString(),
-          timeZone,
-        });
-      }
-      const updatedEvent = await backendClient.updateEvent(
-        tenantId,
-        eventId,
-        update,
-        inlineAuditReason.trim(),
-        idempotencyKey,
-      );
-      const imageReservationId = uploadedImage?.reservationId
-        || (
-          inlineEditStatus !== originalInlineStatus
-            ? String(evt.imageReservationId || evt.imageAssetId || '').trim()
-            : ''
-        );
-      if (imageReservationId) {
-        await backendClient.publishImageAsset(
-          tenantId,
-          imageReservationId,
-          'event',
-          updatedEvent.eventIds,
-          'Synchronize the verified event cover with event publication state.',
-          `${uploadedImage ? inlineImageUploadKey : idempotencyKey}:publish`,
-        );
-      }
-      if (
-        generation !== inlineOperationGeneration
-        || $tenantIdStore !== tenantId
-        || expandedEventId !== eventId
-        || inlinePayloadSignature !== submittedSignature
-      ) return;
-      refreshOperationalCollections('events');
-      expandedEventId = null;
-      inlineSaveState = 'success';
-      eventChangeReceipt = {
-        title: 'Event updated',
-        message: 'The inline event changes were saved and the event list is refreshing.',
-      };
-    } catch (err: unknown) {
-      if (
-        generation !== inlineOperationGeneration
-        || $tenantIdStore !== tenantId
-        || expandedEventId !== eventId
-        || inlinePayloadSignature !== submittedSignature
-      ) return;
-      inlineRequestId =
-        err instanceof BackendApiError ? err.requestId || '' : '';
-      console.error('Inline event update failed.', {
-        requestId: inlineRequestId || 'unavailable',
-      });
-      inlineError = 'The event could not be updated.';
-      inlineSaveState = 'error';
-    }
-  }
-
-  function failInlineEdit(message: string) {
-    inlineSaveState = 'error';
-    inlineError = message;
-    inlineRequestId = '';
-  }
-
-  onDestroy(() => {
-    inlineOperationGeneration += 1;
-  });
 </script>
 
 {#if shareDialogEvent}
@@ -752,7 +515,7 @@
       <p class="crm-theme-link text-xs font-semibold uppercase tracking-wide">Planning</p>
       <h3 id="event-creation-heading" class="mt-1 text-lg font-semibold text-gray-900">Create an event</h3>
       <p class="mt-1 flex-1 text-sm text-gray-600">Add one event or build a recurring schedule with dates, teams, and registration settings.</p>
-      <button type="button" disabled={inlineSaveState === 'loading'} class="crm-ui-event-top-primary mt-4 w-full" on:click={() => isCreateFormOpen = true}>New event</button>
+      <button type="button" class="crm-ui-event-top-primary mt-4 w-full" on:click={() => isCreateFormOpen = true}>New event</button>
     </section>
 
     <EventCsvImport
@@ -940,7 +703,6 @@
             <button
               type="button"
               class="crm-ui-button-secondary py-1.5 text-xs"
-              disabled={inlineSaveState === 'loading'}
               on:click={() => { editingEvent = { ...event }; }}
             >
               Edit
@@ -953,7 +715,6 @@
               class="crm-ui-event-icon-button"
               aria-label={`${expandedEventId === event.id ? 'Collapse' : 'Expand'} ${event.title}`}
               aria-expanded={expandedEventId === event.id}
-              disabled={inlineSaveState === 'loading'}
               on:click={() => toggleExpand(event)}
             >
               <svg class="crm-ui-event-chevron {expandedEventId === event.id ? 'rotate-180 text-[var(--crm-brand-link)]' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -963,14 +724,68 @@
           </div>
         </div>
 
-        <!-- Expanded Inline Editor Drawer -->
+        <!-- Expanded read-only event inspection -->
         {#if expandedEventId === event.id}
           <div class="border-t border-gray-200 bg-slate-50 p-6 space-y-4">
-            <fieldset disabled={inlineSaveState === 'loading'} class="m-0 min-w-0 space-y-4 border-0 p-0">
             <div class="crm-ui-between">
-              <h4 class="text-sm font-bold text-gray-900 uppercase tracking-wider">Inline Event Editor & Media Controls</h4>
-
+              <div>
+                <h4 class="text-sm font-bold text-gray-900 uppercase tracking-wider">Event details</h4>
+                <p class="mt-1 text-sm text-gray-600">Review this event without changing it. Use Edit to make updates.</p>
+              </div>
+              <button
+                type="button"
+                class="crm-ui-button-secondary"
+                on:click={() => { editingEvent = { ...event }; }}
+              >Edit event</button>
             </div>
+
+            <dl class="grid grid-cols-1 gap-3 rounded-lg border border-gray-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <dt class="crm-ui-label-caps-sm">Date and time</dt>
+                <dd class="mt-1 text-sm text-gray-900">
+                  {event.date}{event.endDateObj ? ` – ${event.endDateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}` : ''}
+                </dd>
+              </div>
+              <div>
+                <dt class="crm-ui-label-caps-sm">Status</dt>
+                <dd class="mt-1 text-sm text-gray-900">{eventStatusLabel(event.lifecycleStatus)}</dd>
+              </div>
+              <div>
+                <dt class="crm-ui-label-caps-sm">Team</dt>
+                <dd class="mt-1 text-sm text-gray-900">{eventTeamLabel(event)}</dd>
+              </div>
+              <div>
+                <dt class="crm-ui-label-caps-sm">Location</dt>
+                <dd class="mt-1 text-sm text-gray-900">{event.location || 'Location unavailable'}</dd>
+              </div>
+              <div>
+                <dt class="crm-ui-label-caps-sm">Event type</dt>
+                <dd class="mt-1 text-sm text-gray-900">{eventTypeLabel(event)}</dd>
+              </div>
+              <div>
+                <dt class="crm-ui-label-caps-sm">Price</dt>
+                <dd class="mt-1 text-sm text-gray-900">{eventPriceLabel(event)}</dd>
+              </div>
+              <div>
+                <dt class="crm-ui-label-caps-sm">Registration form</dt>
+                <dd class="mt-1 text-sm text-gray-900">{event.registrationFormId ? 'Attached' : 'Not attached'}</dd>
+              </div>
+              <div>
+                <dt class="crm-ui-label-caps-sm">Registered</dt>
+                <dd class="mt-1 text-sm text-gray-900">
+                  {$registrationsProjectionScope.truncated
+                    ? 'Count unavailable'
+                    : DataStore.getEventRegistrationCount(event, $registrationsStore)}
+                </dd>
+              </div>
+            </dl>
+
+            {#if event.notes}
+              <section class="rounded-lg border border-gray-200 bg-white p-4">
+                <h5 class="crm-ui-label-caps-sm">Notes</h5>
+                <p class="mt-1 whitespace-pre-wrap text-sm text-gray-700">{event.notes}</p>
+              </section>
+            {/if}
 
             <section class="rounded-lg border border-sky-200 bg-white p-4">
               <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1023,181 +838,22 @@
               {/if}
             </section>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <!-- Column 1: Image Media Editor -->
-              <div class="space-y-3">
-                <ImageFilePicker
-                  inputId={`inline-event-image-${event.id}`}
-                  label="Banner Image Graphic"
-                  currentUrl={event.imageUrl}
-                  previewAlt={`${event.title} banner`}
-                  bind:selectedFile={inlineImageFile}
-                  bind:validationMessage={inlineImageValidationMessage}
-                  disabled={inlineSaveState === 'loading'}
-                />
-              </div>
-
-              <!-- Column 2: Event Details -->
-              <div class="space-y-3 md:col-span-2">
-                <div>
-                  <label for={`inline-event-title-${event.id}`} class="crm-ui-label-caps-sm">Event Title</label>
-                  <input
-                    id={`inline-event-title-${event.id}`}
-                    type="text"
-                    bind:value={inlineEditTitle}
-                    maxlength="200"
-                    class="crm-ui-select-teal"
-                  />
-                </div>
-
-                <div class="grid grid-cols-3 gap-3">
-                  <div>
-                    <div class="flex justify-between items-center mb-1">
-                      <label for={`inline-event-date-${event.id}`} class="block text-xs font-semibold uppercase text-gray-700">Date</label>
-                      <button type="button" on:click={() => openDuplicateModal(event)} class="text-[10px] font-semibold text-[var(--crm-brand-link)] hover:text-[var(--crm-brand-primary-hover)]">+ Add More Dates</button>
-                    </div>
-                    <input
-                      id={`inline-event-date-${event.id}`}
-                      type="date"
-                      bind:value={inlineEditDate}
-                      disabled={inlineEditApplyToSeries}
-                      class="crm-ui-select-teal"
-                    />
-                  </div>
-                  <div>
-                    <label for={`inline-event-time-${event.id}`} class="crm-ui-label-caps-sm">Time</label>
-                    <input
-                      id={`inline-event-time-${event.id}`}
-                      type="time"
-                      bind:value={inlineEditTime}
-                      disabled={inlineEditApplyToSeries}
-                      class="crm-ui-select-teal"
-                    />
-                  </div>
-                  <div>
-                    <label for={`inline-event-end-time-${event.id}`} class="crm-ui-label-caps-sm">End time</label>
-                    <input id={`inline-event-end-time-${event.id}`} type="time" bind:value={inlineEditEndTime} disabled={inlineEditApplyToSeries} class="crm-ui-select-teal disabled:bg-gray-100" />
-                  </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-3">
-                  <div>
-                    <label for={`inline-event-location-${event.id}`} class="crm-ui-label-caps-sm">Location / Venue</label>
-                    <input
-                      id={`inline-event-location-${event.id}`}
-                      type="text"
-                      bind:value={inlineEditLocation}
-                      maxlength="500"
-                      class="crm-ui-select-teal"
-                    />
-                  </div>
-                  <div>
-                    <label for={`inline-event-team-${event.id}`} class="crm-ui-label-caps-sm">Assigned Team</label>
-                    <select
-                      id={`inline-event-team-${event.id}`}
-                      bind:value={inlineEditTeamId}
-                      class="crm-ui-select-teal"
-                    >
-                      <option value="" disabled>Select a team</option>
-                      <option value="all">Program-wide event</option>
-                      {#each Object.entries(teams) as [id, name]}
-                        <option value={id}>{name}</option>
-                      {/each}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label for={`inline-event-status-${event.id}`} class="crm-ui-label-caps-sm">Publish Status</label>
-                  <select
-                    id={`inline-event-status-${event.id}`}
-                    bind:value={inlineEditStatus}
-                    class="crm-ui-select-teal"
-                  >
-                    <option value="draft">Draft</option>
-                    <option value="published">Published</option>
-                    {#if inlineEditStatus === 'status_unavailable'}<option value="status_unavailable" disabled>Status unavailable</option>{/if}
-                    <option value="archived">Archived</option>
-                  </select>
-                </div>
-
-                {#if publishConfirmationRequired}
-                  <div class="rounded-md border border-amber-300 bg-amber-50 p-3">
-                    <p class="text-sm font-semibold text-amber-950">
-                      Publishing makes the event visible to its configured audience.
-                    </p>
-                    <p class="mt-1 text-xs text-amber-900">
-                      {inlineEditApplyToSeries
-                        ? `This will publish every loaded occurrence in the series (${events.filter((candidate) => candidate.eventSeriesId === event.eventSeriesId).length} shown).`
-                        : 'This publishes only this event occurrence.'}
-                      Consumer event feeds read this authoritative published record directly; tenant visibility and membership rules still apply.
-                    </p>
-                    <label for={`inline-event-publish-confirmation-${event.id}`} class="mt-3 block text-xs font-medium text-amber-950">
-                      Type <span class="font-semibold">{publishConfirmationText}</span>
-                    </label>
-                    <input
-                      id={`inline-event-publish-confirmation-${event.id}`}
-                      type="text"
-                      bind:value={inlinePublishConfirmation}
-                      autocomplete="off"
-                      class="crm-ui-field border-amber-400"
-                    />
-                  </div>
-                {/if}
-              </div>
-            </div>
-
-            <!-- Apply to Series Toggle -->
-            {#if event.isMultiDateSeries && event.eventSeriesId}
-              <div class="px-4 py-3 bg-gray-50 border-t border-gray-200">
-                <label class="flex items-center space-x-3 cursor-pointer">
-                  <div class="relative">
-                    <input type="checkbox" bind:checked={inlineEditApplyToSeries} class="sr-only" />
-                    <div class="crm-ui-event-toggle-track {inlineEditApplyToSeries ? 'crm-ui-event-toggle-active' : ''}"></div>
-                    <div class="crm-ui-event-toggle-dot {inlineEditApplyToSeries ? 'translate-x-4' : ''}"></div>
-                  </div>
-                  <div>
-                    <span class="text-sm font-semibold text-gray-900">Apply to all events in this series</span>
-                    <p class="crm-ui-hint-xs">Update title, location, team, and lifecycle status. Each occurrence keeps its existing date, time, and image.</p>
-                  </div>
-                </label>
-              </div>
-            {/if}
-
-            {#if inlineError}
-              <div class="crm-ui-danger" role="alert">
-                <p>{inlineError}</p>
-              </div>
-            {/if}
-
-            <!-- Footer Action Buttons -->
             <div class="flex justify-end space-x-3 pt-3 border-t border-gray-200">
               <button
                 type="button"
-                disabled={inlineSaveState === 'loading'}
-                on:click={() => { expandedEventId = null; inlineEditApplyToSeries = false; }}
+                on:click={() => openDuplicateModal(event)}
                 class="crm-ui-event-action-secondary"
               >
-                Close Drawer
+                Add dates
               </button>
-              <StatusButton
-                state={inlineSaveState}
-                on:click={() => saveInlineEdit(event)}
-                disabled={
-                  inlineSaveState === 'loading'
-                  || (
-                    publishConfirmationRequired
-                    && inlinePublishConfirmation !== publishConfirmationText
-                  )
-                }
-                idleText="Save Event Changes"
-                loadingText="Saving Changes..."
-                successText="Changes Saved"
-                errorText="Retry Event Update"
-                class="crm-ui-event-action-primary"
-              />
+              <button
+                type="button"
+                on:click={() => { expandedEventId = null; }}
+                class="crm-ui-event-action-secondary"
+              >
+                Close details
+              </button>
             </div>
-            </fieldset>
           </div>
         {/if}
       </article>

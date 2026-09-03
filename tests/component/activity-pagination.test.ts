@@ -104,6 +104,29 @@ describe('ActivityManager cursor pagination', () => {
     expect(screen.queryByRole('button', { name: 'Load more activity' })).toBeNull();
   });
 
+  it('reports the matching count when filters narrow a truncated loaded page', async () => {
+    apiMocks.auditEventPage.mockResolvedValue(
+      auditPage([
+        auditEvent('audit-1', 'First Owner'),
+        auditEvent('audit-2', 'Second Owner'),
+      ], {
+        hasMore: true,
+        nextCursor: 'cursor-2',
+      }),
+    );
+    render(TestedActivityManager);
+
+    expect(await screen.findByText('First Owner')).toBeVisible();
+    await fireEvent.input(screen.getByRole('searchbox', { name: 'Search' }), {
+      target: { value: 'First Owner' },
+    });
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Showing 1 matching audit event from 2 loaded. More records exist, so filtered results may be incomplete.',
+    );
+    expect(screen.getByText('First Owner')).toBeVisible();
+    expect(screen.queryByText('Second Owner')).toBeNull();
+  });
+
   it('shows a support-safe failure and retries the first page', async () => {
     apiMocks.auditEventPage
       .mockRejectedValueOnce(

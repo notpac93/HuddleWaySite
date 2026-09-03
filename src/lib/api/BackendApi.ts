@@ -396,6 +396,7 @@ export type CrmAppConfigurationSnapshot = {
   configVersion: number;
   publishedAt: string | null;
   publishedBy: string | null;
+  publishedByLabel?: string | null;
   versionToken: string;
   configuration: CrmAppConfiguration | null;
   requestId: string;
@@ -2332,6 +2333,7 @@ export class BackendApi {
       payload.configVersion < 0 ||
       (payload.publishedAt !== null && !validIsoTimestamp(payload.publishedAt)) ||
       (payload.publishedBy !== null && typeof payload.publishedBy !== "string") ||
+      (payload.publishedByLabel !== undefined && payload.publishedByLabel !== null && typeof payload.publishedByLabel !== "string") ||
       !String(payload.versionToken || "").trim() ||
       !String(payload.requestId || "").trim() ||
       (payload.mode === "initialize"
@@ -2351,6 +2353,7 @@ export class BackendApi {
         configVersion: number;
         publishedAt: string | null;
         publishedBy: string | null;
+        publishedByLabel?: string | null;
         auditReason: string | null;
         configuration: CrmAppConfiguration;
       }>;
@@ -2358,7 +2361,7 @@ export class BackendApi {
       requestId: string;
     }>("/admin/crm/app-configuration/history", { query: { tenantId } });
     assertTenantEnvelope(payload as unknown as Record<string, unknown>, tenantId);
-    if (!Array.isArray(payload.versions) || typeof payload.truncated !== "boolean" || !String(payload.requestId || "").trim() || payload.versions.some((version) => !String(version.id || "").trim() || !Number.isSafeInteger(version.configVersion) || version.configVersion < 1 || (version.publishedAt !== null && !validIsoTimestamp(version.publishedAt)) || (version.publishedBy !== null && typeof version.publishedBy !== "string") || (version.auditReason !== null && typeof version.auditReason !== "string") || !isValidAppConfiguration(version.configuration))) {
+    if (!Array.isArray(payload.versions) || typeof payload.truncated !== "boolean" || !String(payload.requestId || "").trim() || payload.versions.some((version) => !String(version.id || "").trim() || !Number.isSafeInteger(version.configVersion) || version.configVersion < 1 || (version.publishedAt !== null && !validIsoTimestamp(version.publishedAt)) || (version.publishedBy !== null && typeof version.publishedBy !== "string") || (version.publishedByLabel !== undefined && version.publishedByLabel !== null && typeof version.publishedByLabel !== "string") || (version.auditReason !== null && typeof version.auditReason !== "string") || !isValidAppConfiguration(version.configuration))) {
       invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;

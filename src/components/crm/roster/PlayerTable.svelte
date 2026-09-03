@@ -168,6 +168,9 @@
       operationMessage =
         e instanceof RosterScopeChangedError
           ? e.message
+          : e instanceof BackendApiError
+            && e.code === 'participant_team_assignment_identity_required'
+            ? 'This registration needs participant identity repair before its team assignment can change. Open the participant details and complete the identity repair, then retry the review.'
           : 'The roster change could not be reviewed. Nothing was changed.';
       operationRequestId =
         e instanceof BackendApiError ? e.requestId || '' : '';
@@ -350,6 +353,9 @@
         {/if}
       </div>
       {#if bulkSelectedTeam && !bulkReview}<p class="ml-4 text-xs text-gray-600">Next: review how {selectedPlayerIds.length} selected registration{selectedPlayerIds.length === 1 ? '' : 's'} will {bulkAction === 'assign_team' ? `move to team ${transferTeams.find((team) => team.id === bulkDestination)?.name || bulkDestination}` : bulkAction === 'assign_season' ? `be connected to season ${transferSeasons.find((season) => season.id === bulkDestination)?.name || bulkDestination}` : 'be unassigned from their current team'}.</p>{/if}
+      {#if operationRequestId && submitState === 'error' && !bulkReview}
+        <p class="ml-4 mt-2 text-xs text-gray-600">If retrying does not work, contact support with reference {operationRequestId}.</p>
+      {/if}
       {#if bulkReview}
         <section class="ml-4 mt-3 rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950" aria-labelledby="roster-change-review-title">
           <h3 id="roster-change-review-title" class="font-semibold">Review roster change</h3>

@@ -103,6 +103,7 @@ vi.mock('../../src/lib/services/DataStore', async () => {
     }]),
     seasonRegistrationsStore: writable([{
       id: 'season-registration-1',
+      registrationId: 'registration-1',
       seasonId: 'season-1',
       userId: 'user-1',
       status: 'registered',
@@ -215,6 +216,7 @@ describe('season mutation family', () => {
     eventRecords.set([openingPractice]);
     seasonRegistrationRecords.set([{
       id: 'season-registration-1',
+      registrationId: 'registration-1',
       seasonId: 'season-1',
       userId: 'user-1',
       status: 'registered',
@@ -419,6 +421,13 @@ describe('season mutation family', () => {
       'Remove the incorrectly linked event.',
       expect.stringContaining('event-season-unlink:'),
     );
+  });
+
+  it('opens the canonical roster registration from a season participant', async () => {
+    const onNavigateTab = vi.fn();
+    render(TestedSeasonDetail, { season: fallLeague, onNavigateTab });
+    await fireEvent.click(screen.getByRole('button', { name: 'Jordan Lee' }));
+    expect(onNavigateTab).toHaveBeenCalledWith('Roster', 'registration-1');
   });
 
   it('clears selected season details when tenant scope changes', async () => {

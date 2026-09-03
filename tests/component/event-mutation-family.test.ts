@@ -147,7 +147,7 @@ function calendarLabel(date: Date) {
   }).format(date);
 }
 
-async function openInlineEditor() {
+async function openEventDetails() {
   await fireEvent.click(
     screen.getByRole('button', { name: 'Expand Opening practice' }),
   );
@@ -308,7 +308,7 @@ describe('event mutation family', () => {
     });
     render(TestedEventScheduler);
 
-    await openInlineEditor();
+    await openEventDetails();
     await fireEvent.click(screen.getByRole('button', {
       name: 'Share Link',
     }));
@@ -328,7 +328,7 @@ describe('event mutation family', () => {
   it('does not offer a shareable link before registration is published and live', async () => {
     render(TestedEventScheduler);
 
-    await openInlineEditor();
+    await openEventDetails();
 
     expect(screen.queryByRole('button', { name: 'Share Link' })).toBeNull();
     expect(screen.getByText('Publish this event before creating a registration link.'))
@@ -547,21 +547,26 @@ describe('event mutation family', () => {
     expect(backendMocks.updateEvent).not.toHaveBeenCalled();
   });
 
-  it('invalidates inline updates on scope change and never applies stale success', async () => {
+  it('keeps expanded inspection read-only and invalidates canonical edits on scope change', async () => {
     const pending = deferred<void>();
     backendMocks.updateEvent.mockReturnValue(pending.promise);
     render(TestedEventScheduler);
-    await openInlineEditor();
+    await openEventDetails();
+
+    expect(screen.getByText('Review this event without changing it. Use Edit to make updates.'))
+      .toBeVisible();
+    expect(screen.queryByLabelText('Event Title *')).toBeNull();
+    expect(screen.getAllByText('Tigers').length).toBeGreaterThanOrEqual(2);
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit event' }));
+    expect(screen.getByRole('dialog', { name: 'Edit Event' })).toBeVisible();
     await fireEvent.click(
       screen.getByRole('button', { name: 'Save Event Changes' }),
     );
 
     expect(
-      screen.getByRole('button', { name: 'Saving Changes...' }),
+      screen.getByRole('button', { name: 'Saving...' }),
     ).toBeDisabled();
-    expect(screen.getByLabelText('Event Title')).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'New event' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Edit' })).toBeDisabled();
+    expect(screen.getByLabelText('Event Title *')).toBeDisabled();
 
     await act(async () => {
       tenants.set('tenant-b');
@@ -571,7 +576,7 @@ describe('event mutation family', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'The organization or event details changed while saving.',
     );
-    expect(screen.queryByRole('button', { name: 'Changes Saved' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Saved!' })).toBeNull();
   });
 
   it('omits identifier-less events and reports the malformed record', async () => {
@@ -592,7 +597,7 @@ describe('event mutation family', () => {
     ]);
     eventScope.set({ ...healthyScope, truncated: true });
     render(TestedEventScheduler);
-    await openInlineEditor();
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     await fireEvent.click(
       screen.getByRole('checkbox', {
         name: /Apply to all events in this series/,

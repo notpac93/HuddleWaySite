@@ -155,6 +155,9 @@
       && (!dateFrom || day >= dateFrom)
       && (!dateTo || day <= dateTo);
   });
+  $: hasActiveFilters = Boolean(
+    searchQuery.trim() || actorFilter || actionFilter || resourceFilter || outcomeFilter || dateFrom || dateTo,
+  );
 
   function exportActivity() {
     downloadCsv(filteredActivities.map((activity) => ({
@@ -247,7 +250,11 @@
       {:else}
         {#if truncated}
           <p class="crm-ui-notice" role="status">
-            Showing {activities.length} loaded audit events. More records exist; this is not the full history.
+            {#if hasActiveFilters}
+              Showing {filteredActivities.length} matching audit {filteredActivities.length === 1 ? 'event' : 'events'} from {activities.length} loaded. More records exist, so filtered results may be incomplete.
+            {:else}
+              Showing {activities.length} loaded audit events. More records exist; this is not the full history.
+            {/if}
           </p>
         {/if}
         {#if filteredActivities.length === 0}
@@ -257,7 +264,7 @@
             {#each filteredActivities as activity, idx (activity.id)}
               <li>
                 <div class="relative pb-8">
-                  {#if idx !== activities.length - 1}
+                  {#if idx !== filteredActivities.length - 1}
                     <span class="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true"></span>
                   {/if}
                   <div class="relative flex space-x-3">
