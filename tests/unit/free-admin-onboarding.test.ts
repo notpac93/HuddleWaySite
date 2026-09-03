@@ -12,7 +12,7 @@ describe('free administrator onboarding contract', () => {
   it('offers account creation and email verification without an activation gate', () => {
     const login = source('Login.svelte');
 
-    expect(login).toContain('Create free admin account');
+    expect(login).toContain('Create free administrator account');
     expect(login).toContain('createUserWithEmailAndPassword');
     expect(login).toContain('sendEmailVerification');
     expect(login).toContain('Creating and administering a program is free.');

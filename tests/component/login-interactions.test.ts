@@ -65,7 +65,7 @@ describe('Login safe interaction states', () => {
     );
     render(TestedLogin);
     expect(
-      screen.getByRole('button', { name: 'Create free admin account' }),
+      screen.getByRole('button', { name: 'Create free administrator account' }),
     ).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Change password' })).toBeNull();
     await fillLogin();
@@ -86,7 +86,7 @@ describe('Login safe interaction states', () => {
 
     render(TestedLogin);
     await fireEvent.click(
-      screen.getByRole('button', { name: 'Create free admin account' }),
+      screen.getByRole('button', { name: 'Create free administrator account' }),
     );
     await fireEvent.input(screen.getByLabelText('Email address'), {
       target: { value: 'owner@example.test' },
@@ -98,7 +98,7 @@ describe('Login safe interaction states', () => {
       target: { value: 'secure-password' },
     });
     await fireEvent.click(
-      screen.getByRole('button', { name: 'Create free admin account' }),
+      screen.getByRole('button', { name: 'Create free administrator account' }),
     );
 
     expect(authMocks.createUser).toHaveBeenCalledWith(

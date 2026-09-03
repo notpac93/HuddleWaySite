@@ -59,7 +59,7 @@ describe('CRM release language contract', () => {
     );
 
     expect(login).toContain('Creating and administering a program is free.');
-    expect(login).toContain('Create free admin account');
+    expect(login).toContain('Create free administrator account');
     expect(setup).toContain(
       'Program creation and administration are free. No payment method is required.',
     );

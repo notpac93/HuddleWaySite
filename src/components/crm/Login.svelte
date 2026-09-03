@@ -214,7 +214,7 @@
             class="crm-auth-button-secondary"
             on:click={() => { view = 'signup'; errorMessage = ''; successMessage = ''; password = ''; }}
           >
-            Create free admin account
+            Create free administrator account
           </button>
         </form>
       {:else if view === 'signup'}
@@ -272,7 +272,7 @@
             disabled={isLoading}
             class="crm-auth-button-primary"
           >
-            {isLoading ? 'Creating account…' : 'Create free admin account'}
+            {isLoading ? 'Creating account…' : 'Create free administrator account'}
           </button>
           <button
             type="button"
