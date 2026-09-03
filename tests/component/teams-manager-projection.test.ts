@@ -23,6 +23,26 @@ vi.mock('../../src/lib/api/backendClient', () => ({
   },
 }));
 
+vi.mock('../../src/lib/services/RosterService', () => ({
+  RosterService: {
+    subscribeToPlayers: vi.fn((_tenantId, _activeTeam, callback) => {
+      callback(
+        [{ id: 'registration-1', teamId: 'team-1', teamIds: ['team-1'] }],
+        {
+          truncated: {
+            registrations: false,
+            privateRegistrations: false,
+            memberships: false,
+            teams: false,
+          },
+          requestId: 'roster-request',
+        },
+      );
+      return () => {};
+    }),
+  },
+}));
+
 vi.mock('../../src/lib/services/DataStore', async () => {
   const { writable } = await import('svelte/store');
   return {
@@ -176,6 +196,7 @@ describe('TeamsManager complete projection states', () => {
     });
 
     await fireEvent.click(screen.getByRole('button', { name: 'Delete team' }));
+    expect(screen.getByText(/1 roster record/)).toBeVisible();
     expect(
       screen.getByRole('dialog', { name: 'Delete Falcons?' }),
     ).toBeVisible();

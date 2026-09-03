@@ -537,6 +537,7 @@ describe('financial mutation drawer', () => {
     expect(firstCall[0]).toEqual(
       expect.objectContaining({
         tenantId: 'fixture-tenant',
+        auditReason: 'Created an invoice draft from the Operations Portal.',
         recipientEmail: 'parent@example.test',
         title: 'Summer program',
         discountCents: 50,

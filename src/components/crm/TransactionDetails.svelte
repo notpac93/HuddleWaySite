@@ -644,6 +644,7 @@
     }
     const draftPayload = {
       tenantId,
+      auditReason: 'Created an invoice draft from the Operations Portal.',
       recipientEmail: draftRecipientEmail.trim().toLowerCase(),
       recipientName: draftRecipientName.trim() || undefined,
       title: draftTitle.trim(),

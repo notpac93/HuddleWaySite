@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { onDestroy, tick } from 'svelte';
   import { tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
   import { BackendApiError, createIdempotencyKey } from '../../lib/api/BackendApi';
@@ -14,6 +14,7 @@
     refreshOperationalCollections,
   } from '../../lib/services/DataStore';
   import { modalFocus } from '../../lib/ui/modalFocus';
+  import { RosterService } from '../../lib/services/RosterService';
   import CreateTeamForm from './teams/CreateTeamForm.svelte';
   import EmptyState from './ui/EmptyState.svelte';
   import Icon from './ui/Icon.svelte';
@@ -50,6 +51,37 @@
     message: string;
     reference?: string;
   } | null = null;
+  let rosterPlayers: any[] = [];
+  let rosterCountScopeComplete = false;
+  let unsubscribeRosterCounts = () => {};
+  let rosterCountGeneration = 0;
+
+  function subscribeRosterCounts() {
+    const generation = ++rosterCountGeneration;
+    unsubscribeRosterCounts();
+    const tenantId = $tenantIdStore;
+    rosterPlayers = [];
+    rosterCountScopeComplete = false;
+    if (!tenantId) return;
+    unsubscribeRosterCounts = RosterService.subscribeToPlayers(
+      tenantId,
+      null,
+      (players, scope) => {
+        if (generation !== rosterCountGeneration || $tenantIdStore !== tenantId) return;
+        rosterPlayers = Array.isArray(players) ? players : [];
+        rosterCountScopeComplete = !Object.values(scope.truncated).some(Boolean);
+      },
+      () => {
+        if (generation !== rosterCountGeneration || $tenantIdStore !== tenantId) return;
+        rosterCountScopeComplete = false;
+      },
+    );
+  }
+
+  $: {
+    $tenantIdStore;
+    subscribeRosterCounts();
+  }
 
   function referencesTeam(record: any, teamId: string) {
     return [record?.teamId, record?.team?.id, record?.metadata?.teamId]
@@ -57,6 +89,14 @@
   }
 
   function teamRosterCount(team: any) {
+    const teamId = String(team?.id || '').trim();
+    if (rosterCountScopeComplete) {
+      return rosterPlayers.filter((player) =>
+        String(player?.teamId || '').trim() === teamId
+        || (Array.isArray(player?.teamIds)
+          && player.teamIds.some((id) => String(id || '').trim() === teamId)),
+      ).length;
+    }
     const explicit = Number(team?.memberCount ?? team?.playerCount);
     const projected = $registrationsStore.filter(
       (record) => referencesTeam(record, String(team?.id || '')),
@@ -69,6 +109,11 @@
         ? explicit
         : 0;
   }
+
+  onDestroy(() => {
+    rosterCountGeneration += 1;
+    unsubscribeRosterCounts();
+  });
 
   function teamSeasons(team: any) {
     return $seasonsStore.filter((record) => referencesTeam(record, String(team?.id || '')));

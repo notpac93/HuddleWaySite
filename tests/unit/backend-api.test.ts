@@ -530,6 +530,7 @@ describe('BackendApi', () => {
     await api.createDirectInvoice(
       {
         tenantId: 'fixture-tenant',
+        auditReason: 'Created an invoice draft from the Operations Portal.',
         recipientEmail: 'payer@example.test',
         title: 'Registration',
         dueDays: 30,
@@ -552,7 +553,9 @@ describe('BackendApi', () => {
         tenantId: 'fixture-tenant',
         idempotencyKey: 'invoice:fixture-operation',
       });
-      expect(JSON.parse(call[1].body)).not.toHaveProperty('auditReason');
+      expect(JSON.parse(call[1].body)).toMatchObject({
+        auditReason: 'Created an invoice draft from the Operations Portal.',
+      });
     }
   });
 

@@ -307,6 +307,7 @@ export interface OnboardingBootstrapResult {
 
 export interface DirectInvoiceDraft {
   tenantId: string;
+  auditReason: string;
   recipientUid?: string;
   recipientEmail?: string;
   recipientName?: string;
