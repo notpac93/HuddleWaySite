@@ -31,7 +31,7 @@ vi.mock('../../src/lib/services/RosterService', () => ({
         {
           truncated: {
             registrations: false,
-            privateRegistrations: false,
+            privateRegistrations: true,
             memberships: false,
             teams: false,
           },

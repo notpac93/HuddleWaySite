@@ -69,7 +69,11 @@
       (players, scope) => {
         if (generation !== rosterCountGeneration || $tenantIdStore !== tenantId) return;
         rosterPlayers = Array.isArray(players) ? players : [];
-        rosterCountScopeComplete = !Object.values(scope.truncated).some(Boolean);
+        // Private registration details are not needed to count memberships.
+        // A complete public registration/membership/team projection is enough.
+        rosterCountScopeComplete = !scope.truncated.registrations
+          && !scope.truncated.memberships
+          && !scope.truncated.teams;
       },
       () => {
         if (generation !== rosterCountGeneration || $tenantIdStore !== tenantId) return;
