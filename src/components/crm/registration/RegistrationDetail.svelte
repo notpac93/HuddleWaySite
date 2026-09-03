@@ -88,7 +88,10 @@
     const directCurrency =
       typeof event.currency === 'string' && /^[A-Za-z]{3}$/.test(event.currency.trim())
         ? event.currency.trim().toUpperCase()
-        : null;
+        : typeof event?.paymentTerms?.currency === 'string'
+          && /^[A-Za-z]{3}$/.test(event.paymentTerms.currency.trim())
+          ? event.paymentTerms.currency.trim().toUpperCase()
+          : null;
     const registrationCurrencies = new Set(
       participants
         .filter((participant) => String(participant?.eventId || '').trim() === String(event?.id || '').trim())

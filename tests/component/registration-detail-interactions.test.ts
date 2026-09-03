@@ -129,7 +129,7 @@ describe('RegistrationDetail table interactions', () => {
         title: 'Fall League',
         type: 'League',
         date: '2026-09-01T12:00:00.000Z',
-        currency: 'USD',
+        paymentTerms: { currency: 'usd' },
         priceCents: 12_500,
       }],
     });
