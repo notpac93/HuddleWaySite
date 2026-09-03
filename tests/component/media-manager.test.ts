@@ -232,4 +232,53 @@ describe('MediaManager bounded tenant projection', () => {
     );
     expect(screen.getByText('Asset archived and removed from the active library.')).toBeVisible();
   });
+
+  it('closes the upload dialog after a completed library upload', async () => {
+    backendMocks.uploadImageAsset.mockResolvedValue({ reservationId: 'reservation-a' });
+    backendMocks.publishProgramMedia.mockResolvedValue({ success: true });
+    const originalCreateObjectUrl = URL.createObjectURL;
+    const originalRevokeObjectUrl = URL.revokeObjectURL;
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: vi.fn(() => 'blob:media-test'),
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: vi.fn(),
+    });
+    vi.stubGlobal('Image', class {
+      naturalWidth = 48;
+      naturalHeight = 48;
+      onload: null | (() => void) = null;
+      set src(_value: string) { queueMicrotask(() => this.onload?.()); }
+    });
+
+    try {
+      render(TestedMediaManager);
+      firestoreMocks.observers.at(-1)?.next({ docs: [] });
+      await fireEvent.click(screen.getAllByRole('button', { name: 'Upload image' })[0]);
+      await fireEvent.change(screen.getByLabelText('Image'), {
+        target: { files: [new File(['image'], 'uat-upload.png', { type: 'image/png' })] },
+      });
+      await fireEvent.input(screen.getByLabelText('Alt text'), {
+        target: { value: 'Staging upload test' },
+      });
+      await fireEvent.click(screen.getByRole('button', { name: 'Review upload' }));
+      await fireEvent.click(screen.getByRole('button', { name: 'Upload to library' }));
+
+      await waitFor(() => expect(backendMocks.publishProgramMedia).toHaveBeenCalledTimes(1));
+      expect(screen.queryByRole('dialog', { name: 'Review image upload' })).toBeNull();
+      expect(screen.getByRole('status')).toHaveTextContent('Uploaded uat-upload.png');
+    } finally {
+      vi.unstubAllGlobals();
+      Object.defineProperty(URL, 'createObjectURL', {
+        configurable: true,
+        value: originalCreateObjectUrl,
+      });
+      Object.defineProperty(URL, 'revokeObjectURL', {
+        configurable: true,
+        value: originalRevokeObjectUrl,
+      });
+    }
+  });
 });

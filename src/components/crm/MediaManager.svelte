@@ -164,6 +164,7 @@
         `${uploadKey}:publish`,
       );
       operationMessage = `Uploaded ${uploadFile.name} to the reusable program library.`;
+      uploadState = 'idle';
       closeUpload();
     } catch (error) {
       uploadState = 'error';
