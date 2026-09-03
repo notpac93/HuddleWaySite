@@ -31,6 +31,7 @@
   let loadGeneration = 0;
   let selected: MediaFile | null = null;
   let selectedIds: string[] = [];
+  let failedPreviewIds: string[] = [];
   let bulkCategory = 'Banners';
   let uploadOpen = false;
   let uploadFile: File | null = null;
@@ -118,6 +119,9 @@
 
   function safeMediaUrl(value: string) {
     try { const parsed = new URL(value); return parsed.protocol === 'https:' ? parsed.toString() : ''; } catch { return ''; }
+  }
+  function markPreviewUnavailable(id: string) {
+    if (!failedPreviewIds.includes(id)) failedPreviewIds = [...failedPreviewIds, id];
   }
   function bytes(value: number | null) {
     if (value == null) return 'Size unavailable';
@@ -301,7 +305,7 @@
       {#if mediaLoadState === 'loading'}<div class="py-20 text-center text-sm" role="status">Loading media files…</div>
       {:else if mediaLoadState === 'error'}<div class="mt-4 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">{mediaLoadMessage}</div>
       {:else if filteredMedia.length === 0}<div class="mt-5"><EmptyState title="No media files" message="No matching active image record is available in the loaded scope." primaryLabel={searchQuery || activeCategory !== 'All' ? 'Clear filters' : canManage ? 'Upload image' : ''} onPrimary={() => { if (searchQuery || activeCategory !== 'All') { searchQuery = ''; activeCategory = 'All'; } else uploadOpen = true; }} /></div>
-      {:else}<div class="mt-5 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">{#each filteredMedia as media (media.id)}<article class="group overflow-hidden rounded-lg border bg-white hover:shadow-md"><button type="button" aria-label={`Open details for ${media.name || 'unnamed media'}`} class="block w-full text-left" on:click={() => selected = { ...media }}><div class="h-36 overflow-hidden bg-gray-100">{#if safeMediaUrl(media.url)}<img src={safeMediaUrl(media.url)} alt={media.altText || media.name || 'Media name unavailable'} width="320" height="320" loading="lazy" decoding="async" class="h-full w-full object-cover" />{:else}<div class="flex h-full items-center justify-center text-sm text-gray-500">Preview unavailable</div>{/if}</div><div class="p-3"><p class="truncate text-sm font-medium" title={media.name || 'Media name unavailable'}>{media.name || 'Media name unavailable'}</p><p class="mt-1 text-xs text-gray-500">{media.width && media.height ? `${media.width} × ${media.height}` : 'Dimensions unavailable'} · {bytes(media.sizeBytes)}</p><p class="mt-1 text-xs"><span class="rounded bg-gray-100 px-2 py-0.5">{media.category || 'Category unavailable'}</span> · {usageByUrl.get(media.url)?.length || 0} uses</p></div></button><label class="flex items-center gap-2 border-t px-3 py-2 text-xs"><input type="checkbox" checked={selectedIds.includes(media.id)} disabled={!canManage} on:change={() => selectedIds = selectedIds.includes(media.id) ? selectedIds.filter((id) => id !== media.id) : [...selectedIds, media.id]} /> Select for bulk category</label></article>{/each}</div>{/if}
+      {:else}<div class="mt-5 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">{#each filteredMedia as media (media.id)}<article class="group overflow-hidden rounded-lg border bg-white hover:shadow-md"><button type="button" aria-label={`Open details for ${media.name || 'unnamed media'}`} class="block w-full text-left" on:click={() => selected = { ...media }}><div class="h-36 overflow-hidden bg-gray-100">{#if safeMediaUrl(media.url) && !failedPreviewIds.includes(media.id)}<img src={safeMediaUrl(media.url)} alt={media.altText || media.name || 'Media name unavailable'} width="320" height="320" loading="lazy" decoding="async" class="h-full w-full object-cover" on:error={() => markPreviewUnavailable(media.id)} />{:else}<div class="flex h-full items-center justify-center px-3 text-center text-sm text-gray-500">Preview unavailable</div>{/if}</div><div class="p-3"><p class="truncate text-sm font-medium" title={media.name || 'Media name unavailable'}>{media.name || 'Media name unavailable'}</p><p class="mt-1 text-xs text-gray-500">{media.width && media.height ? `${media.width} × ${media.height}` : 'Dimensions unavailable'} · {bytes(media.sizeBytes)}</p><p class="mt-1 text-xs"><span class="rounded bg-gray-100 px-2 py-0.5">{media.category || 'Uncategorized'}</span> · {usageByUrl.get(media.url)?.length || 0} uses</p></div></button><label class="flex items-center gap-2 border-t px-3 py-2 text-xs"><input type="checkbox" checked={selectedIds.includes(media.id)} disabled={!canManage} on:change={() => selectedIds = selectedIds.includes(media.id) ? selectedIds.filter((id) => id !== media.id) : [...selectedIds, media.id]} /> Select for bulk category</label></article>{/each}</div>{/if}
     </main>
   </div>
 </div>

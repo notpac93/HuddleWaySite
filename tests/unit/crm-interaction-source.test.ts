@@ -18,7 +18,7 @@ describe('CRM interaction hardening source evidence', () => {
 
     expect(media).not.toMatch(/\balert\s*\(/);
     expect(media).toContain('Media name unavailable');
-    expect(media).toContain('Category unavailable');
+    expect(media).toContain("media.category || 'Uncategorized'");
     expect(media).toContain('Search media files');
     expect(media).toContain("mediaLoadState = 'error'");
     expect(media).toContain('role="alert"');

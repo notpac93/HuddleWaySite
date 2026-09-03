@@ -130,6 +130,7 @@ describe('MediaManager bounded tenant projection', () => {
     const unsafeCard = screen.getByText('Untrusted banner').closest('.group');
     expect(unsafeCard).not.toBeNull();
     expect(within(unsafeCard as HTMLElement).queryByRole('img')).toBeNull();
+    expect(screen.getAllByText('Uncategorized').length).toBeGreaterThan(0);
 
     await fireEvent.click(screen.getByRole('button', { name: /Logos/ }));
     expect(screen.getByText('Falcons logo')).toBeVisible();
@@ -139,6 +140,21 @@ describe('MediaManager bounded tenant projection', () => {
       target: { value: 'missing' },
     });
     expect(screen.getByText('No media files')).toBeVisible();
+  });
+
+  it('replaces a failed remote preview with an explicit unavailable state', async () => {
+    render(TestedMediaManager);
+    firestoreMocks.observers.at(-1)?.next({
+      docs: [document('broken-a', {
+        fileName: 'Legacy banner.png',
+        imageUrl: 'https://cdn.example.test/missing.png',
+      })],
+    });
+
+    const image = await screen.findByRole('img', { name: 'Legacy banner.png' });
+    await fireEvent.error(image);
+    expect(screen.queryByRole('img', { name: 'Legacy banner.png' })).toBeNull();
+    expect(screen.getByText('Preview unavailable')).toBeVisible();
   });
 
   it('marks a 101-record projection incomplete and ignores stale tenant callbacks', async () => {

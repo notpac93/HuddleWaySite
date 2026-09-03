@@ -210,6 +210,20 @@ describe('GlobalDashboard bounded operational summary', () => {
     expect(screen.queryByText('internal-registration-id')).toBeNull();
   });
 
+  it('does not mislabel missing display details as an identity repair failure', async () => {
+    backendMocks.crmDashboardSummary.mockResolvedValue({
+      schemaVersion: 'crm_dashboard_summary_v1',
+      tenantId: 'fixture-tenant',
+      counts: { registrations: 1, teams: 0, events: 0 },
+      recentRegistrations: [{ id: 'legacy-a', createdAt: '2026-07-26T12:00:00.000Z' }],
+      requestId: 'dashboard-summary-request',
+    });
+    render(TestedGlobalDashboard);
+
+    expect(await screen.findByText('Registration details incomplete')).toBeVisible();
+    expect(screen.queryByText(/identity repair/i)).not.toBeInTheDocument();
+  });
+
   it('shows owner/editor quick-action boundaries and a read-only viewer state', () => {
     const { unmount } = render(TestedGlobalDashboard);
     expect(
