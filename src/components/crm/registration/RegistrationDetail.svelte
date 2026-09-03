@@ -223,7 +223,7 @@
     <button type="button" aria-label="Back to registration forms" on:click={goBack} class="text-gray-400 hover:text-gray-600 transition-colors bg-gray-50 hover:bg-gray-100 p-1.5 rounded-md">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
     </button>
-    <h1 class="text-[28px] font-extrabold text-[var(--crm-brand-link)] leading-none tracking-tight">{selectedForm.name}</h1>
+    <h2 class="text-[28px] font-extrabold text-[var(--crm-brand-link)] leading-none tracking-tight">{selectedForm.name}</h2>
   </div>
   <div class="flex flex-wrap justify-end gap-2">
     <button type="button" on:click={() => dispatch('edit')} class="bg-[var(--crm-brand-surface)] text-[var(--crm-brand-link)] border border-[var(--crm-brand-border)] px-4 py-1.5 rounded text-sm font-semibold hover:bg-[var(--crm-brand-surface-strong)] flex items-center transition-colors">Edit Registration Form</button>

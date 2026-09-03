@@ -123,6 +123,8 @@ describe("CrmApp authentication, role, module, and tenant boundaries", () => {
       expect(screen.getByText(/Viewer access is read-only/)).toBeVisible();
     });
     expect(screen.getByRole("button", { name: "Dashboard" })).toBeVisible();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Dashboard");
     expect(screen.queryByRole("button", { name: "Teams" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Create Event" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Add Staff" })).toBeNull();

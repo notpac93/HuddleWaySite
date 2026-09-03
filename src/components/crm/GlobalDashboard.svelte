@@ -200,7 +200,7 @@
 
 <div class="h-full flex flex-col p-6 space-y-6 overflow-y-auto bg-gray-50">
   <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-    <div><h1 class="text-2xl font-bold text-gray-950">Dashboard</h1>
+    <div><h2 class="text-2xl font-bold text-gray-950">Dashboard</h2>
     <p class="mt-1 text-sm font-medium text-gray-500">Current organization totals and the latest registration activity.</p>
     <p class="mt-1 text-xs text-gray-500">Last refreshed: {lastRefreshedAt ? lastRefreshedAt.toLocaleTimeString() : 'waiting for authoritative data'}</p>
     {#if !canManageTenant}

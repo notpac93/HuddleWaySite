@@ -122,9 +122,9 @@
               Read only
             </span>
           </div>
-          <h1 class="text-2xl font-bold text-slate-950 sm:text-3xl">
+          <h2 class="text-2xl font-bold text-slate-950 sm:text-3xl">
             Tenant Operations
-          </h1>
+          </h2>
           <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
             One read-only view of every Development and Production tenant. Counts are calculated by the backend and personal account details are not included.
           </p>
