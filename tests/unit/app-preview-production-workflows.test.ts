@@ -7,6 +7,12 @@ async function workflow(name: string) {
 }
 
 describe('production My App parity deployment gates', () => {
+  it('builds owner release artifacts with an explicit production Firebase identity', async () => {
+    const source = await workflow('crm-release-gate.yml');
+    expect(source).toContain('PUBLIC_FIREBASE_PROJECT_ID: sports-team-apps');
+    expect(source).toContain('PUBLIC_FIREBASE_USE_EMULATORS: "false"');
+  });
+
   it('binds the single-developer post-deploy probe to exact workflow inputs', async () => {
     const source = await workflow('crm-production-deploy.yml');
     expect(source).toContain('name: Install pinned Playwright browser');
