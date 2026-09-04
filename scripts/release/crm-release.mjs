@@ -45,6 +45,7 @@ const exactCanonicalInputs = [
   'scripts/release/crm-release.mjs',
   'scripts/preview-parity/app-preview-browser-readiness.mjs',
   'scripts/preview-parity/app-preview-parity-contract.mjs',
+  'scripts/preview-parity/app-preview-parity-harness.mjs',
   'scripts/verify-app-preview-parity.mjs',
   'src/layouts/CrmLayout.astro',
   'src/lib/authStore.ts',

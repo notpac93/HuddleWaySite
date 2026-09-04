@@ -27,6 +27,7 @@ describe('CRM release input inventory', () => {
       'scripts/release/crm-release.mjs',
       'scripts/preview-parity/app-preview-browser-readiness.mjs',
       'scripts/preview-parity/app-preview-parity-contract.mjs',
+      'scripts/preview-parity/app-preview-parity-harness.mjs',
       'scripts/verify-app-preview-parity.mjs',
       'config/crm-performance-budgets.json',
       'firebase.e2e.json',
