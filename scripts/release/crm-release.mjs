@@ -469,6 +469,27 @@ function validateEnvironment() {
       `PUBLIC_WEBSITE_COMMIT must match the checked-out release source (${sourceCommit}).`,
     );
   }
+  const previewEnvironment = readRequiredEnvironment(
+    'PUBLIC_APP_PREVIEW_ENVIRONMENT',
+  ).toLowerCase();
+  if (previewEnvironment !== 'prod') {
+    fail('PUBLIC_APP_PREVIEW_ENVIRONMENT must be prod for a production CRM artifact.');
+  }
+  const previewCommit = readRequiredEnvironment(
+    'PUBLIC_APP_PREVIEW_COMMIT',
+  ).toLowerCase();
+  const backendContractRef = readRequiredEnvironment(
+    'HUDDLEWAY_BACKEND_CONTRACT_REF',
+  ).toLowerCase();
+  if (!/^[a-f0-9]{40}$/.test(previewCommit) || previewCommit !== backendContractRef) {
+    fail('PUBLIC_APP_PREVIEW_COMMIT must match the exact HuddleWay consumer source commit.');
+  }
+  const previewReleaseId = readRequiredEnvironment(
+    'PUBLIC_APP_PREVIEW_RELEASE_ID',
+  );
+  if (previewReleaseId !== readRequiredEnvironment('HUDDLEWAY_CONSUMER_RELEASE_ID')) {
+    fail('PUBLIC_APP_PREVIEW_RELEASE_ID must match the attested consumer release ID.');
+  }
   if (
     readRequiredEnvironment('HUDDLEWAY_RELEASE_FIREBASE_USE_EMULATORS')
       .toLowerCase() !== 'false'
@@ -892,7 +913,10 @@ async function artifactReferencesConsumerApp(distDirectory) {
   const textFiles = await walkFiles(distDirectory, ['.html', '.js', '.css', '.json']);
   for (const path of textFiles) {
     const contents = await readFile(path, 'utf8');
-    if (/["'(]\/app(?:\/|["')?#])/i.test(contents)) return true;
+    if (
+      /["'(]\/app(?:\/|["')?#])/i.test(contents)
+      || /huddleway-app-preview-(?:prod|canary)\.web\.app/i.test(contents)
+    ) return true;
   }
   return false;
 }

@@ -210,6 +210,36 @@ async function findTenantPreview(name: string) {
   return screen.getByTitle(`${name} mobile app preview`);
 }
 
+function previewResponse(
+  preview: HTMLIFrameElement,
+  type: 'huddleway.crm.preview.ready' | 'huddleway.crm.preview.applied',
+  revision?: number,
+) {
+  const url = new URL(preview.src);
+  return {
+    type,
+    protocolVersion: 1,
+    tenantId: url.searchParams.get('forcedTenant'),
+    environment: 'dev',
+    sessionId: url.searchParams.get('previewSession'),
+    nonce: url.searchParams.get('previewNonce'),
+    sourceCommit: 'local-unattested',
+    releaseId: 'local-unattested',
+    ...(revision ? { revision } : {}),
+  };
+}
+
+function dispatchPreviewResponse(
+  preview: HTMLIFrameElement,
+  payload: ReturnType<typeof previewResponse>,
+) {
+  window.dispatchEvent(new MessageEvent('message', {
+    origin: previewOrigin,
+    source: preview.contentWindow,
+    data: JSON.stringify(payload),
+  }));
+}
+
 async function reviewAndPublish(buttonName: 'Publish App' | 'Retry Publish' = 'Publish App') {
   await fireEvent.click(screen.getByRole('button', { name: buttonName }));
   const review = await screen.findByRole('dialog', { name: 'Review family app publication' });
@@ -287,6 +317,10 @@ describe('MyAppStudio tenant preview isolation', () => {
     const postMessage = vi.spyOn(preview.contentWindow!, 'postMessage');
 
     await fireEvent.load(preview);
+    dispatchPreviewResponse(
+      preview,
+      previewResponse(preview, 'huddleway.crm.preview.ready'),
+    );
     await fireEvent.input(screen.getByLabelText('App Name'), {
       target: { value: 'Alpha League Draft' },
     });
@@ -438,14 +472,10 @@ describe('MyAppStudio tenant preview isolation', () => {
     const preview = await findTenantPreview('Alpha League') as HTMLIFrameElement;
     const postMessage = vi.spyOn(preview.contentWindow!, 'postMessage');
 
-    window.dispatchEvent(new MessageEvent('message', {
-      origin: previewOrigin,
-      source: preview.contentWindow,
-      data: JSON.stringify({
-        type: 'huddleway.crm.preview.ready',
-        tenantId: 'tenant-a',
-      }),
-    }));
+    dispatchPreviewResponse(
+      preview,
+      previewResponse(preview, 'huddleway.crm.preview.ready'),
+    );
 
     await waitFor(() => {
       expect(postMessage).toHaveBeenCalledWith(
@@ -454,15 +484,16 @@ describe('MyAppStudio tenant preview isolation', () => {
       );
     });
 
-    window.dispatchEvent(new MessageEvent('message', {
-      origin: previewOrigin,
-      source: preview.contentWindow,
-      data: JSON.stringify({
-        type: 'huddleway.crm.preview.applied',
-        tenantId: 'tenant-a',
-      }),
-    }));
-    expect(await screen.findByText(/375 × 812 · Synced/)).toBeVisible();
+    const sentPayload = JSON.parse(String(postMessage.mock.calls.at(-1)?.[0]));
+    dispatchPreviewResponse(
+      preview,
+      previewResponse(
+        preview,
+        'huddleway.crm.preview.applied',
+        sentPayload.revision,
+      ),
+    );
+    expect(await screen.findByText(/375 × 812.*Draft synced/)).toBeVisible();
   });
 
   it('locks the reviewed configuration, publishes once, and verifies readback', async () => {

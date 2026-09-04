@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const imageEditors = [
   'src/components/crm/events/CreateEventForm.svelte',
   'src/components/crm/events/EditEventModal.svelte',
-  'src/components/crm/MyAppStudio.svelte',
+  'src/components/crm/app-studio/BrandingControls.svelte',
 ];
 
 const crmRoot = join(process.cwd(), 'src/components/crm');

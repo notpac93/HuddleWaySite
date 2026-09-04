@@ -32,6 +32,14 @@ export function stageCanaryEnvironment(operatorEnvironment = process.env) {
   if (!/^[a-f0-9]{40}$/.test(commit)) {
     throw new Error('PUBLIC_WEBSITE_COMMIT must be the exact 40-character website commit.');
   }
+  const previewCommit = String(operatorEnvironment.PUBLIC_APP_PREVIEW_COMMIT || '').trim().toLowerCase();
+  if (!/^[a-f0-9]{40}$/.test(previewCommit)) {
+    throw new Error('PUBLIC_APP_PREVIEW_COMMIT must be the exact 40-character consumer commit.');
+  }
+  const previewReleaseId = String(operatorEnvironment.PUBLIC_APP_PREVIEW_RELEASE_ID || '').trim();
+  if (!previewReleaseId) {
+    throw new Error('PUBLIC_APP_PREVIEW_RELEASE_ID is required for the stage-canary build.');
+  }
   return {
     PUBLIC_BACKEND_URL: STAGE_CANARY.backendUrl,
     PUBLIC_FIREBASE_API_KEY: 'AIzaSyDVZSVTxyiRh2TUIIE6ACmOLgdOPqB3TvA',
@@ -44,5 +52,8 @@ export function stageCanaryEnvironment(operatorEnvironment = process.env) {
     PUBLIC_FIREBASE_APP_CHECK_SITE_KEY: siteKey,
     PUBLIC_FIREBASE_USE_EMULATORS: 'false',
     PUBLIC_WEBSITE_COMMIT: commit,
+    PUBLIC_APP_PREVIEW_ENVIRONMENT: 'stage',
+    PUBLIC_APP_PREVIEW_COMMIT: previewCommit,
+    PUBLIC_APP_PREVIEW_RELEASE_ID: previewReleaseId,
   };
 }

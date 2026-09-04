@@ -22,12 +22,25 @@ const reviewedControlCounts: Record<string, number> = {
   'InviteStaffModal.svelte': 6,
   'Login.svelte': 15,
   'MediaManager.svelte': 28,
-  'MyAppStudio.svelte': 20,
+  'MyAppStudio.svelte': 4,
   'SettingsManager.svelte': 12,
   'SetupWorkflow.svelte': 11,
   'StaffManager.svelte': 20,
   'TeamsManager.svelte': 14,
   'TenantOperations.svelte': 10,
+  'app-studio/BrandingControls.svelte': 8,
+  'app-studio/BrandingPanel.svelte': 1,
+  'app-studio/ComponentEditor.svelte': 9,
+  'app-studio/ComponentLibrary.svelte': 3,
+  'app-studio/ComponentLayoutHistory.svelte': 3,
+  'app-studio/ComponentOutline.svelte': 4,
+  'app-studio/ComponentPublishReview.svelte': 4,
+  'app-studio/ComponentThumbnail.svelte': 0,
+  'app-studio/ComponentsStudio.svelte': 6,
+  'app-studio/NavigationPanel.svelte': 4,
+  'app-studio/VersionHistoryPanel.svelte': 2,
+  'app-studio/StructuredCollectionEditor.svelte': 7,
+  'app/AppPreviewFrame.svelte': 1,
   'app/AppPublishReview.svelte': 4,
   'messages/AnnouncementPublishReview.svelte': 4,
   'billing/BillingPackagesWorkspace.svelte': 21,
@@ -135,7 +148,7 @@ describe('exhaustive CRM control inventory', () => {
     );
 
     expect(actual).toEqual(reviewedControlCounts);
-    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(571);
+    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(607);
   });
 
   it('keeps every inventoried CRM component reachable from a production entry point', () => {

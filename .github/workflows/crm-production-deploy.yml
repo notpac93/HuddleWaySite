@@ -15,6 +15,18 @@ on:
         description: Short reason for this production deployment
         required: true
         type: string
+      consumer_release_id:
+        description: Exact deployed production consumer-preview release ID
+        required: true
+        type: string
+      consumer_artifact_sha256:
+        description: SHA-256 from the deployed consumer-preview release manifest
+        required: true
+        type: string
+      consumer_rollback_release_id:
+        description: Previously accepted production consumer-preview release ID
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -96,6 +108,13 @@ jobs:
           PUBLIC_FIREBASE_APP_CHECK_SITE_KEY: ${{ secrets.PUBLIC_FIREBASE_APP_CHECK_SITE_KEY }}
           HUDDLEWAY_FIREBASE_APP_CHECK_SITE_KEY_SHA256: ${{ vars.HUDDLEWAY_FIREBASE_APP_CHECK_SITE_KEY_SHA256 }}
           PUBLIC_WEBSITE_COMMIT: ${{ inputs.website_ref }}
+          PUBLIC_APP_PREVIEW_ENVIRONMENT: prod
+          PUBLIC_APP_PREVIEW_COMMIT: ${{ inputs.backend_contract_ref }}
+          PUBLIC_APP_PREVIEW_RELEASE_ID: ${{ inputs.consumer_release_id }}
+          HUDDLEWAY_CONSUMER_RELEASE_ID: ${{ inputs.consumer_release_id }}
+          HUDDLEWAY_CONSUMER_ARTIFACT_SHA256: ${{ inputs.consumer_artifact_sha256 }}
+          HUDDLEWAY_CONSUMER_OWNER: huddleway-app-release
+          HUDDLEWAY_CONSUMER_ROLLBACK_RELEASE_ID: ${{ inputs.consumer_rollback_release_id }}
           CI: "true"
         run: |
           npm run test:type

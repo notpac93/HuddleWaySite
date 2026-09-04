@@ -403,6 +403,81 @@ export type CrmAppConfigurationSnapshot = {
   requestId: string;
 };
 
+export type CrmComponentField = {
+  id: string;
+  type: string;
+  required: boolean;
+  maxLength?: number;
+  urlRule?: string;
+  options?: string[];
+  defaultValue?: unknown;
+  label?: string;
+  previewTarget?: string;
+};
+
+export type CrmComponentDefinition = {
+  id: string;
+  type: string;
+  label: string;
+  category: string;
+  definitionVersion: number;
+  repeatable: boolean;
+  fields: CrmComponentField[];
+  defaultContent: Record<string, unknown>;
+  presets: Array<{
+    id: string;
+    label: string;
+    description: string;
+    content: Record<string, unknown>;
+  }>;
+  previewSpec: { title: string; description: string; highlights: string[] };
+};
+
+export type CrmPageComponent = {
+  id: string;
+  definitionId: string;
+  definitionVersion: number;
+  type: string;
+  label: string;
+  enabled: boolean;
+  presetId: string | null;
+  starterContentReviewKey: string | null;
+  isVisible: boolean;
+  status: string;
+  content: Record<string, unknown>;
+};
+
+export type CrmComponentStudioPage = {
+  id: string;
+  title: string;
+  headline: string;
+  subheader: string;
+  route: string;
+  isVisible: boolean;
+  status: string;
+  components: CrmPageComponent[];
+};
+
+export type CrmComponentStudioSnapshot = {
+  tenantId: string;
+  templateId: string;
+  templateVersion: number;
+  versionToken: string;
+  definitions: CrmComponentDefinition[];
+  pages: CrmComponentStudioPage[];
+  versions?: CrmComponentLayoutVersion[];
+  historyTruncated?: boolean;
+  requestId: string;
+};
+
+export type CrmComponentLayoutVersion = {
+  id: string;
+  versionToken: string;
+  capturedAt: string | null;
+  publishedBy: string | null;
+  pages: CrmComponentStudioPage[];
+};
+
 export type CrmDocumentRecord = {
   id: string;
   title: string;
@@ -2366,6 +2441,76 @@ export class BackendApi {
       invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
+  }
+
+  async componentStudio(tenantId: string) {
+    const payload = await this.send<CrmComponentStudioSnapshot>(
+      "/admin/crm/component-studio",
+      { query: { tenantId } },
+    );
+    assertTenantEnvelope(payload as unknown as Record<string, unknown>, tenantId);
+    if (
+      !String(payload.templateId || "").trim() ||
+      !Number.isSafeInteger(payload.templateVersion) ||
+      !String(payload.versionToken || "").trim() ||
+      !String(payload.requestId || "").trim() ||
+      !Array.isArray(payload.definitions) ||
+      !Array.isArray(payload.pages) ||
+      (payload.versions !== undefined && !Array.isArray(payload.versions)) ||
+      (payload.historyTruncated !== undefined && typeof payload.historyTruncated !== "boolean") ||
+      payload.definitions.some((definition) =>
+        !String(definition?.id || "").trim() ||
+        !String(definition?.type || "").trim() ||
+        !Number.isSafeInteger(definition?.definitionVersion) ||
+        !Array.isArray(definition?.fields)
+      ) ||
+      payload.pages.some((page) =>
+        !String(page?.id || "").trim() ||
+        !String(page?.route || "").startsWith("/") ||
+        !Array.isArray(page?.components)
+      ) ||
+      (payload.versions || []).some((version) =>
+        !String(version?.id || "").trim() ||
+        !String(version?.versionToken || "").trim() ||
+        (version.capturedAt !== null && !validIsoTimestamp(version.capturedAt)) ||
+        !Array.isArray(version.pages)
+      )
+    ) {
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
+    }
+    return payload;
+  }
+
+  async publishPageLayout(
+    tenantId: string,
+    data: {
+      templateId: string;
+      templateVersion: number;
+      expectedVersionToken: string;
+      pages: CrmComponentStudioPage[];
+      stalePageIds: string[];
+      staleComponentIds: string[];
+    },
+    auditReason: string,
+    idempotencyKey: string,
+  ) {
+    return this.crmResourceMutation(tenantId, "page_layout.publish_full", {
+      resourceId: data.templateId,
+      data: {
+        ...data,
+        pages: data.pages.map((page) => ({
+          id: page.id,
+          title: page.title,
+          headline: page.headline,
+          subheader: page.subheader,
+          route: page.route,
+          isVisible: page.isVisible,
+          components: page.components.map(({ status: _status, ...component }) => component),
+        })),
+      },
+      auditReason,
+      idempotencyKey,
+    });
   }
 
   async publishAppConfiguration(

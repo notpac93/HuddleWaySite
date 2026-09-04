@@ -1239,6 +1239,64 @@ describe('BackendApi', () => {
     );
   });
 
+  it('loads and publishes a tenant-scoped component studio layout', async () => {
+    const pages = [{
+      id: 'home_page', title: 'Home', headline: '', subheader: '', route: '/',
+      isVisible: true, status: 'published',
+      components: [{
+        id: 'home_hero_1', definitionId: 'home_hero', definitionVersion: 3,
+        type: 'hero_section', label: 'Home Hero', enabled: true,
+        presetId: null, starterContentReviewKey: null, isVisible: true,
+        status: 'draft', content: { headline: 'Welcome' },
+      }],
+    }];
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response(200, {
+        tenantId: 'fixture-tenant', templateId: 'huddleway_base_v1',
+        templateVersion: 4, versionToken: 'layout-before',
+        definitions: [{
+          id: 'home_hero', type: 'hero_section', label: 'Home Hero',
+          category: 'Welcome', definitionVersion: 3, repeatable: false,
+          fields: [{ id: 'headline', type: 'text', required: true }],
+          defaultContent: { headline: 'Welcome' }, presets: [],
+          previewSpec: { title: 'Home Hero', description: '', highlights: [] },
+        }],
+        pages,
+        requestId: 'component-studio-read',
+      }))
+      .mockResolvedValueOnce(response(200, {
+        success: true, operationId: 'component-layout-operation',
+        idempotentReplay: false, requestId: 'component-layout-publish',
+      }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+    });
+
+    await expect(api.componentStudio('fixture-tenant')).resolves.toMatchObject({
+      tenantId: 'fixture-tenant', versionToken: 'layout-before',
+    });
+    await expect(api.publishPageLayout('fixture-tenant', {
+      templateId: 'huddleway_base_v1', templateVersion: 4,
+      expectedVersionToken: 'layout-before', pages,
+      stalePageIds: [], staleComponentIds: [],
+    }, 'Publish reviewed component layout.', 'component-layout:stable'))
+      .resolves.toMatchObject({ operationId: 'component-layout-operation' });
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      'https://api.example.test/admin/crm/component-studio?tenantId=fixture-tenant',
+    );
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
+      tenantId: 'fixture-tenant',
+      action: 'page_layout.publish_full',
+      resourceId: 'huddleway_base_v1',
+      data: {
+        expectedVersionToken: 'layout-before',
+        pages: [{ components: [expect.not.objectContaining({ status: 'draft' })] }],
+      },
+    });
+  });
+
   it('loads and validates retained app-configuration history', async () => {
     const configuration = validAppConfiguration();
     const fetchMock = vi.fn().mockResolvedValue(response(200, {
