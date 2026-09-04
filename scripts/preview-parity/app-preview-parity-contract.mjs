@@ -229,12 +229,15 @@ export async function fetchPortalPreviewAttestation(
   }
 
   const compiledPortal = artifacts.join('\n');
+  const firebaseProjectMarker = options.contract.environment === 'prod'
+    ? `projectId:"${options.contract.firebaseProjectId}"`
+    : `PUBLIC_FIREBASE_PROJECT_ID:"${options.contract.firebaseProjectId}"`;
   const requiredMarkers = [
     options.contract.previewOrigin,
     options.expectedSourceCommit,
     options.expectedReleaseId,
     `PUBLIC_APP_PREVIEW_ENVIRONMENT:"${options.contract.environment}"`,
-    `PUBLIC_FIREBASE_PROJECT_ID:"${options.contract.firebaseProjectId}"`,
+    firebaseProjectMarker,
   ];
   for (const marker of requiredMarkers) {
     if (!compiledPortal.includes(marker)) {

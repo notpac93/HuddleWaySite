@@ -25,6 +25,14 @@ function stageOptions() {
   });
 }
 
+function prodOptions() {
+  return parsePreviewParityOptions(['--environment', 'prod'], {
+    APP_PREVIEW_EXPECTED_SOURCE_COMMIT: sourceCommit,
+    APP_PREVIEW_EXPECTED_RELEASE_ID: 'consumer-prod-aaaaaaaaaaaa',
+    APP_PREVIEW_EXPECTED_ARTIFACT_SHA256: mainBundleSha256,
+  });
+}
+
 function stageManifest() {
   return {
     schemaVersion: 1,
@@ -154,6 +162,27 @@ describe('deployed app preview parity contract', () => {
     const evidence = await fetchPortalPreviewAttestation(stageOptions(), fetchImpl);
     expect(evidence.resourceCount).toBe(4);
     expect(fetchImpl).toHaveBeenCalledTimes(4);
+  });
+
+  it('attests the fixed production Firebase runtime without a public override', async () => {
+    const responses = new Map([
+      ['https://huddleway.com/admin/', '<script src="/_astro/portal.js"></script>'],
+      ['https://huddleway.com/_astro/portal.js', [
+        'https://huddleway-app-preview-prod.web.app',
+        sourceCommit,
+        'consumer-prod-aaaaaaaaaaaa',
+        'PUBLIC_APP_PREVIEW_ENVIRONMENT:"prod"',
+        'projectId:"sports-team-apps"',
+      ].join('|')],
+    ]);
+    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+      const contents = responses.get(String(input));
+      return contents === undefined
+        ? new Response('missing', { status: 404 })
+        : new Response(contents);
+    });
+    const evidence = await fetchPortalPreviewAttestation(prodOptions(), fetchImpl);
+    expect(evidence.resourceCount).toBe(2);
   });
 
   it('rejects a portal compiled for a different consumer release', async () => {
