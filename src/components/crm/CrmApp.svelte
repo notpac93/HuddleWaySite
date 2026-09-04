@@ -45,24 +45,38 @@
     ? new URLSearchParams(window.location.search).get('mailbox')
     : null;
   let mailboxReturnRequested = Boolean(mailboxConnectionResult);
-  let stripeRefreshRequested = typeof window !== 'undefined'
-    && new URLSearchParams(window.location.search).get('stripeConnectRefresh') === '1';
+  function consumeStripeRefreshLocation() {
+    if (typeof window === 'undefined') {
+      return { requested: false, handoff: '' };
+    }
+    const cleanUrl = new URL(window.location.href);
+    const fragment = new URLSearchParams(cleanUrl.hash.replace(/^#/, ''));
+    const handoff = String(fragment.get('stripeConnectHandoff') || '').trim();
+    const requested =
+      cleanUrl.searchParams.get('stripeConnectRefresh') === '1';
+    if (requested || handoff) {
+      cleanUrl.searchParams.delete('stripeConnectRefresh');
+      fragment.delete('stripeConnectHandoff');
+      cleanUrl.hash = fragment.toString();
+      window.history.replaceState({}, '', cleanUrl);
+    }
+    return { requested, handoff };
+  }
+
+  const stripeRefreshLocation = consumeStripeRefreshLocation();
+  let stripeRefreshRequested = stripeRefreshLocation.requested;
+  let stripeRefreshHandoff = stripeRefreshLocation.handoff;
   let stripeRefreshInFlight = false;
   let stripeRefreshError = '';
-
-  function clearStripeRefreshMarker() {
-    const cleanUrl = new URL(window.location.href);
-    cleanUrl.searchParams.delete('stripeConnectRefresh');
-    window.history.replaceState({}, '', cleanUrl);
-  }
 
   async function resumeStripeConnect() {
     if (stripeRefreshInFlight || !stripeRefreshRequested) return;
     stripeRefreshInFlight = true;
     stripeRefreshRequested = false;
-    clearStripeRefreshMarker();
     try {
-      const result = await backendClient.stripeConnectRefresh();
+      const handoff = stripeRefreshHandoff;
+      stripeRefreshHandoff = '';
+      const result = await backendClient.stripeConnectRefresh(handoff);
       const onboardingUrl = String(result.onboardingUrl || '').trim();
       if (!onboardingUrl.startsWith('https://')) {
         throw new Error('Stripe did not return a secure onboarding URL.');

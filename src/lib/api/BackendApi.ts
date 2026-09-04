@@ -2819,9 +2819,10 @@ export class BackendApi {
     });
   }
 
-  stripeConnectRefresh() {
+  stripeConnectRefresh(handoff = "") {
     return this.send<{ onboardingUrl: string }>("/stripe/connect/refresh", {
       method: "POST",
+      body: handoff ? { handoff } : undefined,
       credentials: "include",
     });
   }

@@ -2323,7 +2323,7 @@ describe('BackendApi', () => {
       requireAppCheck: true,
     });
 
-    await expect(api.stripeConnectRefresh()).resolves.toMatchObject({
+    await expect(api.stripeConnectRefresh('opaque-stage-handoff')).resolves.toMatchObject({
       onboardingUrl: 'https://connect.stripe.example/onboarding',
     });
     expect(String(fetchMock.mock.calls[0][0])).toBe(
@@ -2336,6 +2336,9 @@ describe('BackendApi', () => {
         Authorization: 'Bearer owner-token',
         'X-Firebase-AppCheck': 'app-check-token',
       }),
+    });
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
+      handoff: 'opaque-stage-handoff',
     });
   });
 });

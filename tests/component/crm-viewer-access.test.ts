@@ -130,7 +130,7 @@ describe("CrmApp authentication, role, module, and tenant boundaries", () => {
     window.history.replaceState(
       {},
       "",
-      "/admin/?release=test&stripeConnectRefresh=1",
+      "/admin/?release=test&stripeConnectRefresh=1#stripeConnectHandoff=opaque-stage-handoff",
     );
     vi.mocked(backendClient.stripeConnectRefresh).mockRejectedValue(
       new Error("Stripe refresh re-entry was already used or expired."),
@@ -145,9 +145,13 @@ describe("CrmApp authentication, role, module, and tenant boundaries", () => {
       screen.getByText(/Reopen Connect Stripe to start a new secure setup link/),
     ).toBeVisible();
     expect(backendClient.stripeConnectRefresh).toHaveBeenCalledTimes(1);
+    expect(backendClient.stripeConnectRefresh).toHaveBeenCalledWith(
+      "opaque-stage-handoff",
+    );
     expect(
       new URL(window.location.href).searchParams.has("stripeConnectRefresh"),
     ).toBe(false);
+    expect(window.location.hash).not.toContain("opaque-stage-handoff");
   });
 
   it("loads a read-only Dashboard and does not expose mutation modules or quick actions", async () => {
