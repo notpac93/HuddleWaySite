@@ -2309,4 +2309,33 @@ describe('BackendApi', () => {
       'void',
     )).rejects.toMatchObject(expectedError);
   });
+
+  it('resumes Stripe Connect through the credentialed protected handoff', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response(200, {
+      onboardingUrl: 'https://connect.stripe.example/onboarding',
+      requestId: 'stripe-refresh-request',
+    }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'owner-token',
+      getAppCheckToken: async () => 'app-check-token',
+      requireAppCheck: true,
+    });
+
+    await expect(api.stripeConnectRefresh()).resolves.toMatchObject({
+      onboardingUrl: 'https://connect.stripe.example/onboarding',
+    });
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      'https://api.example.test/stripe/connect/refresh',
+    );
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({
+      method: 'POST',
+      credentials: 'include',
+      headers: expect.objectContaining({
+        Authorization: 'Bearer owner-token',
+        'X-Firebase-AppCheck': 'app-check-token',
+      }),
+    });
+  });
 });

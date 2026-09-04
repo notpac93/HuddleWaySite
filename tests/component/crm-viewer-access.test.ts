@@ -10,6 +10,12 @@ vi.mock("../../src/lib/firebase", () => ({
   firebaseEnvironment: { config: { projectId: "huddleway-dev" } },
 }));
 
+vi.mock("../../src/lib/api/backendClient", () => ({
+  backendClient: {
+    stripeConnectRefresh: vi.fn(),
+  },
+}));
+
 vi.mock("../../src/lib/authStore", async () => {
   const { writable } = await import("svelte/store");
   return {
@@ -79,6 +85,7 @@ import {
   userStore,
 } from "../../src/lib/authStore";
 import CrmApp from "../../src/components/crm/CrmApp.svelte";
+import { backendClient } from "../../src/lib/api/backendClient";
 import {
   readCrmContext,
   writeCrmContext,
@@ -100,6 +107,7 @@ const authLoading = isAuthLoading as Writable<boolean>;
 
 describe("CrmApp authentication, role, module, and tenant boundaries", () => {
   beforeEach(() => {
+    vi.mocked(backendClient.stripeConnectRefresh).mockReset();
     localStorage.clear();
     window.history.replaceState({}, "", "/admin/?release=test");
     role.set("viewer");
@@ -114,6 +122,32 @@ describe("CrmApp authentication, role, module, and tenant boundaries", () => {
       emailVerified: true,
     });
     authLoading.set(false);
+  });
+
+  it("shows an actionable error when secure Stripe re-entry expires", async () => {
+    role.set("owner");
+    user.set({ uid: "owner-user", emailVerified: true });
+    window.history.replaceState(
+      {},
+      "",
+      "/admin/?release=test&stripeConnectRefresh=1",
+    );
+    vi.mocked(backendClient.stripeConnectRefresh).mockRejectedValue(
+      new Error("Stripe refresh re-entry was already used or expired."),
+    );
+
+    render(TestedCrmApp);
+
+    expect(
+      await screen.findByRole("heading", { name: "Stripe setup needs attention" }),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/Reopen Connect Stripe to start a new secure setup link/),
+    ).toBeVisible();
+    expect(backendClient.stripeConnectRefresh).toHaveBeenCalledTimes(1);
+    expect(
+      new URL(window.location.href).searchParams.has("stripeConnectRefresh"),
+    ).toBe(false);
   });
 
   it("loads a read-only Dashboard and does not expose mutation modules or quick actions", async () => {

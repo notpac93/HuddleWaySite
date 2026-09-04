@@ -876,6 +876,7 @@ export interface RequestOptions {
   query?: Record<string, string | number | boolean | null | undefined>;
   body?: unknown;
   idempotencyKey?: string;
+  credentials?: RequestCredentials;
 }
 
 function defaultRequestId() {
@@ -1152,7 +1153,7 @@ export class BackendApi {
             options.body === undefined
               ? undefined
               : JSON.stringify(options.body),
-          credentials: "omit",
+          credentials: options.credentials ?? "omit",
           signal: controller.signal,
         });
         const payload = parsePayload(await response.text());
@@ -2815,6 +2816,13 @@ export class BackendApi {
       method: "POST",
       body: { tenantId },
       idempotencyKey,
+    });
+  }
+
+  stripeConnectRefresh() {
+    return this.send<{ onboardingUrl: string }>("/stripe/connect/refresh", {
+      method: "POST",
+      credentials: "include",
     });
   }
 

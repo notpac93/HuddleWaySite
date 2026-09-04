@@ -14,6 +14,7 @@
     userStore,
   } from '../../lib/authStore';
   import { appCheck } from '../../lib/firebase';
+  import { backendClient } from '../../lib/api/backendClient';
   import { startCrmRumCapture } from '../../lib/performance/crmRum';
   import {
     readCrmContext,
@@ -44,6 +45,37 @@
     ? new URLSearchParams(window.location.search).get('mailbox')
     : null;
   let mailboxReturnRequested = Boolean(mailboxConnectionResult);
+  let stripeRefreshRequested = typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).get('stripeConnectRefresh') === '1';
+  let stripeRefreshInFlight = false;
+  let stripeRefreshError = '';
+
+  function clearStripeRefreshMarker() {
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.searchParams.delete('stripeConnectRefresh');
+    window.history.replaceState({}, '', cleanUrl);
+  }
+
+  async function resumeStripeConnect() {
+    if (stripeRefreshInFlight || !stripeRefreshRequested) return;
+    stripeRefreshInFlight = true;
+    stripeRefreshRequested = false;
+    clearStripeRefreshMarker();
+    try {
+      const result = await backendClient.stripeConnectRefresh();
+      const onboardingUrl = String(result.onboardingUrl || '').trim();
+      if (!onboardingUrl.startsWith('https://')) {
+        throw new Error('Stripe did not return a secure onboarding URL.');
+      }
+      window.location.assign(onboardingUrl);
+    } catch (error) {
+      stripeRefreshError = error instanceof Error
+        ? error.message
+        : 'Could not resume Stripe setup. Reopen Connect Stripe and try again.';
+    } finally {
+      stripeRefreshInFlight = false;
+    }
+  }
 
   const tabLoaders: Record<string, () => Promise<{ default: Component<any> }>> = {
     Dashboard: () => import('./GlobalDashboard.svelte'),
@@ -132,6 +164,14 @@
   $: isOwner =
     $activeTenantRole === 'owner'
     || $activeTenantRole === 'platform_admin';
+  $: if (
+    stripeRefreshRequested
+    && contextReady
+    && isOwner
+    && !stripeRefreshInFlight
+  ) {
+    void resumeStripeConnect();
+  }
   $: canManageTenant = isOwner || $activeTenantRole === 'editor';
   $: canViewTenant =
     canManageTenant || $activeTenantRole === 'viewer';
@@ -395,6 +435,16 @@
     onExitTeam={handleExitTeam}
     onSwitchTenant={handleTenantSwitch}
   >
+    {#if stripeRefreshError}
+      <div
+        class="m-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-950"
+        role="alert"
+      >
+        <h2 class="text-base font-semibold">Stripe setup needs attention</h2>
+        <p class="mt-1 text-sm">{stripeRefreshError}</p>
+        <p class="mt-1 text-sm">Reopen Connect Stripe to start a new secure setup link.</p>
+      </div>
+    {/if}
     {#if activeComponent && loadedTab === activeTab}
       <svelte:component this={activeComponent} {...activeComponentProps} />
     {:else if moduleLoadError}
