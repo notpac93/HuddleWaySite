@@ -26,6 +26,7 @@ describe('CRM release input inventory', () => {
       'scripts/release/crm-single-developer-deploy.mjs',
       'scripts/release/crm-release.mjs',
       'config/crm-performance-budgets.json',
+      'firebase.e2e.json',
       'src/data/site.ts',
       'src/lib/firebaseStorage.ts',
       'src/lib/performance/crmRum.ts',
