@@ -220,11 +220,11 @@ function previewResponse(
     type,
     protocolVersion: 1,
     tenantId: url.searchParams.get('forcedTenant'),
-    environment: 'dev',
+    environment: process.env.PUBLIC_APP_PREVIEW_ENVIRONMENT || 'dev',
     sessionId: url.searchParams.get('previewSession'),
     nonce: url.searchParams.get('previewNonce'),
-    sourceCommit: 'local-unattested',
-    releaseId: 'local-unattested',
+    sourceCommit: process.env.PUBLIC_APP_PREVIEW_COMMIT || 'local-unattested',
+    releaseId: process.env.PUBLIC_APP_PREVIEW_RELEASE_ID || 'local-unattested',
     ...(revision ? { revision } : {}),
   };
 }
