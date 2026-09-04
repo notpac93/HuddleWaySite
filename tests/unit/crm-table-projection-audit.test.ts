@@ -8,7 +8,7 @@ const source = (relativePath: string) =>
 
 const nativeTableCounts: Record<string, number> = {
   'DataTable.svelte': 1,
-  'Financials.svelte': 1,
+  'FinancialOperationsWorkspace.svelte': 1,
   'StaffManager.svelte': 1,
   'registration/RegistrationDetail.svelte': 2,
   'seasons/SeasonDetail.svelte': 2,
@@ -52,8 +52,8 @@ describe('exhaustive CRM table and projection audit', () => {
   });
 
   it('uses stable record IDs for every selectable or actionable direct-table row', () => {
-    expect(source('Financials.svelte')).toContain(
-      '{#each pagedRows as row (row.id)}',
+    expect(source('FinancialOperationsWorkspace.svelte')).toContain(
+      '{#each filteredRows as row (rowKey(row))}',
     );
     expect(source('StaffManager.svelte')).toContain(
       '{#each staffRows as staff (staff.membershipId)}',
@@ -99,7 +99,6 @@ describe('exhaustive CRM table and projection audit', () => {
     expect(dataStore).toContain('backendClient.crmOperationalPage');
 
     for (const file of [
-      'Financials.svelte',
       'GlobalDashboard.svelte',
       'GlobalSearch.svelte',
       'registration/RegistrationDetail.svelte',
@@ -108,9 +107,9 @@ describe('exhaustive CRM table and projection audit', () => {
     ]) {
       expect(source(file)).toMatch(/truncat|ProjectionScope/i);
     }
+    expect(source('FinancialOperationsWorkspace.svelte')).toContain('operations.complete');
     expect(source('seasons/SeasonDetail.svelte')).toContain(
       'participantExportUnavailable',
     );
-    expect(source('Financials.svelte')).toContain('truncationWarnings');
   });
 });

@@ -28,7 +28,6 @@ describe('CRM release input inventory', () => {
       'config/crm-performance-budgets.json',
       'src/data/site.ts',
       'src/lib/firebaseStorage.ts',
-      'src/lib/finance/crmFinancials.ts',
       'src/lib/performance/crmRum.ts',
       'src/lib/ui/csvExport.ts',
       'src/lib/ui/modalFocus.ts',
