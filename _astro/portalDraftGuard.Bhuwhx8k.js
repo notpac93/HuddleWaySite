@@ -1,1 +1,0 @@
-import{vt as t}from"./client.QIgcQ8hd.js";import"./authStore.j8o8pSDR.js";var n=t(null);function a(t){n.set(t)}function o(t){n.update(n=>n?.id===t?null:n)}export{n,a as r,o as t};
