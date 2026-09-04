@@ -52,27 +52,6 @@ export const initialTabs: NavigationTabDraft[] = [
 
 export const maxActiveTabs = 5;
 
-export const approvedPalettes = [
-  {
-    name: "HuddleWay blue",
-    primary: "#0F4C81",
-    secondary: "#245BD6",
-    tertiary: "#F59E0B",
-  },
-  {
-    name: "Field green",
-    primary: "#166534",
-    secondary: "#16A34A",
-    tertiary: "#FACC15",
-  },
-  {
-    name: "Club burgundy",
-    primary: "#7F1D1D",
-    secondary: "#DC2626",
-    tertiary: "#F59E0B",
-  },
-];
-
 const missingTabPriority = ["home", "teams", "schedule", "messaging", "events"];
 const permanentTabNames: Record<string, string> = {
   home: "Home",

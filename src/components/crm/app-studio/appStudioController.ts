@@ -34,7 +34,11 @@ export type PublishResult =
 
 type AppStudioApi = Pick<
   typeof backendClient,
-  'appConfiguration' | 'appConfigurationHistory' | 'publishAppConfiguration'
+  | 'appConfiguration'
+  | 'appConfigurationHistory'
+  | 'publishAppConfiguration'
+  | 'publishBrandingLogo'
+  | 'uploadImageAsset'
 >;
 
 function loadMessage(error: unknown) {
@@ -145,6 +149,42 @@ export function createAppStudioController(api: AppStudioApi = backendClient) {
     }
   }
 
+  async function publishLogo(request: {
+    tenantId: string;
+    file: File;
+    uploadIdempotencyKey: string;
+    publicationIdempotencyKey: string;
+  }): Promise<
+    | { status: 'published'; publicUrl: string }
+    | { status: 'stale' }
+    | { status: 'error'; requestId: string }
+  > {
+    try {
+      const upload = await api.uploadImageAsset(
+        request.tenantId,
+        request.file,
+        'branding-logo',
+        request.uploadIdempotencyKey,
+      );
+      if (selectedTenantId !== request.tenantId) return { status: 'stale' };
+      const publication = await api.publishBrandingLogo(
+        request.tenantId,
+        upload.reservationId,
+        'Publish the reviewed organization logo for the family app.',
+        request.publicationIdempotencyKey,
+      );
+      return selectedTenantId === request.tenantId
+        ? { status: 'published', publicUrl: publication.publicUrl }
+        : { status: 'stale' };
+    } catch (error) {
+      if (selectedTenantId !== request.tenantId) return { status: 'stale' };
+      return {
+        status: 'error',
+        requestId: error instanceof BackendApiError ? error.requestId || '' : '',
+      };
+    }
+  }
+
   function saveDraft(tenantId: string, draft: SavedAppStudioDraft) {
     browserStorage()?.setItem(storageKey(tenantId), JSON.stringify(draft));
   }
@@ -170,5 +210,14 @@ export function createAppStudioController(api: AppStudioApi = backendClient) {
     browserStorage()?.removeItem(storageKey(tenantId));
   }
 
-  return { selectTenant, loadConfiguration, loadHistory, publish, saveDraft, readDraft, removeDraft };
+  return {
+    selectTenant,
+    loadConfiguration,
+    loadHistory,
+    publish,
+    publishLogo,
+    saveDraft,
+    readDraft,
+    removeDraft,
+  };
 }

@@ -32,7 +32,7 @@ jobs:
   deploy:
     name: Promote exact release-gate artifact with owner approval
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     env:
       DEPLOY_TARGET: porkbun-huddleway-static
       PRODUCTION_ORIGIN: https://huddleway.com
@@ -73,6 +73,21 @@ jobs:
         with:
           ref: ${{ inputs.website_ref }}
           fetch-depth: 1
+
+      - name: Set up pinned Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Set up pinned npm
+        run: npm install --global npm@11.5.2
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install pinned Playwright browser
+        run: npx playwright install --with-deps chromium
 
       - name: Verify successful source-bound release gate
         env:
@@ -134,6 +149,27 @@ jobs:
           }
           NODE
 
+      - name: Bind production My App parity to the verified manifest
+        run: |
+          node - "$RELEASE_INPUT_DIR" "$GITHUB_ENV" <<'NODE'
+          const { appendFileSync, readFileSync } = require('node:fs');
+          const { join } = require('node:path');
+          const [releaseDirectory, githubEnvironment] = process.argv.slice(2);
+          const manifest = JSON.parse(readFileSync(join(releaseDirectory, '.release', 'crm-release-manifest.json'), 'utf8'));
+          const sourceCommit = String(manifest?.backendContract?.commit || '').trim().toLowerCase();
+          const releaseId = String(manifest?.consumerApp?.releaseId || '').trim();
+          const artifactSha256 = String(manifest?.consumerApp?.artifactSha256 || '').trim().toLowerCase();
+          if (!/^[a-f0-9]{40}$/.test(sourceCommit)) throw new Error('Verified manifest is missing the exact consumer source commit.');
+          if (!/^consumer-prod-[A-Za-z0-9._-]{1,160}$/.test(releaseId)) throw new Error('Verified manifest is missing the exact production consumer release ID.');
+          if (!/^[a-f0-9]{64}$/.test(artifactSha256)) throw new Error('Verified manifest is missing the exact consumer artifact SHA-256.');
+          appendFileSync(githubEnvironment, [
+            `APP_PREVIEW_EXPECTED_SOURCE_COMMIT=${sourceCommit}`,
+            `APP_PREVIEW_EXPECTED_RELEASE_ID=${releaseId}`,
+            `APP_PREVIEW_EXPECTED_ARTIFACT_SHA256=${artifactSha256}`,
+            '',
+          ].join('\n'));
+          NODE
+
       - name: Check out the approved rollback target
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -188,6 +224,13 @@ jobs:
           done
           echo "::error::The live CRM did not serve the exact deployed admin artifact."
           exit 1
+
+      - name: Require exact production My App parity
+        run: |
+          if ! npm run test:preview-parity:prod; then
+            echo "::error::Production My App parity failed for the consumer identity attested by the verified release manifest. Automatic CRM rollback will run."
+            exit 1
+          fi
 
       - name: Roll back automatically after a failed live verification
         if: failure() && env.DEPLOYMENT_PUSHED == 'true'

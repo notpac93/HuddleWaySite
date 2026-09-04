@@ -52,6 +52,7 @@ jobs:
       STATIC_TARGET_DIR: ${{ github.workspace }}/.release/static-target
       DEPLOYMENT_PLAN_PATH: ${{ github.workspace }}/.release/single-developer-deployment-plan.json
       DEPLOYMENT_RECEIPT_PATH: ${{ github.workspace }}/.release/single-developer-deployment.json
+      MY_APP_PARITY_PASSED: "false"
 
     steps:
       - name: Require exact reviewed commits
@@ -93,6 +94,9 @@ jobs:
 
       - name: Install locked dependencies
         run: npm ci
+
+      - name: Install pinned Playwright browser
+        run: npx playwright install --with-deps chromium
 
       - name: Run single-developer release checks
         env:
@@ -164,6 +168,19 @@ jobs:
             --attempts 12 \
             --interval-ms 5000
 
+      - name: Require exact production My App parity
+        env:
+          APP_PREVIEW_EXPECTED_SOURCE_COMMIT: ${{ inputs.backend_contract_ref }}
+          APP_PREVIEW_EXPECTED_RELEASE_ID: ${{ inputs.consumer_release_id }}
+          APP_PREVIEW_EXPECTED_ARTIFACT_SHA256: ${{ inputs.consumer_artifact_sha256 }}
+        run: |
+          if npm run test:preview-parity:prod; then
+            echo "MY_APP_PARITY_PASSED=true" >> "$GITHUB_ENV"
+          else
+            echo "::error::Production My App parity failed for the exact approved consumer commit, release, or artifact. The deployment is not accepted."
+            exit 1
+          fi
+
       - name: Publish deployment receipt
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -190,5 +207,11 @@ jobs:
             else
               echo "- Live verification: failed or not completed"
               echo "- Manual rollback: revert the production commit shown above on porkbun-huddleway-static"
+            fi
+            if [[ "$MY_APP_PARITY_PASSED" == "true" ]]; then
+              echo "- My App parity: passed"
+            else
+              echo "- My App parity: failed or not completed; this deployment is not accepted"
+              echo "- Manual rollback required: revert the production commit shown above"
             fi
           } >> "$GITHUB_STEP_SUMMARY"

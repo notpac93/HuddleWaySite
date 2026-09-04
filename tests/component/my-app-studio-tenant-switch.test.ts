@@ -22,6 +22,7 @@ const appMocks = vi.hoisted(() => ({
   appConfiguration: vi.fn(),
   appConfigurationHistory: vi.fn(),
   publishAppConfiguration: vi.fn(),
+  publishBrandingLogo: vi.fn(),
   uploadImageAsset: vi.fn(),
 }));
 
@@ -281,16 +282,54 @@ describe('MyAppStudio tenant preview isolation', () => {
       },
     );
     appMocks.uploadImageAsset.mockReset();
+    appMocks.uploadImageAsset.mockResolvedValue({
+      reservationId: 'image_upload_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    });
+    appMocks.publishBrandingLogo.mockReset();
+    appMocks.publishBrandingLogo.mockResolvedValue({
+      publicUrl: 'https://api.stage.example.test/public/media/tenant-a/image_upload_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    });
   });
 
-  it('fails closed when logo publication has no approved private-media contract', async () => {
+  it('shows a compact, usable logo chooser without unavailable-state copy', async () => {
     render(TestedMyAppStudio);
-    expect(await screen.findByLabelText('Logo')).toBeDisabled();
+    expect(await screen.findByLabelText('Change logo')).toBeEnabled();
     expect(screen.queryByText(/Last published/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Published · v/)).not.toBeInTheDocument();
-    expect(screen.getByText(/Logo replacement is temporarily unavailable/)).toBeVisible();
+    expect(screen.queryByText(/Logo replacement is temporarily unavailable/)).not.toBeInTheDocument();
     expect(appMocks.uploadImageAsset).not.toHaveBeenCalled();
     expect(appMocks.publishAppConfiguration).not.toHaveBeenCalled();
+  });
+
+  it('uploads and publishes a selected logo before publishing app configuration', async () => {
+    render(TestedMyAppStudio);
+    const logo = new File(['logo-bytes'], 'new-logo.png', { type: 'image/png' });
+    await fireEvent.change(await screen.findByLabelText('Change logo'), {
+      target: { files: [logo] },
+    });
+
+    await reviewAndPublish();
+
+    await waitFor(() => expect(appMocks.uploadImageAsset).toHaveBeenCalledWith(
+      'tenant-a',
+      logo,
+      'branding-logo',
+      expect.stringContaining(':logo-upload'),
+    ));
+    expect(appMocks.publishBrandingLogo).toHaveBeenCalledWith(
+      'tenant-a',
+      'image_upload_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      expect.stringContaining('organization logo'),
+      expect.stringContaining(':logo-publish'),
+    );
+    expect(appMocks.publishAppConfiguration).toHaveBeenCalledWith(
+      'tenant-a',
+      expect.objectContaining({
+        logoUrl: expect.stringContaining('/public/media/tenant-a/'),
+      }),
+      expect.any(String),
+      expect.any(String),
+    );
   });
 
   it('rebuilds the Flutter preview URL when the selected tenant changes', async () => {

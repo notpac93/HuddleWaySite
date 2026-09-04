@@ -1,6 +1,5 @@
 <script lang="ts">
   import ImageFilePicker from '../ui/ImageFilePicker.svelte';
-  import { approvedPalettes } from './appConfigurationDraft';
 
   export let primaryColor = '';
   export let secondaryColor = '';
@@ -11,18 +10,16 @@
   export let disabled = false;
   export let canUndo = false;
   export let onCaptureUndo: () => void;
-  export let onApplyPalette: (palette: typeof approvedPalettes[number]) => void;
   export let onUndo: () => void;
 
 </script>
 
 <div class="space-y-5">
   <section aria-labelledby="brand-logo-heading">
-    <div class="mb-2 flex items-center justify-between gap-3">
+    <div class="mb-2">
       <h3 id="brand-logo-heading" class="text-sm font-semibold text-gray-900">App logo</h3>
-      <span class="rounded-full bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-800">Current logo</span>
     </div>
-    <div class="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+    <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
       <ImageFilePicker
         inputId="studio-logo-image"
         label="Logo"
@@ -30,9 +27,10 @@
         previewAlt="Logo preview"
         bind:selectedFile={logoFile}
         bind:validationMessage={logoValidationMessage}
-        disabled={true}
+        {disabled}
+        compact={true}
+        buttonLabel="Change logo"
       />
-      <p class="text-xs leading-5 text-gray-600">Logo replacement is temporarily unavailable. The published logo stays unchanged.</p>
     </div>
   </section>
 
@@ -79,11 +77,6 @@
             <input type="text" bind:value={tertiaryColor} aria-label="Tertiary brand color hex value" maxlength="7" pattern={'^#[0-9a-fA-F]{6}$'} disabled={disabled} class="min-w-0 w-full border-0 bg-transparent p-0 font-mono text-[11px] focus:outline-none" on:focus={onCaptureUndo} />
           </span>
       </label>
-    </div>
-    <div class="mt-3 flex flex-wrap gap-2">
-      {#each approvedPalettes as palette}
-        <button type="button" class="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-[var(--crm-brand-border)]" disabled={disabled} on:click={() => onApplyPalette(palette)}>{palette.name}</button>
-      {/each}
     </div>
   </section>
 </div>

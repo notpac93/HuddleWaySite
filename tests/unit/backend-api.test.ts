@@ -392,6 +392,45 @@ describe('BackendApi', () => {
     });
   });
 
+  it('publishes a verified branding logo for the selected tenant', async () => {
+    const reservationId = `image_upload_${'d'.repeat(40)}`;
+    const publicUrl = `https://api.example.test/public/media/fixture-tenant/${reservationId}`;
+    const fetchMock = vi.fn().mockResolvedValueOnce(response(200, {
+      success: true,
+      tenantId: 'fixture-tenant',
+      reservationId,
+      publicationId: reservationId,
+      resourceType: 'branding_logo',
+      resourceIds: ['fixture-tenant'],
+      status: 'published',
+      isVisible: true,
+      publicUrl,
+      idempotentReplay: false,
+      operationId: 'branding-logo-publish',
+      requestId: 'branding-logo-request',
+    }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+    });
+
+    await expect(api.publishBrandingLogo(
+      'fixture-tenant',
+      reservationId,
+      'Publish reviewed branding logo.',
+      'branding-logo:stable',
+    )).resolves.toMatchObject({ publicUrl, resourceType: 'branding_logo' });
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      tenantId: 'fixture-tenant',
+      resourceType: 'branding_logo',
+      resourceIds: ['fixture-tenant'],
+      auditReason: 'Publish reviewed branding logo.',
+      idempotencyKey: 'branding-logo:stable',
+    });
+  });
+
   it('publishes and manages reusable media through audited backend contracts', async () => {
     const reservationId = `image_upload_${'c'.repeat(40)}`;
     const fetchMock = vi

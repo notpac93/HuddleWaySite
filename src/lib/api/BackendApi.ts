@@ -41,7 +41,7 @@ export interface CrmImagePublicationResult {
   tenantId: string;
   reservationId: string;
   publicationId: string;
-  resourceType: "event" | "program_media";
+  resourceType: "branding_logo" | "event" | "program_media";
   resourceIds: string[];
   status: "draft" | "published";
   isVisible: boolean;
@@ -1353,6 +1353,52 @@ export class BackendApi {
       invalidBackendResponse(
         payload as unknown as Record<string, unknown>,
         "The image publication response was invalid.",
+      );
+    }
+    return payload;
+  }
+
+  async publishBrandingLogo(
+    tenantId: string,
+    reservationId: string,
+    auditReason: string,
+    idempotencyKey: string,
+  ): Promise<CrmImagePublicationResult> {
+    const payload = await this.send<
+      CrmImagePublicationResult & { success: boolean }
+    >(
+      `/admin/crm/images/upload-reservations/${encodeURIComponent(reservationId)}/publish`,
+      {
+        method: "POST",
+        body: {
+          tenantId,
+          resourceType: "branding_logo",
+          resourceIds: [tenantId],
+          auditReason,
+          idempotencyKey,
+        },
+        idempotencyKey,
+      },
+    );
+    if (
+      payload.success !== true ||
+      payload.tenantId !== tenantId ||
+      payload.reservationId !== reservationId ||
+      payload.publicationId !== reservationId ||
+      payload.resourceType !== "branding_logo" ||
+      !Array.isArray(payload.resourceIds) ||
+      payload.resourceIds.length !== 1 ||
+      payload.resourceIds[0] !== tenantId ||
+      payload.status !== "published" ||
+      payload.isVisible !== true ||
+      !/^https?:\/\//i.test(String(payload.publicUrl || "")) ||
+      typeof payload.idempotentReplay !== "boolean" ||
+      !String(payload.operationId || "").trim() ||
+      !String(payload.requestId || "").trim()
+    ) {
+      invalidBackendResponse(
+        payload as unknown as Record<string, unknown>,
+        "The branding logo publication response was invalid.",
       );
     }
     return payload;

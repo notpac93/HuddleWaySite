@@ -33,7 +33,6 @@
     type SavedAppStudioDraft,
   } from './app-studio/appStudioController';
   import {
-    approvedPalettes,
     completeFiveTabSlots,
     configurationSignature,
     initialTabs,
@@ -143,10 +142,12 @@
     // currentConfiguration(). Key this review projection to the explicit
     // signature so nested tab-label edits are always included.
     currentConfigSignature;
+    logoFile;
     reviewChanges = describeAppConfigurationChanges(
       configMode === 'initialize' ? null : loadedConfiguration,
       currentConfiguration(),
     );
+    if (logoFile) reviewChanges = [...reviewChanges, 'Logo replaced'];
   }
   $: selectedOrganizationName = $tenantNamesStore[activeTenantId]
     || activeTenantId
@@ -305,13 +306,6 @@
     brandingUndoSnapshot = { name: appName, primaryColor, secondaryColor, tertiaryColor };
   }
 
-  function applyPalette(palette: typeof approvedPalettes[number]) {
-    captureBrandingUndo();
-    primaryColor = palette.primary;
-    secondaryColor = palette.secondary;
-    tertiaryColor = palette.tertiary;
-  }
-
   function undoBrandingChange() {
     if (!brandingUndoSnapshot) return;
     const prior = brandingUndoSnapshot;
@@ -428,20 +422,33 @@
     if (logoValidationMessage) {
       return;
     }
-    if (logoFile) {
-      publishMessage =
-        'Logo upload is temporarily unavailable while publication privacy is being finalized. Remove the selected logo to publish other app settings safely.';
-      submitState = 'error';
-      return;
-    }
-
     const expectedVersionToken = configVersionToken;
     const mode = configMode;
     submitState = 'loading';
     publishMessage = '';
     draftNotice = '';
     publishRequestId = '';
-    const configuration = currentConfiguration();
+    let publishedLogoUrl = logoUrl;
+    if (logoFile) {
+      const logoResult = await controller.publishLogo({
+        tenantId,
+        file: logoFile,
+        uploadIdempotencyKey: `${publishIdempotencyKey}:logo-upload`,
+        publicationIdempotencyKey: `${publishIdempotencyKey}:logo-publish`,
+      });
+      if (logoResult.status === 'stale') return;
+      if (logoResult.status === 'error') {
+        publishRequestId = logoResult.requestId;
+        publishMessage = 'The logo could not be uploaded. Check the image and try again.';
+        submitState = 'error';
+        return;
+      }
+      publishedLogoUrl = logoResult.publicUrl;
+    }
+    const configuration = {
+      ...currentConfiguration(),
+      logoUrl: publishedLogoUrl,
+    };
     const submittedSignature = configurationSignature(configuration);
     const result = await controller.publish({
       tenantId,
@@ -578,7 +585,7 @@
               <div class="space-y-6">
                 <div><h3 class="text-base font-semibold text-gray-950">Brand identity</h3><p class="mt-1 text-sm text-gray-600">Keep the essentials together. The preview updates as you type.</p></div>
                 <BrandingPanel bind:appName disabled={submitState === 'loading'} onCaptureUndo={captureBrandingUndo} />
-                <BrandingControls bind:primaryColor bind:secondaryColor bind:tertiaryColor bind:logoFile bind:logoValidationMessage {safeLogoPreviewUrl} disabled={submitState === 'loading'} canUndo={Boolean(brandingUndoSnapshot)} onCaptureUndo={captureBrandingUndo} onApplyPalette={applyPalette} onUndo={undoBrandingChange} />
+                <BrandingControls bind:primaryColor bind:secondaryColor bind:tertiaryColor bind:logoFile bind:logoValidationMessage {safeLogoPreviewUrl} disabled={submitState === 'loading'} canUndo={Boolean(brandingUndoSnapshot)} onCaptureUndo={captureBrandingUndo} onUndo={undoBrandingChange} />
               </div>
             {:else}
               <NavigationPanel bind:tabsConfig disabled={submitState === 'loading'} duplicateLabels={hasDuplicateTabLabels(currentConfiguration())} {activeContentCount} onMove={moveTab} />
