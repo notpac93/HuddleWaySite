@@ -286,7 +286,8 @@ describe('MyAppStudio tenant preview isolation', () => {
   it('fails closed when logo publication has no approved private-media contract', async () => {
     render(TestedMyAppStudio);
     expect(await screen.findByLabelText('Logo')).toBeDisabled();
-    expect(screen.getByText(/Last published .* by HuddleWay Demo Admin/)).toBeVisible();
+    expect(screen.queryByText(/Last published/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Published · v/)).not.toBeInTheDocument();
     expect(screen.getByText(/Logo replacement is temporarily unavailable/)).toBeVisible();
     expect(appMocks.uploadImageAsset).not.toHaveBeenCalled();
     expect(appMocks.publishAppConfiguration).not.toHaveBeenCalled();
@@ -493,7 +494,11 @@ describe('MyAppStudio tenant preview isolation', () => {
         sentPayload.revision,
       ),
     );
-    expect(await screen.findByText(/375 × 812.*Draft synced/)).toBeVisible();
+    await waitFor(() => {
+      expect(screen.queryByText('Verifying the exact consumer app…')).not.toBeInTheDocument();
+    });
+    expect(screen.queryByText(/Live consumer app/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Draft synced/)).not.toBeInTheDocument();
   });
 
   it('locks the reviewed configuration, publishes once, and verifies readback', async () => {

@@ -6,7 +6,6 @@
     buildAppPreviewUrl,
     createAppPreviewSession,
     parseAppPreviewMessage,
-    type AppPreviewAttestation,
     type AppComponentPreviewDraft,
     type AppPreviewEnvironment,
     type AppPreviewSession,
@@ -29,7 +28,6 @@
   let previewSrc = '';
   let state: 'idle' | 'loading' | 'awaiting' | 'synced' | 'error' = 'idle';
   let errorMessage = '';
-  let attestation: AppPreviewAttestation | null = null;
   let revision = 0;
   let lastConfiguration = '';
   let pendingPayload = '';
@@ -59,7 +57,6 @@
     revision = 0;
     lastConfiguration = '';
     pendingPayload = '';
-    attestation = null;
     errorMessage = '';
     if (!previewOrigin || !tenantId) {
       session = null;
@@ -140,7 +137,6 @@
         clearHandshakeTimer();
         return;
       }
-      attestation = { sourceCommit, releaseId };
       state = 'awaiting';
       postDraft();
       return;
@@ -166,12 +162,7 @@
   onDestroy(clearHandshakeTimer);
 </script>
 
-<div class="flex flex-1 flex-col items-center justify-start gap-3 {compact ? 'py-2' : 'py-4'}">
-  <p class="z-10 text-xs font-medium text-gray-600">
-    Live consumer app · 375 × 812
-    {state === 'synced' ? ' · Draft synced' : ''}
-    {attestation ? ` · ${attestation.releaseId}` : ''}
-  </p>
+<div class="flex flex-1 flex-col items-center justify-start {compact ? 'py-2' : 'py-4'}">
   <div class:crm-ui-studio-device-compact={compact} class="crm-ui-studio-device">
     <div class="crm-ui-studio-notch"></div>
     {#if tenantId && previewSrc}

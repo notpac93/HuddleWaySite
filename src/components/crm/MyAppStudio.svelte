@@ -73,8 +73,6 @@
   let showPublishReview = false;
   let savedDraft: SavedAppStudioDraft | null = null;
   let configVersion = 0;
-  let publishedAt: string | null = null;
-  let publishedByLabel: string | null = null;
   let versionHistory: AppVersion[] = [];
   let versionHistoryState: 'idle' | 'loading' | 'ready' | 'error' = 'idle';
   let versionHistoryTruncated = false;
@@ -215,8 +213,6 @@
     loadedConfigSignature = '';
     configVersionToken = '';
     configVersion = 0;
-    publishedAt = null;
-    publishedByLabel = null;
     versionHistory = [];
     versionHistoryState = 'idle';
     loadedConfiguration = null;
@@ -389,8 +385,6 @@
 
       configMode = snapshot.mode;
       configVersion = snapshot.configVersion;
-      publishedAt = snapshot.publishedAt;
-      publishedByLabel = snapshot.publishedByLabel || (snapshot.publishedBy ? 'Portal administrator' : null);
       configVersionToken = snapshot.versionToken;
       if (snapshot.configuration) {
         const configuration = snapshot.configuration;
@@ -530,13 +524,7 @@
   <div class="crm-ui-studio-editor">
     <header class="flex flex-wrap items-center justify-between gap-4 border-b border-gray-200 px-5 py-3 sm:px-6">
       <div class="min-w-0">
-        <div class="flex items-center gap-3">
-          <h2 class="text-xl font-semibold text-gray-950">My App</h2>
-          {#if configLoadState === 'ready'}
-            <span class="rounded-full px-2.5 py-1 text-xs font-semibold {isDirty ? 'bg-amber-100 text-amber-900' : 'bg-emerald-50 text-emerald-800'}">{isDirty ? 'Draft changes' : 'Published'} · v{configVersion || 1}</span>
-          {/if}
-        </div>
-        <p class="mt-1 truncate text-xs text-gray-500">Edit one area and see the family app update beside it{publishedAt ? ` · Last published ${new Date(publishedAt).toLocaleString()} by ${publishedByLabel || 'publisher unavailable'}` : ''}.</p>
+        <h2 class="text-xl font-semibold text-gray-950">My App</h2>
       </div>
       {#if activeTab !== 'Components'}
         <div class="flex items-center gap-3">
