@@ -355,7 +355,7 @@ async function openCrmTab(page: Page, tab: string, mobile: boolean) {
     await drawer.getByRole('button', { name: visibleLabel, exact: true }).click();
     await expect(drawer).toBeHidden();
   } else {
-    const sidebar = page.locator('aside');
+    const sidebar = page.locator('aside[data-sidebar-expanded]');
     await sidebar.hover();
     await sidebar.locator('nav').getByRole('button', {
       name: visibleLabel,
