@@ -18,8 +18,8 @@ function components(directory = crmRoot): string[] {
 }
 
 describe('CRM release language contract', () => {
-  it('reviews the entire 65-component release tree', () => {
-    expect(components().map((file) => relative(crmRoot, file))).toHaveLength(65);
+  it('reviews the entire 62-component release tree', () => {
+    expect(components().map((file) => relative(crmRoot, file))).toHaveLength(62);
   });
 
   it('rejects simulated, placeholder, and raw exception language', () => {
@@ -76,7 +76,7 @@ describe('CRM release language contract', () => {
   });
 
   it('states excluded financial capabilities instead of teasing them', () => {
-    const financials = readFileSync(join(crmRoot, 'Financials.svelte'), 'utf8');
+    const financials = readFileSync(join(crmRoot, 'FinancialOperationsWorkspace.svelte'), 'utf8');
     expect(financials).not.toContain('Launch capability boundary');
     expect(financials).not.toContain('Audited financial period locks');
     expect(financials).not.toContain('Configurable installment schedules');

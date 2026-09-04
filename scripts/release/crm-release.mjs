@@ -32,6 +32,7 @@ const exactCanonicalInputs = [
   '.node-version',
   'astro.config.mjs',
   'config/crm-performance-budgets.json',
+  'firebase.e2e.json',
   'package-lock.json',
   'package.json',
   'playwright.config.ts',

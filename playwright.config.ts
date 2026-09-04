@@ -10,7 +10,7 @@ const firestoreEmulatorPort =
   process.env.PLAYWRIGHT_FIRESTORE_EMULATOR_PORT ?? '8181';
 const firebaseConfigPath =
   process.env.PLAYWRIGHT_FIREBASE_CONFIG
-  ?? resolve(backendRoot, 'firebase.e2e.json');
+  ?? resolve(process.cwd(), 'firebase.e2e.json');
 
 for (const [name, value] of [
   ['PLAYWRIGHT_AUTH_EMULATOR_PORT', authEmulatorPort],
