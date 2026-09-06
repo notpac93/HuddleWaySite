@@ -26,6 +26,12 @@
   import ConsumerAdminInbox from './ConsumerAdminInbox.svelte';
   import AnnouncementPublishReview from './messages/AnnouncementPublishReview.svelte';
   import { clearPortalDraft, registerPortalDraft } from '../../lib/ui/portalDraftGuard';
+  import {
+    announcementImportanceOptions,
+    normalizeAnnouncementImportance,
+    type AnnouncementImportance,
+    type AttachmentScope,
+  } from '../../lib/ui/announcementAssociation';
 
   export let registrationEmailDraft: {
     token: string;
@@ -40,15 +46,16 @@
     subject: string | null;
     body: string;
     teamId: string | null;
-    attachmentScope: 'all' | 'event' | 'season';
+    attachmentScope: 'all' | 'team' | 'event' | 'season';
     eventId: string | null;
+    eventTeamId: string | null;
     eventTitle: string | null;
     seasonId: string | null;
     seasonName: string | null;
+    importance: string;
     createdAt: Date | null;
   };
 
-  type AttachmentScope = 'all' | 'event' | 'season';
   type ComposerKind = 'announcement' | 'email' | 'registration_email';
   type MessageView = 'email' | 'announcements' | 'registration' | 'conversations';
   type EmailReview = {
@@ -60,6 +67,14 @@
   const SUBJECT_MAX_LENGTH = 200;
   const BODY_MAX_LENGTH = 4_000;
   const DEFAULT_EMAIL_RECIPIENT_LIMIT = 400;
+  const importanceOptions = announcementImportanceOptions;
+  const historyAssociationTabs = [
+    { id: 'all', label: 'All', compactLabel: 'All' },
+    { id: 'organization', label: 'Organization', compactLabel: 'Org' },
+    { id: 'team', label: 'Teams', compactLabel: 'Team' },
+    { id: 'event', label: 'Events', compactLabel: 'Event' },
+    { id: 'season', label: 'Seasons', compactLabel: 'Season' },
+  ];
 
   let messages: WallMessage[] = [];
   let isAdding = false;
@@ -78,7 +93,7 @@
   let recipientSource: 'manual' | 'roster' | 'team' | 'event' | 'season' = 'manual';
   let recipientSourceId = '';
   let historyAudienceFilter = 'all';
-  let historyDateFilter = '';
+  let announcementSearchOpen = false;
   let conversationUnreadCount = 0;
   let deliveryReceipts: DeliveryReceipt[] = [];
   let expandedMessageIds = new Set<string>();
@@ -89,14 +104,17 @@
   let registrationRecipientInput = '';
   let teamId = 'program';
   let attachmentScope: AttachmentScope = 'all';
+  let selectedTeamId = '';
   let selectedEventId = '';
   let selectedSeasonId = '';
+  let selectedImportance: AnnouncementImportance = 'routine';
   let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
   let operationMessage = '';
   let operationRequestId = '';
   let recallingMessageId = '';
   let postIdempotencyKey = createIdempotencyKey('message-batch');
   let postMessageId = `message_${globalThis.crypto.randomUUID()}`;
+  let editingMessageId = '';
   let postPayloadSignature = '';
   const recallIdempotencyKeys = new Map<string, string>();
   let tenantGeneration = 0;
@@ -125,6 +143,35 @@
     return Number.isNaN(date.getTime()) ? '' : date.toISOString();
   }
 
+  const normalizedImportance = normalizeAnnouncementImportance;
+
+  function syncAssociationDefaults() {
+    if (attachmentScope === 'event') {
+      const event = eventOptions.find((option) => option.id === selectedEventId);
+      selectedTeamId = event?.teamId || '';
+      selectedSeasonId = event?.seasonId || '';
+      selectedImportance = event?.importance || 'standard';
+      return;
+    }
+    if (attachmentScope === 'season') {
+      const season = seasonOptions.find((option) => option.id === selectedSeasonId);
+      selectedTeamId = season?.teamId || '';
+      if (selectedImportance === 'routine') selectedImportance = 'standard';
+      return;
+    }
+    if (attachmentScope === 'team' && selectedImportance === 'routine') {
+      selectedImportance = 'standard';
+    }
+  }
+
+  function importancePreviewColor(value: AnnouncementImportance) {
+    if (value === 'routine') return '#94a3b8';
+    if (value === 'urgent') return '#dc2626';
+    return eventOptions.find((event) => event.id === selectedEventId)?.associationColorHex
+      || teamOptions.find((team) => team.id === selectedTeamId)?.associationColorHex
+      || 'var(--crm-brand-control)';
+  }
+
   $: eventOptions = $eventsStore
     .map((event) => ({
       id: String(event.id || '').trim(),
@@ -133,6 +180,11 @@
       currency: String(event.currency || 'USD').trim().toUpperCase() || 'USD',
       endDate: serializedDate(event.registrationEndDate || event.endDate || event.date),
       status: String(event.status || '').toLowerCase(),
+      teamId: String(event.teamId || '').trim(),
+      seasonId: String(event.seasonId || '').trim(),
+      imageUrl: String(event.imageUrl || '').trim(),
+      importance: normalizedImportance(event.importance, event.title || event.name),
+      associationColorHex: String(event.accentColorHex || '').trim(),
     }))
     .filter((event) => event.id)
     .sort((a, b) => a.title.localeCompare(b.title));
@@ -145,12 +197,21 @@
     .map((season) => ({
       id: String(season.id || '').trim(),
       title: String(season.name || season.title || season.id || 'Untitled season').trim(),
+      teamId: String(season.teamId || '').trim(),
+      imageUrl: String(season.imageUrl || '').trim(),
     }))
     .filter((season) => season.id)
     .sort((a, b) => a.title.localeCompare(b.title));
+  $: teamOptions = $teamsStore
+    .map((team) => ({
+      id: String(team.id || '').trim(),
+      title: String(team.name || team.title || team.id || 'Untitled team').trim(),
+      associationColorHex: String(team.accentColorHex || team.colorHex || team.primaryColor || '').trim(),
+    }))
+    .filter((team) => team.id)
+    .sort((a, b) => a.title.localeCompare(b.title));
   $: visibleMessages = messages.filter((message) =>
       (historyAudienceFilter === 'all' || (historyAudienceFilter === 'organization' ? message.attachmentScope === 'all' : message.attachmentScope === historyAudienceFilter))
-      && (!historyDateFilter || (message.createdAt && message.createdAt.toISOString().slice(0, 10) >= historyDateFilter))
       && (!normalizedSearch ||
         [
           message.authorName,
@@ -182,6 +243,7 @@
         && body.trim().length <= BODY_MAX_LENGTH
         && subject.trim().length <= SUBJECT_MAX_LENGTH
         && (attachmentScope === 'all'
+          || (attachmentScope === 'team' && Boolean(selectedTeamId))
           || (attachmentScope === 'event' && Boolean(selectedEventId))
           || (attachmentScope === 'season' && Boolean(selectedSeasonId)))
     : composerKind === 'email'
@@ -224,6 +286,9 @@
       attachmentScope,
       selectedEventId,
       selectedSeasonId,
+      selectedTeamId,
+      selectedImportance,
+      editingMessageId,
       composerKind,
       registrationRecipientInput,
     });
@@ -241,6 +306,8 @@
       activeTenantId = tenantId || '';
       isAdding = false;
       searchQuery = '';
+      historyAudienceFilter = 'all';
+      announcementSearchOpen = false;
       messages = [];
       expandedMessageIds = new Set();
       resetComposer();
@@ -285,8 +352,11 @@
     registrationRecipientInput = '';
     teamId = 'program';
     attachmentScope = 'all';
+    selectedTeamId = '';
     selectedEventId = '';
     selectedSeasonId = '';
+    selectedImportance = 'routine';
+    editingMessageId = '';
     submitState = 'idle';
     emailReview = null;
     announcementReview = null;
@@ -297,7 +367,7 @@
   function receiptStorageKey(tenantId = activeTenantId) { return `huddleway-message-receipts:${tenantId}`; }
   function saveMessageDraft() {
     if (!activeTenantId || !isAdding) return;
-    window.sessionStorage.setItem(draftStorageKey(), JSON.stringify({ subject, body, composerKind, registrationRecipientInput, attachmentScope, selectedEventId, selectedSeasonId, recipientSource, recipientSourceId }));
+    window.sessionStorage.setItem(draftStorageKey(), JSON.stringify({ subject, body, composerKind, registrationRecipientInput, attachmentScope, selectedTeamId, selectedEventId, selectedSeasonId, selectedImportance, recipientSource, recipientSourceId }));
   }
   function discardMessageDraft() {
     if (activeTenantId) window.sessionStorage.removeItem(draftStorageKey());
@@ -312,8 +382,10 @@
       subject = String(saved.subject || ''); body = String(saved.body || '');
       composerKind = ['announcement', 'email', 'registration_email'].includes(saved.composerKind) ? saved.composerKind : 'announcement';
       registrationRecipientInput = String(saved.registrationRecipientInput || '');
-      attachmentScope = ['all', 'event', 'season'].includes(saved.attachmentScope) ? saved.attachmentScope : 'all';
+      attachmentScope = ['all', 'team', 'event', 'season'].includes(saved.attachmentScope) ? saved.attachmentScope : 'all';
+      selectedTeamId = String(saved.selectedTeamId || '');
       selectedEventId = String(saved.selectedEventId || ''); selectedSeasonId = String(saved.selectedSeasonId || '');
+      selectedImportance = normalizedImportance(saved.selectedImportance) as AnnouncementImportance;
       recipientSource = ['manual', 'roster', 'team', 'event', 'season'].includes(saved.recipientSource) ? saved.recipientSource : 'manual';
       recipientSourceId = String(saved.recipientSourceId || '');
       activeView = composerKind === 'email' ? 'email' : composerKind === 'announcement' ? 'announcements' : 'registration';
@@ -359,8 +431,48 @@
     subject = message.subject || '';
     body = message.body;
     attachmentScope = message.attachmentScope;
+    selectedTeamId = message.eventTeamId || '';
     selectedEventId = message.eventId || '';
     selectedSeasonId = message.seasonId || '';
+    selectedImportance = normalizedImportance(message.importance) as AnnouncementImportance;
+  }
+
+  function editAnnouncement(message: WallMessage) {
+    duplicateAnnouncement(message);
+    editingMessageId = message.id;
+    operationMessage = '';
+    operationRequestId = '';
+  }
+
+  function announcementPayload(tenantId: string, id: string) {
+    return {
+      id,
+      tenantId,
+      teamId,
+      authorName: '',
+      subject: subject.trim(),
+      body: body.trim(),
+      isSecret: false,
+      attachmentScope,
+      eventId: attachmentScope === 'event' ? selectedEventId : null,
+      eventTeamId: selectedTeamId || null,
+      eventTitle: attachmentScope === 'event'
+        ? eventOptions.find((event) => event.id === selectedEventId)?.title || null
+        : null,
+      eventImageUrl: attachmentScope === 'event'
+        ? eventOptions.find((event) => event.id === selectedEventId)?.imageUrl || null
+        : attachmentScope === 'season'
+          ? seasonOptions.find((season) => season.id === selectedSeasonId)?.imageUrl || null
+          : null,
+      seasonId: ['season', 'event'].includes(attachmentScope) ? selectedSeasonId || null : null,
+      seasonTitle: selectedSeasonId
+        ? seasonOptions.find((season) => season.id === selectedSeasonId)?.title || null
+        : null,
+      importance: selectedImportance,
+      associationColorHex: eventOptions.find((event) => event.id === selectedEventId)?.associationColorHex
+        || teamOptions.find((team) => team.id === selectedTeamId)?.associationColorHex
+        || null,
+    };
   }
 
   async function fetchConnectedMailbox(tenantId: string) {
@@ -590,19 +702,25 @@
 
   function handleAttachmentScopeChange() {
     if (attachmentScope === 'all') {
+      selectedTeamId = '';
       selectedEventId = '';
       selectedSeasonId = '';
+      selectedImportance = 'routine';
+    } else if (attachmentScope === 'team') {
+      selectedEventId = '';
+      selectedSeasonId = '';
+      selectedImportance = 'standard';
     } else if (attachmentScope === 'event') {
+      selectedTeamId = '';
       selectedSeasonId = '';
     } else {
+      selectedTeamId = '';
       selectedEventId = '';
     }
   }
 
-  function audienceLabel(messageTeamId: string | null) {
-    return messageTeamId && messageTeamId !== 'program'
-      ? 'Account holders in this organization · legacy team restriction not enforced'
-      : 'Account holders in this organization';
+  function audienceLabel(_messageTeamId: string | null) {
+    return 'All organization account holders';
   }
 
   function attachmentLabel(message: WallMessage) {
@@ -611,6 +729,9 @@
     }
     if (message.attachmentScope === 'season' || message.seasonId || message.seasonName) {
       return `Season · ${message.seasonName || message.seasonId || 'Attached season'}`;
+    }
+    if (message.attachmentScope === 'team' || message.eventTeamId) {
+      return `Team · ${teamOptions.find((team) => team.id === message.eventTeamId)?.title || message.eventTeamId || 'Attached team'}`;
     }
     return 'All organization';
   }
@@ -621,6 +742,9 @@
     }
     if (attachmentScope === 'season') {
       return `Season · ${seasonOptions.find((season) => season.id === selectedSeasonId)?.title || 'Selected season'}`;
+    }
+    if (attachmentScope === 'team') {
+      return `Team · ${teamOptions.find((team) => team.id === selectedTeamId)?.title || 'Selected team'}`;
     }
     return 'All organization';
   }
@@ -679,9 +803,14 @@
                 ? 'event'
                 : data.attachmentScope === 'season' || data.seasonId
                   ? 'season'
-                  : 'all') as "all" | "event" | "season",
+                  : data.attachmentScope === 'team' || data.eventTeamId
+                    ? 'team'
+                    : 'all') as AttachmentScope,
             eventId: typeof data.eventId === 'string' && data.eventId.trim()
               ? data.eventId.trim()
+              : null,
+            eventTeamId: typeof data.eventTeamId === 'string' && data.eventTeamId.trim()
+              ? data.eventTeamId.trim()
               : null,
             eventTitle: typeof data.eventTitle === 'string' && data.eventTitle.trim()
               ? data.eventTitle.trim()
@@ -691,7 +820,10 @@
               : null,
             seasonName: typeof data.seasonName === 'string' && data.seasonName.trim()
               ? data.seasonName.trim()
+              : typeof data.seasonTitle === 'string' && data.seasonTitle.trim()
+                ? data.seasonTitle.trim()
               : null,
+            importance: normalizedImportance(data.importance, data.subject),
             createdAt: data.createdAt?.toDate?.() || null,
           };
         })
@@ -726,28 +858,21 @@
     submitState = 'loading';
     operationMessage = '';
     operationRequestId = '';
+    const publishedMessageId = postMessageId;
     try {
       const result = await backendClient.sendMessageBatch(
         tenantId,
-        [{
-          id: postMessageId,
-          tenantId,
-          teamId,
-          // The backend derives the authoritative actor from the verified token.
-          authorName: '',
-          subject: subject.trim(),
-          body: body.trim(),
-          isSecret: false,
-          attachmentScope,
-          eventId: attachmentScope === 'event' ? selectedEventId : null,
-          seasonId: attachmentScope === 'season' ? selectedSeasonId : null,
-        }],
+        [announcementPayload(tenantId, publishedMessageId)],
         postIdempotencyKey,
       );
       if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
       await fetchMessages(tenantId);
       if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
       announcementReview = null;
+      searchQuery = '';
+      historyAudienceFilter = 'all';
+      announcementSearchOpen = false;
+      expandedMessageIds = new Set([publishedMessageId]);
       submitState = 'success';
       if (result.publicCount === 1 && result.notifications.successCount > 0) {
         const deviceWord = result.notifications.successCount === 1 ? 'device' : 'devices';
@@ -766,8 +891,10 @@
       body = '';
       teamId = 'program';
       attachmentScope = 'all';
+      selectedTeamId = '';
       selectedEventId = '';
       selectedSeasonId = '';
+      selectedImportance = 'routine';
     } catch (error) {
       if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
       submitState = 'error';
@@ -776,6 +903,46 @@
         : 'The announcement could not be published. Check your connection and try again.';
       operationRequestId = requestIdFrom(error);
     }
+  }
+
+  async function handleUpdateAnnouncement() {
+    if (submitState === 'loading' || !canPublish || !editingMessageId) return;
+    const tenantId = $tenantIdStore;
+    const generation = tenantGeneration;
+    if (!tenantId) return;
+    const updatedMessageId = editingMessageId;
+    submitState = 'loading';
+    operationMessage = '';
+    operationRequestId = '';
+    try {
+      await backendClient.updateAnnouncement(
+        tenantId,
+        updatedMessageId,
+        announcementPayload(tenantId, updatedMessageId),
+        postIdempotencyKey,
+      );
+      if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
+      await fetchMessages(tenantId);
+      if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
+      searchQuery = '';
+      historyAudienceFilter = 'all';
+      announcementSearchOpen = false;
+      expandedMessageIds = new Set([updatedMessageId]);
+      submitState = 'success';
+      operationMessage = 'Announcement updated in Published announcements below. Edits do not send another push notification.';
+      isAdding = false;
+      resetComposer();
+    } catch (error) {
+      if (generation !== tenantGeneration || tenantId !== $tenantIdStore) return;
+      submitState = 'error';
+      operationMessage = 'The announcement could not be updated.';
+      operationRequestId = requestIdFrom(error);
+    }
+  }
+
+  function handleAnnouncementSubmit() {
+    if (editingMessageId) return handleUpdateAnnouncement();
+    return handleAnnouncementReview();
   }
 
   async function handleRegistrationEmail() {
@@ -1275,18 +1442,22 @@
           ? 'Send registration email'
           : composerKind === 'email'
             ? 'Send email'
-            : 'Create announcement'}
+            : editingMessageId
+              ? 'Edit announcement'
+              : 'Create announcement'}
       </h3>
       <div class="space-y-4">
         <div>
           <p class="crm-ui-label">Audience</p>
           <p class="crm-ui-message-audience">
             {#if composerKind === 'registration_email'}
-              Paste recipient emails. HuddleWay sends a temporary registration link using the same form and payment rules as the app.
+              Paste recipient emails. HuddleWay sends a temporary registration link using the same registration form and payment settings as the app.
             {:else if composerKind === 'email'}
               Paste one or more addresses. Duplicates are removed before the allowance check. Replies go to the selected sender; groups over 100 must use the HuddleWay sender.
             {:else}
-              Only this organization’s account holders receive this announcement and notification.
+              {editingMessageId
+                ? 'Changes update this existing announcement. No new push notification is sent.'
+                : 'Only this organization’s account holders receive this announcement and notification.'}
             {/if}
           </p>
         </div>
@@ -1303,6 +1474,7 @@
           >
             {#if composerKind === 'announcement'}
               <option value="all">All organization account holders</option>
+              <option value="team">A team</option>
             {/if}
             <option value="event">An event</option>
             <option value="season">A season</option>
@@ -1310,16 +1482,31 @@
           <p class="crm-ui-hint">
             {composerKind === 'registration_email'
               ? 'The link closes automatically when registration, the event, or the season ends.'
-              : 'Choose one event, one season, or leave it for everyone.'}
+              : 'Choose a team, event, or season. Event details and images are inherited automatically.'}
           </p>
           </div>
         {/if}
-        {#if composerKind !== 'email' && attachmentScope === 'event'}
+        {#if composerKind === 'announcement' && attachmentScope === 'team'}
+          <div>
+            <label for="announcement-team" class="crm-ui-label">Team association</label>
+            <select
+              id="announcement-team"
+              bind:value={selectedTeamId}
+              on:change={syncAssociationDefaults}
+              disabled={teamOptions.length === 0}
+              class="crm-ui-message-select disabled:bg-gray-100"
+            >
+              <option value="">Select a team</option>
+              {#each teamOptions as team}<option value={team.id}>{team.title}</option>{/each}
+            </select>
+          </div>
+        {:else if composerKind !== 'email' && attachmentScope === 'event'}
           <div>
             <label for="announcement-event" class="crm-ui-label">Event</label>
             <select
               id="announcement-event"
               bind:value={selectedEventId}
+              on:change={syncAssociationDefaults}
               disabled={eventOptions.length === 0}
               class="crm-ui-message-select disabled:bg-gray-100"
             >
@@ -1336,6 +1523,7 @@
             <select
               id="announcement-season"
               bind:value={selectedSeasonId}
+              on:change={syncAssociationDefaults}
               disabled={seasonOptions.length === 0}
               class="crm-ui-message-select disabled:bg-gray-100"
             >
@@ -1346,6 +1534,24 @@
             </select>
             {#if seasonOptions.length === 0}<p class="crm-ui-hint">No seasons are available for this organization.</p>{/if}
           </div>
+        {/if}
+        {#if composerKind === 'announcement'}
+          <fieldset class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <legend class="px-1 text-sm font-semibold text-gray-900">Visual importance</legend>
+            <div class="mt-2 grid gap-2 sm:grid-cols-4">
+              {#each importanceOptions as option}
+                <label class="cursor-pointer rounded-lg border p-3 text-sm {selectedImportance === option.value ? 'border-[var(--crm-brand-border)] bg-[var(--crm-brand-surface)] ring-1 ring-[var(--crm-brand-focus)]' : 'border-gray-200 bg-white'}">
+                  <input class="sr-only" type="radio" name="announcement-importance" value={option.value} bind:group={selectedImportance} />
+                  <span class="flex items-center gap-2 font-semibold text-gray-900">
+                    <span class="h-3 w-3 rounded-full {option.value === 'featured' ? 'ring-2 ring-offset-1' : ''}" style={`background-color: ${importancePreviewColor(option.value)}; ${option.value === 'featured' ? `--tw-ring-color: ${importancePreviewColor(option.value)}` : ''}`} aria-hidden="true"></span>
+                    {option.label}
+                  </span>
+                  <span class="mt-1 block text-xs text-gray-600">{option.detail}</span>
+                </label>
+              {/each}
+            </div>
+            <p class="crm-ui-hint mt-2">Linked events choose a starting level automatically. You can adjust it before publishing.</p>
+          </fieldset>
         {/if}
         {#if composerKind !== 'announcement'}
           <div>
@@ -1414,22 +1620,22 @@
             type="button"
             class="crm-ui-button-secondary bg-white text-gray-700"
             disabled={submitState === 'loading'}
-            on:click={() => { isAdding = false; resetComposer(); }}
+            on:click={discardMessageDraft}
           >
             Cancel
           </button>
           <StatusButton
             type="button"
             state={submitState}
-            on:click={composerKind === 'announcement' ? handleAnnouncementReview : handleEmailReview}
+            on:click={composerKind === 'announcement' ? handleAnnouncementSubmit : handleEmailReview}
             disabled={!canPublish || submitState === 'loading'}
             idleText={composerKind === 'announcement'
-              ? 'Review announcement'
+              ? editingMessageId ? 'Save changes' : 'Review announcement'
               : composerKind === 'registration_email'
                 ? 'Review registration email'
                 : 'Review email'}
-            loadingText={composerKind === 'announcement' ? 'Reviewing audience…' : 'Checking allowance…'}
-            successText={composerKind === 'announcement' ? 'Published' : 'Email sent'}
+            loadingText={composerKind === 'announcement' ? editingMessageId ? 'Saving changes…' : 'Reviewing audience…' : 'Checking allowance…'}
+            successText={composerKind === 'announcement' ? editingMessageId ? 'Updated' : 'Published' : 'Email sent'}
             errorText={composerKind === 'announcement'
               ? 'Retry publish'
               : composerKind === 'registration_email'
@@ -1445,26 +1651,51 @@
   <div class:hidden={activeView !== 'conversations'}><ConsumerAdminInbox registrations={$registrationsStore} teams={$teamsStore} events={$eventsStore} on:unreadCount={(event) => conversationUnreadCount = event.detail} /></div>
 
   <section class="crm-ui-message-list" class:hidden={activeView !== 'announcements'} aria-labelledby="wall-announcements-heading">
-    <div class="border-b border-gray-200 p-4">
-      <div class="crm-ui-message-list-header">
-        <div class="flex flex-wrap gap-2">
+    <div class="border-b border-gray-200 p-3">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div class="flex items-baseline gap-2">
           <h3 id="wall-announcements-heading" class="font-semibold text-gray-900">Published announcements</h3>
-          <p class="crm-ui-hint">
-            {messages.length} published
-          </p>
+          <p class="crm-ui-hint">{messages.length}</p>
         </div>
-        <div>
-          <label for="announcement-search" class="block text-xs font-medium text-gray-600">Search loaded announcements</label>
-          <input
-            id="announcement-search"
-            type="search"
-            bind:value={searchQuery}
-            class="crm-ui-input sm:w-72"
-          />
-          <select aria-label="Filter announcement audience" class="crm-ui-input" bind:value={historyAudienceFilter}><option value="all">All audiences</option><option value="organization">Organization-wide</option><option value="event">Event</option><option value="season">Season</option></select>
-          <input aria-label="Announcements since date" type="date" class="crm-ui-input" bind:value={historyDateFilter} />
+        <div class="flex min-w-0 items-center gap-2">
+          <div class="flex min-w-0 flex-1 gap-1 overflow-x-auto" role="group" aria-label="Filter announcements by association">
+            {#each historyAssociationTabs as tab}
+              <button
+                type="button"
+                class="whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs font-medium {historyAudienceFilter === tab.id ? 'crm-theme-selected' : 'text-gray-600 hover:bg-gray-100'}"
+                aria-label={tab.label}
+                aria-pressed={historyAudienceFilter === tab.id}
+                on:click={() => historyAudienceFilter = tab.id}
+              ><span class="sm:hidden">{tab.compactLabel}</span><span class="hidden sm:inline">{tab.label}</span></button>
+            {/each}
+          </div>
+          <button
+            type="button"
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
+            aria-label={announcementSearchOpen ? 'Close announcement search' : 'Search announcements'}
+            aria-expanded={announcementSearchOpen}
+            on:click={() => {
+              announcementSearchOpen = !announcementSearchOpen;
+              if (!announcementSearchOpen) searchQuery = '';
+            }}
+          >
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="11" cy="11" r="7"></circle>
+              <path d="m20 20-3.5-3.5"></path>
+            </svg>
+          </button>
         </div>
       </div>
+      {#if announcementSearchOpen}
+        <div class="relative mt-2">
+          <label for="announcement-search" class="sr-only">Search announcements by keyword</label>
+          <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="m20 20-3.5-3.5"></path>
+          </svg>
+          <input id="announcement-search" type="search" bind:value={searchQuery} placeholder="Search by keyword" class="crm-ui-input pl-9" />
+        </div>
+      {/if}
     </div>
 
     {#if isLoading}
@@ -1477,7 +1708,7 @@
     {:else if messages.length === 0}
       <div class="p-8 text-center text-gray-500">No Wall announcements have been published.</div>
     {:else if visibleMessages.length === 0}
-      <div class="p-8 text-center text-gray-500">No loaded announcements match “{searchQuery}”.</div>
+      <div class="p-8 text-center text-gray-500">{normalizedSearch ? `No announcements match “${searchQuery}”.` : 'No announcements match this association.'}</div>
     {:else}
       <ul class="divide-y divide-gray-200">
         {#each visibleMessages as message (message.id)}
@@ -1497,6 +1728,7 @@
                       <span class="crm-ui-hint-xs">• {message.createdAt ? message.createdAt.toLocaleString() : 'Timestamp unavailable'}</span>
                     </div>
                     <p class="mt-1 text-sm font-medium text-gray-900">{message.subject || 'Announcement'}</p>
+                    <p class="mt-1 text-xs font-medium capitalize text-gray-500">{message.importance} · {attachmentLabel(message)}</p>
                     {#if !expandedMessageIds.has(message.id)}
                       <p class="mt-1 break-words text-sm text-gray-600">{messagePreview(message.body)}</p>
                     {/if}
@@ -1517,27 +1749,22 @@
             </div>
             {#if expandedMessageIds.has(message.id)}
               <div id={`announcement-details-${message.id}`} class="crm-ui-message-detail-panel">
-                <h4 class="crm-ui-message-details">Details</h4>
                 <p class="crm-ui-message-detail-body">{message.body || 'Message unavailable'}</p>
-                <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+                <dl class="mt-3 flex flex-wrap gap-x-8 gap-y-2 text-sm">
                   <div>
-                    <dt class="crm-ui-message-term">Audience</dt>
+                    <dt class="crm-ui-message-term">Sent to</dt>
                     <dd class="mt-1 text-gray-900">{audienceLabel(message.teamId)}</dd>
                   </div>
-                  <div>
-                    <dt class="crm-ui-message-term">Attachment</dt>
-                    <dd class="mt-1 text-gray-900">{attachmentLabel(message)}</dd>
-                  </div>
-                  <div>
-                    <dt class="crm-ui-message-term">Published by</dt>
-                    <dd class="mt-1 text-gray-900">{message.authorName || 'Actor unavailable'}</dd>
-                  </div>
-                  <div>
-                    <dt class="crm-ui-message-term">Published</dt>
-                    <dd class="mt-1 text-gray-900">{message.createdAt ? message.createdAt.toLocaleString() : 'Timestamp unavailable'}</dd>
-                  </div>
+                  {#if message.attachmentScope !== 'all'}
+                    <div>
+                      <dt class="crm-ui-message-term">Linked to</dt>
+                      <dd class="mt-1 text-gray-900">{attachmentLabel(message)}</dd>
+                    </div>
+                  {/if}
                 </dl>
-                <button type="button" class="crm-ui-button-secondary mt-4" on:click={() => duplicateAnnouncement(message)}>Duplicate as new</button>
+                <div class="mt-3">
+                  <button type="button" class="crm-ui-button-primary" on:click={() => editAnnouncement(message)}>Edit announcement</button>
+                </div>
               </div>
             {/if}
           </li>

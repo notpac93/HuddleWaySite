@@ -9,8 +9,8 @@ Review date: 2026-07-26
 ## Scope and method
 
 The shared worktree contained 45 Svelte CRM components and 305 native controls
-when the UI-002 pass began. The current release tree contains 40 components and
-368 native controls. Controls were not accepted by sampling:
+when the UI-002 pass began. The current release tree contains 75 components and
+609 native controls. Controls were not accepted by sampling:
 
 1. every Svelte file was enumerated recursively;
 2. every native `button`, `a`, `input`, `select`, and `textarea` was parsed from
@@ -49,7 +49,7 @@ preservation.
 | Component | Native controls | Reviewed disposition |
 | --- | ---: | --- |
 | `ActivityManager.svelte` | 3 | Refresh and error-state retry execute the authenticated, scoped activity projection reload; loading, empty, and load-error copy are explicit. |
-| `CommunicationsManager.svelte` | 28 | Announcement create/recall, one-off and bulk email, registration outreach, allowance retry, sender-identity configuration/verification, and both confirmation dialogs are wired. Email preview is authenticated, deduplicated, preference-aware, quota-aware, and blocks delivery until the administrator confirms the eligible recipient count and remaining monthly allowance. |
+| `CommunicationsManager.svelte` | 40 | Announcement create/edit/recall, association filters, one-off and bulk email, registration outreach, allowance retry, sender-identity configuration/verification, and confirmation dialogs are wired. Email preview is authenticated, deduplicated, preference-aware, quota-aware, and blocks delivery until the administrator confirms the eligible recipient count and remaining monthly allowance. |
 | `CrmApp.svelte` | 1 | The generic coming-soon branch was removed; every declared tab maps to a concrete lazily loaded component, with an actionable retry if a module fails to load. |
 | `CrmShell.svelte` | 15 | Navigation, accessible tenant switch, global search, and logout controls are wired. Search navigation preserves the selected result ID. The unsafe global browser-import entry point was removed. |
 | `DataTable.svelte` | 9 | Search, optional filtering, stable-ID selection, sorting, paging, row actions, and CSV export operate on the current view; empty export is explicitly disabled. |

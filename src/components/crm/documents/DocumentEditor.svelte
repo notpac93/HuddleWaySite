@@ -161,7 +161,7 @@
             <span class="crm-ui-hint">At least 8 characters.</span>
           </label>
           {#if record && !record.storagePath}
-            <p class="sm:col-span-2 text-sm text-amber-700" role="alert">This legacy record cannot be edited until its approved storage object is repaired.</p>
+            <p class="sm:col-span-2 text-sm text-amber-700" role="alert">This record cannot be edited until its approved storage object is repaired.</p>
           {/if}
         </div>
       {/if}

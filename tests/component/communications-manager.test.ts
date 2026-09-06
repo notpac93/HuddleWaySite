@@ -32,6 +32,7 @@ const mocks = vi.hoisted(() => ({
   sendRegistrationEmail: vi.fn(),
   sendOneWayEmail: vi.fn(),
   sendMessageBatch: vi.fn(),
+  updateAnnouncement: vi.fn(),
 }));
 
 vi.mock('firebase/firestore', () => ({
@@ -66,6 +67,7 @@ vi.mock('../../src/lib/api/backendClient', () => ({
     recallMessage: mocks.recallMessage,
     announcementAudiencePreview: mocks.announcementAudiencePreview,
     sendMessageBatch: mocks.sendMessageBatch,
+    updateAnnouncement: mocks.updateAnnouncement,
   },
 }));
 
@@ -86,13 +88,28 @@ vi.mock('../../src/lib/services/DataStore', async () => {
   const { writable } = await import('svelte/store');
   return {
     eventsStore: writable([
-      { id: 'event-1', title: 'Summer Showcase' },
+      {
+        id: 'event-1',
+        title: 'Summer Showcase',
+        teamId: 'varsity',
+        seasonId: 'season-1',
+        imageUrl: 'https://example.com/showcase.webp',
+        importance: 'featured',
+        accentColorHex: '#2457d6',
+      },
     ]),
     seasonsStore: writable([
-      { id: 'season-1', name: 'Summer 2026' },
+      {
+        id: 'season-1',
+        name: 'Summer 2026',
+        teamId: 'varsity',
+        imageUrl: 'https://example.com/summer.webp',
+      },
     ]),
     registrationsStore: writable([]),
-    teamsStore: writable([]),
+    teamsStore: writable([
+      { id: 'varsity', name: 'Varsity', accentColorHex: '#2457d6' },
+    ]),
   };
 });
 
@@ -266,6 +283,7 @@ describe('CommunicationsManager recall boundary', () => {
     mocks.sendRegistrationEmail.mockReset();
     mocks.sendOneWayEmail.mockReset();
     mocks.sendMessageBatch.mockReset();
+    mocks.updateAnnouncement.mockReset();
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
@@ -282,15 +300,78 @@ describe('CommunicationsManager recall boundary', () => {
       name: /Practice update/,
     });
     expect(announcement).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByRole('heading', { name: 'Details' })).toBeNull();
+    expect(screen.queryByText('Sent to')).toBeNull();
 
     await fireEvent.click(announcement);
 
     expect(announcement).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('heading', { name: 'Details' })).toBeVisible();
-    expect(screen.getByText('Audience')).toBeVisible();
-    expect(screen.getByText('Published by')).toBeVisible();
+    expect(screen.getByText('Sent to')).toBeVisible();
+    expect(screen.getByText('All organization account holders')).toBeVisible();
+    expect(screen.queryByText('Published by')).toBeNull();
+    expect(screen.queryByText('Published')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Duplicate as new' })).toBeNull();
     expect(screen.getAllByText('Practice starts at six.')).toHaveLength(1);
+    expect(within(screen.getByRole('group', { name: 'Filter announcements by association' })).getByRole('button', { name: 'Teams' })).toBeInTheDocument();
+  });
+
+  it('edits a previously published announcement without creating or pushing a new post', async () => {
+    mocks.getDocs
+      .mockResolvedValueOnce(messageSnapshot())
+      .mockResolvedValueOnce(messageSnapshot());
+    mocks.updateAnnouncement.mockResolvedValueOnce({
+      success: true,
+      idempotentReplay: false,
+      messageId: 'message-1',
+      requestId: 'edit-request',
+    });
+    render(TestedCommunicationsManager);
+
+    await fireEvent.click(await screen.findByRole('button', { name: /Practice update/ }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit announcement' }));
+    expect(screen.getByRole('heading', { name: 'Edit announcement' })).toBeVisible();
+    expect(screen.getByText('Changes update this existing announcement. No new push notification is sent.')).toBeVisible();
+    const announcementHistory = screen.getByRole('region', { name: 'Published announcements' });
+    expect(within(announcementHistory).queryByLabelText('Since')).toBeNull();
+    const associationFilters = screen.getByRole('group', { name: 'Filter announcements by association' });
+    await fireEvent.click(screen.getByRole('button', { name: 'Search announcements' }));
+    await fireEvent.input(screen.getByRole('searchbox', { name: 'Search announcements by keyword' }), {
+      target: { value: 'hidden by an old search' },
+    });
+    await fireEvent.click(within(associationFilters).getByRole('button', { name: 'Events' }));
+    await fireEvent.input(screen.getByLabelText('Message'), {
+      target: { value: 'Practice now starts at seven.' },
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(backendClient.updateAnnouncement).toHaveBeenCalledTimes(1));
+    expect(mocks.updateAnnouncement).toHaveBeenCalledWith(
+      'tenant-a',
+      'message-1',
+      expect.objectContaining({
+        id: 'message-1',
+        subject: 'Practice update',
+        body: 'Practice now starts at seven.',
+      }),
+      expect.stringMatching(/^message-batch:/),
+    );
+    expect(backendClient.announcementAudiencePreview).not.toHaveBeenCalled();
+    expect(backendClient.sendMessageBatch).not.toHaveBeenCalled();
+    expect(await screen.findByText('Announcement updated in Published announcements below. Edits do not send another push notification.')).toBeVisible();
+    expect(screen.queryByRole('searchbox', { name: 'Search announcements by keyword' })).toBeNull();
+    expect(within(associationFilters).getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText('Sent to')).toBeVisible();
+  });
+
+  it('discards a cancelled announcement draft so it does not return after reload', async () => {
+    mocks.getDocs.mockResolvedValueOnce(emptySnapshot());
+    render(TestedCommunicationsManager);
+    await fireEvent.click(await screen.findByRole('button', { name: 'New announcement' }));
+    await fireEvent.input(screen.getByLabelText('Message'), {
+      target: { value: 'Discard this draft.' },
+    });
+    expect(window.sessionStorage.getItem('huddleway-message-draft:tenant-a')).toContain('Discard this draft.');
+    await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(window.sessionStorage.getItem('huddleway-message-draft:tenant-a')).toBeNull();
   });
 
   it('deletes an announcement and refreshes the visible message', async () => {
@@ -867,7 +948,7 @@ describe('CommunicationsManager recall boundary', () => {
     await fireEvent.click(
       screen.getByRole('button', { name: 'Start registration email' }),
     );
-    expect(screen.getByText(/temporary registration link using the same form and payment rules as the app/)).toBeVisible();
+    expect(screen.getByText(/temporary registration link using the same registration form and payment settings as the app/)).toBeVisible();
     await fireEvent.change(screen.getByLabelText('Event'), {
       target: { value: 'event-1' },
     });
@@ -1070,7 +1151,13 @@ describe('CommunicationsManager recall boundary', () => {
       expect.objectContaining({
         attachmentScope: 'event',
         eventId: 'event-1',
-        seasonId: null,
+        eventTeamId: 'varsity',
+        eventTitle: 'Summer Showcase',
+        eventImageUrl: 'https://example.com/showcase.webp',
+        seasonId: 'season-1',
+        seasonTitle: 'Summer 2026',
+        importance: 'featured',
+        associationColorHex: '#2457d6',
       }),
     );
   });
@@ -1114,6 +1201,8 @@ describe('CommunicationsManager recall boundary', () => {
       expect.objectContaining({
         attachmentScope: 'season',
         eventId: null,
+        eventTeamId: 'varsity',
+        eventImageUrl: 'https://example.com/summer.webp',
         seasonId: 'season-1',
       }),
     );

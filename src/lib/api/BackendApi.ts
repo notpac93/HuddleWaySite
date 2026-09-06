@@ -3152,6 +3152,24 @@ export class BackendApi {
     });
   }
 
+  updateAnnouncement(
+    tenantId: string,
+    messageId: string,
+    message: Record<string, unknown>,
+    idempotencyKey: string,
+  ) {
+    return this.send<{
+      success: boolean;
+      idempotentReplay: boolean;
+      messageId: string;
+      requestId: string;
+    }>(`/admin/messages/${encodeURIComponent(messageId)}`, {
+      method: "PATCH",
+      body: { tenantId, message, idempotencyKey },
+      idempotencyKey,
+    });
+  }
+
   async adminInvites(tenantId: string) {
     const payload = await this.send<{ invites: AdminInviteRecord[] }>(
       "/admin/invites",

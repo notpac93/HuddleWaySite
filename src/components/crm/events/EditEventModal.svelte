@@ -409,7 +409,7 @@
               {applyToSeries
                 ? `This will publish every loaded occurrence in the series (${seriesSize} shown).`
                 : 'This publishes only this event occurrence.'}
-              Tenant visibility and membership rules still apply.
+              Organization visibility and membership settings still apply.
             </p>
             <label for="edit-event-publish-confirmation" class="mt-3 block text-xs font-medium text-amber-950">
               Type <span class="font-semibold">{publishConfirmationText}</span>
