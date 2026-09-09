@@ -25,6 +25,7 @@ describe('registrationDisplayRecord safe projection', () => {
           teamId: ' team-a ',
           teamName: ' Falcons ',
           status: ' submitted ',
+          paymentStatus: ' paid ',
         },
         date,
       ),
@@ -39,6 +40,7 @@ describe('registrationDisplayRecord safe projection', () => {
       teamId: 'team-a',
       teamName: 'Falcons',
       status: 'submitted',
+      paymentStatus: 'paid',
       date,
     });
   });
@@ -72,6 +74,7 @@ describe('registrationDisplayRecord safe projection', () => {
         phone: null,
         userId: {},
         eventId: [],
+        paymentStatus: { status: 'paid' },
       }),
     ).toEqual({
       id: 'registration-c',
@@ -84,7 +87,19 @@ describe('registrationDisplayRecord safe projection', () => {
       teamId: null,
       teamName: null,
       status: null,
+      paymentStatus: null,
       date: null,
     });
+  });
+
+  it('returns null when payment status is missing or blank', () => {
+    expect(
+      registrationDisplayRecord('registration-missing', {}),
+    ).toMatchObject({ paymentStatus: null });
+    expect(
+      registrationDisplayRecord('registration-blank', {
+        paymentStatus: '   ',
+      }),
+    ).toMatchObject({ paymentStatus: null });
   });
 });

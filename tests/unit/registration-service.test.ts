@@ -133,6 +133,7 @@ describe('RegistrationService authenticated backend projections', () => {
           payerSummary: { email: 'guardian@example.test' },
           userId: 'user-1',
           status: 'submitted',
+          paymentStatus: 'paid',
           createdAt: '2026-07-02T12:00:00.000Z',
         },
         {
@@ -154,6 +155,7 @@ describe('RegistrationService authenticated backend projections', () => {
       participantName: 'Player One',
       email: 'guardian@example.test',
       eventId: 'event-1',
+      paymentStatus: 'paid',
     });
     expect(result.participants.records[0]).not.toHaveProperty('formData');
     expect(apiMocks.crmOperationalPage).toHaveBeenNthCalledWith(

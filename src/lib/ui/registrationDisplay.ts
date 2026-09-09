@@ -56,6 +56,7 @@ export function registrationDisplayRecord(
     teamId: cleanText(record.teamId),
     teamName: cleanText(record.teamName),
     status: cleanText(record.status),
+    paymentStatus: cleanText(record.paymentStatus),
     date,
   };
 }
