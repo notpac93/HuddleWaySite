@@ -16,6 +16,10 @@
       }
     ],
     "rewrites": [
+      {
+        "source": "/.well-known/huddleway-crm-release.json",
+        "destination": "/huddleway-crm-release.json"
+      },
       { "source": "/admin/**", "destination": "/admin/index.html" }
     ]
   }
