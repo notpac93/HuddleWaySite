@@ -86,6 +86,7 @@
   let commandGeneration = 0;
 
   let draftRecipientEmail = '';
+  let draftPaymentProvider: 'stripe' | 'paypal' = 'stripe';
   let draftRecipientName = '';
   let draftTitle = '';
   let draftMemo = '';
@@ -158,6 +159,7 @@
 
     if (createMode) {
       draftRecipientEmail = '';
+      draftPaymentProvider = 'stripe';
       draftRecipientName = '';
       draftTitle = '';
       draftMemo = '';
@@ -191,6 +193,12 @@
       '90_plus_days': 'More than 90 days overdue',
     };
     return labels[bucket] || humanizeStatus(value);
+  }
+
+  function processorLabel(value: unknown) {
+    return String(value || '').trim().toLowerCase() === 'paypal'
+      ? 'PayPal'
+      : 'Stripe';
   }
 
   function close() {
@@ -258,7 +266,7 @@
       const reconciled = await backendClient.reconcileDirectInvoice(
         requestedTenantId,
         requestedInvoiceId,
-        'Refresh authoritative Stripe totals before viewing this legacy invoice.',
+        'Refresh authoritative processor totals before viewing this legacy invoice.',
       );
       if (
         generation !== ledgerGeneration
@@ -283,7 +291,7 @@
       ledgerState = 'error';
       ledgerError = errorMessage(
         error,
-        'Stripe totals could not be reconciled safely. Refunds remain disabled until the provider record is complete.',
+        'Processor totals could not be reconciled safely. Refunds remain disabled until the provider record is complete.',
       );
     }
   }
@@ -403,7 +411,7 @@
     if (!currency) return 'Amount impact unavailable because the authoritative currency is missing.';
     const amount = formatMinorUnits(parseMajorUnitInput(amountInput), currency);
     if (operation === 'issue') {
-      return 'Stripe will finalize this draft, create a hosted payment link, and email the recipient. The invoice can no longer be edited.';
+      return `${processorLabel(directInvoice?.paymentProvider)} will finalize this draft and create a hosted payment link. HuddleWay will email the recipient, and the invoice can no longer be edited.`;
     }
     if (operation === 'remind') {
       return 'A new payment reminder will be emailed using the existing hosted invoice link. No balance or payment status will change.';
@@ -412,10 +420,10 @@
       return `${amount} will be recorded as ${paymentMethod.replace('_', ' ')} received outside the processor. The invoice balance will decrease after server reconciliation.`;
     }
     if (operation === 'invoice_refund') {
-      return `${amount} will be requested from Stripe. The original payment remains in the ledger and the invoice may enter partial-refund or refund reconciliation.`;
+      return `${amount} will be requested from ${processorLabel(directInvoice?.paymentProvider)}. The original payment remains in the ledger and the invoice may enter partial-refund or refund reconciliation.`;
     }
     if (operation === 'core_refund') {
-      return `${amount} will be requested from Stripe. A dispute, if present, remains a separate processor case and is not closed by this refund.`;
+      return `${amount} will be requested from ${processorLabel((row.original as FinanceRecord).paymentProvider)}. A dispute, if present, remains a separate processor case and is not closed by this refund.`;
     }
     return 'The invoice will be voided and its remaining balance set to zero. This cannot be reversed.';
   }
@@ -645,6 +653,7 @@
     const draftPayload = {
       tenantId,
       auditReason: 'Created an invoice draft from the Operations Portal.',
+      paymentProvider: draftPaymentProvider,
       recipientEmail: draftRecipientEmail.trim().toLowerCase(),
       recipientName: draftRecipientName.trim() || undefined,
       title: draftTitle.trim(),
@@ -767,6 +776,15 @@
           </div>
 
           <div>
+            <label for="invoice-payment-provider" class="crm-ui-label-strong">Payment provider</label>
+            <select id="invoice-payment-provider" bind:value={draftPaymentProvider} class="crm-ui-input">
+              <option value="stripe">Stripe</option>
+              <option value="paypal">PayPal</option>
+            </select>
+            <p class="crm-ui-hint">PayPal issuance is allowed only when this organization’s verified seller has current Invoicing permissions.</p>
+          </div>
+
+          <div>
             <label for="invoice-title" class="crm-ui-label-strong">Invoice title</label>
             <input id="invoice-title" bind:value={draftTitle} maxlength="160" required class="crm-ui-input" />
           </div>
@@ -875,6 +893,7 @@
           <div class="mt-5 space-y-5">
             <dl class="divide-y divide-gray-100 rounded-lg border border-gray-200 text-sm">
               <div class="crm-ui-detail-row"><dt class="text-gray-500">Recipient</dt><dd class="crm-ui-detail-value">{directInvoice.recipientName || 'Name unavailable'}<span class="block text-gray-600">{directInvoice.recipientEmail || 'Email unavailable'}</span></dd></div>
+              <div class="crm-ui-detail-row"><dt class="text-gray-500">Payment provider</dt><dd class="crm-ui-detail-value">{directInvoice.paymentProvider === 'paypal' ? 'PayPal' : 'Stripe'}</dd></div>
               <div class="crm-ui-detail-row"><dt class="text-gray-500">Created</dt><dd class="crm-ui-detail-value">{dateLabel(directInvoice.createdAt)}</dd></div>
               <div class="crm-ui-detail-row"><dt class="text-gray-500">Due</dt><dd class="crm-ui-detail-value">{dateLabel(directInvoice.dueAt)} · {agingLabel(directInvoice.agingBucket)}</dd></div>
               <div class="crm-ui-detail-row"><dt class="text-gray-500">Activity</dt><dd class="crm-ui-detail-value">{directInvoice.reminderCount} reminders · {directInvoice.manualPaymentCount} manual payments · {directInvoice.refundCount} refunds</dd></div>
@@ -922,7 +941,7 @@
                 <div class="crm-ui-danger mt-2" role="alert">{ledgerError}</div>
               {:else if ledger && ledger.events.length + ledger.payments.length + ledger.refunds.length > 0}
                 {#if ledger.providerAccounting}
-                  <dl class="mt-2 grid gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm sm:grid-cols-2" aria-label="Stripe-authoritative accounting">
+                  <dl class="mt-2 grid gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm sm:grid-cols-2" aria-label={`${processorLabel(directInvoice.paymentProvider)}-authoritative accounting`}>
                     <div><dt class="text-gray-500">Charge gross</dt><dd class="font-semibold">{formatMinorUnits(ledger.providerAccounting.chargeGrossCents, ledger.providerAccounting.currency)}</dd></div>
                     <div><dt class="text-gray-500">Processor fees</dt><dd class="font-semibold">{formatMinorUnits(ledger.providerAccounting.chargeFeeCents, ledger.providerAccounting.currency)}</dd></div>
                     <div><dt class="text-gray-500">Charge net</dt><dd class="font-semibold">{formatMinorUnits(ledger.providerAccounting.chargeNetCents, ledger.providerAccounting.currency)}</dd></div>

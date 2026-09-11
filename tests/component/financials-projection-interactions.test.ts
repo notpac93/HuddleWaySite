@@ -134,6 +134,8 @@ function invoice(
     hostedInvoiceUrl: `https://invoice.example.test/${id}`,
     invoicePdfUrl: null,
     stripeInvoiceId: `stripe-${id}`,
+    paypalInvoiceId: null,
+    paymentProvider: "stripe",
     reminderCount: 0,
     manualPaymentCount: 0,
     refundCount: 0,

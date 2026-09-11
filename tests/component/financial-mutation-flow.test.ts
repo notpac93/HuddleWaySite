@@ -71,6 +71,8 @@ function invoice(
     hostedInvoiceUrl: 'https://invoice.example.test/one',
     invoicePdfUrl: null,
     stripeInvoiceId: 'in_fixture',
+    paypalInvoiceId: null,
+    paymentProvider: 'stripe',
     reminderCount: 0,
     manualPaymentCount: 0,
     refundCount: 0,
@@ -186,7 +188,7 @@ describe('financial mutation drawer', () => {
     expect(backendMocks.reconcileDirectInvoice).toHaveBeenCalledWith(
       'fixture-tenant',
       'invoice-1',
-      expect.stringContaining('Stripe totals'),
+      expect.stringContaining('processor totals'),
     );
     expect(backendMocks.directInvoiceLedger).toHaveBeenCalledWith(
       'fixture-tenant',
@@ -666,6 +668,55 @@ describe('financial mutation drawer', () => {
         'invoice_refund-invoice-1:',
       ),
     });
+  });
+
+  it('presents PayPal invoice accounting and refund impact without Stripe copy', async () => {
+    const record = invoice({
+      paymentProvider: 'paypal',
+      stripeInvoiceId: null,
+      paypalInvoiceId: 'INV2-PAYPAL',
+      status: 'paid',
+      amountPaidCents: 12_500,
+      amountDueCents: 0,
+    });
+    backendMocks.directInvoiceLedger.mockResolvedValue({
+      ...ledger(record),
+      payments: [{
+        id: 'CAPTURE1',
+        type: 'provider_payment',
+        status: 'succeeded',
+        amountCents: 12_500,
+        currency: 'USD',
+      }],
+      providerAccounting: {
+        source: 'paypal_capture',
+        currency: 'USD',
+        chargeGrossCents: 12_500,
+        chargeFeeCents: 500,
+        chargeNetCents: 12_000,
+        refundGrossCents: 0,
+        refundFeeCents: 0,
+        refundNetCents: 0,
+        settledNetCents: 12_000,
+      },
+    });
+    render(TestedTransactionDetails, {
+      open: true,
+      row: invoiceRow(record),
+      createMode: false,
+      tenantId: 'fixture-tenant',
+      ownerAuthorized: true,
+    });
+
+    expect(
+      await screen.findByLabelText('PayPal-authoritative accounting'),
+    ).toBeInTheDocument();
+    await fireEvent.click(
+      screen.getByRole('button', { name: 'Refund invoice payment' }),
+    );
+    expect(screen.getByText(/\$125\.00 will be requested from PayPal/i))
+      .toBeInTheDocument();
+    expect(screen.queryByText(/requested from Stripe/i)).not.toBeInTheDocument();
   });
 
   it('submits a core transaction refund without treating a dispute as resolved', async () => {

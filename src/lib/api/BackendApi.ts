@@ -128,6 +128,8 @@ export interface DirectInvoiceRecord {
   hostedInvoiceUrl: string | null;
   invoicePdfUrl: string | null;
   stripeInvoiceId: string | null;
+  paypalInvoiceId: string | null;
+  paymentProvider: "stripe" | "paypal";
   reminderCount: number;
   manualPaymentCount: number;
   refundCount: number;
@@ -139,7 +141,7 @@ export interface DirectInvoiceRecord {
 }
 
 export interface DirectInvoiceProviderAccounting {
-  source: "stripe_balance_transactions";
+  source: "stripe_balance_transactions" | "paypal_capture";
   currency: string;
   chargeGrossCents: number;
   chargeFeeCents: number;
@@ -154,7 +156,10 @@ function validDirectInvoiceProviderAccounting(
   value: DirectInvoiceProviderAccounting | null,
 ) {
   if (value === null) return true;
-  if (!value || value.source !== "stripe_balance_transactions") return false;
+  if (
+    !value ||
+    !["stripe_balance_transactions", "paypal_capture"].includes(value.source)
+  ) return false;
   const fields = [
     value.chargeGrossCents,
     value.chargeFeeCents,
@@ -308,6 +313,7 @@ export interface OnboardingBootstrapResult {
 export interface DirectInvoiceDraft {
   tenantId: string;
   auditReason: string;
+  paymentProvider?: "stripe" | "paypal";
   recipientUid?: string;
   recipientEmail?: string;
   recipientName?: string;
@@ -922,6 +928,11 @@ function directInvoiceFromEnvelope(
   expectedInvoiceId?: string,
 ) {
   const invoice = payload.invoice as Partial<DirectInvoiceRecord> | undefined;
+  if (invoice && typeof invoice === "object") {
+    invoice.paymentProvider =
+      invoice.paymentProvider === "paypal" ? "paypal" : "stripe";
+    invoice.paypalInvoiceId = invoice.paypalInvoiceId || null;
+  }
   const minorUnitFields: Array<keyof DirectInvoiceRecord> = [
     "subtotalCents",
     "discountCents",
@@ -943,6 +954,7 @@ function directInvoiceFromEnvelope(
     (expectedInvoiceId && invoice.id !== expectedInvoiceId) ||
     !String(invoice.invoiceNumber || "").trim() ||
     !String(invoice.status || "").trim() ||
+    !["stripe", "paypal"].includes(String(invoice.paymentProvider || "")) ||
     !String(payload.requestId || "").trim() ||
     !/^[A-Z]{3}$/.test(String(invoice.currency || "")) ||
     !Array.isArray(invoice.lineItems) ||

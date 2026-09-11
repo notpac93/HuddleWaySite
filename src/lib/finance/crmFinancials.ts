@@ -276,7 +276,7 @@ export function directInvoiceActions(
   const refundEnabled =
     ['paid', 'partially_refunded'].includes(status)
     && refundableCents > 0
-    && Boolean(invoice.stripeInvoiceId)
+    && Boolean(invoice.stripeInvoiceId || invoice.paypalInvoiceId)
     && !requiresReconciliation;
   const voidEnabled = [
     'draft',
@@ -308,7 +308,7 @@ export function directInvoiceActions(
       reason: refundEnabled
         ? ''
         : requiresReconciliation
-          ? 'Refresh Stripe totals before refunding this legacy invoice.'
+          ? 'Refresh processor totals before refunding this legacy invoice.'
           : 'Processor refunds require a reconciled paid invoice with a refundable balance.',
     },
     void: {

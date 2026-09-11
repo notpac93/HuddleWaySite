@@ -51,6 +51,8 @@ function invoice(
     hostedInvoiceUrl: 'https://invoice.example.test/one',
     invoicePdfUrl: null,
     stripeInvoiceId: 'in_fixture',
+    paypalInvoiceId: null,
+    paymentProvider: 'stripe',
     reminderCount: 0,
     manualPaymentCount: 0,
     refundCount: 0,
@@ -166,6 +168,19 @@ describe('CRM financial view-model contracts', () => {
     expect(paid.refundableCents).toBe(10_000);
     expect(paid.manualPayment.enabled).toBe(false);
     expect(paid.void.enabled).toBe(false);
+
+    const paypalPaid = directInvoiceActions(
+      invoice({
+        paymentProvider: 'paypal',
+        stripeInvoiceId: null,
+        paypalInvoiceId: 'INV2-PAYPAL',
+        status: 'paid',
+        amountPaidCents: 12_500,
+        amountDueCents: 0,
+      }),
+    );
+    expect(paypalPaid.refund.enabled).toBe(true);
+    expect(paypalPaid.refundableCents).toBe(12_500);
   });
 
   it('reconciles payout totals and detects missing or divergent membership', () => {
