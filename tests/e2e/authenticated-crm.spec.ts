@@ -189,6 +189,26 @@ async function mockAuthenticatedBackend(page: Page, tenantId: string) {
     });
   });
 
+  await page.route('**/admin/crm/tenant-branding**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        schemaVersion: 'crm_tenant_branding_v1',
+        tenantId,
+        exists: true,
+        branding: {
+          name: 'Fixture Athletics',
+          logoUrl: null,
+          primaryColor: '',
+          secondaryColor: '',
+          tertiaryColor: '',
+        },
+        requestId: 'e2e-tenant-branding',
+      }),
+    });
+  });
+
   await page.route('**/admin/crm/operational-records**', async (route) => {
     const url = new URL(route.request().url());
     const collection = url.searchParams.get('collection') || '';
