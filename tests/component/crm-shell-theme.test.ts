@@ -3,46 +3,27 @@ import type { Component } from 'svelte';
 import type { Writable } from 'svelte/store';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-type BrandingSubscription = {
-  tenantId: string;
-  next: (snapshot: any) => void;
-  error: (reason: unknown) => void;
-  unsubscribe: ReturnType<typeof vi.fn>;
-};
+const mocks = vi.hoisted(() => ({ crmTenantBranding: vi.fn() }));
 
-const subscriptions: BrandingSubscription[] = [];
+vi.mock('../../src/lib/firebase', () => ({
+  auth: {},
+  firebaseEnvironment: { config: { projectId: 'huddleway-dev' } },
+}));
 
-vi.mock('../../src/lib/firebase', () => ({ auth: {}, db: {} }));
+vi.mock('../../src/lib/api/backendClient', () => ({
+  backendClient: { crmTenantBranding: mocks.crmTenantBranding },
+}));
 
 vi.mock('../../src/lib/authStore', async () => {
   const { writable } = await import('svelte/store');
   return {
     tenantIdStore: writable<string | null>(null),
     availableTenants: writable<string[]>([]),
+    tenantNamesStore: writable<Record<string, string>>({}),
   };
 });
 
 vi.mock('firebase/auth', () => ({ signOut: vi.fn() }));
-
-vi.mock('firebase/firestore', () => ({
-  doc: vi.fn((_db: unknown, _collection: string, tenantId: string) => ({
-    tenantId,
-  })),
-  onSnapshot: vi.fn((
-    reference: { tenantId: string },
-    next: (snapshot: any) => void,
-    error: (reason: unknown) => void,
-  ) => {
-    const unsubscribe = vi.fn();
-    subscriptions.push({
-      tenantId: reference.tenantId,
-      next,
-      error,
-      unsubscribe,
-    });
-    return unsubscribe;
-  }),
-}));
 
 import { tenantIdStore } from '../../src/lib/authStore';
 import CrmShellSearchHarness from '../fixtures/CrmShellSearchHarness.svelte';
@@ -50,8 +31,21 @@ import CrmShellSearchHarness from '../fixtures/CrmShellSearchHarness.svelte';
 const TestedHarness = CrmShellSearchHarness as unknown as Component;
 const tenants = tenantIdStore as Writable<string | null>;
 
-function brandingSnapshot(data: Record<string, unknown>) {
-  return { exists: () => true, data: () => data };
+function brandingResponse(data: Record<string, unknown>) {
+  return {
+    schemaVersion: 'crm_tenant_branding_v1',
+    tenantId: 'tenant-a',
+    exists: true,
+    branding: {
+      name: '',
+      logoUrl: null,
+      primaryColor: '',
+      secondaryColor: '',
+      tertiaryColor: '',
+      ...data,
+    },
+    requestId: 'branding-request',
+  };
 }
 
 function themeRoot(container: HTMLElement) {
@@ -62,28 +56,23 @@ function themeRoot(container: HTMLElement) {
 
 describe('CRM shell tenant theme lifecycle', () => {
   beforeEach(() => {
-    subscriptions.length = 0;
+    mocks.crmTenantBranding.mockReset();
     tenants.set(null);
   });
 
   it('starts with HuddleWay colors and applies a tenant snapshot', async () => {
+    mocks.crmTenantBranding.mockResolvedValue(brandingResponse({
+      name: 'Alpha League',
+      primaryColor: '#112233',
+      secondaryColor: '#445566',
+      tertiaryColor: '#DDEEFF',
+    }));
     tenants.set('tenant-a');
     const { container } = render(TestedHarness);
 
-    await waitFor(() => expect(subscriptions).toHaveLength(1));
     const root = themeRoot(container);
-    expect(root.style.getPropertyValue('--crm-brand-primary')).toBe('#003366');
-
-    await act(() => {
-      subscriptions[0].next(brandingSnapshot({
-        name: 'Alpha League',
-        primaryColor: '#112233',
-        secondaryColor: '#445566',
-        tertiaryColor: '#DDEEFF',
-      }));
-    });
-
     await waitFor(() => {
+      expect(mocks.crmTenantBranding).toHaveBeenCalledWith('tenant-a');
       expect(root.style.getPropertyValue('--crm-brand-primary')).toBe('#112233');
       expect(root.style.getPropertyValue('--crm-brand-secondary')).toBe('#445566');
       expect(root).toHaveAttribute('data-branding-state', 'ready');
@@ -91,54 +80,49 @@ describe('CRM shell tenant theme lifecycle', () => {
   });
 
   it('resets on tenant switch and ignores the previous tenant callback', async () => {
+    let resolveTenantA: (value: ReturnType<typeof brandingResponse>) => void = () => {};
+    mocks.crmTenantBranding.mockImplementation((tenantId: string) => {
+      if (tenantId === 'tenant-a') {
+        return new Promise((resolve) => { resolveTenantA = resolve; });
+      }
+      return Promise.resolve({
+        ...brandingResponse({
+          primaryColor: '#0000AA',
+          secondaryColor: '#FFFF00',
+          tertiaryColor: '#FFFFFF',
+        }),
+        tenantId: 'tenant-b',
+      });
+    });
     tenants.set('tenant-a');
     const { container } = render(TestedHarness);
-    await waitFor(() => expect(subscriptions).toHaveLength(1));
     const root = themeRoot(container);
-
-    await act(() => {
-      subscriptions[0].next(brandingSnapshot({ primaryColor: '#AA0000' }));
-    });
-    await waitFor(() =>
-      expect(root.style.getPropertyValue('--crm-brand-primary')).toBe('#AA0000'));
+    await waitFor(() => expect(mocks.crmTenantBranding).toHaveBeenCalledWith('tenant-a'));
 
     tenants.set('tenant-b');
-    await waitFor(() => expect(subscriptions).toHaveLength(2));
-    expect(subscriptions[0].unsubscribe).toHaveBeenCalledTimes(1);
-    expect(root.style.getPropertyValue('--crm-brand-primary')).toBe('#003366');
-
-    await act(() => {
-      subscriptions[0].next(brandingSnapshot({ primaryColor: '#00AA00' }));
-    });
-    expect(root.style.getPropertyValue('--crm-brand-primary')).toBe('#003366');
-
-    await act(() => {
-      subscriptions[1].next(brandingSnapshot({
-        primaryColor: '#0000AA',
-        secondaryColor: '#FFFF00',
-        tertiaryColor: '#FFFFFF',
-      }));
-    });
     await waitFor(() =>
       expect(root.style.getPropertyValue('--crm-brand-primary')).toBe('#0000AA'));
+    await act(() => resolveTenantA(brandingResponse({ primaryColor: '#AA0000' })));
+    expect(root.style.getPropertyValue('--crm-brand-primary')).toBe('#0000AA');
   });
 
   it('falls back for a missing or failed branding document', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
+    mocks.crmTenantBranding
+      .mockResolvedValueOnce({
+        ...brandingResponse({}),
+        exists: false,
+        branding: null,
+      })
+      .mockRejectedValueOnce({ status: 403 });
     tenants.set('tenant-a');
     const { container } = render(TestedHarness);
-    await waitFor(() => expect(subscriptions).toHaveLength(1));
     const root = themeRoot(container);
 
-    await act(() => {
-      subscriptions[0].next({ exists: () => false });
-    });
     await waitFor(() => expect(root).toHaveAttribute('data-branding-state', 'missing'));
     expect(root.style.getPropertyValue('--crm-brand-primary')).toBe('#003366');
 
-    await act(() => {
-      subscriptions[0].error({ code: 'permission-denied' });
-    });
+    tenants.set('tenant-b');
     await waitFor(() => expect(root).toHaveAttribute('data-branding-state', 'permission'));
     expect(root.style.getPropertyValue('--crm-brand-primary')).toBe('#003366');
   });

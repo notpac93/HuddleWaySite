@@ -30,10 +30,6 @@ const semanticUtilityExceptions = new Map<string, {
     reason: 'blue panels and links explain role impact and pending-invite actions',
     utilities: new Set(['border-blue-200', 'bg-blue-50', 'text-blue-950', 'text-blue-700', 'hover:text-blue-900']),
   }],
-  ['src/components/crm/Financials.svelte', {
-    reason: 'blue panels are informational financial notices',
-    utilities: new Set(['border-blue-200', 'bg-blue-50', 'text-blue-950']),
-  }],
   ['src/components/crm/GlobalDashboard.svelte', {
     reason: 'blue panel communicates read-only viewer information',
     utilities: new Set(['border-blue-200', 'bg-blue-50', 'text-blue-900']),
@@ -49,10 +45,6 @@ const semanticUtilityExceptions = new Map<string, {
   ['src/components/crm/TenantOperations.svelte', {
     reason: 'blue labels distinguish development from red production environments',
     utilities: new Set(['bg-blue-100', 'text-blue-700', 'text-blue-800']),
-  }],
-  ['src/components/crm/TransactionDetails.svelte', {
-    reason: 'blue panels are informational transaction notices',
-    utilities: new Set(['border-blue-200', 'bg-blue-50', 'text-blue-950']),
   }],
   ['src/components/crm/billing/BillingPackagesWorkspace.svelte', {
     reason: 'blue panel is an informational package configuration notice',

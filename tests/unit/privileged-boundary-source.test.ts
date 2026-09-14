@@ -29,7 +29,6 @@ describe('privileged CRM browser boundary', () => {
     'components/crm/StaffManager.svelte',
     'components/crm/roster/ImportCsv.svelte',
     'components/crm/roster/PlayerTable.svelte',
-    'components/crm/TransactionDetails.svelte',
     'components/crm/ActivityManager.svelte',
   ])('%s does not directly mutate Firestore', (relativePath) => {
     expect(source(relativePath)).not.toMatch(browserWritePattern);
@@ -83,10 +82,7 @@ describe('privileged CRM browser boundary', () => {
   });
 
   it('does not call legacy environment URLs from privileged controls', () => {
-    for (const relativePath of [
-      'components/crm/InviteStaffModal.svelte',
-      'components/crm/TransactionDetails.svelte',
-    ]) {
+    for (const relativePath of ['components/crm/InviteStaffModal.svelte']) {
       const componentSource = source(relativePath);
       expect(componentSource).not.toContain('VITE_API_URL');
       expect(componentSource).not.toMatch(/\bfetch\s*\(/);

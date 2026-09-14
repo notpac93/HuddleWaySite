@@ -1,29 +1,96 @@
-import { fireEvent, render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import type { Component } from 'svelte';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../src/components/crm/Financials.svelte', async () => ({
-  default: (await import('../fixtures/FinancialsFixture.svelte')).default,
+const mocks = vi.hoisted(() => ({
+  financialOverview: vi.fn(),
+  billingPackages: vi.fn().mockResolvedValue([]),
 }));
-vi.mock('../../src/components/crm/billing/BillingPackagesWorkspace.svelte', async () => ({
-  default: (await import('../fixtures/BillingPackagesFixture.svelte')).default,
+vi.mock('../../src/lib/authStore', async () => {
+  const { writable } = await import('svelte/store');
+  return {
+    tenantIdStore: writable('tenant-a'),
+    activeTenantRole: writable('owner'),
+  };
+});
+vi.mock('../../src/lib/api/backendClient', () => ({ backendClient: mocks }));
+vi.mock('../../src/lib/api/BillingOperationsApi', () => ({
+  billingOperationsApi: mocks,
 }));
+vi.mock('../../src/lib/services/DataStore', async () => {
+  const { writable } = await import('svelte/store');
+  return { seasonsStore: writable([]), teamsStore: writable([]) };
+});
 
 import FinancialOperationsWorkspace from '../../src/components/crm/FinancialOperationsWorkspace.svelte';
+import { activeTenantRole } from '../../src/lib/authStore';
+import type { Writable } from 'svelte/store';
 
 const Tested = FinancialOperationsWorkspace as unknown as Component;
+const roles = activeTenantRole as Writable<'owner' | 'editor' | null>;
 
-describe('FinancialOperationsWorkspace', () => {
-  it('makes the complete financial record workspace and payment setup reachable', async () => {
-    render(Tested, { activeTeam: { id: 'team-a', name: '12U Gold' } });
+function overview(complete = true) {
+  return {
+    operations: {
+      complete,
+      generatedAt: '2026-08-27T12:00:00.000Z',
+      timeZone: 'America/Los_Angeles',
+      reconciliation: {
+        complete: true,
+        unreconciledTransactionCount: 0,
+        unreconciledDepositCount: 0,
+        currencyIntegrityErrorCount: 0,
+      },
+      views: {
+        deposits: [{
+          key: 'opaque-1',
+          kind: 'deposit',
+          label: 'Bank deposit',
+          context: 'August program fees',
+          amountCents: 12345,
+          currency: 'USD',
+          status: 'paid',
+          statusLabel: 'Paid',
+          date: '2026-08-26',
+          dateLabel: 'Aug 26, 2026',
+          detail: '',
+        }],
+        transactions: [],
+        scheduled: [],
+        overdue: [],
+        invoices: [],
+      },
+    },
+  };
+}
 
-    expect(screen.getByRole('navigation', { name: 'Financial workspace' })).toBeVisible();
-    expect(screen.getByText(/Financial records fixture/)).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Financial records' })).toHaveAttribute('aria-pressed', 'true');
+describe('dedicated CRM financial operations', () => {
+  beforeEach(() => {
+    mocks.financialOverview.mockReset().mockResolvedValue(overview());
+    mocks.billingPackages.mockResolvedValue([]);
+    roles.set('owner');
+  });
 
+  it('shows human finance rows without exposing opaque identifiers', async () => {
+    render(Tested);
+    expect(await screen.findByText('Bank deposit')).toBeVisible();
+    expect(screen.getAllByText('$123.45')).toHaveLength(2);
+    expect(screen.queryByText('opaque-1')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Export this view' })).toBeEnabled();
+  });
+
+  it('does not fetch owner finance data for an editor', async () => {
+    roles.set('editor');
+    render(Tested);
+    expect(await screen.findByText('Owner permission required')).toBeVisible();
+    await waitFor(() => expect(mocks.financialOverview).not.toHaveBeenCalled());
+  });
+
+  it('switches to payment setup without mixing it into ledger rows', async () => {
+    render(Tested);
+    await screen.findByText('Bank deposit');
     await fireEvent.click(screen.getByRole('button', { name: 'Payment setup' }));
-    expect(screen.getByText('Payment setup fixture')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Payment setup' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.queryByText(/Financial records fixture/)).toBeNull();
+    expect(await screen.findByRole('heading', { name: 'Payment setup' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Add payment setup' })).toBeVisible();
   });
 });

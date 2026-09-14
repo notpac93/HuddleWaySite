@@ -1,8 +1,14 @@
 # CRM Financial Launch Scope
 
 Decision date: 2026-07-26
-Decision status: accepted implementation boundary for this release
+Decision status: retired website UI contract as of 2026-09-03
 Canonical backend: `/Users/kennygrimblejr./HuddleWay`
+
+> Historical record: the `Financials`, `FinancialPeriodManager`, and
+> `TransactionDetails` browser components described below were removed from
+> the website. They are not retained as a runtime fallback. The current CRM
+> uses the authenticated compact financial-operations projection and the
+> separate Payment Setup experience.
 
 ## Decision
 

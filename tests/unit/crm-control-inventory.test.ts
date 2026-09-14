@@ -8,7 +8,7 @@ const nativeControls = new Set(['button', 'a', 'input', 'select', 'textarea']);
 
 const reviewedControlCounts: Record<string, number> = {
   'ActivityManager.svelte': 14,
-  'CommunicationsManager.svelte': 38,
+  'CommunicationsManager.svelte': 40,
   'ConsumerAdminInbox.svelte': 10,
   'CrmApp.svelte': 3,
   'CrmBreadcrumbs.svelte': 1,
@@ -16,21 +16,31 @@ const reviewedControlCounts: Record<string, number> = {
   'DataTable.svelte': 12,
   'DocumentsManager.svelte': 14,
   'EventScheduler.svelte': 18,
-  'FinancialOperationsWorkspace.svelte': 2,
-  'FinancialPeriodManager.svelte': 14,
-  'Financials.svelte': 31,
+  'FinancialOperationsWorkspace.svelte': 6,
   'GlobalDashboard.svelte': 10,
   'GlobalSearch.svelte': 5,
   'InviteStaffModal.svelte': 6,
   'Login.svelte': 15,
   'MediaManager.svelte': 28,
-  'MyAppStudio.svelte': 20,
+  'MyAppStudio.svelte': 4,
   'SettingsManager.svelte': 12,
   'SetupWorkflow.svelte': 11,
   'StaffManager.svelte': 20,
   'TeamsManager.svelte': 14,
   'TenantOperations.svelte': 10,
-  'TransactionDetails.svelte': 36,
+  'app-studio/BrandingControls.svelte': 7,
+  'app-studio/BrandingPanel.svelte': 1,
+  'app-studio/ComponentEditor.svelte': 9,
+  'app-studio/ComponentLibrary.svelte': 3,
+  'app-studio/ComponentLayoutHistory.svelte': 3,
+  'app-studio/ComponentOutline.svelte': 4,
+  'app-studio/ComponentPublishReview.svelte': 4,
+  'app-studio/ComponentThumbnail.svelte': 0,
+  'app-studio/ComponentsStudio.svelte': 6,
+  'app-studio/NavigationPanel.svelte': 4,
+  'app-studio/VersionHistoryPanel.svelte': 2,
+  'app-studio/StructuredCollectionEditor.svelte': 7,
+  'app/AppPreviewFrame.svelte': 1,
   'app/AppPublishReview.svelte': 4,
   'messages/AnnouncementPublishReview.svelte': 4,
   'billing/BillingPackagesWorkspace.svelte': 21,
@@ -66,7 +76,7 @@ const reviewedControlCounts: Record<string, number> = {
   'ui/EmptyState.svelte': 2,
   'ui/FilterBar.svelte': 2,
   'ui/Icon.svelte': 0,
-  'ui/ImageFilePicker.svelte': 1,
+  'ui/ImageFilePicker.svelte': 2,
   'ui/LoadingState.svelte': 0,
   'ui/PageHeader.svelte': 0,
   'ui/PortalExperienceCatalog.svelte': 5,
@@ -138,7 +148,7 @@ describe('exhaustive CRM control inventory', () => {
     );
 
     expect(actual).toEqual(reviewedControlCounts);
-    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(648);
+    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(609);
   });
 
   it('keeps every inventoried CRM component reachable from a production entry point', () => {

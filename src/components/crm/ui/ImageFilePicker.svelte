@@ -12,6 +12,8 @@
   export let selectedFile: File | null = null;
   export let validationMessage = '';
   export let disabled = false;
+  export let compact = false;
+  export let buttonLabel = 'Choose image';
 
   let selectedPreviewUrl = '';
 
@@ -47,7 +49,45 @@
   onDestroy(releasePreview);
 </script>
 
-<div class="space-y-2">
+<div class:space-y-2={!compact}>
+  {#if compact}
+    <div class="flex min-w-0 items-center gap-4">
+      <div class="h-20 w-24 shrink-0 overflow-hidden rounded-lg border border-gray-300 bg-slate-900">
+        {#if previewUrl}
+          <img
+            src={previewUrl}
+            alt={previewAlt}
+            width="640"
+            height="288"
+            decoding="async"
+            class="crm-ui-cover"
+          />
+        {:else}
+          <div class="flex h-full w-full items-center justify-center px-2 text-center text-xs text-gray-400">No image</div>
+        {/if}
+      </div>
+      <div class="min-w-0 flex-1">
+        <input
+          id={inputId}
+          type="file"
+          accept={IMAGE_FILE_ACCEPT}
+          {disabled}
+          on:change={handleFileChange}
+          class="sr-only"
+        />
+        <label
+          for={inputId}
+          aria-disabled={disabled}
+          class="crm-ui-button-secondary inline-flex max-w-full cursor-pointer items-center justify-center whitespace-nowrap px-4 py-2 text-sm font-semibold"
+          class:pointer-events-none={disabled}
+          class:opacity-50={disabled}
+        >{buttonLabel}</label>
+        {#if selectedFile && !validationMessage}
+          <p class="mt-2 truncate text-xs font-medium text-gray-700">{selectedFile.name}</p>
+        {/if}
+      </div>
+    </div>
+  {:else}
   <label for={inputId} class="crm-ui-label-caps">{label}</label>
   <div class="flex items-center gap-4">
     <div class="h-20 w-24 shrink-0 overflow-hidden rounded-lg border border-gray-300 bg-slate-900">
@@ -79,6 +119,7 @@
       {/if}
     </div>
   </div>
+  {/if}
   {#if validationMessage}
     <p class="text-sm text-red-700" role="alert">{validationMessage}</p>
   {/if}

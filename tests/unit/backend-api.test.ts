@@ -392,6 +392,45 @@ describe('BackendApi', () => {
     });
   });
 
+  it('publishes a verified branding logo for the selected tenant', async () => {
+    const reservationId = `image_upload_${'d'.repeat(40)}`;
+    const publicUrl = `https://api.example.test/public/media/fixture-tenant/${reservationId}`;
+    const fetchMock = vi.fn().mockResolvedValueOnce(response(200, {
+      success: true,
+      tenantId: 'fixture-tenant',
+      reservationId,
+      publicationId: reservationId,
+      resourceType: 'branding_logo',
+      resourceIds: ['fixture-tenant'],
+      status: 'published',
+      isVisible: true,
+      publicUrl,
+      idempotentReplay: false,
+      operationId: 'branding-logo-publish',
+      requestId: 'branding-logo-request',
+    }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+    });
+
+    await expect(api.publishBrandingLogo(
+      'fixture-tenant',
+      reservationId,
+      'Publish reviewed branding logo.',
+      'branding-logo:stable',
+    )).resolves.toMatchObject({ publicUrl, resourceType: 'branding_logo' });
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      tenantId: 'fixture-tenant',
+      resourceType: 'branding_logo',
+      resourceIds: ['fixture-tenant'],
+      auditReason: 'Publish reviewed branding logo.',
+      idempotencyKey: 'branding-logo:stable',
+    });
+  });
+
   it('publishes and manages reusable media through audited backend contracts', async () => {
     const reservationId = `image_upload_${'c'.repeat(40)}`;
     const fetchMock = vi
@@ -1237,6 +1276,64 @@ describe('BackendApi', () => {
     expect(fetchMock.mock.calls[1][1].headers['Idempotency-Key']).toBe(
       'app-configuration:stable',
     );
+  });
+
+  it('loads and publishes a tenant-scoped component studio layout', async () => {
+    const pages = [{
+      id: 'home_page', title: 'Home', headline: '', subheader: '', route: '/',
+      isVisible: true, status: 'published',
+      components: [{
+        id: 'home_hero_1', definitionId: 'home_hero', definitionVersion: 3,
+        type: 'hero_section', label: 'Home Hero', enabled: true,
+        presetId: null, starterContentReviewKey: null, isVisible: true,
+        status: 'draft', content: { headline: 'Welcome' },
+      }],
+    }];
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response(200, {
+        tenantId: 'fixture-tenant', templateId: 'huddleway_base_v1',
+        templateVersion: 4, versionToken: 'layout-before',
+        definitions: [{
+          id: 'home_hero', type: 'hero_section', label: 'Home Hero',
+          category: 'Welcome', definitionVersion: 3, repeatable: false,
+          fields: [{ id: 'headline', type: 'text', required: true }],
+          defaultContent: { headline: 'Welcome' }, presets: [],
+          previewSpec: { title: 'Home Hero', description: '', highlights: [] },
+        }],
+        pages,
+        requestId: 'component-studio-read',
+      }))
+      .mockResolvedValueOnce(response(200, {
+        success: true, operationId: 'component-layout-operation',
+        idempotentReplay: false, requestId: 'component-layout-publish',
+      }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'token',
+    });
+
+    await expect(api.componentStudio('fixture-tenant')).resolves.toMatchObject({
+      tenantId: 'fixture-tenant', versionToken: 'layout-before',
+    });
+    await expect(api.publishPageLayout('fixture-tenant', {
+      templateId: 'huddleway_base_v1', templateVersion: 4,
+      expectedVersionToken: 'layout-before', pages,
+      stalePageIds: [], staleComponentIds: [],
+    }, 'Publish reviewed component layout.', 'component-layout:stable'))
+      .resolves.toMatchObject({ operationId: 'component-layout-operation' });
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      'https://api.example.test/admin/crm/component-studio?tenantId=fixture-tenant',
+    );
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
+      tenantId: 'fixture-tenant',
+      action: 'page_layout.publish_full',
+      resourceId: 'huddleway_base_v1',
+      data: {
+        expectedVersionToken: 'layout-before',
+        pages: [{ components: [expect.not.objectContaining({ status: 'draft' })] }],
+      },
+    });
   });
 
   it('loads and validates retained app-configuration history', async () => {
@@ -2250,5 +2347,37 @@ describe('BackendApi', () => {
       'invoice-1',
       'void',
     )).rejects.toMatchObject(expectedError);
+  });
+
+  it('resumes Stripe Connect through the credentialed protected handoff', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response(200, {
+      onboardingUrl: 'https://connect.stripe.example/onboarding',
+      requestId: 'stripe-refresh-request',
+    }));
+    const api = new BackendApi({
+      baseUrl: 'https://api.example.test',
+      fetch: fetchMock,
+      getIdToken: async () => 'owner-token',
+      getAppCheckToken: async () => 'app-check-token',
+      requireAppCheck: true,
+    });
+
+    await expect(api.stripeConnectRefresh('opaque-stage-handoff')).resolves.toMatchObject({
+      onboardingUrl: 'https://connect.stripe.example/onboarding',
+    });
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      'https://api.example.test/stripe/connect/refresh',
+    );
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({
+      method: 'POST',
+      credentials: 'include',
+      headers: expect.objectContaining({
+        Authorization: 'Bearer owner-token',
+        'X-Firebase-AppCheck': 'app-check-token',
+      }),
+    });
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
+      handoff: 'opaque-stage-handoff',
+    });
   });
 });

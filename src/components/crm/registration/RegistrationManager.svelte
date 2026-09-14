@@ -354,7 +354,7 @@
           Needs Review ({lifecycleCounts['Needs Review']})
         </button>
       </nav>
-      {#if activeTab === 'Needs Review'}<p class="py-3 text-sm text-amber-800">Needs Review contains legacy or unsupported lifecycle records that must be checked before editing or publishing.</p>{/if}
+      {#if activeTab === 'Needs Review'}<p class="py-3 text-sm text-amber-800">These records must be checked before editing or publishing.</p>{/if}
     </div>
 
     <!-- Toolbar -->

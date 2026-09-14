@@ -26,12 +26,16 @@ describe('CRM interaction hardening source evidence', () => {
 
   it('names app-tab toggles and exposes their current pressed state', () => {
     const studio = source('MyAppStudio.svelte');
+    const navigation = source('app-studio/NavigationPanel.svelte');
 
-    expect(studio).toContain(
+    expect(navigation).toContain(
       "`${tab.enabled ? 'Hide' : 'Show'} ${permanentTabName(tab)} tab`",
     );
-    expect(studio).toContain('aria-pressed={tab.enabled}');
-    expect(studio).not.toContain('Route: {tab.route}');
+    expect(navigation).toContain('aria-pressed={tab.enabled}');
+    expect(navigation).not.toContain('Route: {tab.route}');
+    expect(studio).toContain(
+      'class="pointer-events-none absolute inset-0 opacity-5"',
+    );
   });
 
   it('keeps every CRM modal panel above its backdrop', () => {

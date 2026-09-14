@@ -22,6 +22,7 @@ const appMocks = vi.hoisted(() => ({
   appConfiguration: vi.fn(),
   appConfigurationHistory: vi.fn(),
   publishAppConfiguration: vi.fn(),
+  publishBrandingLogo: vi.fn(),
   uploadImageAsset: vi.fn(),
 }));
 
@@ -210,6 +211,36 @@ async function findTenantPreview(name: string) {
   return screen.getByTitle(`${name} mobile app preview`);
 }
 
+function previewResponse(
+  preview: HTMLIFrameElement,
+  type: 'huddleway.crm.preview.ready' | 'huddleway.crm.preview.applied',
+  revision?: number,
+) {
+  const url = new URL(preview.src);
+  return {
+    type,
+    protocolVersion: 1,
+    tenantId: url.searchParams.get('forcedTenant'),
+    environment: process.env.PUBLIC_APP_PREVIEW_ENVIRONMENT || 'dev',
+    sessionId: url.searchParams.get('previewSession'),
+    nonce: url.searchParams.get('previewNonce'),
+    sourceCommit: process.env.PUBLIC_APP_PREVIEW_COMMIT || 'local-unattested',
+    releaseId: process.env.PUBLIC_APP_PREVIEW_RELEASE_ID || 'local-unattested',
+    ...(revision ? { revision } : {}),
+  };
+}
+
+function dispatchPreviewResponse(
+  preview: HTMLIFrameElement,
+  payload: ReturnType<typeof previewResponse>,
+) {
+  window.dispatchEvent(new MessageEvent('message', {
+    origin: previewOrigin,
+    source: preview.contentWindow,
+    data: JSON.stringify(payload),
+  }));
+}
+
 async function reviewAndPublish(buttonName: 'Publish App' | 'Retry Publish' = 'Publish App') {
   await fireEvent.click(screen.getByRole('button', { name: buttonName }));
   const review = await screen.findByRole('dialog', { name: 'Review family app publication' });
@@ -251,15 +282,54 @@ describe('MyAppStudio tenant preview isolation', () => {
       },
     );
     appMocks.uploadImageAsset.mockReset();
+    appMocks.uploadImageAsset.mockResolvedValue({
+      reservationId: 'image_upload_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    });
+    appMocks.publishBrandingLogo.mockReset();
+    appMocks.publishBrandingLogo.mockResolvedValue({
+      publicUrl: 'https://api.stage.example.test/public/media/tenant-a/image_upload_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    });
   });
 
-  it('fails closed when logo publication has no approved private-media contract', async () => {
+  it('shows a compact, usable logo chooser without unavailable-state copy', async () => {
     render(TestedMyAppStudio);
-    expect(await screen.findByLabelText('Logo')).toBeDisabled();
-    expect(screen.getByText(/Last published .* by HuddleWay Demo Admin/)).toBeVisible();
-    expect(screen.getByText(/Logo replacement is temporarily unavailable/)).toBeVisible();
+    expect(await screen.findByLabelText('Change logo')).toBeEnabled();
+    expect(screen.queryByText(/Last published/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Published · v/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Logo replacement is temporarily unavailable/)).not.toBeInTheDocument();
     expect(appMocks.uploadImageAsset).not.toHaveBeenCalled();
     expect(appMocks.publishAppConfiguration).not.toHaveBeenCalled();
+  });
+
+  it('uploads and publishes a selected logo before publishing app configuration', async () => {
+    render(TestedMyAppStudio);
+    const logo = new File(['logo-bytes'], 'new-logo.png', { type: 'image/png' });
+    await fireEvent.change(await screen.findByLabelText('Change logo'), {
+      target: { files: [logo] },
+    });
+
+    await reviewAndPublish();
+
+    await waitFor(() => expect(appMocks.uploadImageAsset).toHaveBeenCalledWith(
+      'tenant-a',
+      logo,
+      'branding-logo',
+      expect.stringContaining(':logo-upload'),
+    ));
+    expect(appMocks.publishBrandingLogo).toHaveBeenCalledWith(
+      'tenant-a',
+      'image_upload_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      expect.stringContaining('organization logo'),
+      expect.stringContaining(':logo-publish'),
+    );
+    expect(appMocks.publishAppConfiguration).toHaveBeenCalledWith(
+      'tenant-a',
+      expect.objectContaining({
+        logoUrl: expect.stringContaining('/public/media/tenant-a/'),
+      }),
+      expect.any(String),
+      expect.any(String),
+    );
   });
 
   it('rebuilds the Flutter preview URL when the selected tenant changes', async () => {
@@ -287,6 +357,10 @@ describe('MyAppStudio tenant preview isolation', () => {
     const postMessage = vi.spyOn(preview.contentWindow!, 'postMessage');
 
     await fireEvent.load(preview);
+    dispatchPreviewResponse(
+      preview,
+      previewResponse(preview, 'huddleway.crm.preview.ready'),
+    );
     await fireEvent.input(screen.getByLabelText('App Name'), {
       target: { value: 'Alpha League Draft' },
     });
@@ -438,14 +512,10 @@ describe('MyAppStudio tenant preview isolation', () => {
     const preview = await findTenantPreview('Alpha League') as HTMLIFrameElement;
     const postMessage = vi.spyOn(preview.contentWindow!, 'postMessage');
 
-    window.dispatchEvent(new MessageEvent('message', {
-      origin: previewOrigin,
-      source: preview.contentWindow,
-      data: JSON.stringify({
-        type: 'huddleway.crm.preview.ready',
-        tenantId: 'tenant-a',
-      }),
-    }));
+    dispatchPreviewResponse(
+      preview,
+      previewResponse(preview, 'huddleway.crm.preview.ready'),
+    );
 
     await waitFor(() => {
       expect(postMessage).toHaveBeenCalledWith(
@@ -454,15 +524,20 @@ describe('MyAppStudio tenant preview isolation', () => {
       );
     });
 
-    window.dispatchEvent(new MessageEvent('message', {
-      origin: previewOrigin,
-      source: preview.contentWindow,
-      data: JSON.stringify({
-        type: 'huddleway.crm.preview.applied',
-        tenantId: 'tenant-a',
-      }),
-    }));
-    expect(await screen.findByText(/375 × 812 · Synced/)).toBeVisible();
+    const sentPayload = JSON.parse(String(postMessage.mock.calls.at(-1)?.[0]));
+    dispatchPreviewResponse(
+      preview,
+      previewResponse(
+        preview,
+        'huddleway.crm.preview.applied',
+        sentPayload.revision,
+      ),
+    );
+    await waitFor(() => {
+      expect(screen.queryByText('Verifying the exact consumer app…')).not.toBeInTheDocument();
+    });
+    expect(screen.queryByText(/Live consumer app/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Draft synced/)).not.toBeInTheDocument();
   });
 
   it('locks the reviewed configuration, publishes once, and verifies readback', async () => {

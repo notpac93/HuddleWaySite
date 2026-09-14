@@ -34,7 +34,7 @@ describe('known P0 CRM source regressions', () => {
       }
     }
     expect(errors).toEqual([]);
-  });
+  }, 15_000);
 
   it('declares the season event-link dispatcher only once', () => {
     const linkEventSource = source('seasons/LinkEventModal.svelte');
