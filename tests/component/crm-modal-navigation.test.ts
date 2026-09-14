@@ -34,6 +34,21 @@ vi.mock("../../src/lib/authStore", async () => {
   };
 });
 
+vi.mock("../../src/lib/api/backendClient", () => ({
+  backendClient: {
+    crmTenantBranding: vi.fn(async (tenantId: string) => ({
+      exists: true,
+      branding: {
+        name: tenantId === "tenant-b" ? "Bravo Club" : "Alpha Club",
+        logoUrl: null,
+        primaryColor: null,
+        secondaryColor: null,
+        tertiaryColor: null,
+      },
+    })),
+  },
+}));
+
 vi.mock("../../src/lib/services/DataStore", async () => {
   const { writable } = await import("svelte/store");
   return {
@@ -256,7 +271,7 @@ describe("CRM modal stacking and navigation", () => {
       screen.getByRole("button", { name: "Open navigation menu" }),
     );
     const mobileNavigationForSignOut = screen.getByRole("dialog", {
-      name: "HuddleWay",
+      name: "Bravo Club",
     });
     await fireEvent.click(
       within(mobileNavigationForSignOut).getByRole("button", {

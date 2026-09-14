@@ -2,9 +2,9 @@
   import type { Component } from 'svelte';
   import { onDestroy, onMount, tick } from 'svelte';
   import { get } from 'svelte/store';
-  import { auth, db } from '../../lib/firebase';
+  import { auth } from '../../lib/firebase';
   import { signOut } from 'firebase/auth';
-  import { doc, onSnapshot } from 'firebase/firestore';
+  import { backendClient } from '../../lib/api/backendClient';
   import {
     tenantIdStore,
     availableTenants,
@@ -107,7 +107,6 @@
   let resolvedLogoUrl = defaultLogoUrl;
   let brandingState: 'idle' | 'ready' | 'missing' | 'error' | 'permission' = 'idle';
   let brandingMessage = '';
-  let unsubscribeBranding = () => {};
   let unsubscribeTenant = () => {};
   let brandingGeneration = 0;
   let themeTokens = buildCrmThemeTokens(null);
@@ -117,7 +116,6 @@
   onDestroy(() => {
     brandingGeneration += 1;
     unsubscribeTenant();
-    unsubscribeBranding();
   });
 
   function resetBranding() {
@@ -159,53 +157,51 @@
 
   $: resolvedLogoUrl = resolveLogoUrl(logoUrl);
 
-  function subscribeToTenantBranding(tenantId: string | null) {
+  async function loadTenantBranding(tenantId: string | null) {
     const generation = beginBrandingRequest();
-    unsubscribeBranding();
-    unsubscribeBranding = () => {};
     resetBranding();
     brandingState = 'idle';
     brandingMessage = '';
     if (tenantId) {
-      unsubscribeBranding = onSnapshot(
-        doc(db, 'tenant_branding', tenantId),
-        (docSnap) => {
-          if (!isCurrentBrandingRequest(generation, tenantId)) return;
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-            appName = data.name || 'Organization name unavailable';
-            logoUrl = data.logoUrl || null;
-            themeTokens = buildCrmThemeTokens({
-              primary: data.primaryColor,
-              secondary: data.secondaryColor,
-              tertiary: data.tertiaryColor,
-            });
-            brandingState = 'ready';
-          } else {
-            resetBranding();
-            brandingState = 'missing';
-            brandingMessage = 'No organization branding has been configured.';
-          }
-        },
-        (error) => {
-          if (!isCurrentBrandingRequest(generation, tenantId)) return;
-          console.error('Organization branding could not be loaded.');
+      appName = get(tenantNamesStore)[tenantId] || 'HuddleWay';
+      try {
+        const snapshot = await backendClient.crmTenantBranding(tenantId);
+        if (!isCurrentBrandingRequest(generation, tenantId)) return;
+        if (snapshot.exists && snapshot.branding) {
+          const data = snapshot.branding;
+          appName = data.name || 'Organization name unavailable';
+          logoUrl = data.logoUrl || null;
+          themeTokens = buildCrmThemeTokens({
+            primary: data.primaryColor,
+            secondary: data.secondaryColor,
+            tertiary: data.tertiaryColor,
+          });
+          brandingState = 'ready';
+        } else {
           resetBranding();
-          appName = 'Organization name unavailable';
-          const code = String((error as { code?: unknown })?.code || '');
-          brandingState = code.includes('permission-denied') ? 'permission' : 'error';
-          brandingMessage = brandingState === 'permission'
-            ? 'You do not have permission to load organization branding.'
-            : 'Organization branding could not be loaded.';
-        },
-      );
+          brandingState = 'missing';
+          brandingMessage = 'No organization branding has been configured.';
+        }
+      } catch (error) {
+        if (!isCurrentBrandingRequest(generation, tenantId)) return;
+        console.error('Organization branding could not be loaded.');
+        resetBranding();
+        appName = get(tenantNamesStore)[tenantId] || 'HuddleWay';
+        const status = Number((error as { status?: unknown })?.status || 0);
+        brandingState = status === 401 || status === 403 ? 'permission' : 'error';
+        brandingMessage = brandingState === 'permission'
+          ? 'You do not have permission to load organization branding.'
+          : 'Organization branding could not be loaded.';
+      }
     }
   }
 
   // Subscribe imperatively so branding state changes cannot retrigger the
   // tenant lifecycle. Only an actual tenant-store emission starts a new
   // generation, which keeps current snapshot callbacks valid.
-  unsubscribeTenant = tenantIdStore.subscribe(subscribeToTenantBranding);
+  unsubscribeTenant = tenantIdStore.subscribe((tenantId) => {
+    void loadTenantBranding(tenantId);
+  });
 
   function performActiveTabChange(tab: any) {
     activeResultId = null;

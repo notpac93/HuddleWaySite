@@ -1,9 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { db } from '../../lib/firebase';
-  import {
-    collection, documentId, limit, onSnapshot, orderBy, query, where,
-  } from 'firebase/firestore';
+  import { onDestroy } from 'svelte';
   import { activeTenantRole, tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
   import { BackendApiError, createIdempotencyKey } from '../../lib/api/BackendApi';
@@ -13,14 +9,13 @@
   import EmptyState from './ui/EmptyState.svelte';
 
   type MediaFile = {
-    id: string; name: string | null; url: string; storagePath: string;
+    id: string; name: string | null; url: string;
     category: string | null; purpose: string | null; altText: string | null;
     createdAt: Date | null; sizeBytes: number | null; contentType: string | null;
     width: number | null; height: number | null; uploadedBy: string | null;
   };
 
   let mediaFiles: MediaFile[] = [];
-  let unsubscribe = () => {};
   let activeCategory = 'All';
   const baseCategories = ['All', 'Logos', 'Banners', 'Flyers', 'Uncategorized'];
   let searchQuery = '';
@@ -65,57 +60,63 @@
       .some((value) => String(value || '').toLowerCase().includes(normalizedQuery)));
   });
 
-  $: {
-    if ($tenantIdStore) {
-      const tenantId = $tenantIdStore;
-      const generation = ++loadGeneration;
-      unsubscribe();
-      mediaFiles = [];
-      mediaTruncated = false;
-      mediaLoadState = 'loading';
-      mediaLoadMessage = '';
-      const q = query(collection(db, 'program_images'), where('tenantId', '==', tenantId), orderBy(documentId(), 'asc'), limit(MEDIA_LIMIT + 1));
-      unsubscribe = onSnapshot(q, (snapshot) => {
+  function recordDate(value: unknown) {
+    const date = new Date(String(value || ''));
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  async function loadMedia(tenantId: string) {
+    const generation = ++loadGeneration;
+    mediaFiles = [];
+    mediaTruncated = false;
+    mediaLoadState = tenantId ? 'loading' : 'idle';
+    mediaLoadMessage = '';
+    if (!tenantId) return;
+    try {
+      const records: Array<Record<string, unknown> & { id: string }> = [];
+      let cursor: string | undefined;
+      do {
+        const page = await backendClient.crmOperationalPage(
+          tenantId,
+          'program_images',
+          { limit: MEDIA_LIMIT + 1, cursor },
+        );
         if (generation !== loadGeneration || $tenantIdStore !== tenantId) return;
-        const activeDocs = snapshot.docs.filter((entry) => entry.data().isActive !== false);
-        mediaTruncated = activeDocs.length > MEDIA_LIMIT;
-        mediaFiles = activeDocs.slice(0, MEDIA_LIMIT).map((entry) => {
-          const data = entry.data();
-          const size = Number(data.sizeBytes ?? data.size);
-          return {
-            id: entry.id,
-            name: typeof (data.fileName || data.name) === 'string' && String(data.fileName || data.name).trim() ? String(data.fileName || data.name).trim() : null,
-            url: String(data.imageUrl || data.url || ''),
-            storagePath: String(data.storagePath || ''),
-            category: typeof data.category === 'string' && data.category.trim() ? data.category.trim() : null,
-            purpose: typeof data.purpose === 'string' && data.purpose.trim() ? data.purpose.trim() : null,
-            altText: typeof data.altText === 'string' && data.altText.trim() ? data.altText.trim() : null,
-            createdAt: data.uploadedAt?.toDate ? data.uploadedAt.toDate() : (data.createdAt?.toDate ? data.createdAt.toDate() : null),
-            sizeBytes: Number.isFinite(size) ? size : null,
-            contentType: typeof data.contentType === 'string' ? data.contentType : null,
-            width: Number.isFinite(Number(data.width)) ? Number(data.width) : null,
-            height: Number.isFinite(Number(data.height)) ? Number(data.height) : null,
-            uploadedBy: typeof data.uploadedBy === 'string' ? data.uploadedBy : null,
-          };
-        });
-        mediaLoadState = 'ready';
-      }, () => {
-        if (generation !== loadGeneration || $tenantIdStore !== tenantId) return;
-        console.error('Media files could not be loaded.');
-        mediaFiles = [];
-        mediaLoadState = 'error';
-        mediaLoadMessage = 'Media files could not be loaded. Check your access and try again.';
+        records.push(...page.records);
+        cursor = page.hasMore ? page.nextCursor || undefined : undefined;
+      } while (cursor && records.length <= MEDIA_LIMIT);
+      const activeRecords = records.filter((data) => data.isActive !== false);
+      mediaTruncated = activeRecords.length > MEDIA_LIMIT || Boolean(cursor);
+      mediaFiles = activeRecords.slice(0, MEDIA_LIMIT).map((data) => {
+        const size = Number(data.sizeBytes ?? data.size);
+        const name = String(data.fileName || data.name || '').trim();
+        return {
+          id: data.id,
+          name: name || null,
+          url: String(data.imageUrl || data.url || ''),
+          category: String(data.category || '').trim() || null,
+          purpose: String(data.purpose || '').trim() || null,
+          altText: String(data.altText || '').trim() || null,
+          createdAt: recordDate(data.uploadedAt || data.createdAt),
+          sizeBytes: Number.isFinite(size) ? size : null,
+          contentType: String(data.contentType || '').trim() || null,
+          width: Number.isFinite(Number(data.width)) ? Number(data.width) : null,
+          height: Number.isFinite(Number(data.height)) ? Number(data.height) : null,
+          uploadedBy: String(data.uploadedBy || '').trim() || null,
+        };
       });
-    } else {
-      loadGeneration += 1;
-      unsubscribe();
+      mediaLoadState = 'ready';
+    } catch {
+      if (generation !== loadGeneration || $tenantIdStore !== tenantId) return;
+      console.error('Media files could not be loaded.');
       mediaFiles = [];
-      mediaLoadState = 'idle';
-      mediaLoadMessage = '';
+      mediaLoadState = 'error';
+      mediaLoadMessage = 'Media files could not be loaded. Check your access and try again.';
     }
   }
 
-  onMount(() => () => { loadGeneration += 1; unsubscribe(); });
+  $: void loadMedia(String($tenantIdStore || ''));
+  onDestroy(() => { loadGeneration += 1; });
 
   function safeMediaUrl(value: string) {
     try { const parsed = new URL(value); return parsed.protocol === 'https:' ? parsed.toString() : ''; } catch { return ''; }
@@ -168,6 +169,7 @@
         `${uploadKey}:publish`,
       );
       operationMessage = `Uploaded ${uploadFile.name} to the reusable program library.`;
+      await loadMedia(tenantId);
       uploadState = 'idle';
       closeUpload();
     } catch (error) {
@@ -208,6 +210,7 @@
         ? `Categorized ${succeeded} asset${succeeded === 1 ? '' : 's'}; ${failedIds.length} could not be updated and remain selected for retry.`
         : `Categorized ${succeeded} asset${succeeded === 1 ? '' : 's'} as ${bulkCategory}.`;
       selectedIds = failedIds;
+      await loadMedia(String($tenantIdStore || ''));
     } catch { operationMessage = 'Selected assets could not be categorized.'; }
   }
   async function saveMetadata() {
@@ -226,6 +229,7 @@
         createIdempotencyKey('program-media-update'),
       );
       operationMessage = 'Asset metadata updated.';
+      await loadMedia(String($tenantIdStore || ''));
     } catch { operationMessage = 'Asset metadata could not be updated.'; }
   }
   async function copyUrl() {
@@ -245,6 +249,7 @@
       );
       operationMessage = 'Asset archived and removed from the active library.';
       selected = null; deleteState = 'idle'; deleteReason = '';
+      await loadMedia(String($tenantIdStore || ''));
     } catch { deleteState = 'error'; operationMessage = 'Asset removal failed. Retry after checking your access.'; }
   }
 </script>

@@ -34,26 +34,6 @@ const mocks = vi.hoisted(() => ({
   sendMessageBatch: vi.fn(),
 }));
 
-vi.mock('firebase/firestore', () => ({
-  collection: vi.fn((...args: unknown[]) => ({ kind: 'collection', args })),
-  getDocs: mocks.getDocs,
-  limit: vi.fn((value: number) => ({ kind: 'limit', value })),
-  orderBy: vi.fn((field: string, direction: string) => ({
-    kind: 'orderBy',
-    field,
-    direction,
-  })),
-  query: vi.fn((...args: unknown[]) => ({ kind: 'query', args })),
-  where: vi.fn((field: string, operator: string, value: unknown) => ({
-    kind: 'where',
-    field,
-    operator,
-    value,
-  })),
-}));
-
-vi.mock('../../src/lib/firebase', () => ({ db: {} }));
-
 vi.mock('../../src/lib/authStore', async () => {
   const { writable } = await import('svelte/store');
   return { tenantIdStore: writable('tenant-a') };
@@ -62,6 +42,7 @@ vi.mock('../../src/lib/authStore', async () => {
 vi.mock('../../src/lib/api/backendClient', () => ({
   backendClient: {
     adminInboxThreads: mocks.adminInboxThreads,
+    crmOperationalPage: mocks.getDocs,
     replyAdminInbox: mocks.replyAdminInbox,
     recallMessage: mocks.recallMessage,
     announcementAudiencePreview: mocks.announcementAudiencePreview,
@@ -108,24 +89,21 @@ const tenants = tenantIdStore as Writable<string | null>;
 
 function messageSnapshot() {
   return {
-    docs: [{
+    records: [{
       id: 'message-1',
-      data: () => ({
-        authorName: 'Program Director',
-        subject: 'Practice update',
-        body: 'Practice starts at six.',
-        teamId: 'program',
-        isDeleted: false,
-        createdAt: {
-          toDate: () => new Date('2026-07-26T18:00:00.000Z'),
-        },
-      }),
+      authorName: 'Program Director',
+      subject: 'Practice update',
+      body: 'Practice starts at six.',
+      teamId: 'program',
+      createdAt: '2026-07-26T18:00:00.000Z',
     }],
+    hasMore: false,
+    nextCursor: null,
   };
 }
 
 function emptySnapshot() {
-  return { docs: [] };
+  return { records: [], hasMore: false, nextCursor: null };
 }
 
 function notificationSummary(overrides: Record<string, unknown> = {}) {

@@ -3,62 +3,16 @@ import type { Component } from 'svelte';
 import type { Writable } from 'svelte/store';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-type SnapshotObserver = {
-  next: (snapshot: { docs: Array<{ id: string; data: () => Record<string, unknown> }> }) => void;
-  error: (error: unknown) => void;
-};
-
-const firestoreMocks = vi.hoisted(() => ({
-  observers: [] as SnapshotObserver[],
-  unsubscribe: vi.fn(),
-}));
 const backendMocks = vi.hoisted(() => ({
+  crmOperationalPage: vi.fn(),
   uploadImageAsset: vi.fn(),
   publishProgramMedia: vi.fn(),
   updateMedia: vi.fn(),
   deleteMedia: vi.fn(),
 }));
 
-vi.mock('../../src/lib/firebase', () => ({ db: {}, firebaseApp: {} }));
 vi.mock('../../src/lib/api/backendClient', () => ({
   backendClient: backendMocks,
-}));
-vi.mock('firebase/firestore', () => ({
-  collection: vi.fn((_db: unknown, name: string) => ({ name })),
-  documentId: vi.fn(() => '__name__'),
-  limit: vi.fn((value: number) => ({ type: 'limit', value })),
-  orderBy: vi.fn((field: unknown, direction: string) => ({
-    type: 'orderBy',
-    field,
-    direction,
-  })),
-  query: vi.fn((...parts: unknown[]) => ({ parts })),
-  where: vi.fn((field: string, operation: string, value: unknown) => ({
-    type: 'where',
-    field,
-    operation,
-    value,
-  })),
-  onSnapshot: vi.fn(
-    (
-      _query: unknown,
-      next: SnapshotObserver['next'],
-      error: SnapshotObserver['error'],
-    ) => {
-      firestoreMocks.observers.push({ next, error });
-      return firestoreMocks.unsubscribe;
-    },
-  ),
-  doc: vi.fn((_db: unknown, collectionName: string, id: string) => ({ collectionName, id })),
-  setDoc: vi.fn(),
-  updateDoc: vi.fn(),
-  serverTimestamp: vi.fn(() => 'server-time'),
-}));
-vi.mock('firebase/storage', () => ({
-  deleteObject: vi.fn(),
-  getDownloadURL: vi.fn(),
-  ref: vi.fn(),
-  uploadBytes: vi.fn(),
 }));
 
 vi.mock('../../src/lib/authStore', async () => {
@@ -81,18 +35,14 @@ import MediaManager from '../../src/components/crm/MediaManager.svelte';
 const TestedMediaManager = MediaManager as unknown as Component;
 const tenants = tenantIdStore as Writable<string | null>;
 
-function document(
-  id: string,
-  data: Record<string, unknown>,
-): { id: string; data: () => Record<string, unknown> } {
-  return { id, data: () => data };
+function page(records: Array<Record<string, unknown> & { id: string }>) {
+  return { records, hasMore: false, nextCursor: null };
 }
 
 describe('MediaManager bounded tenant projection', () => {
   beforeEach(() => {
-    firestoreMocks.observers.length = 0;
-    firestoreMocks.unsubscribe.mockReset();
     Object.values(backendMocks).forEach((mock) => mock.mockReset());
+    backendMocks.crmOperationalPage.mockResolvedValue(page([]));
     backendMocks.updateMedia.mockResolvedValue({ success: true });
     backendMocks.deleteMedia.mockResolvedValue({ success: true });
     vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -104,27 +54,13 @@ describe('MediaManager bounded tenant projection', () => {
   });
 
   it('filters loaded records and rejects unsafe image URLs', async () => {
+    backendMocks.crmOperationalPage.mockResolvedValueOnce(page([
+      { id: 'logo-a', fileName: 'Falcons logo', imageUrl: 'https://cdn.example.test/logo.png', category: 'Logos', size: 20480 },
+      { id: 'unsafe-a', name: 'Untrusted banner', url: 'javascript:alert(1)', category: 'Banners' },
+      { id: 'uncategorized-a', url: '' },
+    ]));
     render(TestedMediaManager);
     expect(screen.getByRole('status')).toHaveTextContent('Loading media files');
-
-    firestoreMocks.observers.at(-1)?.next({
-      docs: [
-        document('logo-a', {
-          fileName: 'Falcons logo',
-          imageUrl: 'https://cdn.example.test/logo.png',
-          category: 'Logos',
-          size: '20 KB',
-        }),
-        document('unsafe-a', {
-          name: 'Untrusted banner',
-          url: 'javascript:alert(1)',
-          category: 'Banners',
-        }),
-        document('uncategorized-a', {
-          url: '',
-        }),
-      ],
-    });
 
     expect(await screen.findByText('Falcons logo')).toBeVisible();
     const unsafeCard = screen.getByText('Untrusted banner').closest('.group');
@@ -143,13 +79,10 @@ describe('MediaManager bounded tenant projection', () => {
   });
 
   it('replaces a failed remote preview with an explicit unavailable state', async () => {
+    backendMocks.crmOperationalPage.mockResolvedValueOnce(page([{
+      id: 'broken-a', fileName: 'Legacy banner.png', imageUrl: 'https://cdn.example.test/missing.png',
+    }]));
     render(TestedMediaManager);
-    firestoreMocks.observers.at(-1)?.next({
-      docs: [document('broken-a', {
-        fileName: 'Legacy banner.png',
-        imageUrl: 'https://cdn.example.test/missing.png',
-      })],
-    });
 
     const image = await screen.findByRole('img', { name: 'Legacy banner.png' });
     await fireEvent.error(image);
@@ -158,28 +91,19 @@ describe('MediaManager bounded tenant projection', () => {
   });
 
   it('marks a 101-record projection incomplete and ignores stale tenant callbacks', async () => {
+    let resolveTenantA: (value: ReturnType<typeof page>) => void = () => {};
+    const tenantARequest = new Promise<ReturnType<typeof page>>((resolve) => { resolveTenantA = resolve; });
+    backendMocks.crmOperationalPage.mockReturnValueOnce(tenantARequest);
+    backendMocks.crmOperationalPage.mockResolvedValueOnce(page(
+      Array.from({ length: 101 }, (_, index) => ({
+        id: `media-${index}`, name: `Tenant B image ${index}`, url: '', category: 'Logos',
+      })),
+    ));
     render(TestedMediaManager);
-    const tenantAObserver = firestoreMocks.observers.at(-1)!;
-
     tenants.set('tenant-b');
-    await waitFor(() => expect(firestoreMocks.observers).toHaveLength(2));
-    const tenantBObserver = firestoreMocks.observers.at(-1)!;
-    expect(firestoreMocks.unsubscribe).toHaveBeenCalled();
-
-    tenantAObserver.next({
-      docs: [document('stale', { name: 'Stale tenant image', url: '' })],
-    });
+    await waitFor(() => expect(backendMocks.crmOperationalPage).toHaveBeenCalledTimes(2));
+    resolveTenantA(page([{ id: 'stale', name: 'Stale tenant image', url: '' }]));
     expect(screen.queryByText('Stale tenant image')).toBeNull();
-
-    tenantBObserver.next({
-      docs: Array.from({ length: 101 }, (_, index) =>
-        document(`media-${index}`, {
-          name: `Tenant B image ${index}`,
-          url: '',
-          category: 'Logos',
-        }),
-      ),
-    });
     expect(
       await screen.findByText(/More than 100 image records exist/),
     ).toBeVisible();
@@ -188,12 +112,10 @@ describe('MediaManager bounded tenant projection', () => {
   });
 
   it('shows a safe error state and clears tenant data when scope disappears', async () => {
-    render(TestedMediaManager);
-    firestoreMocks.observers.at(-1)?.error(
-      Object.assign(new Error('raw permission detail'), {
-        code: 'permission-denied',
-      }),
+    backendMocks.crmOperationalPage.mockRejectedValueOnce(
+      Object.assign(new Error('raw permission detail'), { status: 403 }),
     );
+    render(TestedMediaManager);
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(
       'Media files could not be loaded. Check your access and try again.',
@@ -205,16 +127,11 @@ describe('MediaManager bounded tenant projection', () => {
   });
 
   it('keeps metadata changes and removal behind audited backend commands', async () => {
+    backendMocks.crmOperationalPage.mockResolvedValueOnce(page([{
+      id: 'banner-a', fileName: 'Original banner.png', imageUrl: 'https://cdn.example.test/banner.png',
+      category: 'Banners', purpose: 'Homepage banner', altText: 'Players entering the field',
+    }]));
     render(TestedMediaManager);
-    firestoreMocks.observers.at(-1)?.next({
-      docs: [document('banner-a', {
-        fileName: 'Original banner.png',
-        imageUrl: 'https://cdn.example.test/banner.png',
-        category: 'Banners',
-        purpose: 'Homepage banner',
-        altText: 'Players entering the field',
-      })],
-    });
 
     await fireEvent.click(
       await screen.findByRole('button', { name: 'Open details for Original banner.png' }),
@@ -271,7 +188,6 @@ describe('MediaManager bounded tenant projection', () => {
 
     try {
       render(TestedMediaManager);
-      firestoreMocks.observers.at(-1)?.next({ docs: [] });
       await fireEvent.click(screen.getAllByRole('button', { name: 'Upload image' })[0]);
       await fireEvent.change(screen.getByLabelText('Image'), {
         target: { files: [new File(['image'], 'uat-upload.png', { type: 'image/png' })] },
@@ -283,7 +199,9 @@ describe('MediaManager bounded tenant projection', () => {
       await fireEvent.click(screen.getByRole('button', { name: 'Upload to library' }));
 
       await waitFor(() => expect(backendMocks.publishProgramMedia).toHaveBeenCalledTimes(1));
-      expect(screen.queryByRole('dialog', { name: 'Review image upload' })).toBeNull();
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog', { name: 'Review image upload' })).toBeNull();
+      });
       expect(screen.getByRole('status')).toHaveTextContent('Uploaded uat-upload.png');
     } finally {
       vi.unstubAllGlobals();

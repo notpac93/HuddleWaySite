@@ -1,13 +1,5 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import {
-    collection,
-    getDocs,
-    orderBy,
-    query,
-    where,
-  } from 'firebase/firestore';
-  import { db } from '../../lib/firebase';
   import { tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
   import {
@@ -648,20 +640,26 @@
     loadError = '';
     loadRequestId = '';
     try {
-      const snapshot = await getDocs(query(
-        collection(db, 'board_messages'),
-        where('tenantId', '==', tenantId),
-        where('isDeleted', '==', false),
-        where('isSecret', '==', false),
-        orderBy('createdAt', 'desc'),
-      ));
+      const records: Array<Record<string, unknown> & { id: string }> = [];
+      let cursor: string | undefined;
+      do {
+        const page = await backendClient.crmOperationalPage(
+          tenantId,
+          'board_messages',
+          { limit: 100, cursor },
+        );
+        records.push(...page.records);
+        cursor = page.hasMore ? page.nextCursor || undefined : undefined;
+      } while (cursor);
       if (tenantId !== activeTenantId) return;
 
-      messages = snapshot.docs
-        .map((messageDoc) => {
-          const data = messageDoc.data();
+      messages = records
+        .map((data) => {
+          const createdAt = data.createdAt
+            ? new Date(String(data.createdAt))
+            : null;
           return {
-            id: messageDoc.id,
+            id: data.id,
             authorName:
               typeof data.authorName === 'string' && data.authorName.trim()
                 ? data.authorName.trim()
@@ -692,7 +690,9 @@
             seasonName: typeof data.seasonName === 'string' && data.seasonName.trim()
               ? data.seasonName.trim()
               : null,
-            createdAt: data.createdAt?.toDate?.() || null,
+            createdAt: createdAt && !Number.isNaN(createdAt.getTime())
+              ? createdAt
+              : null,
           };
         })
         .sort((a, b) => {

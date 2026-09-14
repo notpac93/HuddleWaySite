@@ -47,6 +47,17 @@ describe('privileged CRM browser boundary', () => {
     expect(violations).toEqual([]);
   });
 
+  it('keeps CRM tenant data reads behind backend authorization', () => {
+    const files = [
+      ...sourceFiles('components/crm'),
+      ...sourceFiles('lib/services'),
+    ];
+    const violations = files.filter((relativePath) =>
+      /firebase\/(?:firestore|storage)/.test(source(relativePath)),
+    );
+    expect(violations).toEqual([]);
+  });
+
   it('loads financial projections through the authenticated backend', () => {
     const dataStoreSource = source('lib/services/DataStore.ts');
 

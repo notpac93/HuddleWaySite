@@ -708,7 +708,9 @@ export interface ParticipantInstallmentAgreement {
 }
 
 export type CrmOperationalCollection =
+  | "board_messages"
   | "events"
+  | "program_images"
   | "registration_forms"
   | "registrations"
   | "season_registrations"
@@ -723,6 +725,20 @@ export interface CrmOperationalPage {
   hasMore: boolean;
   nextCursor: string | null;
   limit: number;
+  requestId: string;
+}
+
+export interface CrmTenantBranding {
+  schemaVersion: "crm_tenant_branding_v1";
+  tenantId: string;
+  exists: boolean;
+  branding: {
+    name: string;
+    logoUrl: string | null;
+    primaryColor: string;
+    secondaryColor: string;
+    tertiaryColor: string;
+  } | null;
   requestId: string;
 }
 
@@ -1454,6 +1470,34 @@ export class BackendApi {
       !Number.isSafeInteger(payload.limit) ||
       payload.limit < 1 ||
       !String(payload.requestId || "").trim()
+    ) {
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
+    }
+    return payload;
+  }
+
+  async crmTenantBranding(tenantId: string) {
+    const payload = await this.send<CrmTenantBranding>(
+      "/admin/crm/tenant-branding",
+      { query: { tenantId } },
+    );
+    assertTenantEnvelope(
+      payload as unknown as Record<string, unknown>,
+      tenantId,
+    );
+    const branding = payload.branding;
+    if (
+      payload.schemaVersion !== "crm_tenant_branding_v1" ||
+      typeof payload.exists !== "boolean" ||
+      !String(payload.requestId || "").trim() ||
+      (payload.exists !== (branding !== null)) ||
+      (branding !== null && (
+        typeof branding.name !== "string" ||
+        (branding.logoUrl !== null && typeof branding.logoUrl !== "string") ||
+        typeof branding.primaryColor !== "string" ||
+        typeof branding.secondaryColor !== "string" ||
+        typeof branding.tertiaryColor !== "string"
+      ))
     ) {
       invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
