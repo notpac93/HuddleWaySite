@@ -48,6 +48,7 @@
   let secondaryColor = '';
   let tertiaryColor = '';
   let appName = '';
+  let appStyle: 'light' | 'dark' | 'system' = 'system';
   let tabsConfig: NavigationTabDraft[] = [];
   let logoUrl = null;
   let logoFile: File | null = null;
@@ -61,6 +62,7 @@
   let configLoadMessage = '';
   let loadedConfigSignature = '';
   let publishMessage = '';
+  let publicationPending = false;
   let draftNotice = '';
   let publishRequestId = '';
   let publishIdempotencyKey = createIdempotencyKey('app-configuration-publish');
@@ -75,7 +77,7 @@
   let versionHistory: AppVersion[] = [];
   let versionHistoryState: 'idle' | 'loading' | 'ready' | 'error' = 'idle';
   let versionHistoryTruncated = false;
-  let brandingUndoSnapshot: Pick<CrmAppConfiguration, 'name' | 'primaryColor' | 'secondaryColor' | 'tertiaryColor'> | null = null;
+  let brandingUndoSnapshot: Pick<CrmAppConfiguration, 'name' | 'appStyle' | 'primaryColor' | 'secondaryColor' | 'tertiaryColor'> | null = null;
   let reviewChanges: string[] = [];
   let previewConfiguration: CrmAppConfiguration;
 
@@ -92,6 +94,7 @@
   function currentConfiguration(): CrmAppConfiguration {
     return {
       name: appName.trim(),
+      appStyle,
       primaryColor,
       secondaryColor,
       tertiaryColor,
@@ -114,6 +117,7 @@
 
   $: {
     appName;
+    appStyle;
     primaryColor;
     secondaryColor;
     tertiaryColor;
@@ -130,6 +134,7 @@
     );
   $: {
     appName;
+    appStyle;
     primaryColor;
     secondaryColor;
     tertiaryColor;
@@ -147,6 +152,7 @@
       configMode === 'initialize' ? null : loadedConfiguration,
       currentConfiguration(),
     );
+    if (publicationPending) reviewChanges = [...reviewChanges, 'Retry consumer publication of the saved configuration.'];
     if (logoFile) reviewChanges = [...reviewChanges, 'Logo replaced'];
   }
   $: selectedOrganizationName = $tenantNamesStore[activeTenantId]
@@ -159,7 +165,7 @@
     configLoadState === 'ready'
     && Boolean(configVersionToken)
     && configIsValid
-    && isDirty
+    && (isDirty || publicationPending)
     && submitState !== 'loading';
   $: currentAttemptSignature = JSON.stringify({
     tenantId: $tenantIdStore,
@@ -172,6 +178,7 @@
   });
   $: {
     appName;
+    appStyle;
     primaryColor;
     secondaryColor;
     tertiaryColor;
@@ -206,6 +213,8 @@
     secondaryColor = '';
     tertiaryColor = '';
     appName = '';
+    appStyle = 'system';
+    publicationPending = false;
     tabsConfig = [];
     logoUrl = null;
     logoFile = null;
@@ -292,6 +301,7 @@
   function discardLocalChanges() {
     if (loadedConfiguration) {
       appName = loadedConfiguration.name;
+      appStyle = loadedConfiguration.appStyle || 'system';
       primaryColor = loadedConfiguration.primaryColor;
       secondaryColor = loadedConfiguration.secondaryColor;
       tertiaryColor = loadedConfiguration.tertiaryColor;
@@ -303,14 +313,15 @@
   }
 
   function captureBrandingUndo() {
-    brandingUndoSnapshot = { name: appName, primaryColor, secondaryColor, tertiaryColor };
+    brandingUndoSnapshot = { name: appName, appStyle, primaryColor, secondaryColor, tertiaryColor };
   }
 
   function undoBrandingChange() {
     if (!brandingUndoSnapshot) return;
     const prior = brandingUndoSnapshot;
-    brandingUndoSnapshot = { name: appName, primaryColor, secondaryColor, tertiaryColor };
+    brandingUndoSnapshot = { name: appName, appStyle, primaryColor, secondaryColor, tertiaryColor };
     appName = prior.name;
+    appStyle = prior.appStyle || 'system';
     primaryColor = prior.primaryColor;
     secondaryColor = prior.secondaryColor;
     tertiaryColor = prior.tertiaryColor;
@@ -335,6 +346,7 @@
     captureBrandingUndo();
     const configuration = version.configuration;
     appName = configuration.name;
+    appStyle = configuration.appStyle || 'system';
     primaryColor = configuration.primaryColor;
     secondaryColor = configuration.secondaryColor;
     tertiaryColor = configuration.tertiaryColor;
@@ -360,6 +372,7 @@
     if (!savedDraft || savedDraft.versionToken !== configVersionToken) return;
     const configuration = savedDraft.configuration;
     appName = configuration.name;
+    appStyle = configuration.appStyle || 'system';
     primaryColor = configuration.primaryColor;
     secondaryColor = configuration.secondaryColor;
     tertiaryColor = configuration.tertiaryColor;
@@ -386,6 +399,7 @@
         secondaryColor = configuration.secondaryColor;
         tertiaryColor = configuration.tertiaryColor;
         appName = configuration.name;
+        appStyle = configuration.appStyle || 'system';
         logoUrl = configuration.logoUrl;
         tabsConfig = configuration.navigationTabs.map((tab) => ({ ...tab }));
         loadedConfigSignature = buildConfigSignature();
@@ -396,6 +410,7 @@
         secondaryColor = '';
         tertiaryColor = '';
         appName = '';
+        appStyle = 'system';
         logoUrl = null;
         // Defaults are offered only after the backend confirms initialize mode.
         tabsConfig = initialTabs.map((tab) => ({ ...tab }));
@@ -474,8 +489,11 @@
       publishAttemptSignature = buildAttemptSignature();
       publishIdempotencyKey =
         createIdempotencyKey('app-configuration-publish');
-      submitState = 'success';
-      publishMessage = 'App configuration published and reloaded from the server.';
+      publicationPending = result.publicationPending === true;
+      submitState = publicationPending ? 'error' : 'success';
+      publishMessage = publicationPending
+        ? 'Configuration saved. Consumer publication is pending. Publish again to retry.'
+        : 'App configuration published and reloaded from the server.';
       removeLocalDraft();
     } else {
       console.error('App configuration publish failed.');
@@ -584,6 +602,15 @@
             {#if activeTab === 'Branding'}
               <div class="space-y-6">
                 <div><h3 class="text-base font-semibold text-gray-950">Brand identity</h3><p class="mt-1 text-sm text-gray-600">Keep the essentials together. The preview updates as you type.</p></div>
+                <div class="rounded-xl border border-gray-200 p-4">
+                  <label for="app-appearance" class="block font-semibold">App appearance</label>
+                  <p class="text-sm text-gray-600">Choose Light, Dark, or follow each user's device with System. Publish to apply this to your program's app.</p>
+                  <select id="app-appearance" bind:value={appStyle} disabled={submitState === 'loading'} on:change={captureBrandingUndo} class="mt-2 rounded border p-2">
+                    <option value="system">System</option>
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                  </select>
+                </div>
                 <BrandingPanel bind:appName disabled={submitState === 'loading'} onCaptureUndo={captureBrandingUndo} />
                 <BrandingControls bind:primaryColor bind:secondaryColor bind:tertiaryColor bind:logoFile bind:logoValidationMessage {safeLogoPreviewUrl} disabled={submitState === 'loading'} canUndo={Boolean(brandingUndoSnapshot)} onCaptureUndo={captureBrandingUndo} onUndo={undoBrandingChange} />
               </div>

@@ -93,6 +93,7 @@ export function completeFiveTabSlots(tabs: NavigationTabDraft[]) {
 export function configurationSignature(configuration: CrmAppConfiguration) {
   return JSON.stringify({
     appName: configuration.name.trim(),
+    appStyle: configuration.appStyle || 'system',
     primaryColor: configuration.primaryColor.toLowerCase(),
     secondaryColor: configuration.secondaryColor.toLowerCase(),
     tertiaryColor: configuration.tertiaryColor.toLowerCase(),
@@ -109,6 +110,7 @@ export function validAppConfiguration(configuration: CrmAppConfiguration) {
     configuration.tertiaryColor,
   ];
   return (
+    ['light', 'dark', 'system'].includes(configuration.appStyle || 'system') &&
     configuration.name.trim().length > 0 &&
     configuration.name.trim().length <= 160 &&
     colors.every((color) => /^#[0-9a-fA-F]{6}$/.test(color)) &&

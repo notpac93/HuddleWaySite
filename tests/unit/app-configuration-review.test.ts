@@ -24,6 +24,7 @@ describe('app configuration publication review', () => {
     const changes = describeAppConfigurationChanges(baseline, {
       ...baseline,
       name: 'Falcons Club',
+      appStyle: 'dark',
       primaryColor: '#123456',
       navigationTabs: [
         { ...baseline.navigationTabs[0], label: 'Start' },
@@ -33,6 +34,7 @@ describe('app configuration publication review', () => {
     expect(changes).toEqual(expect.arrayContaining([
       'App name: “Falcons” → “Falcons Club”',
       'Primary color: #000000 → #123456',
+      'App appearance: system → dark',
       'Home tab label: “Home” → “Start”',
       'Hide Events in the family app.',
     ]));

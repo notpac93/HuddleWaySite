@@ -383,6 +383,7 @@ export type CrmRegistrationFormSectionInput = {
 };
 
 export type CrmAppConfiguration = {
+  appStyle?: 'light' | 'dark' | 'system';
   name: string;
   primaryColor: string;
   secondaryColor: string;
@@ -956,6 +957,7 @@ function isValidAppConfiguration(value: unknown): value is CrmAppConfiguration {
     typeof configuration === "object" &&
     String(configuration.name || "").trim() &&
     configuration.name.length <= 160 &&
+    (configuration.appStyle === undefined || ["light", "dark", "system"].includes(configuration.appStyle)) &&
     [
       configuration.primaryColor,
       configuration.secondaryColor,

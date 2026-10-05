@@ -18,6 +18,7 @@ type SnapshotSubscription = {
 };
 
 const snapshotSubscriptions: SnapshotSubscription[] = [];
+const configStyles = new Map<string, 'light' | 'dark' | 'system'>();
 const appMocks = vi.hoisted(() => ({
   appConfiguration: vi.fn(),
   appConfigurationHistory: vi.fn(),
@@ -106,6 +107,7 @@ function configurationSnapshot(tenantId: string) {
     publishedByLabel: 'HuddleWay Demo Admin',
     versionToken: `version-${tenantId}-${configNames.get(tenantId)}`,
     configuration: {
+      appStyle: configStyles.get(tenantId) || 'system',
       name: configNames.get(tenantId)
         || (tenantId === 'tenant-a' ? 'Alpha League' : 'Beta League'),
       primaryColor: '#112233',
@@ -257,6 +259,7 @@ describe('MyAppStudio tenant preview isolation', () => {
   beforeEach(() => {
     snapshotSubscriptions.length = 0;
     configNames.clear();
+    configStyles.clear();
     configLogos.clear();
     tenants.set('tenant-a');
     appMocks.appConfiguration.mockReset();
@@ -274,9 +277,10 @@ describe('MyAppStudio tenant preview isolation', () => {
     appMocks.publishAppConfiguration.mockImplementation(
       async (
         tenantId: string,
-        data: { name: string; logoUrl: string | null },
+        data: { name: string; logoUrl: string | null; appStyle?: 'light' | 'dark' | 'system' },
       ) => {
         configNames.set(tenantId, data.name);
+        configStyles.set(tenantId, data.appStyle || 'system');
         if (data.logoUrl) configLogos.set(tenantId, data.logoUrl);
         return publishResult();
       },
@@ -289,6 +293,35 @@ describe('MyAppStudio tenant preview isolation', () => {
     appMocks.publishBrandingLogo.mockResolvedValue({
       publicUrl: 'https://api.stage.example.test/public/media/tenant-a/image_upload_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     });
+  });
+
+  it('publishes appearance, reloads it, and resets it on tenant switch', async () => {
+    render(TestedMyAppStudio);
+    const select = await screen.findByLabelText('App appearance');
+    expect(select).toHaveValue('system');
+    await fireEvent.change(select, { target: { value: 'dark' } });
+    await reviewAndPublish();
+    await waitFor(() => expect(appMocks.publishAppConfiguration).toHaveBeenCalledWith(
+      'tenant-a', expect.objectContaining({ appStyle: 'dark' }), expect.any(String), expect.any(String),
+    ));
+    await screen.findByText('App configuration published and reloaded from the server.');
+    expect(screen.getByLabelText('App appearance')).toHaveValue('dark');
+    await act(() => tenants.set('tenant-b'));
+    await waitFor(() => expect(screen.getByLabelText('App appearance')).toHaveValue('system'));
+  });
+
+  it('offers a usable retry when consumer publication is deferred', async () => {
+    appMocks.publishAppConfiguration.mockImplementation(async (tenantId, data) => {
+      configStyles.set(tenantId, data.appStyle);
+      return { ...publishResult(), publicationSyncStatus: 'deferred' };
+    });
+    render(TestedMyAppStudio);
+    await fireEvent.change(await screen.findByLabelText('App appearance'), { target: { value: 'light' } });
+    await reviewAndPublish();
+    await screen.findByText(/Consumer publication is pending/);
+    expect(screen.getByRole('button', { name: 'Retry Publish' })).toBeEnabled();
+    await reviewAndPublish('Retry Publish');
+    await waitFor(() => expect(appMocks.publishAppConfiguration).toHaveBeenCalledTimes(2));
   });
 
   it('shows a compact, usable logo chooser without unavailable-state copy', async () => {
@@ -545,10 +578,11 @@ describe('MyAppStudio tenant preview isolation', () => {
     appMocks.publishAppConfiguration.mockImplementationOnce(
       async (
         tenantId: string,
-        data: { name: string },
+        data: { name: string; appStyle?: 'light' | 'dark' | 'system' },
       ) => {
         await pending.promise;
         configNames.set(tenantId, data.name);
+        configStyles.set(tenantId, data.appStyle || 'system');
         return publishResult();
       },
     );

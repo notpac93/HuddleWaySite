@@ -27,7 +27,7 @@ export type HistoryLoadResult =
   | { status: 'stale' | 'error' };
 
 export type PublishResult =
-  | { status: 'published' }
+  | { status: 'published'; publicationPending?: boolean }
   | { status: 'stale' }
   | { status: 'conflict'; requestId: string }
   | { status: 'error'; requestId: string };
@@ -127,7 +127,7 @@ export function createAppStudioController(api: AppStudioApi = backendClient) {
     idempotencyKey: string;
   }): Promise<PublishResult> {
     try {
-      await api.publishAppConfiguration(
+      const publication = await api.publishAppConfiguration(
         request.tenantId,
         {
           ...request.configuration,
@@ -138,7 +138,7 @@ export function createAppStudioController(api: AppStudioApi = backendClient) {
         request.idempotencyKey,
       );
       return selectedTenantId === request.tenantId
-        ? { status: 'published' }
+        ? { status: 'published', publicationPending: publication.publicationSyncStatus === 'deferred' }
         : { status: 'stale' };
     } catch (error) {
       if (selectedTenantId !== request.tenantId) return { status: 'stale' };

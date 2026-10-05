@@ -12,8 +12,11 @@ export function describeAppConfigurationChanges(
   before: CrmAppConfiguration | null,
   after: CrmAppConfiguration,
 ) {
-  if (!before) return ['Initialize the family app configuration.'];
+  if (!before) return ['Initialize the family app configuration.', `App appearance: ${after.appStyle || 'system'}`];
   const changes: string[] = [];
+  if ((before.appStyle || 'system') !== (after.appStyle || 'system')) {
+    changes.push(`App appearance: ${before.appStyle || 'system'} → ${after.appStyle || 'system'}`);
+  }
   if (before.name.trim() !== after.name.trim()) {
     changes.push(`App name: “${before.name}” → “${after.name}”`);
   }
