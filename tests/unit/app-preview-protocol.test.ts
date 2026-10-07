@@ -95,6 +95,13 @@ describe('app preview protocol', () => {
     expect(parseAppPreviewMessage({ ...ready, nonce: 'forged' }, session)).toBeNull();
     expect(parseAppPreviewMessage({ ...ready, environment: 'prod' }, session)).toBeNull();
     expect(parseAppPreviewMessage({ ...ready, protocolVersion: 0 }, session)).toBeNull();
+    const reasons: string[] = [];
+    for (const field of ['protocolVersion', 'tenantId', 'environment', 'sessionId', 'nonce']) {
+      expect(parseAppPreviewMessage({ ...ready, [field]: 'private-value-must-not-be-reported' }, session,
+        (reason) => reasons.push(reason))).toBeNull();
+    }
+    expect(reasons).toEqual(['wrong-protocolVersion', 'wrong-tenantId', 'wrong-environment', 'wrong-sessionId', 'wrong-nonce']);
+    expect(reasons.join(' ')).not.toContain('private-value');
     expect(parseAppPreviewMessage({
       ...ready,
       type: 'huddleway.crm.preview.rejected',

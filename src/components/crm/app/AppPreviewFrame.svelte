@@ -119,11 +119,8 @@
       lastFrameMessage = 'wrong-source';
       return;
     }
-    const payload = parseAppPreviewMessage(event.data, session);
-    if (!payload) {
-      lastFrameMessage = 'invalid-envelope';
-      return;
-    }
+    const payload = parseAppPreviewMessage(event.data, session, (reason) => { lastFrameMessage = reason; });
+    if (!payload) return;
     lastFrameMessage = String(payload.type).replace('huddleway.crm.preview.', '');
     if (payload.type === 'huddleway.crm.preview.field-selected') {
       if (!attested) return;
