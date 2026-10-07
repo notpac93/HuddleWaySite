@@ -21,7 +21,36 @@ function message(frame: HTMLIFrameElement, type: 'ready' | 'applied' | 'rejected
 }
 
 describe('live consumer preview handshake', () => {
+  it('requires acknowledgement for each changed draft after an earlier successful preview', async () => {
+    vi.useFakeTimers();
+    try {
+      const view = mount(); const frame = screen.getByTitle('Consumer fixture preview') as HTMLIFrameElement;
+      const send = vi.spyOn(frame.contentWindow!, 'postMessage');
+      await fireEvent.load(frame); message(frame, 'ready'); await tick();
+      const first = JSON.parse(send.mock.calls.at(-1)![0] as string);
+      message(frame, 'applied', { revision: first.revision }); await tick();
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      await view.rerender({ configuration: { ...configuration, name: 'Updated draft' } });
+      await tick();
+      expect(JSON.parse(send.mock.calls.at(-1)![0] as string).revision).toBeGreaterThan(first.revision);
+      message(frame, 'applied', { revision: first.revision }); await tick();
+      expect(screen.getByRole('status')).toBeInTheDocument();
+      await vi.advanceTimersByTimeAsync(8001);
+      expect(screen.getByRole('alert')).toHaveTextContent('did not prove');
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('bounds a stalled iframe even when no load event arrives', async () => {
+    vi.useFakeTimers();
+    try {
+      mount(); await tick();
+      await vi.advanceTimersByTimeAsync(30001);
+      expect(screen.getByRole('alert')).toHaveTextContent('did not prove');
+    } finally { vi.useRealTimers(); }
+  });
+
   it.each(['rejected', 'mismatch', 'timeout'])('requires a new session after %s even if late valid messages arrive', async (failure) => {
+    if (failure === 'timeout') vi.useFakeTimers();
     mount(); const frame = screen.getByTitle('Consumer fixture preview') as HTMLIFrameElement;
     const send = vi.spyOn(frame.contentWindow!, 'postMessage');
     await fireEvent.load(frame); message(frame, 'ready');
@@ -30,7 +59,6 @@ describe('live consumer preview handshake', () => {
     if (failure === 'rejected') message(frame, 'rejected', { reason: 'invalid-draft' });
     else if (failure === 'mismatch') message(frame, 'ready', { sourceCommit: 'b'.repeat(40) });
     else {
-      vi.useFakeTimers();
       await fireEvent.load(frame);
       await vi.advanceTimersByTimeAsync(8001);
       vi.useRealTimers();

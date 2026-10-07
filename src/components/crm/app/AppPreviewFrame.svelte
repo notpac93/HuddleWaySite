@@ -33,6 +33,7 @@
   let pendingPayload = '';
   let handshakeTimer: number | null = null;
   let attested = false;
+  let lastFrameMessage = 'none';
 
   $: sessionKey = `${previewOrigin || ''}|${tenantId}|${environment}|${expectedSourceCommit}|${expectedReleaseId}`;
   $: if (sessionKey) resetSession(sessionKey);
@@ -59,6 +60,7 @@
     lastConfiguration = '';
     pendingPayload = '';
     attested = false;
+    lastFrameMessage = 'none';
     errorMessage = '';
     if (!previewOrigin || !tenantId) {
       session = null;
@@ -73,6 +75,7 @@
       session,
     );
     state = 'loading';
+    startHandshakeTimer(30000);
   }
 
   function handleLoad() {
@@ -80,13 +83,16 @@
     // A late load must not turn an already verified preview into a spinner.
     if (!session || state === 'synced' || state === 'error') return;
     state = 'awaiting';
+  }
+
+  function startHandshakeTimer(milliseconds: number) {
     clearHandshakeTimer();
     handshakeTimer = window.setTimeout(() => {
       if (state === 'synced') return;
       attested = false;
       state = 'error';
       errorMessage = 'The preview app did not prove its environment and version. Reload before trusting this preview.';
-    }, 8000);
+    }, milliseconds);
   }
 
   function postDraft() {
@@ -97,6 +103,8 @@
       || !attested
       || state === 'error'
     ) return;
+    state = 'awaiting';
+    startHandshakeTimer(8000);
     frame.contentWindow.postMessage(pendingPayload, previewOrigin);
   }
 
@@ -106,10 +114,17 @@
       || state === 'error'
       || !previewOrigin
       || event.origin !== previewOrigin
-      || event.source !== frame?.contentWindow
     ) return;
+    if (event.source !== frame?.contentWindow) {
+      lastFrameMessage = 'wrong-source';
+      return;
+    }
     const payload = parseAppPreviewMessage(event.data, session);
-    if (!payload) return;
+    if (!payload) {
+      lastFrameMessage = 'invalid-envelope';
+      return;
+    }
+    lastFrameMessage = String(payload.type).replace('huddleway.crm.preview.', '');
     if (payload.type === 'huddleway.crm.preview.field-selected') {
       if (!attested) return;
       const fieldId = String(payload.fieldId || '').trim();
@@ -178,7 +193,8 @@
 <div class="flex flex-1 flex-col items-center justify-start {compact ? 'py-2' : 'py-4'}">
   <div class:crm-ui-studio-device-compact={compact} class="crm-ui-studio-device"
     data-preview-state={state} data-preview-attested={attested}
-    data-preview-revision={revision} data-preview-configuration-ready={configurationReady}>
+    data-preview-revision={revision} data-preview-configuration-ready={configurationReady}
+    data-preview-last-message={lastFrameMessage}>
     <div class="crm-ui-studio-notch"></div>
     {#if tenantId && previewSrc}
       <iframe
