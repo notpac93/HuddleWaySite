@@ -32,8 +32,9 @@
   let lastConfiguration = '';
   let pendingPayload = '';
   let handshakeTimer: number | null = null;
+  let attested = false;
 
-  $: sessionKey = `${previewOrigin || ''}|${tenantId}|${environment}`;
+  $: sessionKey = `${previewOrigin || ''}|${tenantId}|${environment}|${expectedSourceCommit}|${expectedReleaseId}`;
   $: if (sessionKey) resetSession(sessionKey);
   $: serializedConfiguration = JSON.stringify({ configuration, componentDraft });
   $: if (
@@ -57,6 +58,7 @@
     revision = 0;
     lastConfiguration = '';
     pendingPayload = '';
+    attested = false;
     errorMessage = '';
     if (!previewOrigin || !tenantId) {
       session = null;
@@ -74,7 +76,9 @@
   }
 
   function handleLoad() {
-    if (!session) return;
+    // Flutter may send ready/applied before the iframe's load event.
+    // A late load must not turn an already verified preview into a spinner.
+    if (!session || state === 'synced' || state === 'error') return;
     state = 'awaiting';
     clearHandshakeTimer();
     handshakeTimer = window.setTimeout(() => {
@@ -89,6 +93,7 @@
       !frame?.contentWindow
       || !previewOrigin
       || !pendingPayload
+      || !attested
       || state === 'error'
     ) return;
     frame.contentWindow.postMessage(pendingPayload, previewOrigin);
@@ -104,11 +109,13 @@
     const payload = parseAppPreviewMessage(event.data, session);
     if (!payload) return;
     if (payload.type === 'huddleway.crm.preview.field-selected') {
+      if (!attested) return;
       const fieldId = String(payload.fieldId || '').trim();
       if (fieldId) onFieldSelected(fieldId);
       return;
     }
     if (payload.type === 'huddleway.crm.preview.rejected') {
+      attested = false;
       state = 'error';
       errorMessage = `The consumer app rejected the draft (${String(payload.reason || 'unknown')}). Reload before trusting this preview.`;
       clearHandshakeTimer();
@@ -132,17 +139,21 @@
         || mismatchedCommit
         || mismatchedRelease
       ) {
+        attested = false;
         state = 'error';
         errorMessage = 'The preview artifact does not match the selected environment or approved release.';
         clearHandshakeTimer();
         return;
       }
+      attested = true;
       state = 'awaiting';
       postDraft();
       return;
     }
     if (
       payload.type === 'huddleway.crm.preview.applied'
+      && attested
+      && revision > 0
       && payload.revision === revision
     ) {
       state = 'synced';
