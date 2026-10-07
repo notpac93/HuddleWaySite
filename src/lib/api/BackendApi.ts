@@ -1766,6 +1766,11 @@ export class BackendApi {
       !payload.operations ||
       typeof payload.operations !== "object" ||
       typeof payload.operations.complete !== "boolean" ||
+      !payload.operations.reconciliation ||
+      typeof payload.operations.reconciliation.complete !== "boolean" ||
+      (["unreconciledTransactionCount", "unreconciledDepositCount", "currencyIntegrityErrorCount"] as const).some(
+        (key) => !Number.isSafeInteger(payload.operations.reconciliation[key]) || payload.operations.reconciliation[key] < 0,
+      ) ||
       !payload.operations.views ||
       (
         [

@@ -10,7 +10,7 @@ Review date: 2026-07-26
 
 The shared worktree contained 45 Svelte CRM components and 305 native controls
 when the UI-002 pass began. The current release tree contains 75 components and
-609 native controls. Controls were not accepted by sampling:
+610 native controls. Controls were not accepted by sampling:
 
 1. every Svelte file was enumerated recursively;
 2. every native `button`, `a`, `input`, `select`, and `textarea` was parsed from
@@ -44,7 +44,16 @@ backdrop/panel stacking, event and registration step advancement, backdrop
 close, and player/team/event global-search navigation with result-ID
 preservation.
 
-## Reviewed component register
+On October 7, 2026, the added My App appearance selector was reviewed: it binds
+the tenant's `appStyle`, disables during publication, and participates in the
+branding undo flow. The existing component tests verify publication, reload and
+tenant-switch reset. Its addition raises the current AST inventory from 609 to
+610 controls; no control-disposition checks were removed.
+
+## Initial reviewed component register
+
+This historical register describes the original dispositions. Current per-file
+counts are maintained by `tests/unit/crm-control-inventory.test.ts`.
 
 | Component | Native controls | Reviewed disposition |
 | --- | ---: | --- |

@@ -176,6 +176,40 @@ async function signIn(page: Page, email: string) {
 }
 
 async function mockAuthenticatedBackend(page: Page, tenantId: string) {
+  const operationalResponses: Record<string, Record<string, unknown>> = {
+    '/admin/inbox/threads': { success: true, threads: [], truncated: false },
+    '/admin/crm/documents': { documents: [], truncated: false },
+    '/admin/staff': { staff: [], pendingInvites: [], truncated: { staff: false, pendingInvites: false } },
+    '/admin/communications/connected-mailbox': {
+      success: true, connected: false, status: 'disconnected', provider: null,
+      email: null, displayName: null, connectedAt: null, lastCheckedAt: null, availableProviders: [],
+    },
+    '/admin/messages/email-quota': {
+      success: true, monthKey: '2026-10', resetsAt: '2026-11-01T00:00:00.000Z',
+      monthlyLimit: 500, usedCount: 0, sentCount: 0, localSentCount: 0,
+      providerSentCount: 0, reservedCount: 0, remainingCount: 500, perSendLimit: 100,
+      capacityMode: 'normal', monthlyAllowanceVisible: true,
+      emailSendingStatus: 'enabled', bounceRate: 0, complaintRate: 0,
+    },
+  };
+  for (const [path, payload] of Object.entries(operationalResponses)) {
+    await page.route(`**${path}?**`, async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json',
+        body: JSON.stringify({ ...payload, tenantId, requestId: `e2e-${path}` }),
+      });
+    });
+  }
+  await page.route('**/admin/crm/dashboard-summary**', async (route) => {
+    await route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({
+        schemaVersion: 'crm_dashboard_summary_v1', tenantId,
+        counts: { registrations: 1, teams: 1, events: 1 },
+        recentRegistrations: [{ id: 'registration-e2e', tenantId, participantSummary: { fullName: 'Fixture Player' } }],
+        requestId: 'e2e-dashboard',
+      }),
+    });
+  });
   await page.route('**/admin/crm/authorization', async (route) => {
     await route.fulfill({
       status: 200,
@@ -274,6 +308,17 @@ async function mockAuthenticatedBackend(page: Page, tenantId: string) {
         refunds: [],
         invoices: [],
         deposits: [],
+        complete: true,
+        operations: {
+          complete: true,
+          generatedAt: new Date().toISOString(),
+          timeZone: 'America/Los_Angeles',
+          reconciliation: {
+            complete: true, unreconciledTransactionCount: 0,
+            unreconciledDepositCount: 0, currencyIntegrityErrorCount: 0,
+          },
+          views: { deposits: [], transactions: [], scheduled: [], overdue: [], invoices: [] },
+        },
         recordCounts: {
           transactions: 0,
           payments: 0,
@@ -392,12 +437,20 @@ async function openCrmTab(page: Page, tab: string, mobile: boolean) {
   await expect(
     page.getByRole('heading', { name: 'Module unavailable' }),
   ).toHaveCount(0);
+  if (tab === 'Dashboard' || tab === 'Financials') {
+    await expect(page.getByRole('alert').filter({ hasText: /invalid response|could not be loaded/i })).toHaveCount(0);
+  }
 }
 
 test('verified owner can use the authenticated CRM shell by keyboard and mobile navigation', async ({
   page,
 }, testInfo) => {
-  const mobile = testInfo.project.name.includes('mobile');
+  // Fourteen lazy-loaded modules share this journey's total budget. Individual
+  // visibility/loading assertions retain their five-second failure deadline.
+  test.setTimeout(90_000);
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  const mobile = Boolean(testInfo.project.use.isMobile);
   const { email } = await seedVerifiedOwner(testInfo.project.name);
   await mockAuthenticatedBackend(
     page,
@@ -456,4 +509,5 @@ test('verified owner can use the authenticated CRM shell by keyboard and mobile 
       - document.documentElement.clientWidth,
   );
   expect(horizontalOverflow).toBeLessThanOrEqual(1);
+  expect(pageErrors).toEqual([]);
 });
