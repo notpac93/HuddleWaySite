@@ -96,4 +96,19 @@ describe('Registration form financial summaries', () => {
     expect(screen.getAllByText('No financial activity')).toHaveLength(4);
     expect(screen.queryByText('No records')).not.toBeInTheDocument();
   });
+
+  it('does not turn a denied or failed financial load into no activity', () => {
+    dataMocks.getRegistrationFormFinancials.mockReturnValue({
+      totalCollected: 0, totalBalance: 0, totalsAvailable: false,
+      currency: null, financialRecordCount: 0,
+      scopeReason: 'Financial projection unavailable.',
+    });
+    render(TestedFormsTable, {
+      forms: [{ id: 'paid-form', name: 'Paid event', status: 'Open', program: 'Program-wide',
+        dateCreated: new Date('2026-07-01T12:00:00.000Z') }],
+      isLoadingForms: false, activeTab: 'Active',
+    });
+    expect(screen.queryByText('No financial activity')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Unavailable')).toHaveLength(4);
+  });
 });

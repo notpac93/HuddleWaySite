@@ -612,8 +612,8 @@ export class DataStore {
     );
     const incomplete =
       overview.loading
-      ||
-      overview.truncated.transactions
+      || Boolean(overview.error)
+      || overview.truncated.transactions
       || overview.truncated.invoices
       || paid.invalidAmountCount > 0
       || due.invalidAmountCount > 0
@@ -670,8 +670,8 @@ export class DataStore {
     );
     const incomplete =
       overview.loading
-      ||
-      overview.truncated.transactions
+      || Boolean(overview.error)
+      || overview.truncated.transactions
       || overview.truncated.invoices
       || paid.invalidAmountCount > 0
       || due.invalidAmountCount > 0

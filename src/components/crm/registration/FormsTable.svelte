@@ -33,8 +33,9 @@
 
   function formatScopedMoney(row: any, key: 'totalCollected' | 'totalBalance') {
     if (row.financialScopeReason === 'Financial projection is loading.') return 'Loading…';
+    if (!row.financialTotalsAvailable) return 'Unavailable';
     if (row.financialRecordCount === 0) return 'No financial activity';
-    if (!row.financialTotalsAvailable || !row.financialCurrency) return 'Unavailable';
+    if (!row.financialCurrency) return 'Unavailable';
     return formatMoney(row[key], row.financialCurrency);
   }
 
