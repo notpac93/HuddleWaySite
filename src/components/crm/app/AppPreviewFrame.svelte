@@ -176,7 +176,9 @@
 </script>
 
 <div class="flex flex-1 flex-col items-center justify-start {compact ? 'py-2' : 'py-4'}">
-  <div class:crm-ui-studio-device-compact={compact} class="crm-ui-studio-device">
+  <div class:crm-ui-studio-device-compact={compact} class="crm-ui-studio-device"
+    data-preview-state={state} data-preview-attested={attested}
+    data-preview-revision={revision} data-preview-configuration-ready={configurationReady}>
     <div class="crm-ui-studio-notch"></div>
     {#if tenantId && previewSrc}
       <iframe
