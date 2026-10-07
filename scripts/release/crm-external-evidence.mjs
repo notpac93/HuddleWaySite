@@ -1063,15 +1063,13 @@ async function verify(options) {
 async function main() {
   const [subcommand, ...args] = process.argv.slice(2);
   const options = parseOptions(args);
+  if (['accept-preproduction', 'verify-preproduction', 'accept-publication', 'verify-publication', 'scoped-contract'].includes(subcommand)) {
+    return (await import('./crm-ios-portal-evidence.mjs')).scopedMain(subcommand, options);
+  }
   if (subcommand === 'accept') return accept(options);
   if (subcommand === 'verify') return verify(options);
-  fail(
-    'Usage: crm-external-evidence.mjs <accept|verify> '
-      + '--manifest PATH [--evidence PATH --out PATH | --receipt PATH] '
-      + '--expected-sha256 SHA256',
-  );
+  fail('Usage: crm-external-evidence.mjs <accept|verify> --manifest PATH [--evidence PATH --out PATH | --receipt PATH] --expected-sha256 SHA256');
 }
-
 export {
   ACCEPTED_TARGET,
   APPROVED_RELEASE_SURFACES,
@@ -1082,6 +1080,8 @@ export {
   acceptanceDigest,
   validateExternalReleaseEvidence,
   verifyAcceptanceReceipt,
+  assert, assertExactKeys, assertSha256, assertString, assertRecentPast, assertExactStringSet,
+  validateReleaseBinding, validateBackupRecovery, validateMonitoring, validatePerformance, validateDeploymentApproval,
 };
 
 const invokedPath = process.argv[1] ? resolve(process.argv[1]) : '';
