@@ -83,6 +83,7 @@
     clearHandshakeTimer();
     handshakeTimer = window.setTimeout(() => {
       if (state === 'synced') return;
+      attested = false;
       state = 'error';
       errorMessage = 'The preview app did not prove its environment and version. Reload before trusting this preview.';
     }, 8000);
@@ -102,6 +103,7 @@
   function handleMessage(event: MessageEvent) {
     if (
       !session
+      || state === 'error'
       || !previewOrigin
       || event.origin !== previewOrigin
       || event.source !== frame?.contentWindow
