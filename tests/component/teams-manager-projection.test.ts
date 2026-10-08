@@ -79,6 +79,8 @@ import { backendClient } from '../../src/lib/api/backendClient';
 
 const TestedTeamsManager = TeamsManager as unknown as Component;
 const teams = teamsStore as Writable<Array<Record<string, unknown>>>;
+const events = eventsStore as Writable<Array<Record<string, unknown>>>;
+const seasons = seasonsStore as Writable<Array<Record<string, unknown>>>;
 const scope = teamsProjectionScope as Writable<{
   limit: number | null;
   truncated: boolean;
@@ -99,8 +101,8 @@ describe('TeamsManager complete projection states', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     teams.set([]);
-    eventsStore.set([]);
-    seasonsStore.set([]);
+    events.set([]);
+    seasons.set([]);
     scope.set({ ...healthyScope });
   });
 
@@ -233,8 +235,8 @@ describe('TeamsManager complete projection states', () => {
   it('joins future events and seasons through the validated team reference', async () => {
     const team = { id: 'tenant-a_esports', referenceId: 'esports', name: 'Esports' };
     teams.set([team]);
-    seasonsStore.set([{ id: 'season-1', teamId: 'esports', name: 'Esports League', status: 'active' }]);
-    eventsStore.set([
+    seasons.set([{ id: 'season-1', teamId: 'esports', name: 'Esports League', status: 'active' }]);
+    events.set([
       { id: 'event-1', teamId: 'esports', startAt: '2099-10-21T19:00:00Z', status: 'published' },
       { id: 'event-2', teamId: 'tenant-a_esports', startAt: '2099-10-22T19:00:00Z', status: 'published' },
       { id: 'archived', teamId: 'esports', startAt: '2099-10-23T19:00:00Z', status: 'archived' },
@@ -247,7 +249,7 @@ describe('TeamsManager complete projection states', () => {
     expect(screen.getByRole('button', { name: 'Active season Esports League' })).toBeVisible();
     // Event registration is not an explicit roster membership.
     expect(screen.getByRole('button', { name: 'Roster 0 people' })).toBeVisible();
-    eventsStore.update((events) => [...events, {
+    events.update((events) => [...events, {
       id: 'refreshed-event', metadata: { teamId: 'esports' },
       startAt: '2099-11-01T19:00:00Z', status: 'published',
     }]);
@@ -259,8 +261,8 @@ describe('TeamsManager complete projection states', () => {
   it('does not join ambiguous aliases into a selected team overview', () => {
     const team = { id: 'team-1', referenceId: 'shared', name: 'One' };
     teams.set([team, { id: 'team-2', referenceId: 'shared', name: 'Two' }]);
-    seasonsStore.set([{ id: 'season-1', teamId: 'shared', name: 'Ambiguous season', status: 'active' }]);
-    eventsStore.set([{ id: 'event-1', teamId: 'shared', startAt: '2099-10-21T19:00:00Z', status: 'published' }]);
+    seasons.set([{ id: 'season-1', teamId: 'shared', name: 'Ambiguous season', status: 'active' }]);
+    events.set([{ id: 'event-1', teamId: 'shared', startAt: '2099-10-21T19:00:00Z', status: 'published' }]);
     render(TestedTeamsManager, { activeTeam: team });
     expect(screen.getByRole('button', { name: 'Upcoming events 0' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Active season No season connected' })).toBeVisible();
@@ -269,7 +271,7 @@ describe('TeamsManager complete projection states', () => {
   it('refreshes loaded event impact when a team alias becomes ambiguous', async () => {
     const team = { id: 'team-1', referenceId: 'shared', name: 'One' };
     teams.set([team]);
-    eventsStore.set([{ id: 'event-1', teamId: 'shared', startAt: '2099-10-21T19:00:00Z', status: 'published' }]);
+    events.set([{ id: 'event-1', teamId: 'shared', startAt: '2099-10-21T19:00:00Z', status: 'published' }]);
     render(TestedTeamsManager, { activeTeam: team });
     await fireEvent.click(screen.getByRole('button', { name: 'Delete team' }));
     expect(screen.getByText(/and 1 event reference/)).toBeVisible();
