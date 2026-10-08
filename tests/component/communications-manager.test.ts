@@ -137,6 +137,7 @@ function notificationSummary(overrides: Record<string, unknown> = {}) {
     successCount: 2,
     failureCount: 0,
     providerErrorCodes: {},
+    deliveryStates: { accepted: 1 },
     ...overrides,
   };
 }
@@ -514,7 +515,7 @@ describe('CommunicationsManager recall boundary', () => {
         seasonId: null,
       }),
     ]);
-    expect(await screen.findByText('Announcement published and notification sent to 2 registered devices.')).toBeVisible();
+    expect(await screen.findByText('Announcement published. Notifications were accepted for delivery to 2 registered devices.')).toBeVisible();
   });
 
   it('shows the monthly allowance and sends a reviewed one-off or bulk email', async () => {
@@ -1070,6 +1071,7 @@ describe('CommunicationsManager recall boundary', () => {
       notifications: notificationSummary({
         sentMessageCount: 0,
         noRecipientMessageCount: 1,
+        deliveryStates: { no_recipients: 1 },
         eligibleAccountCount: 0,
         eligibleDeviceCount: 0,
         successCount: 0,
@@ -1089,6 +1091,34 @@ describe('CommunicationsManager recall boundary', () => {
       'Announcement published. No registered devices were available for this organization.',
     )).toBeVisible();
   });
+
+  it.each(['unknown', 'partial', 'deferred', 'audience_unsupported'])(
+    'retains the same draft and operation when notification status is %s', async (state) => {
+      mocks.getDocs.mockResolvedValue(emptySnapshot());
+      const response = {
+        success: true, tenantId: 'tenant-a', sendId: 'saved-announcement', messageCount: 1,
+        activeRecipientCount: 0, retainedRecipientCount: 0, publicCount: 1, requestId: 'request-saved',
+        notifications: notificationSummary({ successCount: state === 'partial' ? 1 : 0,
+          failureCount: 0, deliveryStates: { [state]: 1 } }),
+      };
+      mocks.sendMessageBatch.mockResolvedValue(response);
+      render(TestedCommunicationsManager);
+      await screen.findByText('No Wall announcements have been published.');
+      await fireEvent.click(screen.getByRole('button', { name: 'New announcement' }));
+      await fireEvent.input(screen.getByLabelText('Message'), { target: { value: 'Keep this saved announcement.' } });
+      await fireEvent.click(screen.getByRole('button', { name: 'Review announcement' }));
+      await confirmAnnouncementReview();
+      const check = await screen.findByRole('button', { name: 'Check notification status' });
+      expect(screen.getByLabelText('Message')).toHaveValue('Keep this saved announcement.');
+      expect(screen.queryByText(/No registered devices were available/)).toBeNull();
+      expect(screen.queryByText(/Notifications were accepted for delivery/)).toBeNull();
+      const first = mocks.sendMessageBatch.mock.calls[0];
+      await fireEvent.click(check);
+      await waitFor(() => expect(mocks.sendMessageBatch).toHaveBeenCalledTimes(2));
+      expect(mocks.sendMessageBatch.mock.calls[1]).toEqual(first);
+      expect(mocks.announcementAudiencePreview).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('requires and publishes an event attachment', async () => {
     mocks.getDocs

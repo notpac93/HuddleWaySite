@@ -1,3 +1,5 @@
+import { validAnnouncementBatchResult, type AnnouncementBatchResult } from './AnnouncementDeliveryResult';
+
 export type BackendFetch = (
   input: string | URL | Request,
   init?: RequestInit,
@@ -3030,63 +3032,13 @@ export class BackendApi {
     messages: Array<Record<string, unknown>>,
     idempotencyKey: string,
   ) {
-    const payload = await this.send<{
-      success: boolean;
-      sendId: string;
-      messageCount: number;
-      activeRecipientCount: number;
-      retainedRecipientCount: number;
-      publicCount: number;
-      notifications: {
-        scope: "tenant_account_holders";
-        topic: null;
-        requestedMessageCount: number;
-        sentMessageCount: number;
-        failedMessageCount: number;
-        noRecipientMessageCount: number;
-        replayedMessageCount: number;
-        eligibleAccountCount: number;
-        eligibleDeviceCount: number;
-        successCount: number;
-        failureCount: number;
-        providerErrorCodes: Record<string, number>;
-      };
-      requestId: string;
-    }>("/admin/messages/batch", {
+    const payload = await this.send<AnnouncementBatchResult>("/admin/messages/batch", {
       method: "POST",
       body: { tenantId, messages },
       idempotencyKey,
     });
-    const notificationCounts = [
-      "requestedMessageCount",
-      "sentMessageCount",
-      "failedMessageCount",
-      "noRecipientMessageCount",
-      "replayedMessageCount",
-      "eligibleAccountCount",
-      "eligibleDeviceCount",
-      "successCount",
-      "failureCount",
-    ] as const;
-    if (
-      payload.success !== true ||
-      !String(payload.sendId || "").trim() ||
-      !String(payload.requestId || "").trim() ||
-      payload.notifications?.scope !== "tenant_account_holders" ||
-      payload.notifications?.topic !== null ||
-      notificationCounts.some(
-        (field) =>
-          !Number.isSafeInteger(payload.notifications?.[field]) ||
-          Number(payload.notifications?.[field]) < 0,
-      ) ||
-      !payload.notifications?.providerErrorCodes ||
-      Object.entries(payload.notifications.providerErrorCodes).some(
-        ([code, count]) =>
-          !/^messaging\/[a-z0-9-]+$/.test(code) ||
-          !Number.isSafeInteger(count) ||
-          count < 0,
-      )
-    ) {
+    if (!validAnnouncementBatchResult(payload, tenantId, messages.length,
+      messages.filter((message) => message.isSecret !== true).length)) {
       invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;

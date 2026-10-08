@@ -2,6 +2,7 @@
   import { onDestroy, onMount } from 'svelte';
   import { tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
+  import { announcementDeliveryFeedback } from '../../lib/api/AnnouncementDeliveryResult';
   import {
     registrationOutreachApi,
     type EmailQuotaSnapshot,
@@ -101,6 +102,7 @@
   let selectedSeasonId = '';
   let selectedImportance: AnnouncementImportance = 'routine';
   let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
+  let announcementSaved = false;
   let operationMessage = '';
   let operationRequestId = '';
   let recallingMessageId = '';
@@ -285,6 +287,7 @@
       registrationRecipientInput,
     });
     if (signature !== postPayloadSignature && submitState !== 'loading') {
+      announcementSaved = false;
       postPayloadSignature = signature;
       postIdempotencyKey = createIdempotencyKey('message-batch');
       postMessageId = `message_${globalThis.crypto.randomUUID()}`;
@@ -338,6 +341,7 @@
   }
 
   function resetComposer() {
+    announcementSaved = false;
     subject = '';
     body = '';
     composerKind = 'announcement';
@@ -873,19 +877,13 @@
       historyAudienceFilter = 'all';
       announcementSearchOpen = false;
       expandedMessageIds = new Set([publishedMessageId]);
-      submitState = 'success';
-      if (result.publicCount === 1 && result.notifications.successCount > 0) {
-        const deviceWord = result.notifications.successCount === 1 ? 'device' : 'devices';
-        operationMessage = result.notifications.failureCount > 0
-          ? `Announcement published. Notification reached ${result.notifications.successCount} registered ${deviceWord}; ${result.notifications.failureCount} delivery attempt(s) failed.`
-          : `Announcement published and notification sent to ${result.notifications.successCount} registered ${deviceWord}.`;
-      } else if (result.publicCount === 1 && result.notifications.failureCount > 0) {
-        operationMessage = 'Announcement published, but its notification could not be delivered.';
-      } else if (result.publicCount === 1) {
-        operationMessage = 'Announcement published. No registered devices were available for this organization.';
-      } else {
-        operationMessage = 'Announcement accepted by the delivery service.';
-      }
+      const delivery = announcementDeliveryFeedback(result);
+      announcementSaved = true;
+      submitState = delivery.complete ? 'success' : 'error';
+      operationMessage = delivery.message;
+      operationRequestId = result.requestId;
+      // Keep the same draft/message IDs when provider acceptance is uncertain.
+      if (!delivery.complete) return;
       isAdding = false;
       subject = '';
       body = '';
@@ -942,6 +940,7 @@
 
   function handleAnnouncementSubmit() {
     if (editingMessageId) return handleUpdateAnnouncement();
+    if (announcementSaved) return handleAddMessage();
     return handleAnnouncementReview();
   }
 
@@ -1637,7 +1636,7 @@
             loadingText={composerKind === 'announcement' ? editingMessageId ? 'Saving changes…' : 'Reviewing audience…' : 'Checking allowance…'}
             successText={composerKind === 'announcement' ? editingMessageId ? 'Updated' : 'Published' : 'Email sent'}
             errorText={composerKind === 'announcement'
-              ? 'Retry publish'
+              ? announcementSaved ? 'Check notification status' : 'Retry publish'
               : composerKind === 'registration_email'
                 ? 'Review registration email again'
                 : 'Review email again'}
