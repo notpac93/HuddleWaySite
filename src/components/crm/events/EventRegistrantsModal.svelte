@@ -3,12 +3,14 @@
   import DataTable from '../DataTable.svelte';
   import { modalFocus } from '../../../lib/ui/modalFocus';
   import { registrationDisplayRecord } from '../../../lib/ui/registrationDisplay';
+  import { teamNameForReference, type TeamReferenceIndex } from '../../../lib/ui/teamReferences';
 
   export let event = null;
   export let registrations: any[] = [];
   export let onClose = () => {};
   export let incomplete = false;
   export let exactCount: number | null = null;
+  export let teamReferences: TeamReferenceIndex = new Map();
 
   const dispatch = createEventDispatcher();
 
@@ -63,6 +65,7 @@
             data={eventRegistrants.map((registration) => ({
               ...registration,
               name: registration.participantName || 'Participant name unavailable',
+              teamName: teamNameForReference(teamReferences, registration.teamId),
             }))}
             columns={[
               { key: 'name', label: 'Name' },

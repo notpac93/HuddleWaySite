@@ -23,6 +23,7 @@
   import EventBatchPublishReview from './events/EventBatchPublishReview.svelte';
   import ChangeReceipt from './ui/ChangeReceipt.svelte';
   import EventFilters from './events/EventFilters.svelte';
+  import { buildTeamReferenceIndex, teamNameForReference, teamReferenceMatches } from '../../lib/ui/teamReferences';
 
   export let activeTeam: string | { id?: unknown } | null = null;
   export let activeResultId: string | null = null;
@@ -164,6 +165,7 @@
           };
   }
 
+  $: teamReferenceIndex = buildTeamReferenceIndex($teamsStore);
   $: teams = Object.fromEntries(
     $teamsStore.map((team) => [
       String(team.id),
@@ -178,7 +180,7 @@
       ).trim()
     : '';
   $: mappedEvents = $eventsStore
-    .filter((event) => !selectedTeamId || String(event.teamId) === selectedTeamId)
+    .filter((event) => teamReferenceMatches(teamReferenceIndex, event.teamId, selectedTeamId))
     .map(mapEvent)
     .filter((event) => !event.isDeleted);
   $: malformedEventCount = mappedEvents.filter((event) => !event.id).length;
@@ -216,7 +218,7 @@
   $: presetEvents = activeTab === 'Upcoming' ? upcomingEvents : pastEvents;
   $: visibleEvents = presetEvents.filter((event) =>
     (!eventSearchQuery || [event.title, event.location, event.type].some((value) => String(value || '').toLocaleLowerCase().includes(eventSearchQuery)))
-    && (!eventTeamFilter || event.teamId === eventTeamFilter)
+    && teamReferenceMatches(teamReferenceIndex, event.teamId, eventTeamFilter)
     && (!eventStatusFilter || event.lifecycleStatus === eventStatusFilter)
     && (!eventSeasonFilter || event.seasonId === eventSeasonFilter)
     && (!eventFromDate || event.dateKey >= eventFromDate)
@@ -342,8 +344,7 @@
   }
 
   function eventTeamLabel(event: any) {
-    if (event?.teamId === 'all') return 'Program-wide';
-    return teams[String(event?.teamId || '')] || 'Team unavailable';
+    return teamNameForReference(teamReferenceIndex, event?.teamId);
   }
 
   function eventRegistrationIsLive(event: any) {
@@ -650,10 +651,7 @@
                 <svg class="mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
-                {teams[event.teamId]
-                  || (event.teamId === 'general' || event.teamId === 'all' || event.teamId === 'program'
-                    ? 'Program-wide event'
-                    : 'Team unavailable')}
+                {eventTeamLabel(event)}
               </span>
               <span class="crm-ui-center">
                 <svg class="mr-1.5 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -881,6 +879,7 @@
 
 {#if showRegistrantsForEvent}
   <EventRegistrantsModal
+    teamReferences={teamReferenceIndex}
     event={showRegistrantsForEvent}
     registrations={$registrationsStore}
     incomplete={$registrationsProjectionScope.truncated}
