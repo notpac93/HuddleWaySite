@@ -74,8 +74,9 @@
 
   function formatScopedMoney(value: unknown) {
     if (financials.scopeReason === 'Financial projection is loading.') return 'Loading…';
+    if (!financials.totalsAvailable) return 'Unavailable';
     if (financials.financialRecordCount === 0) return 'No financial activity';
-    if (!financials.totalsAvailable || !financials.currency) return 'Unavailable';
+    if (!financials.currency) return 'Unavailable';
     return formatMoney(value, financials.currency);
   }
 

@@ -11,12 +11,15 @@
     seasonRegistrationsStore,
     seasonsProjectionScope,
     seasonsStore,
+    teamsStore,
+    teamsProjectionScope,
     transactionsStore,
   } from '../../../lib/services/DataStore';
   import CreateSeasonModal from './CreateSeasonModal.svelte';
   import EditSeasonModal from './EditSeasonModal.svelte';
   import SeasonDetail from './SeasonDetail.svelte';
   import ChangeReceipt from '../ui/ChangeReceipt.svelte';
+  import { buildTeamReferenceIndex, teamReferenceMatches } from '../../../lib/ui/teamReferences';
 
   export let activeTeam: any = null;
   export let onNavigateTab: (tab: string, id?: string | null) => void = () => {};
@@ -106,8 +109,11 @@
   $: malformedSeasonCount =
     normalizedSeasons.filter((season) => !season.id).length;
   $: activeTeamId = String(activeTeam?.id || '').trim();
+  $: teamReferences = buildTeamReferenceIndex($teamsStore);
+  $: teamScopeLoading = Boolean(activeTeamId && $teamsProjectionScope.loading);
+  $: teamScopeUnavailable = Boolean(activeTeamId && ($teamsProjectionScope.error || $teamsProjectionScope.truncated));
   $: scopedSeasons = normalizedSeasons.filter((season) =>
-    season.id && (!activeTeamId || season.teamId === activeTeamId)
+    season.id && (!activeTeamId || teamReferenceMatches(teamReferences, season.teamId, activeTeamId))
   );
   $: {
     $transactionsStore;
@@ -134,11 +140,13 @@
       .map(decorate);
   }
   $: if (viewPreferenceLoaded && typeof window !== 'undefined') window.localStorage.setItem('huddleway-season-view', viewMode);
-  $: if (selectedSeason) {
+  $: if (selectedSeason && !$seasonsProjectionScope.loading
+    && !$seasonsProjectionScope.error && !$seasonsProjectionScope.truncated
+    && !teamScopeLoading && !teamScopeUnavailable) {
     const source = scopedSeasons.find(
       (season) => season.id === selectedSeason.id,
     );
-    if (!source && !$seasonsProjectionScope.loading) {
+    if (!source) {
       selectedSeason = null;
       selectedSeasonSignature = '';
     } else if (source) {
@@ -205,7 +213,11 @@
       <ChangeReceipt status="success" title={seasonReceipt.title} message={seasonReceipt.message} onDismiss={() => seasonReceipt = null} />
     </div>
   {/if}
-  {#if selectedSeason}
+  {#if selectedSeason && ($seasonsProjectionScope.loading || teamScopeLoading)}
+    <div class="crm-ui-empty mt-6" role="status">Loading season details…</div>
+  {:else if selectedSeason && ($seasonsProjectionScope.error || $seasonsProjectionScope.truncated || teamScopeUnavailable)}
+    <div class="crm-ui-danger mt-6" role="alert">Season details unavailable. Reload to try again.</div>
+  {:else if selectedSeason}
     <SeasonDetail
       season={selectedSeason}
       {onNavigateTab}
@@ -265,10 +277,12 @@
       <p class="crm-ui-notice-card mt-4" role="status">{malformedSeasonCount} malformed season {malformedSeasonCount === 1 ? 'record was' : 'records were'} omitted because no stable identifier was available.</p>
     {/if}
 
-    {#if $seasonsProjectionScope.loading}
+    {#if $seasonsProjectionScope.loading || teamScopeLoading}
       <div class="crm-ui-empty mt-6" role="status">Loading seasons…</div>
     {:else if $seasonsProjectionScope.error}
       <div class="crm-ui-danger mt-6" role="alert">{$seasonsProjectionScope.error}</div>
+    {:else if teamScopeUnavailable}
+      <div class="crm-ui-danger mt-6" role="alert">Team relationships unavailable. Reload to try again.</div>
     {:else if viewMode === 'cards'}
       <div class="mt-6 grid gap-6">
         {#each filteredSeasons as season (season.id)}

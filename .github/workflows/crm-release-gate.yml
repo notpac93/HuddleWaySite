@@ -104,8 +104,8 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Install pinned Playwright browser
-        run: npx playwright install --with-deps chromium
+      - name: Install pinned Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
 
       - name: Run release gates and produce attested artifact
         run: npm run release:ci

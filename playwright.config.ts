@@ -50,6 +50,18 @@ export default defineConfig({
       name: 'chromium-mobile',
       use: { ...devices['Pixel 5'] },
     },
+    {
+      name: 'webkit-desktop',
+      use: { ...devices['Desktop Safari'] },
+      // This Chromium metrics harness uses unsupported WebKit observers.
+      // Keep WebKit journey coverage separate from measured CWV evidence.
+      testIgnore: '**/crm-performance.spec.ts',
+    },
+    {
+      name: 'webkit-iphone',
+      use: { ...devices['iPhone 13'] },
+      testIgnore: '**/crm-performance.spec.ts',
+    },
   ],
   webServer: [
     {

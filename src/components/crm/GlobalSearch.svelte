@@ -40,7 +40,7 @@
       return;
     }
     if (!['ArrowDown', 'ArrowUp'].includes(event.key)) return;
-    const container = (event.currentTarget as HTMLElement).closest('[data-search-panel]');
+    const container = (event.currentTarget as HTMLElement).querySelector('[data-search-panel]');
     const results = Array.from(container?.querySelectorAll<HTMLButtonElement>('[data-search-result]') || []);
     if (results.length === 0) return;
     event.preventDefault();

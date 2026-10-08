@@ -32,8 +32,10 @@
   let lastConfiguration = '';
   let pendingPayload = '';
   let handshakeTimer: number | null = null;
+  let attested = false;
+  let lastFrameMessage = 'none';
 
-  $: sessionKey = `${previewOrigin || ''}|${tenantId}|${environment}`;
+  $: sessionKey = `${previewOrigin || ''}|${tenantId}|${environment}|${expectedSourceCommit}|${expectedReleaseId}`;
   $: if (sessionKey) resetSession(sessionKey);
   $: serializedConfiguration = JSON.stringify({ configuration, componentDraft });
   $: if (
@@ -57,6 +59,8 @@
     revision = 0;
     lastConfiguration = '';
     pendingPayload = '';
+    attested = false;
+    lastFrameMessage = 'none';
     errorMessage = '';
     if (!previewOrigin || !tenantId) {
       session = null;
@@ -71,17 +75,24 @@
       session,
     );
     state = 'loading';
+    startHandshakeTimer(30000);
   }
 
   function handleLoad() {
-    if (!session) return;
+    // Flutter may send ready/applied before the iframe's load event.
+    // A late load must not turn an already verified preview into a spinner.
+    if (!session || state === 'synced' || state === 'error') return;
     state = 'awaiting';
+  }
+
+  function startHandshakeTimer(milliseconds: number) {
     clearHandshakeTimer();
     handshakeTimer = window.setTimeout(() => {
       if (state === 'synced') return;
+      attested = false;
       state = 'error';
       errorMessage = 'The preview app did not prove its environment and version. Reload before trusting this preview.';
-    }, 8000);
+    }, milliseconds);
   }
 
   function postDraft() {
@@ -89,26 +100,36 @@
       !frame?.contentWindow
       || !previewOrigin
       || !pendingPayload
+      || !attested
       || state === 'error'
     ) return;
+    state = 'awaiting';
+    startHandshakeTimer(8000);
     frame.contentWindow.postMessage(pendingPayload, previewOrigin);
   }
 
   function handleMessage(event: MessageEvent) {
     if (
       !session
+      || state === 'error'
       || !previewOrigin
       || event.origin !== previewOrigin
-      || event.source !== frame?.contentWindow
     ) return;
-    const payload = parseAppPreviewMessage(event.data, session);
+    if (event.source !== frame?.contentWindow) {
+      lastFrameMessage = 'wrong-source';
+      return;
+    }
+    const payload = parseAppPreviewMessage(event.data, session, (reason) => { lastFrameMessage = reason; });
     if (!payload) return;
+    lastFrameMessage = String(payload.type).replace('huddleway.crm.preview.', '');
     if (payload.type === 'huddleway.crm.preview.field-selected') {
+      if (!attested) return;
       const fieldId = String(payload.fieldId || '').trim();
       if (fieldId) onFieldSelected(fieldId);
       return;
     }
     if (payload.type === 'huddleway.crm.preview.rejected') {
+      attested = false;
       state = 'error';
       errorMessage = `The consumer app rejected the draft (${String(payload.reason || 'unknown')}). Reload before trusting this preview.`;
       clearHandshakeTimer();
@@ -132,17 +153,21 @@
         || mismatchedCommit
         || mismatchedRelease
       ) {
+        attested = false;
         state = 'error';
         errorMessage = 'The preview artifact does not match the selected environment or approved release.';
         clearHandshakeTimer();
         return;
       }
+      attested = true;
       state = 'awaiting';
       postDraft();
       return;
     }
     if (
       payload.type === 'huddleway.crm.preview.applied'
+      && attested
+      && revision > 0
       && payload.revision === revision
     ) {
       state = 'synced';
@@ -163,7 +188,10 @@
 </script>
 
 <div class="flex flex-1 flex-col items-center justify-start {compact ? 'py-2' : 'py-4'}">
-  <div class:crm-ui-studio-device-compact={compact} class="crm-ui-studio-device">
+  <div class:crm-ui-studio-device-compact={compact} class="crm-ui-studio-device"
+    data-preview-state={state} data-preview-attested={attested}
+    data-preview-revision={revision} data-preview-configuration-ready={configurationReady}
+    data-preview-last-message={lastFrameMessage}>
     <div class="crm-ui-studio-notch"></div>
     {#if tenantId && previewSrc}
       <iframe

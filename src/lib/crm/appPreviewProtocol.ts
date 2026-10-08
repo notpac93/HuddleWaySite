@@ -88,30 +88,31 @@ export function buildAppPreviewUpdate(
 export function parseAppPreviewMessage(
   data: unknown,
   session: AppPreviewSession,
+  onInvalid: (reason: string) => void = () => {},
 ) {
   let payload: Record<string, unknown>;
   try {
     const decoded = typeof data === 'string' ? JSON.parse(data) : data;
     if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded)) {
+      onInvalid('invalid-object');
       return null;
     }
     payload = decoded as Record<string, unknown>;
   } catch {
+    onInvalid('invalid-json');
     return null;
   }
-  if (
-    payload.protocolVersion !== APP_PREVIEW_PROTOCOL_VERSION
-    || payload.tenantId !== session.tenantId
-    || payload.environment !== session.environment
-    || payload.sessionId !== session.sessionId
-    || payload.nonce !== session.nonce
-  ) return null;
+  const expected = { protocolVersion: APP_PREVIEW_PROTOCOL_VERSION, tenantId: session.tenantId,
+    environment: session.environment, sessionId: session.sessionId, nonce: session.nonce };
+  for (const [field, value] of Object.entries(expected)) {
+    if (payload[field] !== value) { onInvalid(`wrong-${field}`); return null; }
+  }
   if (
     payload.type !== 'huddleway.crm.preview.ready'
     && payload.type !== 'huddleway.crm.preview.applied'
     && payload.type !== 'huddleway.crm.preview.rejected'
     && payload.type !== 'huddleway.crm.preview.field-selected'
-  ) return null;
+  ) { onInvalid('unsupported-type'); return null; }
   return payload;
 }
 

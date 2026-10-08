@@ -225,7 +225,7 @@ describe('RegistrationDetail table interactions', () => {
     expect(screen.getByText('Date unavailable')).toBeVisible();
     expect(screen.getByText('Price unavailable')).toBeVisible();
     expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('No financial activity')).toHaveLength(4);
+    expect(screen.queryByText('No financial activity')).not.toBeInTheDocument();
     expect(
       screen.getByLabelText('Select Malformed Registration'),
     ).toBeDisabled();
@@ -254,6 +254,23 @@ describe('RegistrationDetail table interactions', () => {
     expect(screen.getByText('Type unavailable')).toBeVisible();
     expect(screen.getByText('$1.00')).toBeVisible();
     expect(screen.getAllByText('Paid')).toHaveLength(2);
+    expect(dataMocks.getUserFinancialsForEvents).not.toHaveBeenCalled();
+  });
+
+  it('keeps missing financial authority distinct from zero while displaying the bound refund status', () => {
+    dataMocks.getRegistrationFormFinancials.mockReturnValue({
+      totalCollected: 0, totalFees: 0, totalRefunds: 0, totalBalance: 0,
+      totalsAvailable: false, currency: null, financialRecordCount: 0,
+      scopeReason: 'Financial projection unavailable.',
+    });
+    render(TestedRegistrationDetail, {
+      selectedForm,
+      participants: [{ ...participant(1), paymentStatus: 'refunded' }],
+      connectedEvents: [{ id: 'event-1', title: 'Event' }],
+    });
+    expect(screen.queryByText('No financial activity')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Unavailable').length).toBeGreaterThanOrEqual(4);
+    expect(screen.getByText('Refunded')).toBeVisible();
     expect(dataMocks.getUserFinancialsForEvents).not.toHaveBeenCalled();
   });
 

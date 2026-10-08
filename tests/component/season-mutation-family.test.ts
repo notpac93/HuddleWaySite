@@ -114,6 +114,7 @@ vi.mock('../../src/lib/services/DataStore', async () => {
     usersMap: writable({ 'user-1': 'Jordan Lee' }),
     registrationNamesMap: writable({}),
     seasonsProjectionScope: writable(healthy),
+    teamsProjectionScope: writable(healthy),
     eventsProjectionScope: writable(healthy),
     seasonRegistrationsProjectionScope: writable(healthy),
     financialProjectionScope: writable(financial),
@@ -129,6 +130,8 @@ import {
   seasonRegistrationsStore,
   seasonsProjectionScope,
   seasonsStore,
+  teamsStore,
+  teamsProjectionScope,
 } from '../../src/lib/services/DataStore';
 import { BackendApiError } from '../../src/lib/api/BackendApi';
 import CreateSeasonModal from '../../src/components/crm/seasons/CreateSeasonModal.svelte';
@@ -144,6 +147,8 @@ const TestedSeasonDetail = SeasonDetail as unknown as Component;
 const TestedSeasonsManager = SeasonsManager as unknown as Component;
 const tenants = tenantIdStore as Writable<string | null>;
 const seasonRecords = seasonsStore as Writable<any[]>;
+const teamRecords = teamsStore as Writable<any[]>;
+const teamScope = teamsProjectionScope as Writable<any>;
 const eventRecords = eventsStore as Writable<any[]>;
 const seasonRegistrationRecords =
   seasonRegistrationsStore as Writable<any[]>;
@@ -213,6 +218,8 @@ describe('season mutation family', () => {
     window.localStorage.removeItem('huddleway-season-view');
     tenants.set('tenant-a');
     seasonRecords.set([fallLeague]);
+    teamRecords.set([{ id: 'team-1', name: 'Tigers' }]);
+    teamScope.set(healthyScope);
     eventRecords.set([openingPractice]);
     seasonRegistrationRecords.set([{
       id: 'season-registration-1',
@@ -383,6 +390,61 @@ describe('season mutation family', () => {
       '1 malformed season record was omitted because no stable identifier was available.',
     )).toBeVisible();
     expect(screen.getAllByText('Fall League').length).toBeGreaterThan(0);
+  });
+
+  it('joins a selected team through its validated alias and closes stale detail on ambiguity', async () => {
+    const team = { id: 'tenant-a_esports', referenceId: 'esports', name: 'Esports' };
+    teamRecords.set([team]);
+    seasonRecords.set([
+      { ...fallLeague, teamId: 'esports' },
+      { ...fallLeague, id: 'other', teamId: 'elsewhere', name: 'Other League' },
+    ]);
+    render(TestedSeasonsManager, { activeTeam: team });
+    expect(screen.getByRole('heading', { name: 'Fall League' })).toBeVisible();
+    expect(screen.queryByText('Other League')).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'View Details' }));
+    expect(screen.getByText('Team · Esports')).toBeVisible();
+    teamRecords.set([team, { id: 'second', referenceId: 'esports', name: 'Second' }]);
+    expect(await screen.findByText(/No seasons yet/)).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Fall League' })).toBeNull();
+    expect(backendMocks.updateSeason).not.toHaveBeenCalled();
+  });
+
+  it('waits for a complete team projection before declaring scoped seasons empty', async () => {
+    teamScope.set({ ...healthyScope, loading: true });
+    render(TestedSeasonsManager, { activeTeam: { id: 'team-1' } });
+    expect(screen.getByRole('status')).toHaveTextContent('Loading seasons');
+    teamScope.set({ ...healthyScope, error: 'Teams could not be loaded.' });
+    expect(await screen.findByRole('alert')).toHaveTextContent('Team relationships unavailable');
+    teamScope.set({ ...healthyScope, truncated: true });
+    expect(await screen.findByRole('alert')).toHaveTextContent('Team relationships unavailable');
+    teamScope.set(healthyScope);
+    expect(await screen.findByRole('heading', { name: 'Fall League' })).toBeVisible();
+  });
+
+  it.each(['team-1', 'esports'])('preserves an open %s season across team refresh and failure', async (reference) => {
+    const team = { id: 'team-1', referenceId: 'esports', name: 'Esports' };
+    teamRecords.set([team]);
+    seasonRecords.set([{ ...fallLeague, teamId: reference }]);
+    render(TestedSeasonsManager, { activeTeam: team });
+    await fireEvent.click(screen.getByRole('button', { name: 'View Details' }));
+    await act(() => {
+      teamScope.set({ ...healthyScope, loading: true });
+      teamRecords.set([]);
+    });
+    expect(screen.getByText('Loading season details…')).toBeVisible();
+    expect(screen.queryByText('Team · Esports')).toBeNull();
+    teamScope.set({ ...healthyScope, error: 'Teams unavailable' });
+    expect(await screen.findByRole('alert')).toHaveTextContent('Season details unavailable');
+    teamScope.set({ ...healthyScope, truncated: true });
+    expect(await screen.findByRole('alert')).toHaveTextContent('Season details unavailable');
+    await act(() => {
+      teamRecords.set([team]);
+      teamScope.set(healthyScope);
+    });
+    expect(await screen.findByText('Team · Esports')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'View Details' })).toBeNull();
+    expect(backendMocks.updateSeason).not.toHaveBeenCalled();
   });
 
   it('wires card and table edit controls to the authoritative editor', async () => {

@@ -15,6 +15,7 @@ vi.mock('../../src/lib/api/backendClient', () => ({
 }));
 
 const {
+  DataStore,
   eventsStore,
   eventsProjectionScope,
   financialProjectionScope,
@@ -147,6 +148,21 @@ describe('CRM data-store server paging boundaries', () => {
     unsubscribeTransactions();
     unsubscribeInvoices();
     unsubscribeError();
+  });
+
+  it('does not report complete empty user finances after a financial request fails', async () => {
+    testState.financialOverview.mockRejectedValue(new Error('Denied'));
+    tenantIdStore.set('fixture-tenant');
+    let error = '';
+    const unsubscribe = financialStoreError.subscribe(value => { error = value; });
+    await vi.waitFor(() => expect(error).not.toBe(''));
+    expect(DataStore.getUserFinancials('fixture-user')).toMatchObject({
+      totalsAvailable: false, paymentStatus: 'Unavailable',
+    });
+    expect(DataStore.getUserFinancialsForEvents('fixture-user', new Set(['event-1']))).toEqual({
+      totalsAvailable: false, paymentStatus: 'Unavailable',
+    });
+    unsubscribe();
   });
 
   it('exposes financial loading before an authoritative overview resolves', async () => {

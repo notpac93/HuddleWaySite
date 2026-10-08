@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/svelte';
 import type { Component } from 'svelte';
 import type { Writable } from 'svelte/store';
@@ -93,6 +94,7 @@ import {
   eventsStore,
   registrationsProjectionScope,
   registrationsStore,
+  teamsStore,
 } from '../../src/lib/services/DataStore';
 import { BackendApiError } from '../../src/lib/api/BackendApi';
 import EventScheduler from '../../src/components/crm/EventScheduler.svelte';
@@ -110,6 +112,7 @@ const eventRecords = eventsStore as Writable<any[]>;
 const eventScope = eventsProjectionScope as Writable<any>;
 const registrationRecords = registrationsStore as Writable<any[]>;
 const registrationScope = registrationsProjectionScope as Writable<any>;
+const teamRecords = teamsStore as Writable<any[]>;
 const healthyScope = {
   limit: 500,
   truncated: false,
@@ -180,9 +183,35 @@ describe('event mutation family', () => {
     eventScope.set(healthyScope);
     registrationRecords.set([]);
     registrationScope.set(healthyScope);
+    teamRecords.set([{ id: 'team-1', name: 'Tigers' }]);
     for (const mock of Object.values(backendMocks)) mock.mockReset();
     registrationOutreachMocks.createShareableLink.mockReset();
     vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  it('keeps semantic event references visible under the database team scope and filter', async () => {
+    teamRecords.set([{ id: 'tenant-a_esports', referenceId: 'esports', name: 'Esports' }]);
+    eventRecords.set([{ ...openingPractice, teamId: 'esports' }]);
+    render(TestedEventScheduler, { activeTeam: 'tenant-a_esports' });
+    expect(screen.getByRole('heading', { name: 'Opening practice' })).toBeVisible();
+    expect(screen.getByLabelText('Team · scope locked')).toHaveValue('tenant-a_esports');
+    expect(screen.getAllByText('Esports').length).toBeGreaterThan(1);
+    for (const mock of Object.values(backendMocks)) expect(mock).not.toHaveBeenCalled();
+  });
+
+  it('resolves the owned registrant team without changing its stored reference or edit identity', async () => {
+    teamRecords.set([{ id: 'tenant-a_esports', referenceId: 'esports', name: 'Esports' }]);
+    eventRecords.set([{ ...openingPractice, teamId: 'esports' }]);
+    registrationRecords.set([{ id: 'registration-a', eventId: 'event-1', teamId: 'esports',
+      participantName: 'Owned Participant', status: 'confirmed' }]);
+    render(TestedEventScheduler);
+    await fireEvent.change(screen.getByLabelText('Team'), { target: { value: 'tenant-a_esports' } });
+    expect(screen.getByRole('heading', { name: 'Opening practice' })).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'View 0 registrants for Opening practice' }));
+    const modal = screen.getByRole('dialog', { name: 'Event Registrants' });
+    const participantRow = within(modal).getByRole('row', { name: /Owned Participant/ });
+    expect(within(participantRow).getByText('Esports')).toBeVisible();
+    for (const mock of Object.values(backendMocks)) expect(mock).not.toHaveBeenCalled();
   });
 
   it('creates drafts with the exact backend contract and no rejected publishAt field', async () => {

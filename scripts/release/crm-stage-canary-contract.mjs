@@ -40,6 +40,7 @@ export function stageCanaryEnvironment(operatorEnvironment = process.env) {
   if (!previewReleaseId) {
     throw new Error('PUBLIC_APP_PREVIEW_RELEASE_ID is required for the stage-canary build.');
   }
+  const backendCommit = exactCommit(operatorEnvironment.HUDDLEWAY_STAGE_BACKEND_COMMIT, 'backend commit');
   return {
     PUBLIC_BACKEND_URL: STAGE_CANARY.backendUrl,
     PUBLIC_FIREBASE_API_KEY: 'AIzaSyDVZSVTxyiRh2TUIIE6ACmOLgdOPqB3TvA',
@@ -52,8 +53,48 @@ export function stageCanaryEnvironment(operatorEnvironment = process.env) {
     PUBLIC_FIREBASE_APP_CHECK_SITE_KEY: siteKey,
     PUBLIC_FIREBASE_USE_EMULATORS: 'false',
     PUBLIC_WEBSITE_COMMIT: commit,
+    HUDDLEWAY_STAGE_BACKEND_COMMIT: backendCommit,
     PUBLIC_APP_PREVIEW_ENVIRONMENT: 'stage',
     PUBLIC_APP_PREVIEW_COMMIT: previewCommit,
     PUBLIC_APP_PREVIEW_RELEASE_ID: previewReleaseId,
+  };
+}
+
+function exactCommit(value, name) {
+  const commit = String(value || '').trim().toLowerCase();
+  if (!/^[a-f0-9]{40}$/.test(commit)) throw new Error(`${name} must be an exact 40-character commit.`);
+  return commit;
+}
+
+export function assertStageCanarySourceCommit(declaredCommit, sourceCommit) {
+  if (exactCommit(declaredCommit, 'PUBLIC_WEBSITE_COMMIT') !== exactCommit(sourceCommit, 'website source commit')) {
+    throw new Error('PUBLIC_WEBSITE_COMMIT does not match the checked-out website source commit.');
+  }
+}
+
+export function assertStageCanarySourceTreeClean(statusOutput) {
+  if (String(statusOutput || '').trim()) throw new Error('The stage-canary website source tree must be clean before building.');
+}
+
+export function stageCanaryReleaseManifest(environment) {
+  if (environment.PUBLIC_FIREBASE_PROJECT_ID !== STAGE_CANARY.projectId) {
+    throw new Error('The stage-canary release manifest must target huddleway-dev.');
+  }
+  if (environment.PUBLIC_BACKEND_URL !== STAGE_CANARY.backendUrl) {
+    throw new Error('The stage-canary release manifest must target the huddleway-dev backend.');
+  }
+  if (environment.PUBLIC_APP_PREVIEW_ENVIRONMENT !== 'stage' || !String(environment.PUBLIC_APP_PREVIEW_RELEASE_ID || '').trim()) {
+    throw new Error('The stage-canary preview identity is required.');
+  }
+  return {
+    schemaVersion: 1,
+    mode: 'stage-canary',
+    projectId: STAGE_CANARY.projectId,
+    hostingSite: STAGE_CANARY.hostingSite,
+    websiteCommit: exactCommit(environment.PUBLIC_WEBSITE_COMMIT, 'PUBLIC_WEBSITE_COMMIT'),
+    backendCommit: exactCommit(environment.HUDDLEWAY_STAGE_BACKEND_COMMIT, 'backend commit'),
+    backendUrl: STAGE_CANARY.backendUrl,
+    appPreviewCommit: exactCommit(environment.PUBLIC_APP_PREVIEW_COMMIT, 'consumer commit'),
+    appPreviewReleaseId: environment.PUBLIC_APP_PREVIEW_RELEASE_ID,
   };
 }

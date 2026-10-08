@@ -58,6 +58,8 @@ vi.mock('../../src/lib/services/DataStore', async () => {
     }),
     seasonsStore: writable([]),
     eventsStore: writable([]),
+    seasonsProjectionScope: writable({ loading: false, error: '', truncated: false }),
+    eventsProjectionScope: writable({ loading: false, error: '', truncated: false }),
     teamsProjectionScope: writable({
       limit: null,
       truncated: false,
@@ -69,6 +71,10 @@ vi.mock('../../src/lib/services/DataStore', async () => {
 });
 
 import {
+  eventsStore,
+  eventsProjectionScope,
+  seasonsStore,
+  seasonsProjectionScope,
   teamsProjectionScope,
   teamsStore,
 } from '../../src/lib/services/DataStore';
@@ -77,6 +83,10 @@ import { backendClient } from '../../src/lib/api/backendClient';
 
 const TestedTeamsManager = TeamsManager as unknown as Component;
 const teams = teamsStore as Writable<Array<Record<string, unknown>>>;
+const events = eventsStore as Writable<Array<Record<string, unknown>>>;
+const seasons = seasonsStore as Writable<Array<Record<string, unknown>>>;
+const eventScope = eventsProjectionScope as Writable<any>;
+const seasonScope = seasonsProjectionScope as Writable<any>;
 const scope = teamsProjectionScope as Writable<{
   limit: number | null;
   truncated: boolean;
@@ -97,6 +107,10 @@ describe('TeamsManager complete projection states', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     teams.set([]);
+    events.set([]);
+    seasons.set([]);
+    eventScope.set({ ...healthyScope });
+    seasonScope.set({ ...healthyScope });
     scope.set({ ...healthyScope });
   });
 
@@ -224,5 +238,74 @@ describe('TeamsManager complete projection states', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Delete Falcons?' })).toBeNull();
     });
+  });
+
+  it('joins future events and seasons through the validated team reference', async () => {
+    const team = { id: 'tenant-a_esports', referenceId: 'esports', name: 'Esports' };
+    teams.set([team]);
+    seasons.set([{ id: 'season-1', teamId: 'esports', name: 'Esports League', status: 'active' }]);
+    events.set([
+      { id: 'event-1', teamId: 'esports', startAt: '2099-10-21T19:00:00Z', status: 'published' },
+      { id: 'event-2', teamId: 'tenant-a_esports', startAt: '2099-10-22T19:00:00Z', status: 'published' },
+      { id: 'archived', teamId: 'esports', startAt: '2099-10-23T19:00:00Z', status: 'archived' },
+      { id: 'past', teamId: 'esports', startAt: '2020-10-21T19:00:00Z', status: 'published' },
+      { id: 'program', teamId: 'all', startAt: '2099-10-21T19:00:00Z', status: 'published' },
+      { id: 'other', teamId: 'different-team', startAt: '2099-10-21T19:00:00Z', status: 'published' },
+    ]);
+    render(TestedTeamsManager, { activeTeam: team });
+    expect(screen.getByRole('button', { name: 'Upcoming events 2' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Active season Esports League' })).toBeVisible();
+    // Event registration is not an explicit roster membership.
+    expect(screen.getByRole('button', { name: 'Roster 0 people' })).toBeVisible();
+    events.update((events) => [...events, {
+      id: 'refreshed-event', metadata: { teamId: 'esports' },
+      startAt: '2099-11-01T19:00:00Z', status: 'published',
+    }]);
+    expect(await screen.findByRole('button', { name: 'Upcoming events 3' })).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit team' }));
+    expect(screen.getByRole('dialog', { name: 'Edit Team' })).toBeVisible();
+  });
+
+  it('distinguishes pending and unavailable projections from a loaded empty overview', async () => {
+    const team = { id: 'team-1', name: 'One' };
+    teams.set([team]);
+    eventScope.set({ ...healthyScope, loading: true });
+    seasonScope.set({ ...healthyScope, loading: true });
+    render(TestedTeamsManager, { activeTeam: team });
+    expect(screen.getByRole('button', { name: 'Upcoming events Loading…' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Active season Loading…' })).toBeVisible();
+    eventScope.set({ ...healthyScope, error: 'Events unavailable' });
+    seasonScope.set({ ...healthyScope, truncated: true });
+    expect(await screen.findByRole('button', { name: 'Upcoming events Unavailable' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Active season Unavailable' })).toBeVisible();
+    eventScope.set({ ...healthyScope });
+    seasonScope.set({ ...healthyScope });
+    scope.set({ ...healthyScope, loading: true });
+    expect(await screen.findByRole('button', { name: 'Upcoming events Loading…' })).toBeVisible();
+    scope.set({ ...healthyScope });
+    expect(await screen.findByRole('button', { name: 'Upcoming events 0' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Active season No season connected' })).toBeVisible();
+  });
+
+  it('does not join ambiguous aliases into a selected team overview', () => {
+    const team = { id: 'team-1', referenceId: 'shared', name: 'One' };
+    teams.set([team, { id: 'team-2', referenceId: 'shared', name: 'Two' }]);
+    seasons.set([{ id: 'season-1', teamId: 'shared', name: 'Ambiguous season', status: 'active' }]);
+    events.set([{ id: 'event-1', teamId: 'shared', startAt: '2099-10-21T19:00:00Z', status: 'published' }]);
+    render(TestedTeamsManager, { activeTeam: team });
+    expect(screen.getByRole('button', { name: 'Upcoming events 0' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Active season No season connected' })).toBeVisible();
+  });
+
+  it('refreshes loaded event impact when a team alias becomes ambiguous', async () => {
+    const team = { id: 'team-1', referenceId: 'shared', name: 'One' };
+    teams.set([team]);
+    events.set([{ id: 'event-1', teamId: 'shared', startAt: '2099-10-21T19:00:00Z', status: 'published' }]);
+    render(TestedTeamsManager, { activeTeam: team });
+    await fireEvent.click(screen.getByRole('button', { name: 'Delete team' }));
+    expect(screen.getByText(/and 1 event reference/)).toBeVisible();
+    teams.set([team, { id: 'team-2', referenceId: 'shared', name: 'Two' }]);
+    expect(await screen.findByText(/and 0 events reference/)).toBeVisible();
+    expect(backendClient.deleteTeam).not.toHaveBeenCalled();
   });
 });
