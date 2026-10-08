@@ -470,16 +470,9 @@ test('verified owner can use the authenticated CRM shell by keyboard and mobile 
   });
   await expect(searchInput).toBeFocused();
   await searchInput.fill('Fixture Falcons');
-  const teamResult = searchDialog.getByRole('button', { name: /Fixture Falcons/ });
-  await expect(teamResult).toBeVisible();
-  await page.keyboard.press('ArrowDown');
-  await expect(teamResult).toBeFocused();
-  await page.keyboard.press('Enter');
-  await expect(searchDialog).toBeHidden();
-  await expect(page.getByRole('heading', { name: 'Teams', exact: true }).first()).toBeVisible();
-  await page.keyboard.press(mobile ? 'Control+K' : 'Meta+K');
-  await expect(searchDialog).toBeVisible();
-  await expect(searchInput).toBeFocused();
+  await expect(
+    searchDialog.getByRole('button', { name: /Fixture Falcons/ }),
+  ).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(searchDialog).toBeHidden();
   await expect(
@@ -509,6 +502,23 @@ test('verified owner can use the authenticated CRM shell by keyboard and mobile 
   }
 
   for (const tab of crmTabs) await openCrmTab(page, tab, mobile);
+
+  // Selecting a team enters its workspace. Finish the organization-wide
+  // navigation matrix before asserting this deliberate scope change.
+  await page.keyboard.press(mobile ? 'Control+K' : 'Meta+K');
+  await expect(searchDialog).toBeVisible();
+  await expect(searchInput).toBeFocused();
+  await searchInput.fill('Fixture Falcons');
+  const teamResult = searchDialog.getByRole('button', { name: /Fixture Falcons/ });
+  await expect(teamResult).toBeVisible();
+  await page.keyboard.press('ArrowDown');
+  await expect(teamResult).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(searchDialog).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'Teams', exact: true }).first()).toBeVisible();
+  await expect(
+    page.getByRole('navigation', { name: 'Breadcrumb' }).locator('[aria-current="page"]'),
+  ).toHaveText('Fixture Falcons');
 
   const horizontalOverflow = await page.evaluate(
     () =>
