@@ -106,6 +106,35 @@ describe('GlobalSearch bounded record routing', () => {
     ).toBeEnabled();
   });
 
+  it('moves focus through all result categories and wraps without leaving the dialog', async () => {
+    stores.registrations!.set([{ id: 'registration-1', participantName: 'Fixture Player' }]);
+    stores.teams!.set([{ id: 'team-1', name: 'Fixture Team' }]);
+    stores.events!.set([{ id: 'event-1', title: 'Fixture Event' }]);
+    const navigate = vi.fn();
+    render(TestedGlobalSearch, { props: { isOpen: true }, events: { navigate } });
+    const input = screen.getByRole('searchbox');
+    await fireEvent.input(input, { target: { value: 'Fixture' } });
+    input.focus();
+    const player = screen.getByRole('button', { name: /Fixture Player/ });
+    const team = screen.getByRole('button', { name: /Fixture Team/ });
+    const event = screen.getByRole('button', { name: /Fixture Event/ });
+
+    for (const expected of [player, team, event, player]) {
+      await fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
+      expect(expected).toHaveFocus();
+    }
+    await fireEvent.keyDown(player, { key: 'ArrowUp' });
+    expect(event).toHaveFocus();
+    input.focus();
+    await fireEvent.keyDown(input, { key: 'ArrowUp' });
+    expect(event).toHaveFocus();
+    await fireEvent.click(event);
+    expect(navigate).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ detail: { tab: 'Events', id: 'event-1' } }),
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   it('shows loading, instruction, no-result, and Escape-close states', async () => {
     stores.eventScope!.set({ loading: true, error: '', truncated: false, limit: 500 });
     const close = vi.fn();

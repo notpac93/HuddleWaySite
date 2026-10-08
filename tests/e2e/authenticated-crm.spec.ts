@@ -470,9 +470,16 @@ test('verified owner can use the authenticated CRM shell by keyboard and mobile 
   });
   await expect(searchInput).toBeFocused();
   await searchInput.fill('Fixture Falcons');
-  await expect(
-    searchDialog.getByRole('button', { name: /Fixture Falcons/ }),
-  ).toBeVisible();
+  const teamResult = searchDialog.getByRole('button', { name: /Fixture Falcons/ });
+  await expect(teamResult).toBeVisible();
+  await page.keyboard.press('ArrowDown');
+  await expect(teamResult).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(searchDialog).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'Teams', exact: true }).first()).toBeVisible();
+  await page.keyboard.press(mobile ? 'Control+K' : 'Meta+K');
+  await expect(searchDialog).toBeVisible();
+  await expect(searchInput).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(searchDialog).toBeHidden();
   await expect(
