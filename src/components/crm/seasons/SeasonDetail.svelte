@@ -22,6 +22,7 @@
   import CreateEventForm from '../events/CreateEventForm.svelte';
   import { downloadCsv } from '../../../lib/ui/csvExport';
   import { formatDateOnly } from '../../../lib/ui/dateOnly';
+  import { buildTeamReferenceIndex, teamNameForReference } from '../../../lib/ui/teamReferences';
 
   export let season: any = null;
   export let onNavigateTab: (tab: string, id?: string | null) => void = () => {};
@@ -35,10 +36,8 @@
 
   let activeTab = 'participants'; // 'participants' | 'events'
   $: seasonId = String(season?.id || '').trim();
-  $: seasonTeamName = String(
-    $teamsStore.find((team) => String(team?.id || '') === String(season?.teamId || ''))?.name
-    || '',
-  ).trim();
+  $: teamReferences = buildTeamReferenceIndex($teamsStore);
+  $: seasonTeamName = teamNameForReference(teamReferences, season?.teamId);
   let unlinkCandidate: any = null;
   let unlinkReason = '';
   let unlinkConfirmation = '';

@@ -58,6 +58,8 @@ vi.mock('../../src/lib/services/DataStore', async () => {
     }),
     seasonsStore: writable([]),
     eventsStore: writable([]),
+    seasonsProjectionScope: writable({ loading: false, error: '', truncated: false }),
+    eventsProjectionScope: writable({ loading: false, error: '', truncated: false }),
     teamsProjectionScope: writable({
       limit: null,
       truncated: false,
@@ -70,7 +72,9 @@ vi.mock('../../src/lib/services/DataStore', async () => {
 
 import {
   eventsStore,
+  eventsProjectionScope,
   seasonsStore,
+  seasonsProjectionScope,
   teamsProjectionScope,
   teamsStore,
 } from '../../src/lib/services/DataStore';
@@ -81,6 +85,8 @@ const TestedTeamsManager = TeamsManager as unknown as Component;
 const teams = teamsStore as Writable<Array<Record<string, unknown>>>;
 const events = eventsStore as Writable<Array<Record<string, unknown>>>;
 const seasons = seasonsStore as Writable<Array<Record<string, unknown>>>;
+const eventScope = eventsProjectionScope as Writable<any>;
+const seasonScope = seasonsProjectionScope as Writable<any>;
 const scope = teamsProjectionScope as Writable<{
   limit: number | null;
   truncated: boolean;
@@ -103,6 +109,8 @@ describe('TeamsManager complete projection states', () => {
     teams.set([]);
     events.set([]);
     seasons.set([]);
+    eventScope.set({ ...healthyScope });
+    seasonScope.set({ ...healthyScope });
     scope.set({ ...healthyScope });
   });
 
@@ -256,6 +264,27 @@ describe('TeamsManager complete projection states', () => {
     expect(await screen.findByRole('button', { name: 'Upcoming events 3' })).toBeVisible();
     await fireEvent.click(screen.getByRole('button', { name: 'Edit team' }));
     expect(screen.getByRole('dialog', { name: 'Edit Team' })).toBeVisible();
+  });
+
+  it('distinguishes pending and unavailable projections from a loaded empty overview', async () => {
+    const team = { id: 'team-1', name: 'One' };
+    teams.set([team]);
+    eventScope.set({ ...healthyScope, loading: true });
+    seasonScope.set({ ...healthyScope, loading: true });
+    render(TestedTeamsManager, { activeTeam: team });
+    expect(screen.getByRole('button', { name: 'Upcoming events Loading…' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Active season Loading…' })).toBeVisible();
+    eventScope.set({ ...healthyScope, error: 'Events unavailable' });
+    seasonScope.set({ ...healthyScope, truncated: true });
+    expect(await screen.findByRole('button', { name: 'Upcoming events Unavailable' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Active season Unavailable' })).toBeVisible();
+    eventScope.set({ ...healthyScope });
+    seasonScope.set({ ...healthyScope });
+    scope.set({ ...healthyScope, loading: true });
+    expect(await screen.findByRole('button', { name: 'Upcoming events Loading…' })).toBeVisible();
+    scope.set({ ...healthyScope });
+    expect(await screen.findByRole('button', { name: 'Upcoming events 0' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Active season No season connected' })).toBeVisible();
   });
 
   it('does not join ambiguous aliases into a selected team overview', () => {

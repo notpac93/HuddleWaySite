@@ -6,9 +6,11 @@
   import type { PortalIconName } from '../../lib/ui/portalIcons';
   import {
     eventsStore,
+    eventsProjectionScope,
     registrationsProjectionScope,
     registrationsStore,
     seasonsStore,
+    seasonsProjectionScope,
     teamsProjectionScope,
     teamsStore,
     refreshOperationalCollections,
@@ -57,6 +59,12 @@
   let unsubscribeRosterCounts = () => {};
   let rosterCountGeneration = 0;
   $: teamReferences = buildTeamReferenceIndex($teamsStore);
+  function summaryState(scope: { loading: boolean; error: string; truncated: boolean }, teams: typeof scope) {
+    if (scope.loading || teams.loading) return 'Loading…';
+    return scope.error || scope.truncated || teams.error || teams.truncated ? 'Unavailable' : '';
+  }
+  $: seasonSummaryState = summaryState($seasonsProjectionScope, $teamsProjectionScope);
+  $: eventSummaryState = summaryState($eventsProjectionScope, $teamsProjectionScope);
 
   function subscribeRosterCounts() {
     const generation = ++rosterCountGeneration;
@@ -318,8 +326,8 @@
       <section class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Team overview">
         <div class="rounded-lg border bg-white p-4"><p class="text-xs font-semibold uppercase text-gray-500">Status</p><p class="mt-1 text-lg font-semibold">{teamStatus(activeTeam)}</p></div>
         <button type="button" class="rounded-lg border bg-white p-4 text-left hover:border-[var(--crm-brand-focus)]" on:click={() => onNavigateTab('Roster')}><span class="text-xs font-semibold uppercase text-gray-500">Roster</span><span class="mt-1 block text-lg font-semibold">{teamRosterCount(activeTeam)} people</span></button>
-        <button type="button" class="rounded-lg border bg-white p-4 text-left hover:border-[var(--crm-brand-focus)]" on:click={() => onNavigateTab('Seasons')}><span class="text-xs font-semibold uppercase text-gray-500">Active season</span><span class="mt-1 block text-lg font-semibold">{activeSeasonName(activeTeam, $seasonsStore, teamReferences)}</span></button>
-        <button type="button" class="rounded-lg border bg-white p-4 text-left hover:border-[var(--crm-brand-focus)]" on:click={() => onNavigateTab('Events')}><span class="text-xs font-semibold uppercase text-gray-500">Upcoming events</span><span class="mt-1 block text-lg font-semibold">{upcomingTeamEventCount(activeTeam, $eventsStore, teamReferences)}</span></button>
+        <button type="button" class="rounded-lg border bg-white p-4 text-left hover:border-[var(--crm-brand-focus)]" on:click={() => onNavigateTab('Seasons')}><span class="text-xs font-semibold uppercase text-gray-500">Active season</span><span class="mt-1 block text-lg font-semibold">{seasonSummaryState || activeSeasonName(activeTeam, $seasonsStore, teamReferences)}</span></button>
+        <button type="button" class="rounded-lg border bg-white p-4 text-left hover:border-[var(--crm-brand-focus)]" on:click={() => onNavigateTab('Events')}><span class="text-xs font-semibold uppercase text-gray-500">Upcoming events</span><span class="mt-1 block text-lg font-semibold">{eventSummaryState || upcomingTeamEventCount(activeTeam, $eventsStore, teamReferences)}</span></button>
       </section>
       <section class="mt-6" aria-labelledby="team-workspaces-title">
         <h3 id="team-workspaces-title" class="text-base font-semibold text-gray-900">Team workspaces</h3>
@@ -351,7 +359,7 @@
                 <button type="button" class="min-w-0 flex-1 text-left" on:click={() => setActiveTeam(team)}>
                   <span class="flex items-center justify-between gap-4"><span class="text-lg font-semibold text-[var(--crm-brand-link)]">{team.name}</span><span class="whitespace-nowrap text-sm font-semibold text-[var(--crm-brand-link)]">Open team</span></span>
                   <span class="mt-2 block text-sm text-gray-600">{team.description || 'No description provided.'}</span>
-                  <span class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500"><span>{teamStatus(team)}</span><span>{teamRosterCount(team)} people</span><span>{activeSeasonName(team, $seasonsStore, teamReferences)}</span></span>
+                  <span class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500"><span>{teamStatus(team)}</span><span>{teamRosterCount(team)} people</span><span>{seasonSummaryState || activeSeasonName(team, $seasonsStore, teamReferences)}</span></span>
                 </button>
                 <button type="button" class="crm-ui-button-secondary inline-flex items-center gap-2" aria-label={`Edit ${team.name}`} on:click={() => openEditForm(team)}><Icon name="pencil" size={16} /> Edit</button>
               </article>
