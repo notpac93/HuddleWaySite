@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
-const projectId = 'demo-huddleway-crm';
+const projectId = process.env.PLAYWRIGHT_FIREBASE_PROJECT_ID || 'demo-huddleway-crm';
+if (!/^demo-[a-z0-9-]+$/.test(projectId)) throw new Error('Browser fixtures require a demo Firebase project.');
 const authBaseUrl = `http://127.0.0.1:${process.env.PLAYWRIGHT_AUTH_EMULATOR_PORT ?? '9099'}`;
 const firestoreBaseUrl = `http://127.0.0.1:${process.env.PLAYWRIGHT_FIRESTORE_EMULATOR_PORT ?? '8181'}`;
 const password = 'FixturePass123!';
@@ -20,6 +21,22 @@ const crmTabs = [
   'Settings',
   'Activity',
 ];
+
+test.beforeEach(async ({ context }) => {
+  if (process.env.PLAYWRIGHT_ISOLATED_ADMIN !== '1') return;
+  await context.route('**/*', async (route) => {
+    const url = new URL(route.request().url());
+    if (!['http:', 'https:'].includes(url.protocol)) return route.continue();
+    if (url.hostname !== '127.0.0.1' || !['4347', '29099', '28181', '28182'].includes(url.port)) {
+      throw new Error(`Isolated admin browser attempted an external request: ${url.origin}${url.pathname}`);
+    }
+    // Specific backend fixtures registered on the page take precedence.
+    if (url.port === '28182') {
+      return route.fulfill({ status: 501, contentType: 'application/json', body: JSON.stringify({ error: `Missing browser fixture: ${url.pathname}` }) });
+    }
+    await route.continue();
+  });
+});
 
 type FirestoreValue =
   | { stringValue: string }
@@ -180,6 +197,11 @@ async function mockAuthenticatedBackend(page: Page, tenantId: string) {
     '/admin/inbox/threads': { success: true, threads: [], truncated: false },
     '/admin/crm/documents': { documents: [], truncated: false },
     '/admin/staff': { staff: [], pendingInvites: [], truncated: { staff: false, pendingInvites: false } },
+    '/admin/crm/component-studio': {
+      templateId: 'fixture-template', templateVersion: 1, versionToken: 'fixture-layout-v1',
+      definitions: [], pages: [{ id: 'fixture-home', route: '/', title: 'Home', components: [] }],
+      versions: [], historyTruncated: false,
+    },
     '/admin/communications/connected-mailbox': {
       success: true, connected: false, status: 'disconnected', provider: null,
       email: null, displayName: null, connectedAt: null, lastCheckedAt: null, availableProviders: [],
@@ -415,10 +437,15 @@ async function mockAuthenticatedBackend(page: Page, tenantId: string) {
 async function openCrmTab(page: Page, tab: string, mobile: boolean) {
   const visibleLabel = tab === 'Settings' ? 'My profile' : tab;
   if (mobile) {
-    await page.getByRole('button', { name: 'Open navigation menu' }).click();
-    const drawer = page.getByRole('dialog', { name: 'Fixture Athletics' });
-    await drawer.getByRole('button', { name: visibleLabel, exact: true }).click();
-    await expect(drawer).toBeHidden();
+    const quickAccess = page.getByRole('navigation', { name: 'Admin quick access' });
+    if (['Dashboard', 'Events', 'Messages', 'My App'].includes(tab)) {
+      await quickAccess.getByRole('button', { name: visibleLabel, exact: true }).click();
+    } else {
+      await quickAccess.getByRole('button', { name: /^More/ }).click();
+      const drawer = page.getByRole('dialog', { name: 'More · Fixture Athletics' });
+      await drawer.getByRole('button', { name: visibleLabel, exact: true }).click();
+      await expect(drawer).toBeHidden();
+    }
   } else {
     const sidebar = page.locator('aside[data-sidebar-expanded]');
     await sidebar.hover();
@@ -450,6 +477,10 @@ test('verified owner can use the authenticated CRM shell by keyboard and mobile 
   test.setTimeout(90_000);
   const pageErrors: string[] = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
+  const backendFailures: string[] = [];
+  page.on('response', (response) => {
+    if (new URL(response.url()).port === '28182' && response.status() >= 400) backendFailures.push(`${response.status()} ${response.url()}`);
+  });
   const mobile = Boolean(testInfo.project.use.isMobile);
   const { email } = await seedVerifiedOwner(testInfo.project.name);
   await mockAuthenticatedBackend(
@@ -501,7 +532,16 @@ test('verified owner can use the authenticated CRM shell by keyboard and mobile 
     await expect(menuTrigger).toBeFocused();
   }
 
-  for (const tab of crmTabs) await openCrmTab(page, tab, mobile);
+  for (const tab of crmTabs) {
+    await test.step(`Open ${tab}`, async () => {
+      await openCrmTab(page, tab, mobile);
+      await expect(page.locator('main [role="status"]').filter({ hasText: /^Loading/i })).toHaveCount(0);
+      await expect(page.getByRole('alert').filter({ hasText: /invalid response|could not be loaded|unavailable|failed|missing browser fixture/i })).toHaveCount(0);
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+      expect(overflow, `${tab} horizontal overflow`).toBeLessThanOrEqual(1);
+      await page.screenshot({ path: testInfo.outputPath(`${tab.toLowerCase().replaceAll(' ', '-')}.png`) });
+    });
+  }
 
   // Selecting a team enters its workspace. Finish the organization-wide
   // navigation matrix before asserting this deliberate scope change.
@@ -527,4 +567,90 @@ test('verified owner can use the authenticated CRM shell by keyboard and mobile 
   );
   expect(horizontalOverflow).toBeLessThanOrEqual(1);
   expect(pageErrors).toEqual([]);
+  expect(backendFailures).toEqual([]);
+});
+
+test('admin tabs survive repeated visits, reload, and unsaved My App navigation', async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  const mobile = Boolean(testInfo.project.use.isMobile);
+  const suffix = testInfo.project.name.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+  const { email } = await seedVerifiedOwner(testInfo.project.name);
+  await mockAuthenticatedBackend(page, `e2e-tenant-${suffix}`);
+  await signIn(page, email);
+
+  for (const tab of [...crmTabs, ...crmTabs.toReversed()]) {
+    await test.step(`Revisit ${tab}`, async () => {
+      await openCrmTab(page, tab, mobile);
+      await expect(page.locator('main [role="status"]').filter({ hasText: /^Loading/i })).toHaveCount(0);
+      await expect(page.getByRole('alert').filter({ hasText: /invalid response|could not be loaded|unavailable|failed/i })).toHaveCount(0);
+    });
+  }
+  await openCrmTab(page, 'Settings', mobile);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(page.getByRole('heading', { name: 'My profile', level: 2 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Operations Portal' })).toHaveCount(0);
+
+  await openCrmTab(page, 'My App', mobile);
+  for (const section of ['Pages', 'Components', 'Version history', 'Branding']) {
+    await page.getByRole('navigation', { name: 'My App sections' }).getByRole('button', { name: section, exact: true }).click();
+    await expect(page.getByRole('alert').filter({ hasText: /could not|unavailable|invalid/i })).toHaveCount(0);
+    await expect(page.getByRole('navigation', { name: 'My App sections' }).getByRole('button', { name: section, exact: true })).toHaveAttribute('aria-pressed', 'true');
+  }
+  const appName = page.getByLabel('App Name', { exact: true });
+  await appName.fill('Unsaved test name');
+  const events = mobile
+    ? page.getByRole('navigation', { name: 'Admin quick access' }).getByRole('button', { name: 'Events', exact: true })
+    : page.locator('aside[data-sidebar-expanded] nav').getByRole('button', { name: 'Events', exact: true });
+  await events.click();
+  const guard = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: 'Stay', exact: true }) });
+  await expect(guard).toBeVisible();
+  await guard.getByRole('button', { name: 'Stay', exact: true }).click();
+  await expect(appName).toHaveValue('Unsaved test name');
+  await events.click();
+  await guard.getByRole('button', { name: 'Discard changes', exact: true }).click();
+  await expect(page.locator('header.crm-ui-shell-header').getByText('Events', { exact: true })).toBeVisible();
+  await openCrmTab(page, 'My App', mobile);
+  await expect(appName).not.toHaveValue('Unsaved test name');
+  expect(errors).toEqual([]);
+});
+
+test('documents recover from a failed request and late responses cannot replace the current tab', async ({ page }, testInfo) => {
+  const mobile = Boolean(testInfo.project.use.isMobile);
+  const suffix = testInfo.project.name.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+  const tenantId = `e2e-tenant-${suffix}`;
+  const { email } = await seedVerifiedOwner(testInfo.project.name);
+  await mockAuthenticatedBackend(page, tenantId);
+  await signIn(page, email);
+  let attempt = 0;
+  await page.route('**/admin/crm/documents?**', async (route) => {
+    attempt += 1;
+    await route.fulfill({
+      status: attempt === 1 ? 503 : 200,
+      contentType: 'application/json',
+      body: JSON.stringify(attempt === 1
+        ? { error: 'Temporary fixture outage', requestId: 'e2e-retry' }
+        : { tenantId, documents: [], truncated: false, requestId: 'e2e-recovered' }),
+    });
+  });
+  await openCrmTab(page, 'Documents', mobile);
+  await expect(page.getByRole('alert')).toBeVisible();
+  await page.getByRole('button', { name: 'Try again', exact: true }).click();
+  await expect(page.getByText('No documents yet', { exact: true })).toBeVisible();
+  expect(attempt).toBe(2);
+
+  await openCrmTab(page, 'Dashboard', mobile);
+  let release: () => void = () => {};
+  const responseGate = new Promise<void>((resolve) => { release = resolve; });
+  await page.route('**/admin/crm/documents?**', async (route) => {
+    await responseGate;
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ tenantId, documents: [], truncated: false, requestId: 'e2e-delayed' }) });
+  });
+  await openCrmTab(page, 'Documents', mobile);
+  await expect(page.getByText('Loading documents…', { exact: true })).toBeVisible();
+  await openCrmTab(page, 'Events', mobile);
+  release();
+  await expect(page.getByText('Fixture Practice', { exact: true })).toBeVisible();
+  await expect(page.getByText('No documents yet', { exact: true })).toHaveCount(0);
 });
