@@ -1,7 +1,7 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/svelte";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/svelte";
 import type { Component } from "svelte";
 import type { Writable } from "svelte/store";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../src/lib/firebase", () => ({
   appCheck: null,
@@ -106,6 +106,7 @@ const user = userStore as Writable<any>;
 const authLoading = isAuthLoading as Writable<boolean>;
 
 describe("CrmApp authentication, role, module, and tenant boundaries", () => {
+  afterEach(() => vi.unstubAllGlobals());
   beforeEach(() => {
     vi.mocked(backendClient.stripeConnectRefresh).mockReset();
     localStorage.clear();
@@ -122,6 +123,39 @@ describe("CrmApp authentication, role, module, and tenant boundaries", () => {
       emailVerified: true,
     });
     authLoading.set(false);
+  });
+
+  it('mounts mobile quick access only after existing account and tenant gates pass', async () => {
+    vi.stubGlobal('matchMedia', vi.fn(() => ({
+      matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    })));
+    authLoading.set(true);
+    const view = render(TestedCrmApp);
+    expect(screen.queryByRole('navigation', { name: 'Admin quick access' })).toBeNull();
+
+    authLoading.set(false);
+    user.set(null);
+    await view.rerender({});
+    expect(screen.queryByRole('navigation', { name: 'Admin quick access' })).toBeNull();
+    expect(view.container.querySelector('.crm-auth-shell')).not.toBeNull();
+
+    user.set({ uid: 'viewer-user', emailVerified: true });
+    tenants.set(null);
+    role.set(null);
+    await view.rerender({});
+    expect(screen.getByRole('heading', { name: 'Organization setup is managed by HuddleWay' })).toBeVisible();
+    expect(screen.queryByRole('navigation', { name: 'Admin quick access' })).toBeNull();
+
+    tenants.set('tenant-viewer');
+    role.set('viewer');
+    const nav = within(await screen.findByRole('navigation', { name: 'Admin quick access' }));
+    expect(nav.getByRole('button', { name: 'Dashboard' })).toBeVisible();
+    expect(nav.queryByRole('button', { name: 'My App' })).toBeNull();
+    expect(nav.queryByRole('button', { name: 'Messages' })).toBeNull();
+
+    authError.set('Access could not be verified.');
+    await view.rerender({});
+    expect(screen.queryByRole('navigation', { name: 'Admin quick access' })).toBeNull();
   });
 
   it("shows an actionable error when secure Stripe re-entry expires", async () => {

@@ -21,6 +21,7 @@
   } from '../../lib/ui/crmTheme';
   import CrmBreadcrumbs from './CrmBreadcrumbs.svelte';
   import Icon from './ui/Icon.svelte';
+  import AdminQuickAccess from './AdminQuickAccess.svelte';
 
   export let activeTab = 'Dashboard';
   export let tabs: any[] = [];
@@ -35,6 +36,13 @@
   let showOrgSwitcher = false;
   let showGlobalSearch = false;
   let showMobileMenu = false;
+  let mobileMenuMode: 'all' | 'more' = 'all';
+  let mobileMenuOpener: HTMLButtonElement | null = null;
+  let isMobileViewport = false;
+  const quickAccessNames = new Set(['Dashboard', 'Events', 'Messages', 'My App']);
+  $: mobileTabs = mobileMenuMode === 'more'
+    ? tabs.filter((tab) => !quickAccessNames.has(tab.name))
+    : tabs;
   let mobileMenuTrigger: HTMLButtonElement | null = null;
   let globalSearchTrigger: HTMLButtonElement | null = null;
   let GlobalSearchComponent: Component<any> | null = null;
@@ -51,6 +59,15 @@
 
   onMount(() => {
     isSidebarExpanded = window.localStorage.getItem(sidebarPreferenceKey) !== 'false';
+    if (!window.matchMedia) return;
+    const mobileViewport = window.matchMedia('(max-width: 767px)');
+    const updateViewport = () => {
+      isMobileViewport = mobileViewport.matches;
+      if (!isMobileViewport) showMobileMenu = false;
+    };
+    updateViewport();
+    mobileViewport.addEventListener('change', updateViewport);
+    return () => mobileViewport.removeEventListener('change', updateViewport);
   });
 
   function tabLabel(tab: any) {
@@ -211,6 +228,8 @@
   }
 
   function setActiveTab(tab: any) {
+    // A draft decision replaces the drawer, avoiding two simultaneous dialogs.
+    if (showMobileMenu) closeMobileMenu();
     if (tab === activeTab) {
       showMobileMenu = false;
       void tick().then(() => pageHeading?.focus({ preventScroll: true }));
@@ -325,7 +344,13 @@
 
   function closeMobileMenu() {
     showMobileMenu = false;
-    mobileMenuTrigger?.focus();
+    (mobileMenuOpener || mobileMenuTrigger)?.focus();
+  }
+
+  function openMobileMenu(mode: 'all' | 'more', trigger: HTMLButtonElement) {
+    mobileMenuMode = mode;
+    mobileMenuOpener = trigger;
+    showMobileMenu = true;
   }
 
   function handleBeforeUnload(event: BeforeUnloadEvent) {
@@ -365,7 +390,7 @@
             alt=""
             class="h-8 w-8 shrink-0 object-contain"
           />
-          <h2 id="mobile-navigation-title" class="min-w-0 flex-1 truncate text-lg font-bold">{appName}</h2>
+          <h2 id="mobile-navigation-title" class="min-w-0 flex-1 truncate text-lg font-bold">{mobileMenuMode === 'more' ? `More · ${appName}` : appName}</h2>
           <button
             type="button"
             class="crm-ui-shell-signout-icon"
@@ -377,7 +402,7 @@
           </button>
         </div>
         <nav class="flex-1 space-y-1 overflow-y-auto p-3" aria-label="CRM sections">
-          {#each tabs as tab}
+          {#each mobileTabs as tab}
             <button
               type="button"
               class="flex w-full items-center rounded-lg px-3 py-3 text-left text-sm font-semibold {activeTab === tab.name ? 'crm-theme-sidebar-active' : 'crm-theme-sidebar-idle'}"
@@ -536,7 +561,7 @@
         class="rounded-md border border-gray-300 p-2 text-gray-700 hover:bg-gray-50 md:hidden"
         aria-label="Open navigation menu"
         aria-expanded={showMobileMenu}
-        on:click={() => showMobileMenu = true}
+        on:click={(event) => openMobileMenu('all', event.currentTarget)}
       >
         <Icon name="menu" size={20} />
       </button>
@@ -595,6 +620,16 @@
       </div>
     </div>
   </main>
+
+  {#if isMobileViewport}
+    <AdminQuickAccess
+      {tabs}
+      {activeTab}
+      onNavigate={setActiveTab}
+      onMore={(trigger) => openMobileMenu('more', trigger)}
+      moreExpanded={showMobileMenu && mobileMenuMode === 'more'}
+    />
+  {/if}
 
   <!-- Logout Confirmation Modal -->
   {#if showLogoutModal}
@@ -681,3 +716,16 @@
     </div>
   {/if}
 </div>
+
+<style>
+  @media (max-width: 767px) {
+    .crm-ui-shell-root {
+      height: 100dvh;
+      flex-direction: column;
+    }
+    .crm-ui-shell-main {
+      min-height: 0;
+      min-width: 0;
+    }
+  }
+</style>

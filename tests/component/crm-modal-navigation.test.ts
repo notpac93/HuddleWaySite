@@ -7,7 +7,7 @@ import {
 } from "@testing-library/svelte";
 import type { Component } from "svelte";
 import type { Writable } from "svelte/store";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 Element.prototype.animate = vi.fn(() => ({
   cancel: vi.fn(),
@@ -123,6 +123,7 @@ import {
   tenantIdStore,
 } from "../../src/lib/authStore";
 import { signOut } from "firebase/auth";
+import { portalDraftStore, registerPortalDraft } from '../../src/lib/ui/portalDraftGuard';
 
 const TestedCrmShellSearchHarness =
   CrmShellSearchHarness as unknown as Component;
@@ -148,10 +149,56 @@ async function openSearchFor(query: string) {
 }
 
 describe("CRM modal stacking and navigation", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    portalDraftStore.set(null);
+  });
   beforeEach(() => {
     tenantChoices.set([]);
     tenants.set(null);
     signOutMock.mockReset();
+  });
+
+  it('guards quick access changes and restores focus from More', async () => {
+    vi.stubGlobal('matchMedia', vi.fn(() => ({
+      matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    })));
+    render(TestedCrmShellSearchHarness);
+    const nav = within(screen.getByRole('navigation', { name: 'Admin quick access' }));
+    const discard = vi.fn();
+    registerPortalDraft({
+      id: 'preview-text', title: 'Unsaved preview text', message: 'Keep editing or discard.',
+      onDiscard: discard,
+    });
+    await fireEvent.click(nav.getByRole('button', { name: 'Events' }));
+    expect(screen.getByRole('status', { name: 'current tab' })).toHaveTextContent('Activity');
+    await fireEvent.click(screen.getByRole('button', { name: 'Stay' }));
+    expect(discard).not.toHaveBeenCalled();
+    await fireEvent.click(nav.getByRole('button', { name: 'Events' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Discard changes' }));
+    await waitFor(() => expect(screen.getByRole('status', { name: 'current tab' })).toHaveTextContent('Events'));
+    expect(discard).toHaveBeenCalledOnce();
+
+    const more = nav.getByRole('button', { name: 'More' });
+    more.focus();
+    await fireEvent.click(more);
+    let drawer = screen.getByRole('dialog', { name: 'More · HuddleWay' });
+    expect(within(drawer).queryByRole('button', { name: 'Events' })).toBeNull();
+    expect(within(drawer).getByRole('button', { name: 'Roster' })).toBeVisible();
+    await fireEvent.keyDown(drawer, { key: 'Escape' });
+    await waitFor(() => expect(more).toHaveFocus());
+
+    await fireEvent.click(more);
+    drawer = screen.getByRole('dialog', { name: 'More · HuddleWay' });
+    registerPortalDraft({
+      id: 'next-preview', title: 'Unsaved preview text', message: 'Keep editing or discard.',
+      onDiscard: discard,
+    });
+    await fireEvent.click(within(drawer).getByRole('button', { name: 'Roster' }));
+    expect(screen.queryByRole('dialog', { name: 'More · HuddleWay' })).toBeNull();
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    await fireEvent.click(screen.getByRole('button', { name: 'Discard changes' }));
+    await waitFor(() => expect(nav.getByRole('button', { name: 'More, current section: Roster' })).toBeVisible());
   });
 
   it("routes accessible player, team, and event search results and retains each ID", async () => {
