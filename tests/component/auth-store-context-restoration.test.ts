@@ -40,6 +40,7 @@ describe("CRM authorization restores persisted organization safely", () => {
   beforeEach(() => {
     vi.useRealTimers();
     localStorage.clear();
+    window.history.replaceState({}, "", "/admin/");
     tenantIdStore.set(null);
     availableTenants.set([]);
     tenantNamesStore.set({});
@@ -147,4 +148,28 @@ describe("CRM authorization restores persisted organization safely", () => {
       page: "Financials",
     });
   });
+  it("uses an authorized app-entry program once without overriding later switches", async () => {
+    window.history.replaceState({}, "", "/admin/?program=new-program");
+    writeCrmContext("admin-a", { tenantId: "eagle", page: "Financials" });
+    authMocks.fetchAuthorization.mockResolvedValue({
+      tenantAccess: [{ tenantId: "eagle", role: "owner" }, { tenantId: "new-program", role: "owner" }],
+      canViewTenantOperations: false, tenantOperationsRole: null,
+    });
+    await authMocks.callback?.({ uid: "admin-a" });
+    expect(get(tenantIdStore)).toBe("new-program");
+    expect(window.location.search).toBe("");
+    tenantIdStore.set("eagle");
+    await refreshAuthorization({ uid: "admin-a" } as any);
+    expect(get(tenantIdStore)).toBe("eagle");
+  });
+  it("rejects an unauthorized app-entry program", async () => {
+    window.history.replaceState({}, "", "/admin/?program=private-program");
+    authMocks.fetchAuthorization.mockResolvedValue({
+      tenantAccess: [{ tenantId: "eagle", role: "owner" }],
+      canViewTenantOperations: false, tenantOperationsRole: null,
+    });
+    await authMocks.callback?.({ uid: "admin-a" });
+    expect(get(tenantIdStore)).toBe("eagle");
+  });
+
 });

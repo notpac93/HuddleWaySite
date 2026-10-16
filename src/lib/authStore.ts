@@ -1,5 +1,6 @@
 import { derived, get, writable } from 'svelte/store';
 import { auth } from './firebase';
+import { authorizedEntryProgram, requestedAdminProgram, clearRequestedAdminProgram } from './crm/adminEntryContext';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import {
   AuthService,
@@ -67,7 +68,7 @@ async function refreshAuthorizationForUser(user: User, sequence: number) {
     const persistedContext = readCrmContext(user.uid);
     const restoredTenant = resolveAuthorizedTenant(
       tenants,
-      currentTenant,
+      authorizedEntryProgram(tenants, requestedAdminProgram(typeof window === 'undefined' ? undefined : window.location), currentTenant),
       persistedContext,
     );
     if (
@@ -84,6 +85,7 @@ async function refreshAuthorizationForUser(user: User, sequence: number) {
     tenantOperationsRoleStore.set(authorization.tenantOperationsRole);
     availableTenants.set(tenants);
     tenantIdStore.set(restoredTenant);
+    clearRequestedAdminProgram();
     authErrorStore.set('');
     return true;
   } catch {

@@ -23,6 +23,8 @@
   } from '../../lib/crm/crmContextPersistence';
   import type { PortalIconName } from '../../lib/ui/portalIcons';
   import Login from './Login.svelte';
+  import { usesAppEntry, returnToAppSignIn } from '../../lib/crm/adminEntryContext';
+  $: if (usesAppEntry && !$isAuthLoading && !$userStore) returnToAppSignIn();
   import CrmShell from './CrmShell.svelte';
 
   let activeTab = 'Dashboard';
@@ -379,7 +381,7 @@
     <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--crm-brand-primary)]"></div>
   </div>
 {:else if !$userStore}
-  <Login />
+  {#if !usesAppEntry}<Login />{/if}
 {:else if $authErrorStore}
   <div class="crm-theme-default-host min-h-screen flex items-center justify-center bg-gray-50 p-6">
     <div class="max-w-lg rounded-lg border border-red-200 bg-white p-8 shadow text-center">
