@@ -59,7 +59,7 @@ describe('CRM accessibility and responsive contract', () => {
     const search = readFileSync(join(crmRoot, 'GlobalSearch.svelte'), 'utf8');
     expect(shell).toContain("event.key.toLowerCase() === 'k'");
     expect(shell).toContain('initialFocusSelector:');
-    expect(shell).toContain('mobileMenuTrigger?.focus()');
+    expect(shell).toContain('(mobileMenuOpener || mobileMenuTrigger)?.focus()');
     expect(search).toContain("initialFocusSelector: '#global-search-input'");
     expect(search).toContain('aria-label="Search players, teams, or events"');
   });
