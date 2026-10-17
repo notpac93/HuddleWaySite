@@ -1,3 +1,4 @@
+import { isNativeWorkspace, notifyNativeWorkspace } from './nativeWorkspaceContext';
 /** A requested program is navigation context, never proof of access. */
 export function requestedAdminProgram(location?: Pick<Location, 'search'>): string | null {
   if (!location) return null;
@@ -9,6 +10,7 @@ export function authorizedEntryProgram(authorized: string[], requested: string |
 }
 export const usesAppEntry = import.meta.env.PUBLIC_ADMIN_APP_ENTRY === 'true';
 export function returnToAppSignIn() {
+  if (isNativeWorkspace) { notifyNativeWorkspace('signedOut'); return; }
   if (typeof window !== 'undefined' && usesAppEntry) {
     window.location.replace('/#/admin/login?quick=1&initialProgramSelection=1');
   }
