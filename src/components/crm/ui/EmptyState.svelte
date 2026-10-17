@@ -4,7 +4,7 @@
 
   export let icon: PortalIconName = 'info';
   export let title: string;
-  export let message: string;
+  export let message = '';
   export let primaryLabel = '';
   export let secondaryLabel = '';
   export let onPrimary: () => void = () => {};
@@ -16,7 +16,7 @@
     <Icon name={icon} size={24} />
   </span>
   <h3 class="mt-4 text-base font-semibold text-gray-950">{title}</h3>
-  <p class="mx-auto mt-1 max-w-xl text-sm leading-5 text-gray-600">{message}</p>
+  {#if message}<p class="mx-auto mt-1 max-w-xl text-sm leading-5 text-gray-600">{message}</p>{/if}
   {#if primaryLabel || secondaryLabel}
     <div class="mt-5 flex flex-wrap justify-center gap-3">
       {#if primaryLabel}

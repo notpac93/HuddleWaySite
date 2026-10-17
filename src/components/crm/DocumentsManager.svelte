@@ -296,9 +296,9 @@
         <button type="button" class="mt-4 rounded-md border border-gray-300 px-3 py-2 text-sm" on:click={() => activeTenantId && fetchDocuments(activeTenantId)}>Try again</button>
       </div>
     {:else if documents.length === 0}
-      <EmptyState title="No documents yet" message={canManageTenant ? 'Upload the first resource, assign its audience, and review it before publication.' : 'An organization owner or editor can upload documents here.'} primaryLabel={canManageTenant ? 'Upload document' : ''} onPrimary={() => editorRecord = null} />
+      <EmptyState title="No documents yet" message={canManageTenant ? '' : 'Read-only access'} />
     {:else if filteredDocuments.length === 0}
-      <EmptyState title="No matching documents" message="Adjust or clear the document filters." primaryLabel="Clear filters" onPrimary={() => { searchQuery = ''; categoryFilter = 'all'; audienceFilter = 'all'; availabilityFilter = 'all'; }} />
+      <EmptyState title="No matching documents" primaryLabel="Clear filters" onPrimary={() => { searchQuery = ''; categoryFilter = 'all'; audienceFilter = 'all'; availabilityFilter = 'all'; }} />
     {:else}
       <ul class="divide-y divide-gray-200">
         {#each filteredDocuments as documentRecord (documentRecord.id)}

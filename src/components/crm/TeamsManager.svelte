@@ -351,7 +351,7 @@
         {:else if $teamsProjectionScope.error}
           <StatusNotice tone="danger" title="Teams could not be loaded" message={$teamsProjectionScope.error} />
         {:else if $teamsStore.length === 0}
-          <EmptyState icon="teams" title="No teams yet" message="Create the first team to organize rosters, seasons, and events." primaryLabel="Create team" onPrimary={openCreateForm} />
+          <EmptyState icon="teams" title="No teams yet" />
         {:else}
           <div class="space-y-4">
             {#each $teamsStore as team (team.id)}
