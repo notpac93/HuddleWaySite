@@ -385,7 +385,7 @@
 {/if}
 
 <div class="flex h-full flex-col space-y-6 overflow-y-auto bg-white p-4 sm:p-6">
-  <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+  <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
       <h2 class="crm-ui-page-title">Staff access</h2>
     </div>
