@@ -26,6 +26,7 @@ vi.mock('../../src/lib/authStore', async () => {
 vi.mock('firebase/auth', () => ({ signOut: vi.fn() }));
 
 import { tenantIdStore } from '../../src/lib/authStore';
+import { publicEnvironment, resolveBackendUrl } from '../../src/lib/config/publicEnvironment';
 import CrmShellSearchHarness from '../fixtures/CrmShellSearchHarness.svelte';
 
 const TestedHarness = CrmShellSearchHarness as unknown as Component;
@@ -76,6 +77,20 @@ describe('CRM shell tenant theme lifecycle', () => {
       expect(root.style.getPropertyValue('--crm-brand-primary')).toBe('#112233');
       expect(root.style.getPropertyValue('--crm-brand-secondary')).toBe('#445566');
       expect(root).toHaveAttribute('data-branding-state', 'ready');
+    });
+  });
+
+  it.each([
+    [`${resolveBackendUrl(publicEnvironment)}/public/owner-onboarding/media/example/logo`, 'anonymous'],
+    ['https://images.example.com/program.webp', null],
+  ])('loads logo %s with the appropriate resource policy', async (logoUrl, crossOrigin) => {
+    mocks.crmTenantBranding.mockResolvedValue(brandingResponse({ name: 'Alpha', logoUrl }));
+    tenants.set('tenant-a');
+    const { container } = render(TestedHarness);
+    await waitFor(() => {
+      const image = container.querySelector(`img[src="${logoUrl}"]`);
+      expect(image).not.toBeNull();
+      expect(image?.getAttribute('crossorigin')).toBe(crossOrigin);
     });
   });
 

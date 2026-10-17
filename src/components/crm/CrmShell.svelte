@@ -5,6 +5,7 @@
   import { auth } from '../../lib/firebase';
   import { signOut } from 'firebase/auth';
   import { backendClient } from '../../lib/api/backendClient';
+  import { publicEnvironment, resolveBackendUrl } from '../../lib/config/publicEnvironment';
   import {
     tenantIdStore,
     availableTenants,
@@ -173,6 +174,9 @@
   }
 
   $: resolvedLogoUrl = resolveLogoUrl(logoUrl);
+  // API images require CORS mode under the backend resource policy.
+  // Other hosted logos retain normal image loading without a CORS requirement.
+  $: logoCrossOrigin = resolvedLogoUrl.startsWith(`${resolveBackendUrl(publicEnvironment)}/`) ? 'anonymous' : undefined;
 
   async function loadTenantBranding(tenantId: string | null) {
     const generation = beginBrandingRequest();
@@ -382,7 +386,7 @@
       >
         <div class="crm-ui-shell-mobile-header">
           <img
-            src={resolvedLogoUrl}
+            crossorigin={logoCrossOrigin} src={resolvedLogoUrl}
             width="32"
             height="32"
             decoding="async"
@@ -451,7 +455,7 @@
   >
     <div class="crm-theme-sidebar-divider flex h-[73px] items-center {isSidebarExpanded ? 'gap-3 px-4' : 'justify-center px-3'}">
       <img
-        src={resolvedLogoUrl}
+        crossorigin={logoCrossOrigin} src={resolvedLogoUrl}
         width="32"
         height="32"
         decoding="async"
@@ -567,7 +571,7 @@
       </button>
       {#if isMobileViewport}
         <div class="flex min-w-0 flex-1 items-center gap-2.5">
-          <img src={resolvedLogoUrl} alt="Program logo" on:error={handleLogoError} class="h-9 w-9 shrink-0 rounded-xl object-contain" />
+          <img crossorigin={logoCrossOrigin} src={resolvedLogoUrl} alt="Program logo" on:error={handleLogoError} class="h-9 w-9 shrink-0 rounded-xl object-contain" />
           <span class="truncate text-sm font-semibold text-gray-950">{appName}</span>
         </div>
       {:else}

@@ -855,16 +855,6 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
         <h3 class="mt-2 text-sm font-medium text-gray-900">No {activeTab.toLowerCase()} events</h3>
-        <p class="mt-1 text-sm text-gray-500">Get started by creating a new event.</p>
-        <div class="mt-6">
-          <!-- We leave this button for the empty state just so it's not totally barren, but we can change it to say New Event -->
-          <button on:click={() => isCreateFormOpen = true} type="button" class="crm-ui-event-top-primary">
-            <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
-            </svg>
-            New Event
-          </button>
-        </div>
       </div>
     {/each}
   </div>
