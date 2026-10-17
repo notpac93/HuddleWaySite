@@ -119,9 +119,7 @@
 </script>
 
 <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm" aria-labelledby="event-import-heading">
-  <p class="text-xs font-semibold uppercase tracking-wide text-[var(--crm-brand-link)]">Bulk setup</p>
-  <h3 id="event-import-heading" class="mt-1 text-lg font-semibold text-gray-900">Import event records</h3>
-  <p class="mt-1 text-sm text-gray-600">Review every row before HuddleWay creates drafts. Team IDs or unique team names are accepted.</p>
+  <h3 id="event-import-heading" class="mt-1 text-lg font-semibold text-gray-900">Import events</h3>
   <div class="mt-4 flex flex-wrap gap-2">
     <label class="crm-ui-button-primary inline-flex cursor-pointer items-center gap-2"><Icon name="upload" size={16} /> Choose CSV<input bind:this={fileInput} class="sr-only" type="file" accept=".csv,text/csv" disabled={applying} on:change={selectFile} /></label>
     <button type="button" class="crm-ui-button-secondary inline-flex items-center gap-2" disabled={applying} on:click={downloadSample}><Icon name="download" size={16} /> Download sample</button>

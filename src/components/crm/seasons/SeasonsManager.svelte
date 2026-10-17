@@ -230,7 +230,6 @@
     <header class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
       <div>
         <h2 class="text-xl font-bold text-gray-900">Seasons & Leagues</h2>
-        <p class="crm-ui-hint-xs">Manage seasons, registration links, payment scope, rosters, and events.</p>
       </div>
       <button
           type="button"

@@ -321,7 +321,6 @@
     <header class="mb-2 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <h2 class="crm-ui-page-title">Registration forms</h2>
-        <p class="mt-1 text-sm text-gray-500">Create enrollment experiences, review responses, and retire forms you no longer use.</p>
       </div>
       <button on:click={openNewRegistrationForm} class="flex shrink-0 items-center rounded bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-semibold text-[var(--crm-on-primary)] shadow-sm hover:bg-[var(--crm-brand-primary-hover)]">
         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>

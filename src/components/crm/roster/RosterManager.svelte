@@ -141,7 +141,6 @@
   <div class="flex justify-between items-center">
     <div>
       <h2 class="crm-ui-page-title">Rosters & Teams</h2>
-      <p class="text-sm text-gray-500">Manage program members, teams, seasons, and reviewed player assignments.</p>
     </div>
     <button type="button" class="rounded bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-semibold text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)]" on:click={() => { entrySuccess = ''; entryMode = 'csv'; }}>Import players CSV</button>
   </div>

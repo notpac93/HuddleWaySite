@@ -210,7 +210,6 @@
 <div class="h-full bg-white flex flex-col">
   <div class="px-8 py-6 border-b border-gray-200">
     <h2 class="crm-ui-page-title">My profile</h2>
-    <p class="mt-1 text-sm text-gray-500">Manage your personal administrator identity and login credentials. Organization settings live in their owning portal tabs.</p>
   </div>
 
   <div class="flex-1 p-8 overflow-y-auto bg-gray-50">

@@ -22,7 +22,6 @@
   };
   let loadedDashboardTenant = '';
   let dashboardSummaryGeneration = 0;
-  let lastRefreshedAt: Date | null = null;
 
   async function openCreateEvent() {
     quickActionLoadError = '';
@@ -74,7 +73,6 @@
         recentRegistrations: summary.recentRegistrations,
         error: '',
       };
-      lastRefreshedAt = new Date();
     } catch {
       if (generation !== dashboardSummaryGeneration) return;
       dashboardSummary = {
@@ -198,18 +196,12 @@
 
 </script>
 
-<div class="h-full flex flex-col p-6 space-y-6 overflow-y-auto bg-gray-50">
-  <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-    <div><h2 class="text-2xl font-bold text-gray-950">Dashboard</h2>
-    <p class="mt-1 text-sm font-medium text-gray-500">Current organization totals and the latest registration activity.</p>
-    <p class="mt-1 text-xs text-gray-500">Last refreshed: {lastRefreshedAt ? lastRefreshedAt.toLocaleTimeString() : 'waiting for authoritative data'}</p>
-    {#if !canManageTenant}
-      <p class="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900" role="status">
-        Viewer access is read-only. Editing controls are unavailable.
-      </p>
-    {/if}
-    </div>
-    <button type="button" class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" disabled={operationalLoading || !loadedDashboardTenant} on:click={() => loadedDashboardTenant && loadDashboardSummary(loadedDashboardTenant)}>Refresh dashboard</button>
+<div class="dashboard h-full flex flex-col p-4 sm:p-6 space-y-5 overflow-y-auto bg-gray-50">
+  <div class="flex items-center justify-between gap-3">
+    <h2 class="text-2xl font-bold text-gray-950">Dashboard</h2>
+    <button type="button" class="refresh-action" aria-label="Refresh dashboard" title="Refresh dashboard" disabled={operationalLoading || !loadedDashboardTenant} on:click={() => loadedDashboardTenant && loadDashboardSummary(loadedDashboardTenant)}>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 6M4 12l2 6a7 7 0 0 0 12-1"/></svg>
+    </button>
   </div>
   {#if operationalLoading}
     <p class="rounded-md border border-gray-200 bg-white p-3 text-sm text-gray-600" role="status">
@@ -222,9 +214,9 @@
   {/if}
 
   <!-- KPI Cards -->
-  <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+  <div class="dashboard-metrics grid grid-cols-2 gap-3 lg:grid-cols-4">
     <!-- Total Revenue -->
-    <button type="button" class="overflow-hidden rounded-lg bg-white text-left shadow disabled:cursor-not-allowed disabled:opacity-60" disabled={!isOwner} title={!isOwner ? 'Financials require owner access.' : undefined} on:click={() => onNavigateTab('Financials')}>
+    <button type="button" class="overflow-hidden rounded-lg bg-white text-left shadow disabled:cursor-not-allowed disabled:opacity-60" disabled={!isOwner} title={!isOwner ? 'Financials require owner access.' : 'Successful payments · loaded history'} on:click={() => onNavigateTab('Financials')}>
       <div class="p-5">
         <div class="crm-ui-center">
           <div class="flex-shrink-0 bg-[var(--crm-brand-surface)] rounded-md p-3">
@@ -234,8 +226,7 @@
           </div>
           <div class="ml-5 w-0 flex-1">
             <dl>
-              <dt class="text-sm font-medium text-gray-500 truncate">Successful payment revenue</dt>
-              <dd class="text-xs text-gray-500">All loaded history · successful transactions only</dd>
+              <dt class="text-sm font-medium text-gray-500 truncate">Payments received</dt>
               <dd>
                 {#if revenueUnavailable}
                   <div class="crm-ui-subtitle">
@@ -247,14 +238,13 @@
                       : 'Limited or invalid financial projection'}
                   </div>
                 {:else if revenueTotals.length === 0}
-                  <div class="crm-ui-subtitle">No successful payments</div>
+                  <div class="crm-ui-subtitle">No payments</div>
                 {:else}
                   {#each revenueTotals as [currency, total]}
                     <div class="crm-ui-subtitle">{currency} {formatCurrency(total, currency)}</div>
                   {/each}
                 {/if}
               </dd>
-              <dd class="mt-2 text-xs font-semibold text-[var(--crm-brand-link)]">View financial records →</dd>
               {#if $financialProjectionScope.error}
                 <dd class="mt-1 text-xs text-red-700" role="alert">{$financialProjectionScope.error}</dd>
               {/if}
@@ -275,12 +265,10 @@
           </div>
           <div class="ml-5 w-0 flex-1">
             <dl>
-              <dt class="text-sm font-medium text-gray-500 truncate">Registration Records</dt>
-              <dd class="text-xs text-gray-500">All-time records in the current organization</dd>
+              <dt class="text-sm font-medium text-gray-500 truncate">Registrations</dt>
               <dd>
                 <div class="crm-ui-subtitle">{totalPlayers}</div>
               </dd>
-              <dd class="mt-2 text-xs font-semibold text-[var(--crm-brand-link)]">View registration →</dd>
             </dl>
           </div>
         </div>
@@ -299,11 +287,9 @@
           <div class="ml-5 w-0 flex-1">
             <dl>
               <dt class="text-sm font-medium text-gray-500 truncate">Teams</dt>
-              <dd class="text-xs text-gray-500">Current organization total</dd>
               <dd>
                 <div class="crm-ui-subtitle">{activeTeams}</div>
               </dd>
-              <dd class="mt-2 text-xs font-semibold text-[var(--crm-brand-link)]">View teams →</dd>
             </dl>
           </div>
         </div>
@@ -321,12 +307,10 @@
           </div>
           <div class="ml-5 w-0 flex-1">
             <dl>
-              <dt class="text-sm font-medium text-gray-500 truncate">Events Managed</dt>
-              <dd class="text-xs text-gray-500">All-time event records in this organization</dd>
+              <dt class="text-sm font-medium text-gray-500 truncate">Events</dt>
               <dd>
                 <div class="crm-ui-subtitle">{totalEvents}</div>
               </dd>
-              <dd class="mt-2 text-xs font-semibold text-[var(--crm-brand-link)]">View events →</dd>
             </dl>
           </div>
         </div>
@@ -373,12 +357,12 @@
             </li>
           {/each}
           {#if operationalLoading}
-            <li><div class="px-4 py-12 text-center text-sm text-gray-500">Loading registrations…</div></li>
+            <li><div class="px-4 py-7 text-center text-sm text-gray-500">Loading registrations…</div></li>
           {:else if operationalError}
-            <li><div class="px-4 py-12 text-center text-sm text-red-700">{operationalError}</div></li>
+            <li><div class="px-4 py-7 text-center text-sm text-red-700">{operationalError}</div></li>
           {:else if recentRegistrations.length === 0}
             <li>
-              <div class="px-4 py-12 text-center sm:px-6 text-gray-500 text-sm">
+              <div class="px-4 py-7 text-center sm:px-6 text-gray-500 text-sm">
                 No recent registrations.
               </div>
             </li>
@@ -394,15 +378,15 @@
         <h3 class="crm-ui-modal-title">Quick Actions</h3>
       </div>
       <div class="p-6">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <button type="button" on:click={openCreateEvent} class="flex flex-col items-center justify-center p-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 hover:border-[var(--crm-brand-border)] hover:bg-[var(--crm-brand-surface)] transition-colors">
+        <div class="grid grid-cols-2 gap-3">
+          <button type="button" on:click={openCreateEvent} class="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-2xl border border-gray-200 hover:border-[var(--crm-brand-border)] hover:bg-[var(--crm-brand-surface)] transition-colors">
             <svg class="h-8 w-8 text-[var(--crm-brand-link)] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
             </svg>
             <span class="text-sm font-medium text-gray-900">Create Event</span>
           </button>
 
-          <button type="button" on:click={openStaffInvite} disabled={!isOwner} title={!isOwner ? 'Only organization owners can invite staff.' : undefined} class="flex flex-col items-center justify-center p-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 hover:border-[var(--crm-brand-border)] hover:bg-[var(--crm-brand-surface)] transition-colors disabled:cursor-not-allowed disabled:opacity-50">
+          <button type="button" on:click={openStaffInvite} disabled={!isOwner} title={!isOwner ? 'Only organization owners can invite staff.' : undefined} class="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-2xl border border-gray-200 hover:border-[var(--crm-brand-border)] hover:bg-[var(--crm-brand-surface)] transition-colors disabled:cursor-not-allowed disabled:opacity-50">
             <svg class="h-8 w-8 text-[var(--crm-brand-link)] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
             </svg>
@@ -447,3 +431,16 @@
     <p class="text-sm text-gray-600" role="status">Loading staff invitation…</p>
   {/if}
 </div>
+
+<style>
+  .refresh-action { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #e5e7eb; border-radius: 50%; background: white; color: var(--crm-brand-link); }
+  .refresh-action:disabled { opacity: .5; }
+  .dashboard-metrics > button { border: 1px solid #e5e7eb; border-radius: 20px; box-shadow: none; }
+  .dashboard-metrics > button > div { padding: 18px; }
+  .dashboard-metrics .crm-ui-center { align-items: flex-start; flex-direction: column; gap: 14px; }
+  .dashboard-metrics .ml-5 { margin-left: 0; width: 100%; }
+  .dashboard-metrics dt { white-space: normal; color: #4b5563; }
+  .dashboard-metrics .crm-ui-subtitle { margin-top: 5px; font-size: 1.35rem; line-height: 1.25; font-weight: 650; }
+  .dashboard-metrics .flex-shrink-0 { border-radius: 12px; padding: 9px; }
+  @media (prefers-reduced-motion: no-preference) { .dashboard-metrics > button { transition: transform 120ms ease; } .dashboard-metrics > button:active { transform: scale(.98); } }
+</style>

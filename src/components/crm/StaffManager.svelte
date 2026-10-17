@@ -382,7 +382,6 @@
   <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
     <div>
       <h2 class="crm-ui-page-title">Staff access</h2>
-      <p class="text-sm text-gray-500">Review active organization memberships and pending invitations.</p>
     </div>
     <button type="button" on:click={() => showModal = true} class="rounded-md bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-medium text-[var(--crm-on-primary)] shadow-sm hover:bg-[var(--crm-brand-primary-hover)]">
       Invite staff

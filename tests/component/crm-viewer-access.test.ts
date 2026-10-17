@@ -192,7 +192,7 @@ describe("CrmApp authentication, role, module, and tenant boundaries", () => {
     render(TestedCrmApp);
 
     await waitFor(() => {
-      expect(screen.getByText(/Viewer access is read-only/)).toBeVisible();
+      expect(screen.getByRole("heading", { name: "Read-only access" })).toBeVisible();
     });
     expect(screen.getByRole("button", { name: "Dashboard" })).toBeVisible();
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
@@ -205,9 +205,7 @@ describe("CrmApp authentication, role, module, and tenant boundaries", () => {
   it("limits editors to non-owner modules and rejects unsupported roles", async () => {
     role.set("editor");
     render(TestedCrmApp);
-    await screen.findByText(
-      /Current organization totals and the latest registration activity/i,
-    );
+    await screen.findByRole("heading", { name: "Dashboard", level: 2 });
 
     expect(screen.getAllByRole("button", { name: "Teams" })[0]).toBeVisible();
     expect(screen.queryByRole("button", { name: "Financials" })).toBeNull();
@@ -263,9 +261,7 @@ describe("CrmApp authentication, role, module, and tenant boundaries", () => {
     tenantChoices.set(["tenant-a", "tenant-b"]);
     tenantNames.set({ "tenant-a": "Alpha Club", "tenant-b": "Bravo Club" });
     render(TestedCrmApp);
-    await screen.findByText(
-      /Current organization totals and the latest registration activity/i,
-    );
+    await screen.findByRole("heading", { name: "Dashboard", level: 2 });
 
     await fireEvent.click(
       screen.getByRole("button", { name: "Open navigation menu" }),

@@ -244,7 +244,7 @@
 {/if}
 
 <div class="flex h-full flex-col space-y-6 overflow-y-auto p-4 sm:p-6">
-  <PageHeader title="Documents & Resources" support="Upload, publish, find, and securely manage organization resources.">
+  <PageHeader title="Documents & Resources">
     <svelte:fragment slot="actions">
       <button type="button" class="crm-ui-primary-button" disabled={!canManageTenant} title={!canManageTenant ? 'Viewer access is read-only.' : undefined} on:click={() => editorRecord = null}>Upload document</button>
     </svelte:fragment>

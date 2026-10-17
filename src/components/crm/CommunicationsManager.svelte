@@ -1267,7 +1267,6 @@
 <div class="crm-ui-message-root">
   <div class="max-w-3xl">
     <h2 class="text-xl font-bold text-gray-900">Messages & email</h2>
-    <p class="mt-1 text-sm text-gray-500">Choose the type of outreach you want to send. Each tool below serves a different audience and purpose.</p>
   </div>
 
   <nav class="flex flex-wrap gap-2 rounded-lg border border-gray-200 bg-white p-2" aria-label="Message workspaces">
@@ -1279,9 +1278,8 @@
   <section class="crm-ui-message-direct" class:hidden={activeView !== 'email'} aria-labelledby="direct-email-heading">
     <div class="crm-ui-message-split">
       <div class="max-w-2xl">
-        <p class="crm-ui-message-eyebrow">Customer outreach</p>
         <h3 id="direct-email-heading" class="mt-1 text-lg font-semibold text-gray-900">Direct email</h3>
-        <p class="mt-1 text-sm text-gray-600">Send one email or a group message. Use your connected email for up to 100 recipients.</p>
+        <p class="mt-1 text-sm text-gray-600">Connected email · up to 100 recipients</p>
       </div>
       <div class="flex shrink-0 flex-wrap gap-2">
         <button
@@ -1358,12 +1356,10 @@
 
   <div class="grid gap-4 md:grid-cols-2">
     <section class="crm-ui-message-card" class:hidden={activeView !== 'announcements'} aria-labelledby="app-announcement-heading">
-      <p class="crm-ui-message-eyebrow">In-app communication</p>
       <h3 id="app-announcement-heading" class="mt-1 text-lg font-semibold text-gray-900">App announcement</h3>
-      <p class="mt-1 flex-1 text-sm text-gray-600">Publish an update for registered account holders and notify their active devices.</p>
       <button
         type="button"
-        class="crm-ui-message-secondary-blue mt-4 w-full"
+        class="crm-ui-message-secondary-blue mt-4 self-start"
         on:click={() => openComposer('announcement')}
       >
         New announcement
@@ -1371,13 +1367,11 @@
     </section>
 
     <section class="crm-ui-message-card" class:hidden={activeView !== 'registration'} aria-labelledby="registration-outreach-heading">
-      <p class="crm-ui-message-eyebrow">Enrollment</p>
       <h3 id="registration-outreach-heading" class="mt-1 text-lg font-semibold text-gray-900">Registration outreach</h3>
-      <p class="mt-1 flex-1 text-sm text-gray-600">Create a temporary registration link and email it to prospective participants.</p>
       <button
         type="button"
       disabled={emailQuota?.emailSendingStatus === 'suspended' || emailQuota?.capacityMode === 'unavailable'}
-        class="crm-ui-message-primary mt-4 w-full"
+        class="crm-ui-message-primary mt-4 self-start"
         on:click={() => openComposer('registration_email')}
       >
         Start registration email

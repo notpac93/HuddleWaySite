@@ -299,7 +299,7 @@
 {/if}
 
 <div class="flex h-full flex-col space-y-6 overflow-y-auto bg-gray-50 p-4 sm:p-6">
-  <PageHeader title="Media Library" support="Manage reusable program images, their purpose, accessibility metadata, and usage references."><svelte:fragment slot="actions"><button type="button" class="crm-ui-primary-button" disabled={!canManage} title={!canManage ? 'Viewer access is read-only.' : undefined} on:click={() => uploadOpen = true}>Upload image</button></svelte:fragment></PageHeader>
+  <PageHeader title="Media Library"><svelte:fragment slot="actions"><button type="button" class="crm-ui-primary-button" disabled={!canManage} title={!canManage ? 'Viewer access is read-only.' : undefined} on:click={() => uploadOpen = true}>Upload image</button></svelte:fragment></PageHeader>
   {#if operationMessage}<p class="rounded-md border bg-white p-3 text-sm" role="status">{operationMessage}</p>{/if}
   <div class="grid gap-4 lg:grid-cols-[14rem,1fr]">
     <nav class="h-fit rounded-lg border bg-white p-4" aria-label="Media categories"><h3 class="mb-3 text-xs font-semibold uppercase text-gray-500">Categories</h3>{#each categories as category}<button class="mb-1 w-full rounded-md px-3 py-2 text-left text-sm {activeCategory === category ? 'crm-theme-selected' : 'hover:bg-gray-50'}" on:click={() => activeCategory = category}>{category}<span class="float-right text-xs">{category === 'All' ? mediaFiles.length : mediaFiles.filter((media) => category === 'Uncategorized' ? !media.category : media.category === category).length}</span></button>{/each}</nav>

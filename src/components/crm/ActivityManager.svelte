@@ -195,7 +195,6 @@
   <div class="px-8 py-6 border-b border-gray-200 flex justify-between items-center">
     <div>
       <h2 class="crm-ui-page-title">Activity & Audit Logs</h2>
-      <p class="mt-1 text-sm text-gray-500">A chronological record of actions taken in your organization.</p>
       <p class="mt-1 text-xs text-gray-500">Records are shown newest first for the retained server history. Last successful ingestion: {activities[0]?.timestamp ? formatTime(activities[0].timestamp) : 'not yet available'} · refreshed {lastRefreshedAt ? lastRefreshedAt.toLocaleTimeString() : 'not yet'}.</p>
     </div>
     <button

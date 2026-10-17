@@ -136,7 +136,6 @@
     <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <div>
         <h1 class="crm-ui-page-title">Financial operations</h1>
-        <p class="mt-1 text-sm text-gray-600">Review what was collected, what is scheduled, and what needs attention.</p>
       </div>
       <button type="button" class="crm-ui-button-secondary bg-white" disabled={loading || !ownerAuthorized} on:click={loadOperations}>{loading ? 'Refreshing…' : 'Refresh'}</button>
     </div>

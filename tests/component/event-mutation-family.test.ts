@@ -282,6 +282,7 @@ describe('event mutation family', () => {
     });
     render(TestedEventScheduler);
 
+    await fireEvent.click(screen.getByText('Import CSV', { selector: 'summary' }));
     const input = screen.getByLabelText('Choose CSV');
     expect(input).toHaveAttribute('accept', '.csv,text/csv');
     const file = new File([

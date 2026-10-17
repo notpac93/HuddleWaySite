@@ -565,7 +565,14 @@
       >
         <Icon name="menu" size={20} />
       </button>
-      <CrmBreadcrumbs items={breadcrumbItems} />
+      {#if isMobileViewport}
+        <div class="flex min-w-0 flex-1 items-center gap-2.5">
+          <img src={resolvedLogoUrl} alt="Program logo" on:error={handleLogoError} class="h-9 w-9 shrink-0 rounded-xl object-contain" />
+          <span class="truncate text-sm font-semibold text-gray-950">{appName}</span>
+        </div>
+      {:else}
+        <CrmBreadcrumbs items={breadcrumbItems} />
+      {/if}
       <div
         class="hidden min-w-0 items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600 lg:flex"
         aria-label="Current portal scope"
@@ -582,21 +589,20 @@
           >All teams</button>
         {/if}
       </div>
-      <div class="max-w-lg flex-1 sm:px-4 lg:px-8">
+      <div class="max-w-lg md:flex-1 md:px-4 lg:px-8">
         <div class="relative group">
-          <div class="crm-ui-shell-search-icon">
+          <div class="crm-ui-shell-search-icon hidden md:block">
             <Icon name="search" size={16} className="crm-theme-search-icon" />
           </div>
           <button
             type="button"
             bind:this={globalSearchTrigger}
-            class="crm-ui-shell-search"
+            class={isMobileViewport ? 'grid h-11 w-11 place-items-center rounded-full text-gray-700 hover:bg-gray-100' : 'crm-ui-shell-search'}
             aria-describedby={globalSearchLoadError ? 'global-search-error' : undefined}
             aria-label="Search across HuddleWay (Cmd+K)"
             on:click={openGlobalSearch}
           >
-            <span class="sm:hidden">Search</span>
-            <span class="hidden sm:inline">Search across HuddleWay (Cmd+K)</span>
+            {#if isMobileViewport}<Icon name="search" size={20} />{:else}<span>Search across HuddleWay (Cmd+K)</span>{/if}
           </button>
           {#if globalSearchLoadError}
             <p id="global-search-error" class="sr-only" role="alert">

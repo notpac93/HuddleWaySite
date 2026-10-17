@@ -170,9 +170,9 @@ describe('GlobalDashboard bounded operational summary', () => {
     await waitFor(() => expect(backendMocks.crmDashboardSummary).toHaveBeenCalledWith('fixture-tenant'));
 
     const registrationsCard =
-      screen.getByText('Registration Records').closest('dl');
+      screen.getByText('Registrations').closest('dl');
     const teamsCard = screen.getByText('Teams').closest('dl');
-    const eventsCard = screen.getByText('Events Managed').closest('dl');
+    const eventsCard = screen.getByText('Events').closest('dl');
     expect(registrationsCard).toHaveTextContent('501');
     expect(teamsCard).toHaveTextContent('42');
     expect(eventsCard).toHaveTextContent('13');
@@ -181,7 +181,7 @@ describe('GlobalDashboard bounded operational summary', () => {
     expect(screen.queryByText(/Limited projection/)).not.toBeInTheDocument();
 
     const revenueCard =
-      screen.getByText('Successful payment revenue').closest('dl');
+      screen.getByText('Payments received').closest('dl');
     expect(revenueCard).toHaveTextContent('Unavailable');
     expect(revenueCard).toHaveTextContent(
       'Limited or invalid financial projection',
@@ -237,9 +237,7 @@ describe('GlobalDashboard bounded operational summary', () => {
     stores.activeTenantRole.set('viewer');
     render(TestedGlobalDashboard);
     expect(
-      screen.getByText(
-        'Viewer access is read-only. Editing controls are unavailable.',
-      ),
+      screen.getByRole('heading', { name: 'Read-only access' }),
     ).toBeVisible();
     expect(
       screen.queryByRole('button', { name: 'Create Event' }),
@@ -255,9 +253,9 @@ describe('GlobalDashboard bounded operational summary', () => {
       'Organization metrics could not be loaded.',
     ));
     for (const label of [
-      'Registration Records',
+      'Registrations',
       'Teams',
-      'Events Managed',
+      'Events',
     ]) {
       expect(screen.getByText(label).closest('dl')).toHaveTextContent('—');
     }

@@ -314,7 +314,7 @@
       </div>
     {/if}
     {#if activeTeam}
-      <PageHeader eyebrow="Selected team" title={activeTeam.name || 'Team overview'} support={activeTeam.description || 'Review this team and continue into a team-aware workspace.'}>
+      <PageHeader title={activeTeam.name || 'Team overview'} support={activeTeam.description || ''}>
         <div slot="actions" class="flex flex-wrap gap-2">
           <button type="button" class="crm-ui-button-secondary inline-flex items-center gap-2" on:click={() => openEditForm(activeTeam)}><Icon name="pencil" size={16} /> Edit team</button>
           <button type="button" class="crm-ui-button-danger-outline inline-flex items-center gap-2" on:click={() => requestDelete(activeTeam)}><Icon name="trash" size={16} /> Delete team</button>
@@ -342,7 +342,7 @@
         </div>
       </section>
     {:else}
-      <PageHeader eyebrow="Organization" title="Teams" support="Create teams, update team details, or select a team as your working context.">
+      <PageHeader title="Teams">
         <button slot="actions" type="button" on:click={openCreateForm} class="crm-ui-button-primary inline-flex items-center gap-2"><Icon name="plus" size={16} /> Create team</button>
       </PageHeader>
       <div class="mt-6">

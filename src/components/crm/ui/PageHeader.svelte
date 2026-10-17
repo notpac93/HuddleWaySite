@@ -5,7 +5,7 @@
   export let freshness = '';
 </script>
 
-<header class="flex flex-col gap-4 border-b border-gray-200 pb-5 sm:flex-row sm:items-start sm:justify-between">
+<header class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-4">
   <div class="min-w-0">
     {#if eyebrow}
       <p class="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--crm-brand-link)]">{eyebrow}</p>

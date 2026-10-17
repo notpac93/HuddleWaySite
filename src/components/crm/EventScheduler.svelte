@@ -505,20 +505,14 @@
   on:close={() => { isDuplicateModalOpen = false; eventToDuplicate = null; }}
 />
 
-<div class="p-6 md:p-8 space-y-6">
-  <div>
+<div class="p-4 sm:p-6 md:p-8 space-y-5">
+  <header class="flex items-center justify-between gap-3">
     <h2 class="crm-ui-page-title">Events</h2>
-    <p class="mt-1 text-sm text-gray-500">Create drafts and manage authoritative event records.</p>
-  </div>
+    <button type="button" class="crm-ui-event-top-primary" on:click={() => isCreateFormOpen = true}>New event</button>
+  </header>
 
-  <div class="grid gap-4 md:grid-cols-2">
-    <section class="crm-theme-border flex flex-col rounded-xl border bg-white p-5 shadow-sm" aria-labelledby="event-creation-heading">
-      <p class="crm-theme-link text-xs font-semibold uppercase tracking-wide">Planning</p>
-      <h3 id="event-creation-heading" class="mt-1 text-lg font-semibold text-gray-900">Create an event</h3>
-      <p class="mt-1 flex-1 text-sm text-gray-600">Add one event or build a recurring schedule with dates, teams, and registration settings.</p>
-      <button type="button" class="crm-ui-event-top-primary mt-4 w-full" on:click={() => isCreateFormOpen = true}>New event</button>
-    </section>
-
+  <details class="rounded-xl border border-gray-200 bg-white">
+    <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-700">Import CSV</summary>
     <EventCsvImport
       teams={$teamsStore.map((team) => ({ id: String(team.id || ''), name: String(team.name || '') }))}
       existingEvents={events.map((event) => ({
@@ -529,7 +523,7 @@
         startTime: event.dateObj ? `${String(event.dateObj.getHours()).padStart(2, '0')}:${String(event.dateObj.getMinutes()).padStart(2, '0')}` : '',
       }))}
     />
-  </div>
+  </details>
 
   {#if selectedDraftEvents.length > 0}
     <div class="crm-ui-notice-card flex items-center justify-between gap-3"><span>{selectedDraftEvents.length} draft {selectedDraftEvents.length === 1 ? 'event' : 'events'} selected</span><button type="button" class="crm-ui-event-top-primary" disabled={publishingSelectedDrafts} on:click={() => showBatchPublishReview = true}>Review publication</button></div>
