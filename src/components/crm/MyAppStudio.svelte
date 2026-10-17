@@ -628,7 +628,7 @@
         </div>
       {:else}
         <div class="min-h-full lg:h-full">
-          <aside aria-label={`${activeTab} settings`} class="min-w-0 overflow-y-auto border-r border-gray-200 bg-white p-5 sm:p-6">
+          <aside aria-label={`${activeTab} settings`} class="min-w-0 overflow-y-auto border-r border-gray-200 bg-white p-5 sm:p-6 lg:h-full">
             {#if activeTab === 'Branding'}
               <div class="space-y-6">
                 <div><h3 class="text-base font-semibold text-gray-950">Brand identity</h3><p class="mt-1 text-sm text-gray-600">Keep the essentials together. The preview updates as you type.</p></div>
@@ -657,7 +657,7 @@
 
 </div></div>{/if}
 <style>
-  .my-app-canvas { position: relative; display: flex; flex: 1; min-height: 0; width: min(100%, 480px); height: 100%; margin: 0 auto; overflow: hidden; background: #fafafa; }
+  .my-app-canvas { position: relative; display: flex; flex: 1; min-height: 0; width: min(100%, 480px); height: 100%; padding-top: max(64px, calc(env(safe-area-inset-top) + 56px)); margin: 0 auto; overflow: hidden; background: #fafafa; }
   .canvas-tools { position: absolute; bottom: max(100px, calc(env(safe-area-inset-bottom) + 92px)); left: 50%; transform: translateX(-50%); z-index: 10; padding: 4px; background: white; border: 1px solid #dce2eb; border-radius: 18px; box-shadow: 0 5px 20px #0002; }
   .canvas-tools button { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 16px; white-space: nowrap; border-radius: 13px; background: var(--crm-brand-control); color: var(--crm-on-primary); font-size: 14px; font-weight: 600; }
   .draft-dot { width: 7px; height: 7px; background: currentColor; border-radius: 50%; }

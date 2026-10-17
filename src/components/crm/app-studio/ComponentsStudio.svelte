@@ -73,7 +73,7 @@
     registerPortalDraft({
       id: 'my-app-components',
       title: 'Unpublished component changes',
-      message: 'Stay on this page or discard the component changes before leaving.',
+      message: 'Keep your draft for this session, discard it, or stay on this page.',
       retainLabel: 'Keep draft and leave',
       onDiscard: discardChanges,
       onRetain: () => {},
