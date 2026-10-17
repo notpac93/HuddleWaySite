@@ -8,15 +8,16 @@ const nativeControls = new Set(['button', 'a', 'input', 'select', 'textarea']);
 
 const reviewedControlCounts: Record<string, number> = {
   'ActivityManager.svelte': 14,
+  'AdminMoreScreen.svelte': 3,
   'AdminQuickAccess.svelte': 2,
   'CommunicationsManager.svelte': 40,
   'ConsumerAdminInbox.svelte': 10,
   'CrmApp.svelte': 3,
   'CrmBreadcrumbs.svelte': 1,
-  'CrmShell.svelte': 20,
+  'CrmShell.svelte': 21,
   'DataTable.svelte': 12,
   'DocumentsManager.svelte': 14,
-  'EventScheduler.svelte': 18,
+  'EventScheduler.svelte': 17,
   'FinancialOperationsWorkspace.svelte': 6,
   'GlobalDashboard.svelte': 10,
   'GlobalSearch.svelte': 5,
@@ -149,7 +150,7 @@ describe('exhaustive CRM control inventory', () => {
     );
 
     expect(actual).toEqual(reviewedControlCounts);
-    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(612);
+    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(615);
   });
 
   it('keeps every inventoried CRM component reachable from a production entry point', () => {

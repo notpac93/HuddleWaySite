@@ -8,11 +8,11 @@
   export let activeTab = '';
   export let onNavigate: (name: string) => void;
   export let onMore: (trigger: HTMLButtonElement) => void;
-  export let moreExpanded = false;
+  export let moreSelected = false;
 
   const primaryNames = ['Dashboard', 'Events', 'Messages', 'My App'];
   $: primaryTabs = primaryNames.flatMap((name) => tabs.filter((tab) => tab.name === name));
-  $: moreActive = tabs.some((tab) => tab.name === activeTab) && !primaryNames.includes(activeTab);
+  $: moreActive = moreSelected || tabs.some((tab) => tab.name === activeTab) && !primaryNames.includes(activeTab);
 </script>
 
 <nav class="quick-access" aria-label="Admin quick access">
@@ -29,9 +29,8 @@
   <button
     type="button"
     class:more-active={moreActive}
-    aria-label={moreActive ? `More, current section: ${activeTab}` : 'More'}
-    aria-expanded={moreExpanded}
-    aria-haspopup="dialog"
+    aria-label={moreSelected || !moreActive ? 'More' : `More, current section: ${activeTab}`}
+    aria-current={moreActive ? 'page' : undefined}
     on:click={(event) => onMore(event.currentTarget)}
   >
     <Icon name="menu" size={20} />

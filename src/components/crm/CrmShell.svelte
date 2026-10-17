@@ -23,6 +23,7 @@
   import CrmBreadcrumbs from './CrmBreadcrumbs.svelte';
   import Icon from './ui/Icon.svelte';
   import AdminQuickAccess from './AdminQuickAccess.svelte';
+  import AdminMoreScreen from './AdminMoreScreen.svelte';
 
   export let activeTab = 'Dashboard';
   export let tabs: any[] = [];
@@ -37,13 +38,11 @@
   let showOrgSwitcher = false;
   let showGlobalSearch = false;
   let showMobileMenu = false;
-  let mobileMenuMode: 'all' | 'more' = 'all';
+  let showMore = false;
   let mobileMenuOpener: HTMLButtonElement | null = null;
   let isMobileViewport = false;
   const quickAccessNames = new Set(['Dashboard', 'Events', 'Messages', 'My App']);
-  $: mobileTabs = mobileMenuMode === 'more'
-    ? tabs.filter((tab) => !quickAccessNames.has(tab.name))
-    : tabs;
+  $: moreTabs = tabs.filter((tab) => !quickAccessNames.has(tab.name));
   let mobileMenuTrigger: HTMLButtonElement | null = null;
   let globalSearchTrigger: HTMLButtonElement | null = null;
   let GlobalSearchComponent: Component<any> | null = null;
@@ -64,7 +63,7 @@
     const mobileViewport = window.matchMedia('(max-width: 767px)');
     const updateViewport = () => {
       isMobileViewport = mobileViewport.matches;
-      if (!isMobileViewport) showMobileMenu = false;
+      if (!isMobileViewport) { showMobileMenu = false; showMore = false; }
     };
     updateViewport();
     mobileViewport.addEventListener('change', updateViewport);
@@ -75,7 +74,7 @@
     return String(tab?.label || tab?.name || 'Portal');
   }
 
-  $: currentTabTitle = tabLabel(
+  $: currentTabTitle = showMore ? 'More' : tabLabel(
     tabs.find((tab) => tab.name === activeTab) || { name: activeTab },
   );
 
@@ -105,6 +104,7 @@
 
   async function performTenantSwitch(tenant: any) {
     const preferredTab = activeTab;
+    showMore = false;
     showOrgSwitcher = false;
     showGlobalSearch = false;
     showMobileMenu = false;
@@ -227,6 +227,7 @@
   function performActiveTabChange(tab: any) {
     activeResultId = null;
     activeTab = tab;
+    showMore = false;
     showMobileMenu = false;
     void tick().then(() => pageHeading?.focus({ preventScroll: true }));
   }
@@ -235,6 +236,7 @@
     // A draft decision replaces the drawer, avoiding two simultaneous dialogs.
     if (showMobileMenu) closeMobileMenu();
     if (tab === activeTab) {
+      showMore = false;
       showMobileMenu = false;
       void tick().then(() => pageHeading?.focus({ preventScroll: true }));
       return;
@@ -308,6 +310,7 @@
 
   function handleSearchNavigate(event: CustomEvent<{ tab: string; id: string }>) {
     runWithDraftGuard(() => {
+      showMore = false;
       activeResultId = event.detail.id;
       activeTab = event.detail.tab;
       showMobileMenu = false;
@@ -351,10 +354,18 @@
     (mobileMenuOpener || mobileMenuTrigger)?.focus();
   }
 
-  function openMobileMenu(mode: 'all' | 'more', trigger: HTMLButtonElement) {
-    mobileMenuMode = mode;
+  function openMobileMenu(trigger: HTMLButtonElement) {
     mobileMenuOpener = trigger;
     showMobileMenu = true;
+  }
+
+  function openMore() {
+    if (showMore) return;
+    runWithDraftGuard(() => {
+      showMobileMenu = false;
+      showMore = true;
+      void tick().then(() => pageHeading?.focus({ preventScroll: true }));
+    });
   }
 
   function handleBeforeUnload(event: BeforeUnloadEvent) {
@@ -394,7 +405,7 @@
             alt=""
             class="h-8 w-8 shrink-0 object-contain"
           />
-          <h2 id="mobile-navigation-title" class="min-w-0 flex-1 truncate text-lg font-bold">{mobileMenuMode === 'more' ? `More · ${appName}` : appName}</h2>
+          <h2 id="mobile-navigation-title" class="min-w-0 flex-1 truncate text-lg font-bold">{appName}</h2>
           <button
             type="button"
             class="crm-ui-shell-signout-icon"
@@ -406,7 +417,7 @@
           </button>
         </div>
         <nav class="flex-1 space-y-1 overflow-y-auto p-3" aria-label="CRM sections">
-          {#each mobileTabs as tab}
+          {#each tabs as tab}
             <button
               type="button"
               class="flex w-full items-center rounded-lg px-3 py-3 text-left text-sm font-semibold {activeTab === tab.name ? 'crm-theme-sidebar-active' : 'crm-theme-sidebar-idle'}"
@@ -565,7 +576,7 @@
         class="rounded-md border border-gray-300 p-2 text-gray-700 hover:bg-gray-50 md:hidden"
         aria-label="Open navigation menu"
         aria-expanded={showMobileMenu}
-        on:click={(event) => openMobileMenu('all', event.currentTarget)}
+        on:click={(event) => openMobileMenu(event.currentTarget)}
       >
         <Icon name="menu" size={20} />
       </button>
@@ -625,7 +636,20 @@
       {:else if brandingState === 'missing'}
         <p class="sr-only" role="status">{brandingMessage}</p>
       {/if}
-      <div class="flex min-h-0 flex-1 flex-col">
+      {#if showMore}
+        <AdminMoreScreen
+          tabs={moreTabs.map((tab) => ({ ...tab, label: tabLabel(tab) }))}
+          programs={$availableTenants.map((id, index) => ({ id, name: organizationName(id, index) }))}
+          currentProgram={$tenantIdStore || ''}
+          onNavigate={setActiveTab}
+          onSwitchProgram={switchTenant}
+          onSignOut={() => showLogoutModal = true}
+        />
+      {/if}
+      <div hidden={showMore} style:display={showMore ? 'none' : 'flex'} class="min-h-0 flex-1 flex-col">
+        {#if isMobileViewport && !quickAccessNames.has(activeTab)}
+          <div class="px-4 pt-3"><button type="button" class="min-h-11 rounded-lg px-2 text-sm font-semibold text-[var(--crm-brand-link)]" on:click={openMore}>← More</button></div>
+        {/if}
         <slot />
       </div>
     </div>
@@ -634,10 +658,10 @@
   {#if isMobileViewport}
     <AdminQuickAccess
       {tabs}
-      {activeTab}
+      activeTab={showMore ? '' : activeTab}
       onNavigate={setActiveTab}
-      onMore={(trigger) => openMobileMenu('more', trigger)}
-      moreExpanded={showMobileMenu && mobileMenuMode === 'more'}
+      onMore={openMore}
+      moreSelected={showMore}
     />
   {/if}
 

@@ -159,7 +159,7 @@ describe("CRM modal stacking and navigation", () => {
     signOutMock.mockReset();
   });
 
-  it('guards quick access changes and restores focus from More', async () => {
+  it('opens More as a guarded page and returns from its child workspace', async () => {
     vi.stubGlobal('matchMedia', vi.fn(() => ({
       matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn(),
     })));
@@ -170,8 +170,8 @@ describe("CRM modal stacking and navigation", () => {
       id: 'preview-text', title: 'Unsaved preview text', message: 'Keep editing or discard.',
       onDiscard: discard,
     });
-    await fireEvent.click(nav.getByRole('button', { name: 'Events' }));
-    expect(screen.getByRole('status', { name: 'current tab' })).toHaveTextContent('Activity');
+    await fireEvent.click(nav.getByRole('button', { name: 'More, current section: Activity' }));
+    expect(screen.queryByRole('region', { name: 'More' })).toBeNull();
     await fireEvent.click(screen.getByRole('button', { name: 'Stay' }));
     expect(discard).not.toHaveBeenCalled();
     await fireEvent.click(nav.getByRole('button', { name: 'Events' }));
@@ -179,26 +179,23 @@ describe("CRM modal stacking and navigation", () => {
     await waitFor(() => expect(screen.getByRole('status', { name: 'current tab' })).toHaveTextContent('Events'));
     expect(discard).toHaveBeenCalledOnce();
 
-    const more = nav.getByRole('button', { name: 'More' });
-    more.focus();
-    await fireEvent.click(more);
-    let drawer = screen.getByRole('dialog', { name: 'More · HuddleWay' });
-    expect(within(drawer).queryByRole('button', { name: 'Events' })).toBeNull();
-    expect(within(drawer).getByRole('button', { name: 'Roster' })).toBeVisible();
-    await fireEvent.keyDown(drawer, { key: 'Escape' });
-    await waitFor(() => expect(more).toHaveFocus());
+    await fireEvent.click(nav.getByRole('button', { name: 'More' }));
+    const more = screen.getByRole('region', { name: 'More' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(within(more).queryByRole('button', { name: 'Events' })).toBeNull();
+    expect(within(more).getByRole('button', { name: 'Roster' })).toBeVisible();
+    expect(nav.getByRole('button', { name: 'More' })).toHaveAttribute('aria-current', 'page');
+    expect(nav.getByRole('button', { name: 'Events' })).not.toHaveAttribute('aria-current');
+    expect(screen.queryByRole('status', { name: 'current tab' })).toBeNull();
 
-    await fireEvent.click(more);
-    drawer = screen.getByRole('dialog', { name: 'More · HuddleWay' });
-    registerPortalDraft({
-      id: 'next-preview', title: 'Unsaved preview text', message: 'Keep editing or discard.',
-      onDiscard: discard,
-    });
-    await fireEvent.click(within(drawer).getByRole('button', { name: 'Roster' }));
-    expect(screen.queryByRole('dialog', { name: 'More · HuddleWay' })).toBeNull();
-    expect(screen.getAllByRole('dialog')).toHaveLength(1);
-    await fireEvent.click(screen.getByRole('button', { name: 'Discard changes' }));
+    await fireEvent.click(within(more).getByRole('button', { name: 'Roster' }));
     await waitFor(() => expect(nav.getByRole('button', { name: 'More, current section: Roster' })).toBeVisible());
+    expect(screen.getByRole('status', { name: 'current tab' })).toHaveTextContent('Roster');
+    await fireEvent.click(screen.getByRole('button', { name: '← More' }));
+    expect(screen.getByRole('region', { name: 'More' })).toBeVisible();
+    await fireEvent.click(nav.getByRole('button', { name: 'Events' }));
+    expect(screen.queryByRole('region', { name: 'More' })).toBeNull();
+    expect(screen.getByRole('status', { name: 'current tab' })).toHaveTextContent('Events');
   });
 
   it("routes accessible player, team, and event search results and retains each ID", async () => {
