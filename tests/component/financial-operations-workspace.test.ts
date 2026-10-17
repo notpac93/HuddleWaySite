@@ -23,7 +23,8 @@ vi.mock('../../src/lib/services/DataStore', async () => {
 });
 
 import FinancialOperationsWorkspace from '../../src/components/crm/FinancialOperationsWorkspace.svelte';
-import { activeTenantRole } from '../../src/lib/authStore';
+import { refreshActiveData } from '../../src/lib/crm/liveRefresh';
+import { activeTenantRole, tenantIdStore } from '../../src/lib/authStore';
 import type { Writable } from 'svelte/store';
 
 const Tested = FinancialOperationsWorkspace as unknown as Component;
@@ -69,6 +70,8 @@ describe('dedicated CRM financial operations', () => {
     mocks.financialOverview.mockReset().mockResolvedValue(overview());
     mocks.billingPackages.mockResolvedValue([]);
     roles.set('owner');
+    tenantIdStore.set('tenant-a');
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
   });
 
   it('shows human finance rows without exposing opaque identifiers', async () => {
@@ -76,7 +79,37 @@ describe('dedicated CRM financial operations', () => {
     expect(await screen.findByText('Bank deposit')).toBeVisible();
     expect(screen.getAllByText('$123.45')).toHaveLength(2);
     expect(screen.queryByText('opaque-1')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Export this view' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Export' })).toBeEnabled();
+  });
+
+  it('keeps filters collapsed and updates records without resetting a search', async () => {
+    render(Tested);
+    await screen.findByText('Bank deposit');
+    expect(screen.queryByRole('button', { name: /^Refresh$/ })).toBeNull();
+    expect(screen.getByText('Search & filters').closest('details')).not.toHaveAttribute('open');
+    await fireEvent.click(screen.getByText('Search & filters'));
+    // jsdom does not implement the details default toggle.
+    screen.getByText('Search & filters').closest('details')!.open = true;
+    const search = screen.getByRole('searchbox');
+    await fireEvent.input(search, { target: { value: 'Bank' } });
+    const updated = overview(); updated.operations.views.deposits[0].amountCents = 20000;
+    mocks.financialOverview.mockResolvedValue(updated);
+    await refreshActiveData('pull');
+    await waitFor(() => expect(screen.getAllByText('$200.00')).toHaveLength(2));
+    expect(search).toHaveValue('Bank');
+  });
+
+  it('rejects stale tenant responses during a background update', async () => {
+    render(Tested); await screen.findByText('Bank deposit');
+    let finish!: (result: ReturnType<typeof overview>) => void;
+    mocks.financialOverview.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    const pending = refreshActiveData('pull'); await Promise.resolve();
+    const next = overview(); next.operations.views.deposits[0].label = 'Tenant B deposit';
+    mocks.financialOverview.mockResolvedValue(next);
+    tenantIdStore.set('tenant-b');
+    await screen.findByText('Tenant B deposit');
+    finish(overview()); await pending;
+    expect(screen.queryByText('Bank deposit')).toBeNull();
   });
 
   it('does not fetch owner finance data for an editor', async () => {

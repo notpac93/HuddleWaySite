@@ -1,3 +1,4 @@
+import { registerLiveRefresh } from '../crm/liveRefresh';
 import { backendClient } from '../api/backendClient';
 import { registrationDisplayRecord } from '../ui/registrationDisplay';
 
@@ -84,7 +85,11 @@ export class RegistrationService {
     }
 
     let cancelled = false;
-    void loadAllOperationalRecords(tenantId, 'registration_forms')
+    let inFlight = false;
+    const load = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      await loadAllOperationalRecords(tenantId, 'registration_forms')
       .then((records) => {
         if (!cancelled) callback(records.map(normalizeForm).sort((left, right) => {
           if (left.dateCreated && right.dateCreated) {
@@ -99,10 +104,13 @@ export class RegistrationService {
         if (cancelled) return;
         console.error('Registration forms could not be loaded.');
         onError(error);
-      });
-
+      }).finally(() => { inFlight = false; });
+    };
+    void load();
+    const stopRefresh = registerLiveRefresh(load);
     return () => {
       cancelled = true;
+      stopRefresh();
     };
   }
 

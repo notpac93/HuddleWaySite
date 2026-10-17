@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { registerLiveRefresh } from '../../lib/crm/liveRefresh';
+  import { onMount as mountRefresh } from 'svelte';
   import type { Component } from 'svelte';
   import {
     financialProjectionScope,
@@ -56,9 +58,9 @@
     $activeTenantRole === 'owner'
     || $activeTenantRole === 'platform_admin';
   $: canManageTenant = isOwner || $activeTenantRole === 'editor';
-  async function loadDashboardSummary(tenantId: string) {
+  async function loadDashboardSummary(tenantId: string, silent = false) {
     const generation = ++dashboardSummaryGeneration;
-    dashboardSummary = {
+    if (!silent) dashboardSummary = {
       loading: true,
       counts: { registrations: 0, teams: 0, events: 0 },
       recentRegistrations: [],
@@ -194,14 +196,14 @@
     });
   $: incompleteRegistrationCount = recentRegistrations.filter((registration) => !registration.participantName || !registration.email).length;
 
+
+  mountRefresh(() => registerLiveRefresh(() => loadedDashboardTenant ? loadDashboardSummary(loadedDashboardTenant, true) : undefined));
 </script>
 
 <div class="dashboard h-full flex flex-col p-4 sm:p-6 space-y-5 overflow-y-auto bg-gray-50">
   <div class="flex items-center justify-between gap-3">
     <h2 class="text-2xl font-bold text-gray-950">Dashboard</h2>
-    <button type="button" class="refresh-action" aria-label="Refresh dashboard" title="Refresh dashboard" disabled={operationalLoading || !loadedDashboardTenant} on:click={() => loadedDashboardTenant && loadDashboardSummary(loadedDashboardTenant)}>
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 6M4 12l2 6a7 7 0 0 0 12-1"/></svg>
-    </button>
+
   </div>
   {#if operationalLoading}
     <p class="rounded-md border border-gray-200 bg-white p-3 text-sm text-gray-600" role="status">
@@ -433,8 +435,6 @@
 </div>
 
 <style>
-  .refresh-action { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #e5e7eb; border-radius: 50%; background: white; color: var(--crm-brand-link); }
-  .refresh-action:disabled { opacity: .5; }
   .dashboard-metrics > button { border: 1px solid #e5e7eb; border-radius: 20px; box-shadow: none; }
   .dashboard-metrics > button > div { padding: 18px; }
   .dashboard-metrics .crm-ui-center { align-items: flex-start; flex-direction: column; gap: 14px; }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FilterDisclosure from '../ui/FilterDisclosure.svelte';
   import { onMount } from 'svelte';
   import { tenantIdStore } from '../../../lib/authStore';
   import { RegistrationService } from '../../../lib/services/RegistrationService';
@@ -357,6 +358,7 @@
     </div>
 
     <!-- Toolbar -->
+    <FilterDisclosure label="Search & export" activeCount={searchQuery.trim() ? 1 : 0}>
     <section class="mt-4 flex flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3 sm:flex-row" aria-label="Registration form list tools">
       <div class="relative flex-1">
         <div class="crm-ui-search-icon">
@@ -383,6 +385,7 @@
         Export
       </button>
     </section>
+    </FilterDisclosure>
 
     <FormsTable
       forms={filteredForms}

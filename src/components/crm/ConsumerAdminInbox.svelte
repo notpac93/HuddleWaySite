@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { registerLiveRefresh } from '../../lib/crm/liveRefresh';
+  import { onMount as mountRefresh } from 'svelte';
   import { createEventDispatcher, onMount } from 'svelte';
   import { tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
@@ -144,10 +146,10 @@
     replyRequestId = '';
   }
 
-  async function loadThreads(requestedTenantId: string, preserveSelection = true) {
+  async function loadThreads(requestedTenantId: string, preserveSelection = true, silent = false) {
     const requestedGeneration = generation;
     const priorSelection = preserveSelection ? selectedThreadId : '';
-    loadState = 'loading';
+    if (!silent) loadState = 'loading';
     loadMessage = '';
     loadRequestId = '';
     try {
@@ -216,6 +218,8 @@
     if (replyMessage.trim()) window.sessionStorage.setItem(`huddleway-inbox-reply:${tenantId}:${selectedThreadId}`, replyMessage);
     else window.sessionStorage.removeItem(`huddleway-inbox-reply:${tenantId}:${selectedThreadId}`);
   }
+
+  mountRefresh(() => registerLiveRefresh(() => tenantId && loadState !== 'loading' && replyState !== 'loading' ? loadThreads(tenantId, true, true) : undefined));
 </script>
 
 <section class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" aria-labelledby="direct-inbox-heading">

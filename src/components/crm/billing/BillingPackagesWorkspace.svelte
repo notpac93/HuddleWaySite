@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
+  import { registerLiveRefresh } from '../../../lib/crm/liveRefresh';
   import { tenantIdStore } from '../../../lib/authStore';
   import { billingOperationsApi } from '../../../lib/api/BillingOperationsApi';
   import {
@@ -9,6 +10,8 @@
   } from '../../../lib/api/BackendApi';
   import { seasonsStore, teamsStore } from '../../../lib/services/DataStore';
 
+  let loadGeneration = 0;
+  onDestroy(() => { loadGeneration += 1; });
   let packages: BillingPackageRecord[] = [];
   let loading = true;
   let loadError = '';
@@ -43,7 +46,11 @@
   $: totalCents = (seasonCents ?? 0) + (teamCents ?? 0);
   $: installmentAmounts = allocate(totalCents, paymentMode === 'installments' ? installmentCount : 1);
 
-  onMount(loadPackages);
+  onMount(() => tenantIdStore.subscribe(() => {
+    packages = [];
+    editorOpen = false;
+    void loadPackages();
+  }));
 
   function parseCents(value: string) {
     const match = value.trim().replace(/,/g, '').match(/^(?:0|[1-9]\d{0,7})(?:\.(\d{1,2}))?$/);
@@ -79,19 +86,23 @@
       : '';
   }
 
-  async function loadPackages() {
+  async function loadPackages(silent = false) {
     const tenantId = $tenantIdStore;
-    if (!tenantId) return;
-    loading = true;
+    const generation = ++loadGeneration;
+    if (!tenantId) { loading = false; return; }
+    if (!silent) loading = true;
     loadError = '';
     requestId = '';
     try {
-      packages = await billingOperationsApi.billingPackages(tenantId);
+      const result = await billingOperationsApi.billingPackages(tenantId);
+      if ($tenantIdStore !== tenantId || generation !== loadGeneration) return;
+      packages = result;
     } catch (error) {
+      if ($tenantIdStore !== tenantId || generation !== loadGeneration) return;
       loadError = 'Payment setup could not be loaded.';
       requestId = error instanceof BackendApiError ? error.requestId || '' : '';
     } finally {
-      loading = false;
+      if ($tenantIdStore === tenantId && generation === loadGeneration) loading = false;
     }
   }
 
@@ -202,6 +213,8 @@
       saving = false;
     }
   }
+
+  onMount(() => registerLiveRefresh(() => !loading && !editorOpen && !saving ? loadPackages(true) : undefined));
 </script>
 
 <section class="rounded-xl border border-gray-200 bg-white shadow-sm" aria-labelledby="payment-setup-title">
@@ -217,7 +230,7 @@
   {:else if loadError}
     <div class="m-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
       {loadError}
-      <button type="button" class="mt-3 crm-ui-button-secondary bg-white" on:click={loadPackages}>Retry</button>
+      <button type="button" class="mt-3 crm-ui-button-secondary bg-white" on:click={() => loadPackages()}>Retry</button>
     </div>
   {:else if packages.length === 0}
     <div class="p-6 text-sm text-gray-600"><p>No season or team payment setup has been added.</p>{#if $seasonsStore.length === 0 && $teamsStore.length === 0}<p class="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">Create a season or team first so every payment setup has a valid offering scope.</p>{:else if $seasonsStore.length === 0}<p class="mt-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-blue-900">Season pricing remains unavailable until a season exists. You can still create team-scoped pricing.</p>{/if}</div>

@@ -1,4 +1,7 @@
 <script lang="ts">
+  import FilterDisclosure from './ui/FilterDisclosure.svelte';
+  import { registerLiveRefresh } from '../../lib/crm/liveRefresh';
+  import { onMount as mountRefresh } from 'svelte';
   import { onMount } from 'svelte';
   import { activeTenantRole, tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
@@ -29,6 +32,10 @@
   let search = '';
   let status = '';
   let loadedTenantId = '';
+  let requestGeneration = 0;
+  let requestingTenant = '';
+  let snapshotTenant = '';
+
 
   $: ownerAuthorized = $activeTenantRole === 'owner' || $activeTenantRole === 'platform_admin';
   $: rows = activeView === 'payment_setup' ? [] : operations?.views[activeView] || [];
@@ -81,20 +88,25 @@
 
   async function loadOperations() {
     const tenantId = $tenantIdStore;
-    if (!tenantId || !ownerAuthorized) return;
+    if (!tenantId || !ownerAuthorized || (loading && requestingTenant === tenantId)) return;
+    const generation = ++requestGeneration;
+    requestingTenant = tenantId;
+    if (snapshotTenant !== tenantId) operations = null;
     loading = true;
     errorMessage = '';
     try {
       const overview = await backendClient.financialOverview(tenantId);
-      if ($tenantIdStore !== tenantId) return;
+      if ($tenantIdStore !== tenantId || generation !== requestGeneration || !ownerAuthorized) return;
+      snapshotTenant = tenantId;
       operations = overview.operations;
     } catch (error) {
-      operations = null;
+      if ($tenantIdStore !== tenantId || generation !== requestGeneration) return;
+      if (error instanceof BackendApiError && [401, 403].includes(error.status)) operations = null;
       errorMessage = error instanceof BackendApiError
         ? 'Financial operations could not be loaded. Retry or contact support.'
         : 'Financial operations could not be loaded. Retry.';
     } finally {
-      if ($tenantIdStore === tenantId) loading = false;
+      if ($tenantIdStore === tenantId && generation === requestGeneration) loading = false;
     }
   }
 
@@ -129,15 +141,17 @@
   function rowKey(row: FinancialOperationRow) {
     return row.key;
   }
+
+  mountRefresh(() => registerLiveRefresh(() => loadOperations()));
 </script>
 
 <div class="flex h-full min-h-0 flex-col bg-gray-50">
   <header class="border-b border-gray-200 bg-white px-4 py-4 sm:px-6">
     <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <div>
-        <h1 class="crm-ui-page-title">Financial operations</h1>
+        <h1 class="crm-ui-page-title">Financials</h1>
       </div>
-      <button type="button" class="crm-ui-button-secondary bg-white" disabled={loading || !ownerAuthorized} on:click={loadOperations}>{loading ? 'Refreshing…' : 'Refresh'}</button>
+
     </div>
     <nav class="mt-4 flex gap-2 overflow-x-auto pb-1" aria-label="Financial operation views">
       {#each views as view}
@@ -167,18 +181,27 @@
         <p class="mb-4 rounded-lg border border-[var(--crm-brand-border)] bg-[var(--crm-brand-surface)] p-4 text-sm text-[var(--crm-on-brand-surface)]">Financial operations are organization-wide so scheduled and overdue balances are not accidentally hidden by team filters.</p>
       {/if}
       {#if !operations.complete}
-        <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950" role="alert"><strong>Complete refresh required.</strong> Some sources did not finish loading, so export is disabled.</div>
+        <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950" role="alert"><strong>Some records are unavailable.</strong> Export will be available when all records load.</div>
       {/if}
       {#if !operations.reconciliation.complete}
         <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950" role="status">Reconciliation needs attention: {operations.reconciliation.unreconciledTransactionCount} transaction records and {operations.reconciliation.unreconciledDepositCount} deposits.</div>
       {/if}
 
       <section class="rounded-xl border border-gray-200 bg-white shadow-sm">
-        <header class="grid gap-4 border-b border-gray-200 p-4 lg:grid-cols-[1fr_auto_auto] lg:items-end">
-          <label><span class="crm-ui-label-xs">Search</span><input class="crm-ui-input mt-1 bg-white" type="search" bind:value={search} placeholder="Participant, offering, or status" /></label>
-          <label><span class="crm-ui-label-xs">Status</span><select class="crm-ui-input mt-1 bg-white" bind:value={status}><option value="">All statuses</option>{#each statusOptions as option}<option value={option}>{humanStatus(option)}</option>{/each}</select></label>
-          <button type="button" class="crm-ui-button-secondary bg-white" disabled={!operations.complete || filteredRows.length === 0} title={!operations.complete ? 'Refresh until the server confirms a complete snapshot.' : undefined} on:click={exportVisibleRows}>Export this view</button>
+        {#if rows.length > 0 || search || status}
+        <header class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 px-4 py-2">
+          {#if rows.length > 0 || search || status}
+            <FilterDisclosure activeCount={[search.trim(), status].filter(Boolean).length}>
+              <div class="flex flex-wrap gap-3 pb-2">
+                <label><span class="sr-only">Search financial records</span><input class="crm-ui-input bg-white" type="search" bind:value={search} placeholder="Search records" /></label>
+                <label><span class="sr-only">Status</span><select class="crm-ui-input bg-white" bind:value={status}><option value="">All statuses</option>{#each statusOptions as option}<option value={option}>{humanStatus(option)}</option>{/each}</select></label>
+                {#if search || status}<button type="button" class="text-sm font-semibold text-[var(--crm-brand-link)]" on:click={() => { search = ''; status = ''; }}>Clear filters</button>{/if}
+              </div>
+            </FilterDisclosure>
+          {/if}
+          {#if rows.length > 0}<button type="button" class="crm-ui-button-secondary bg-white" disabled={!operations.complete || filteredRows.length === 0} title={!operations.complete ? 'Export is available when all records load.' : undefined} on:click={exportVisibleRows}>Export</button>{/if}
         </header>
+        {/if}
         <div class="grid grid-cols-2 gap-px bg-gray-200 sm:grid-cols-3">
           <div class="bg-white p-4"><p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Records</p><p class="mt-1 text-2xl font-bold text-gray-950">{filteredRows.length}</p></div>
           <div class="bg-white p-4 sm:col-span-2"><p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Visible total</p><p class="mt-1 text-2xl font-bold text-gray-950">{rows.every((row) => row.currency === rows[0]?.currency) ? money(visibleTotal, rows[0]?.currency || 'USD') : 'Multiple currencies'}</p></div>

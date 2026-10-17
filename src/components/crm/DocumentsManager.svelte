@@ -1,4 +1,7 @@
 <script lang="ts">
+  import FilterDisclosure from './ui/FilterDisclosure.svelte';
+  import { registerLiveRefresh } from '../../lib/crm/liveRefresh';
+  import { onMount as mountRefresh } from 'svelte';
   import { onMount } from 'svelte';
   import { activeTenantRole, tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
@@ -60,9 +63,9 @@
     return error instanceof BackendApiError ? error.requestId || '' : '';
   }
 
-  async function fetchDocuments(tenantId: string) {
+  async function fetchDocuments(tenantId: string, silent = false) {
     const generation = ++loadGeneration;
-    isLoading = true;
+    if (!silent) isLoading = true;
     loadError = '';
     requestId = '';
     try {
@@ -183,6 +186,8 @@
       && (audienceFilter === 'all' || record.availabilityScope === audienceFilter)
       && (availabilityFilter === 'all' || (availabilityFilter === 'available') === record.isAvailable);
   });
+
+  mountRefresh(() => registerLiveRefresh(() => activeTenantId && !isLoading && editorRecord === undefined && !deleteTarget ? fetchDocuments(activeTenantId, true) : undefined));
 </script>
 
 {#if editorRecord !== undefined}
@@ -273,6 +278,7 @@
           More documents are available.
         </p>
       {/if}
+      <FilterDisclosure activeCount={[Boolean(searchQuery.trim()), categoryFilter !== 'all', audienceFilter !== 'all', availabilityFilter !== 'all'].filter(Boolean).length}>
       <div class="mt-4 grid gap-3 md:grid-cols-4">
         <label class="text-sm">Search
           <input type="search" class="mt-1 block w-full rounded-md border border-gray-300 p-2" bind:value={searchQuery} placeholder="Title, category, type, uploader" />
@@ -287,6 +293,7 @@
           <select class="mt-1 block w-full rounded-md border border-gray-300 p-2" bind:value={availabilityFilter}><option value="all">Any availability</option><option value="available">Available</option><option value="unavailable">Unavailable</option></select>
         </label>
       </div>
+      </FilterDisclosure>
     </div>
     {#if isLoading}
       <div class="p-8 text-center text-gray-500" role="status">Loading documents…</div>

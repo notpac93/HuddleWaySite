@@ -1,4 +1,5 @@
 import { readable, derived, get, writable, type Readable } from 'svelte/store';
+import { registerLiveRefresh } from '../crm/liveRefresh';
 import { tenantIdStore } from '../authStore';
 import { backendClient } from '../api/backendClient';
 import {
@@ -49,71 +50,58 @@ function tenantCollectionProjectionStore(
       [tenantIdStore, refreshSignal],
       ([$tenantId, $refresh]) => ({ tenantId: $tenantId, refresh: $refresh }),
     );
-    const unsubscribeTenant = tenantAndRefresh.subscribe(({ tenantId }) => {
+    let activeTenant = '';
+    let current = emptyCollectionProjection;
+    let inFlight: Promise<void> | null = null;
+    const publish = (value: CollectionProjection) => { current = value; set(value); };
+    const load = (tenantId: string, reset = false, force = false): Promise<void> => {
+      if (!reset && !force && inFlight) return inFlight;
       const currentGeneration = ++generation;
-      set({
-        ...emptyCollectionProjection,
-        loading: Boolean(tenantId),
-      });
-      if (!tenantId) return;
-
-      void (async () => {
+      if (reset) publish({ ...emptyCollectionProjection, loading: Boolean(tenantId) });
+      if (!tenantId) return Promise.resolve();
+      // Keep the complete prior result visible until all pages are available.
+      const request = (async () => {
         let cursor: string | undefined;
         const records: any[] = [];
         try {
           do {
             if (disposed || currentGeneration !== generation) return;
-            const page = await backendClient.crmOperationalPage(
-              tenantId,
-              collectionName,
-              { limit: 100, cursor },
-            );
+            const page = await backendClient.crmOperationalPage(tenantId, collectionName, { limit: 100, cursor });
             if (disposed || currentGeneration !== generation) return;
             records.push(...page.records);
-            set({
-              records: [...records],
-              truncated: false,
-              loading: page.hasMore,
-              error: '',
-              permissionDenied: false,
-            });
             cursor = page.hasMore ? page.nextCursor || undefined : undefined;
-            if (page.hasMore && !cursor) {
-              throw new Error('The CRM page response omitted its next cursor.');
-            }
+            if (page.hasMore && !cursor) throw new Error('The CRM page response omitted its next cursor.');
           } while (cursor);
-          if (disposed || currentGeneration !== generation) return;
-          set({
-            records: [...records],
-            truncated: false,
-            loading: false,
-            error: '',
-            permissionDenied: false,
-          });
+          publish({ records, truncated: false, loading: false, error: '', permissionDenied: false });
         } catch (error) {
           if (disposed || currentGeneration !== generation) return;
-          console.error(`Could not load ${collectionName}.`);
           const code = String((error as { code?: unknown })?.code || '');
           const status = Number((error as { status?: unknown })?.status || 0);
-          const permissionDenied =
-            code.includes('permission-denied')
-            || status === 401
-            || status === 403;
-          set({
-            ...emptyCollectionProjection,
-            error: permissionDenied
-              ? `You do not have permission to view ${collectionName}.`
-              : `${collectionName} could not be loaded.`,
+          const permissionDenied = code.includes('permission-denied') || status === 401 || status === 403;
+          publish({
+            ...(permissionDenied ? emptyCollectionProjection : current),
+            loading: false,
+            error: permissionDenied ? `You do not have permission to view ${collectionName}.` : `${collectionName} could not be loaded.`,
             permissionDenied,
           });
         }
       })();
+      inFlight = request;
+      void request.finally(() => { if (inFlight === request) inFlight = null; });
+      return request;
+    };
+    const unsubscribeTenant = tenantAndRefresh.subscribe(({ tenantId }) => {
+      const reset = activeTenant !== tenantId;
+      activeTenant = tenantId || '';
+      void load(tenantId || '', reset, true);
     });
+    const stopRefresh = registerLiveRefresh(() => load(activeTenant));
 
     return () => {
       disposed = true;
       generation += 1;
       unsubscribeTenant();
+      stopRefresh();
     };
   });
 }
@@ -190,18 +178,26 @@ const financialOverviewStore = readable<FinancialOverviewState>(
   emptyFinancialOverview,
   (set) => {
     let requestSequence = 0;
-    const unsubscribeTenant = tenantIdStore.subscribe((tenantId) => {
+    let current = emptyFinancialOverview;
+    let activeTenant = '';
+    let inFlight = false;
+    const publish = (value: FinancialOverviewState) => { current = value; set(value); };
+    const load = async (tenantId: string) => {
+      const changed = tenantId !== activeTenant;
+      if (!changed && inFlight) return;
+      activeTenant = tenantId || '';
       const sequence = ++requestSequence;
-      set(emptyFinancialOverview);
-      if (!tenantId) return;
-      set({ ...emptyFinancialOverview, loading: true });
+      if (changed) publish(emptyFinancialOverview);
+      if (!tenantId) { publish(emptyFinancialOverview); inFlight = false; return; }
+      inFlight = true;
+      if (!current.lastRefreshedAt) publish({ ...emptyFinancialOverview, loading: true });
 
       // Processor-owned collections remain behind the authenticated backend.
       // This projection is fetched only while a mounted view subscribes to one
       // of the financial stores, rather than on every authenticated CRM load.
-      void backendClient.financialOverview(tenantId).then((overview) => {
+      await backendClient.financialOverview(tenantId).then((overview) => {
         if (sequence !== requestSequence) return;
-        set({
+        publish({
           loading: false,
           transactions: overview.transactions,
           refunds: overview.refunds,
@@ -216,19 +212,22 @@ const financialOverviewStore = readable<FinancialOverviewState>(
         });
       }).catch((error) => {
         if (sequence !== requestSequence) return;
-        set({
-          ...emptyFinancialOverview,
+        publish({
+          ...(error instanceof BackendApiError && [401, 403].includes(error.status) ? emptyFinancialOverview : current),
           loading: false,
           error: error instanceof BackendApiError
             ? error.message
             : 'Financial records could not be loaded. Check your connection and try again.',
         });
-      });
-    });
+      }).finally(() => { if (sequence === requestSequence) inFlight = false; });
+    };
+    const unsubscribeTenant = tenantIdStore.subscribe((tenantId) => { void load(tenantId || ''); });
+    const stopRefresh = registerLiveRefresh(() => load(activeTenant));
 
     return () => {
       requestSequence += 1;
       unsubscribeTenant();
+      stopRefresh();
     };
   },
 );

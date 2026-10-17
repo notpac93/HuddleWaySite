@@ -1,3 +1,4 @@
+import { registerLiveRefresh } from '../crm/liveRefresh';
 import { backendClient } from '../api/backendClient';
 
 export type RosterProjectionScope = {
@@ -64,17 +65,10 @@ export class RosterService {
       }
     };
     void load();
-    const refreshInterval = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void load();
-    }, 60_000);
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') void load();
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    const stopRefresh = registerLiveRefresh(load);
     return () => {
       cancelled = true;
-      window.clearInterval(refreshInterval);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      stopRefresh();
     };
   }
 

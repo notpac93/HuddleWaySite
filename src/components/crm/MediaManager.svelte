@@ -1,4 +1,7 @@
 <script lang="ts">
+  import FilterDisclosure from './ui/FilterDisclosure.svelte';
+  import { registerLiveRefresh } from '../../lib/crm/liveRefresh';
+  import { onMount as mountRefresh } from 'svelte';
   import { onDestroy } from 'svelte';
   import { activeTenantRole, tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
@@ -65,11 +68,13 @@
     return Number.isNaN(date.getTime()) ? null : date;
   }
 
-  async function loadMedia(tenantId: string) {
+  async function loadMedia(tenantId: string, silent = false) {
     const generation = ++loadGeneration;
-    mediaFiles = [];
-    mediaTruncated = false;
-    mediaLoadState = tenantId ? 'loading' : 'idle';
+    if (!silent) {
+      mediaFiles = [];
+      mediaTruncated = false;
+      mediaLoadState = tenantId ? 'loading' : 'idle';
+    }
     mediaLoadMessage = '';
     if (!tenantId) return;
     try {
@@ -252,6 +257,8 @@
       await loadMedia(String($tenantIdStore || ''));
     } catch { deleteState = 'error'; operationMessage = 'Asset removal failed. Retry after checking your access.'; }
   }
+
+  mountRefresh(() => registerLiveRefresh(() => $tenantIdStore && mediaLoadState !== 'loading' && !uploadOpen && !selected ? loadMedia($tenantIdStore, true) : undefined));
 </script>
 
 {#if uploadOpen}
@@ -301,10 +308,14 @@
 <div class="flex h-full flex-col space-y-6 overflow-y-auto bg-gray-50 p-4 sm:p-6">
   <PageHeader title="Media Library"><svelte:fragment slot="actions"><button type="button" class="crm-ui-primary-button" disabled={!canManage} title={!canManage ? 'Viewer access is read-only.' : undefined} on:click={() => uploadOpen = true}>Upload image</button></svelte:fragment></PageHeader>
   {#if operationMessage}<p class="rounded-md border bg-white p-3 text-sm" role="status">{operationMessage}</p>{/if}
-  <div class="grid gap-4 lg:grid-cols-[14rem,1fr]">
-    <nav class="h-fit rounded-lg border bg-white p-4" aria-label="Media categories"><h3 class="mb-3 text-xs font-semibold uppercase text-gray-500">Categories</h3>{#each categories as category}<button class="mb-1 w-full rounded-md px-3 py-2 text-left text-sm {activeCategory === category ? 'crm-theme-selected' : 'hover:bg-gray-50'}" on:click={() => activeCategory = category}>{category}<span class="float-right text-xs">{category === 'All' ? mediaFiles.length : mediaFiles.filter((media) => category === 'Uncategorized' ? !media.category : media.category === category).length}</span></button>{/each}</nav>
+  <div class="grid gap-4">
     <main class="rounded-lg border bg-white p-5">
+      <FilterDisclosure activeCount={[Boolean(searchQuery.trim()), activeCategory !== 'All'].filter(Boolean).length}>
+
       <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><label class="text-sm font-medium">Search media files<input type="search" class="mt-1 block w-full rounded-md border p-2 sm:w-80" bind:value={searchQuery} placeholder="Filename, category, alt text, or usage" /></label>{#if searchQuery}<button type="button" class="rounded-md border px-3 py-2 text-sm" on:click={() => searchQuery = ''}>Clear search</button>{/if}</div>
+      <nav class="h-fit rounded-lg border bg-white p-4" aria-label="Media categories"><h3 class="mb-3 text-xs font-semibold uppercase text-gray-500">Categories</h3>{#each categories as category}<button class="mb-1 w-full rounded-md px-3 py-2 text-left text-sm {activeCategory === category ? 'crm-theme-selected' : 'hover:bg-gray-50'}" on:click={() => activeCategory = category}>{category}<span class="float-right text-xs">{category === 'All' ? mediaFiles.length : mediaFiles.filter((media) => category === 'Uncategorized' ? !media.category : media.category === category).length}</span></button>{/each}</nav>
+
+      </FilterDisclosure>
       {#if mediaFiles.some((media) => !media.category)}<div class="mt-4 flex flex-wrap items-end gap-2 rounded-md border border-amber-200 bg-amber-50 p-3"><p class="mr-auto text-sm text-amber-900">{mediaFiles.filter((media) => !media.category).length} uncategorized assets. Select cards to categorize them together.</p><select class="rounded-md border p-2 text-sm" bind:value={bulkCategory}><option>Logos</option><option>Banners</option><option>Flyers</option></select><button type="button" class="rounded-md border bg-white px-3 py-2 text-sm" disabled={!canManage || selectedIds.length === 0} on:click={applyBulkCategory}>Apply to {selectedIds.length} selected</button></div>{/if}
       {#if mediaTruncated}<p class="crm-ui-notice mt-4" role="status">More than {MEDIA_LIMIT} image records exist. Categories, counts, and search apply only to the loaded records.</p>{/if}
       {#if mediaLoadState === 'loading'}<div class="py-20 text-center text-sm" role="status">Loading media files…</div>

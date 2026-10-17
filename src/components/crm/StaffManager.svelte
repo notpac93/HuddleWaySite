@@ -1,4 +1,7 @@
 <script lang="ts">
+  import FilterDisclosure from './ui/FilterDisclosure.svelte';
+  import { registerLiveRefresh } from '../../lib/crm/liveRefresh';
+  import { onMount as mountRefresh } from 'svelte';
   import { onMount } from 'svelte';
   import { tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
@@ -85,14 +88,14 @@
     }
   }
 
-  async function loadStaffDirectory(tenantId: string) {
+  async function loadStaffDirectory(tenantId: string, silent = false) {
     const generation = ++loadGeneration;
     if (!tenantId) {
       directory = null;
       isLoading = false;
       return;
     }
-    isLoading = true;
+    if (!silent) isLoading = true;
     loadError = '';
     requestId = '';
     try {
@@ -256,6 +259,8 @@
       mutationMessage = 'The browser could not copy the invitation link.';
     }
   }
+
+  mountRefresh(() => registerLiveRefresh(() => activeTenantId && !isLoading && !showModal && !manageTarget && !revokeTarget ? loadStaffDirectory(activeTenantId, true) : undefined));
 </script>
 
 {#if showModal}
@@ -400,6 +405,7 @@
     </nav>
   </div>
 
+  <FilterDisclosure activeCount={[searchQuery.trim(), roleFilter, statusFilter, verificationFilter].filter(Boolean).length}>
   <div class="flex flex-col gap-4 sm:flex-row">
     <label class="flex-1">
       <span class="sr-only">Search staff by name or email</span>
@@ -420,6 +426,7 @@
       </select>
     </label>
   </div>
+  </FilterDisclosure>
 
   {#if activeListTruncated}
     <p class="crm-ui-notice-card" role="status">

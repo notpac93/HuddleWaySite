@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { registerLiveRefresh } from '../../lib/crm/liveRefresh';
+  import { onMount as mountRefresh } from 'svelte';
   import { onDestroy, onMount } from 'svelte';
   import { tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
@@ -763,8 +765,8 @@
       : normalizedBody;
   }
 
-  async function fetchMessages(tenantId: string) {
-    isLoading = true;
+  async function fetchMessages(tenantId: string, silent = false) {
+    if (!silent) isLoading = true;
     loadError = '';
     loadRequestId = '';
     try {
@@ -1094,6 +1096,8 @@
   onDestroy(() => {
     if (activeTenantId) clearPortalDraft(`messages:${activeTenantId}`);
   });
+
+  mountRefresh(() => registerLiveRefresh(() => activeTenantId && !isLoading && !isAdding && submitState !== 'loading' ? Promise.all([fetchMessages(activeTenantId, true), fetchEmailQuota(activeTenantId, true)]) : undefined));
 </script>
 
   {#if announcementReview}

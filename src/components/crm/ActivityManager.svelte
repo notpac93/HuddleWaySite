@@ -1,4 +1,7 @@
 <script lang="ts">
+  import FilterDisclosure from './ui/FilterDisclosure.svelte';
+  import { registerLiveRefresh } from '../../lib/crm/liveRefresh';
+  import { onMount as mountRefresh } from 'svelte';
   import { tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
   import { BackendApiError, type CrmAuditEventRecord } from '../../lib/api/BackendApi';
@@ -24,9 +27,9 @@
   let dateFrom = '';
   let dateTo = '';
   let selectedActivity: CrmAuditEventRecord | null = null;
-  let lastRefreshedAt: Date | null = null;
 
-  async function loadActivities(append = false) {
+
+  async function loadActivities(append = false, silent = false) {
     const tenantId = $tenantIdStore;
     const generation = ++loadGeneration;
     if (!tenantId) {
@@ -45,13 +48,11 @@
       isLoadingMore = true;
       loadMoreError = '';
     } else {
-      isLoading = true;
+      if (!silent) isLoading = true;
       isLoadingMore = false;
       errorMessage = '';
       loadMoreError = '';
-      activities = [];
-      hasMore = false;
-      nextCursor = null;
+      if (!silent) { activities = []; hasMore = false; nextCursor = null; }
     }
     requestId = '';
     try {
@@ -61,18 +62,18 @@
         append ? nextCursor || undefined : undefined,
       );
       if (generation !== loadGeneration || $tenantIdStore !== tenantId) return;
-      const nextEvents = append ? [...activities, ...page.events] : page.events;
+      const nextEvents = append ? [...activities, ...page.events] : silent ? [...page.events, ...activities] : page.events;
       const seen = new Set<string>();
       activities = nextEvents.filter((activity) => {
         if (!activity.id || seen.has(activity.id)) return false;
         seen.add(activity.id);
         return true;
       });
-      hasMore = page.hasMore;
-      nextCursor = page.nextCursor;
-      truncated = page.hasMore;
+      if (!silent || !activities.length || !nextCursor) {
+        hasMore = page.hasMore; nextCursor = page.nextCursor; truncated = page.hasMore;
+      }
       requestId = page.requestId;
-      lastRefreshedAt = new Date();
+
     } catch (e) {
       console.error('Activity could not be loaded.');
       if (generation !== loadGeneration || $tenantIdStore !== tenantId) return;
@@ -91,10 +92,6 @@
         else isLoading = false;
       }
     }
-  }
-
-  function refreshActivities() {
-    void loadActivities(false);
   }
 
   $: if ($tenantIdStore !== loadedTenantId) {
@@ -177,6 +174,8 @@
       { key: 'retentionCaveat', label: 'Retention caveat' },
     ], `huddleway-activity-${$tenantIdStore || 'organization'}`);
   }
+
+  mountRefresh(() => registerLiveRefresh(() => !isLoading && !isLoadingMore ? loadActivities(false, true) : undefined));
 </script>
 
 {#if selectedActivity}
@@ -195,23 +194,14 @@
   <div class="px-8 py-6 border-b border-gray-200 flex justify-between items-center">
     <div>
       <h2 class="crm-ui-page-title">Activity & Audit Logs</h2>
-      <p class="mt-1 text-xs text-gray-500">Records are shown newest first for the retained server history. Last successful ingestion: {activities[0]?.timestamp ? formatTime(activities[0].timestamp) : 'not yet available'} · refreshed {lastRefreshedAt ? lastRefreshedAt.toLocaleTimeString() : 'not yet'}.</p>
+
     </div>
-    <button
-      type="button"
-      on:click={refreshActivities}
-      disabled={isLoading || isLoadingMore || !$tenantIdStore}
-      class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--crm-brand-focus)] disabled:cursor-not-allowed disabled:opacity-60"
-    >
-      <svg class="-ml-1 mr-2 h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-      </svg>
-      Refresh
-    </button>
+
   </div>
 
   <div class="flex-1 p-8 overflow-y-auto bg-gray-50">
     <div class="max-w-4xl mx-auto">
+      <FilterDisclosure activeCount={[searchQuery.trim(), actorFilter, actionFilter, resourceFilter, outcomeFilter, dateFrom, dateTo].filter(Boolean).length}>
       <section class="mb-5 grid gap-3 rounded-lg border bg-white p-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Activity filters">
         <label class="text-sm">Search<input type="search" class="mt-1 block w-full rounded-md border p-2" bind:value={searchQuery} placeholder="Action, object, ID, reason" /></label>
         <label class="text-sm">Actor<select class="mt-1 block w-full rounded-md border p-2" bind:value={actorFilter}><option value="">All actors</option>{#each actors as actor}<option value={actor}>{actor} — filter</option>{/each}</select></label>
@@ -221,6 +211,7 @@
         <label class="text-sm">From<input type="date" class="mt-1 block w-full rounded-md border p-2" bind:value={dateFrom} /></label><label class="text-sm">To<input type="date" class="mt-1 block w-full rounded-md border p-2" bind:value={dateTo} /></label>
         <button type="button" class="self-end rounded-md border px-3 py-2 text-sm" disabled={filteredActivities.length === 0} on:click={exportActivity}>Export filtered CSV</button>
       </section>
+      </FilterDisclosure>
       {#if isLoading}
         <div class="flex justify-center items-center py-12">
           <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--crm-brand-primary)]" role="status" aria-label="Loading activity"></div>

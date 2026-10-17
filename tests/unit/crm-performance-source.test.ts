@@ -102,9 +102,11 @@ describe('CRM performance source boundaries', () => {
 
     expect(rosterManager).not.toMatch(/import\s*\{[^}]*onMount/);
     expect(rosterManager).not.toContain('tenantIdStore.subscribe');
-    expect(rosterService).toContain("document.visibilityState === 'visible'");
-    expect(rosterService).toContain('}, 60_000)');
-    expect(rosterService).toContain(
+    expect(rosterService).toContain('registerLiveRefresh(load)');
+    const lifecycle = source('src/lib/crm/liveRefresh.ts');
+    expect(lifecycle).toContain("document.visibilityState === 'hidden'");
+    expect(lifecycle).toContain('window.setInterval(wake, 60_000)');
+    expect(lifecycle).toContain(
       "document.addEventListener('visibilitychange'",
     );
   });

@@ -1,5 +1,7 @@
 <script lang="ts">
   import type { Component } from 'svelte';
+  import { startLiveRefresh } from '../../lib/crm/liveRefresh';
+  import { pullToRefresh } from '../../lib/ui/pullToRefresh';
   import { programProfileStore, programTermsStore, programTabLabel, type ProgramProfile } from '../../lib/crm/programVocabulary';
   import { onDestroy, onMount, setContext, tick } from 'svelte';
   import { get } from 'svelte/store';
@@ -390,6 +392,8 @@
     event.preventDefault();
     event.returnValue = '';
   }
+
+  onMount(startLiveRefresh);
 </script>
 
 <svelte:window on:keydown={handleGlobalShortcut} on:beforeunload={handleBeforeUnload} />
@@ -584,7 +588,7 @@
   </aside>
 
   <!-- Main content area -->
-  <main class="crm-ui-shell-main">
+  <main class="crm-ui-shell-main" use:pullToRefresh={!immersiveApp && !showMore}>
     <!-- Top Bar -->
     <header class="crm-ui-shell-header" hidden={immersiveApp}>
       <button
@@ -779,6 +783,8 @@
 </div>
 
 <style>
+  :global(.crm-pull-indicator) { position: absolute; top: 4.5rem; left: 50%; transform: translateX(-50%); z-index: 40; border-radius: 999px; padding: .6rem 1rem; background: var(--crm-brand-control); color: var(--crm-on-primary); box-shadow: 0 3px 12px #0002; font-size: .875rem; pointer-events: none; }
+
   .draft-navigation-panel { width: 100%; max-width: 420px; border-radius: 20px; }
   .draft-navigation-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 0 24px 24px; }
   .immersive-app { position: relative; height: 100dvh; }

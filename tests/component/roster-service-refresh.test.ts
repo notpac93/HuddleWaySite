@@ -8,6 +8,7 @@ vi.mock('../../src/lib/api/backendClient', () => ({
   backendClient: { rosterPlayersPage: api.rosterPlayersPage },
 }));
 
+import { startLiveRefresh } from '../../src/lib/crm/liveRefresh';
 import { RosterService } from '../../src/lib/services/RosterService';
 
 describe('RosterService visibility-aware refresh', () => {
@@ -28,6 +29,7 @@ describe('RosterService visibility-aware refresh', () => {
   });
 
   it('refreshes while visible, pauses while hidden, resumes once, and cleans up', async () => {
+    const stopRefresh = startLiveRefresh();
     const callback = vi.fn();
     const unsubscribe = RosterService.subscribeToPlayers(
       'tenant-a',
@@ -58,6 +60,7 @@ describe('RosterService visibility-aware refresh', () => {
     expect(api.rosterPlayersPage).toHaveBeenCalledTimes(3);
 
     unsubscribe();
+    stopRefresh();
     await vi.advanceTimersByTimeAsync(120_000);
     document.dispatchEvent(new Event('visibilitychange'));
     vi.runAllTicks();

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FilterDisclosure from '../ui/FilterDisclosure.svelte';
   import { onMount } from 'svelte';
   import { tenantIdStore } from '../../../lib/authStore';
   import {
@@ -241,6 +242,7 @@
       </button>
     </header>
 
+    <FilterDisclosure activeCount={[Boolean(searchQuery.trim()), statusFilter !== 'all', dateFilter !== 'all'].filter(Boolean).length}>
     <section class="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-3" aria-label="Season list controls">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <label class="min-w-0 flex-1">
@@ -262,6 +264,7 @@
         </div>
       </div>
     </section>
+    </FilterDisclosure>
 
     {#if $seasonsProjectionScope.truncated}
       <p class="crm-ui-notice-card mt-4" role="status">Only the first {$seasonsProjectionScope.limit} seasons are loaded. Search and counts may be incomplete.</p>

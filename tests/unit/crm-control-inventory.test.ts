@@ -7,7 +7,7 @@ const crmRoot = join(process.cwd(), 'src/components/crm');
 const nativeControls = new Set(['button', 'a', 'input', 'select', 'textarea']);
 
 const reviewedControlCounts: Record<string, number> = {
-  'ActivityManager.svelte': 14,
+  'ActivityManager.svelte': 13,
   'AdminMoreScreen.svelte': 3,
   'AdminQuickAccess.svelte': 2,
   'CommunicationsManager.svelte': 40,
@@ -19,7 +19,7 @@ const reviewedControlCounts: Record<string, number> = {
   'DocumentsManager.svelte': 14,
   'EventScheduler.svelte': 18,
   'FinancialOperationsWorkspace.svelte': 6,
-  'GlobalDashboard.svelte': 10,
+  'GlobalDashboard.svelte': 9,
   'GlobalSearch.svelte': 5,
   'InviteStaffModal.svelte': 6,
   'Login.svelte': 15,
@@ -77,6 +77,7 @@ const reviewedControlCounts: Record<string, number> = {
   'ui/DetailDrawer.svelte': 2,
   'ui/EmptyState.svelte': 2,
   'ui/FilterBar.svelte': 2,
+  'ui/FilterDisclosure.svelte': 0,
   'ui/Icon.svelte': 0,
   'ui/ImageFilePicker.svelte': 2,
   'ui/LoadingState.svelte': 0,
@@ -150,7 +151,7 @@ describe('exhaustive CRM control inventory', () => {
     );
 
     expect(actual).toEqual(reviewedControlCounts);
-    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(621);
+    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(619);
   });
 
   it('keeps every inventoried CRM component reachable from a production entry point', () => {
