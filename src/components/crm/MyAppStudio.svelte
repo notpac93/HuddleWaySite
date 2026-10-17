@@ -1,5 +1,24 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import { getContext, onDestroy } from 'svelte';
+  import { MY_APP_NAVIGATION, type MyAppNavigation } from '../../lib/crm/myAppNavigation';
+  const navigation = getContext<MyAppNavigation | undefined>(MY_APP_NAVIGATION);
+  import Icon from './ui/Icon.svelte';
+  import { modalFocus } from '../../lib/ui/modalFocus';
+
+  export let active = true;
+  let showTools = false;
+  let toolsMounted = false;
+  function openTools() { navigation?.dismiss(); toolsMounted = true; showTools = true; }
+  $: if (!active) showTools = false;
+  function toolsFocus(node: HTMLElement, open: boolean) {
+    let focus: ReturnType<typeof modalFocus> | null = null;
+    const update = (visible: boolean) => {
+      if (visible && !focus) focus = modalFocus(node, { onEscape: () => showTools = false });
+      if (!visible && focus) { focus.destroy(); focus = null; }
+    };
+    update(open);
+    return { update, destroy: () => focus?.destroy() };
+  }
   import { tenantIdStore, tenantNamesStore } from '../../lib/authStore';
   import {
     publicEnvironment,
@@ -243,7 +262,7 @@
     }
   }
 
-  $: if (isDirty && activeTenantId) {
+  $: if (active && isDirty && activeTenantId) {
     registerPortalDraft({
       id: 'my-app-configuration',
       title: 'Unpublished family app changes',
@@ -545,12 +564,23 @@
   />
 {/if}
 
+<div class="my-app-canvas" aria-label="My App canvas" inert={showTools}>
+  <AppPreviewFrame immersive onInteract={() => navigation?.dismiss()} previewOrigin={previewBaseUrl} tenantId={String($tenantIdStore || '')} environment={previewEnvironment} configuration={previewConfiguration} configurationReady={configLoadState === 'ready'} title={`${appName.trim() || 'Program'} mobile app preview`} expectedSourceCommit={publicEnvironment.PUBLIC_APP_PREVIEW_COMMIT || ''} expectedReleaseId={publicEnvironment.PUBLIC_APP_PREVIEW_RELEASE_ID || ''} />
+  {#if configLoadState === 'error' || configLoadState === 'permission'}
+    <div class="canvas-error" role="alert"><p>{configLoadMessage}</p>{#if configLoadState === 'error'}<button type="button" on:click={() => loadTenantConfig(activeTenantId)}>Retry</button>{/if}</div>
+  {/if}
+  <div class="canvas-tools"><button type="button" on:click={openTools}><Icon name="myApp" size={18} />Edit app{#if isDirty}<span class="draft-dot" aria-label="Unpublished changes"></span>{/if}</button></div>
+</div>
+{#if toolsMounted}
+<div class="app-tools-overlay" hidden={!showTools} style:display={showTools ? 'flex' : 'none'}>
+<div role="dialog" aria-modal="true" aria-label="Edit app" class="app-tools-dialog" tabindex="-1" use:toolsFocus={showTools && !showPublishReview}>
 <div class="crm-ui-studio-root">
   <div class="crm-ui-studio-editor">
     <header class="flex flex-wrap items-center justify-between gap-4 border-b border-gray-200 px-5 py-3 sm:px-6">
       <div class="min-w-0">
-        <h2 class="text-xl font-semibold text-gray-950">My App</h2>
+        <h2 class="text-xl font-semibold text-gray-950">Edit app</h2>
       </div>
+      <button type="button" class="app-tools-done" on:click={() => showTools = false}>Back to app</button>
       {#if activeTab !== 'Components'}
         <div class="flex items-center gap-3">
           <span class="hidden max-w-64 text-right text-xs text-gray-500 md:block">
@@ -590,14 +620,14 @@
     <div class="min-h-0 flex-1 overflow-y-auto bg-gray-50 lg:overflow-hidden">
       {#if activeTab === 'Components'}
         <div class="h-full overflow-y-auto p-4 sm:p-5">
-          <ComponentsStudio tenantId={String($tenantIdStore || '')} configuration={previewConfiguration} configurationReady={configLoadState === 'ready'} previewOrigin={previewBaseUrl} {previewEnvironment} expectedSourceCommit={publicEnvironment.PUBLIC_APP_PREVIEW_COMMIT || ''} expectedReleaseId={publicEnvironment.PUBLIC_APP_PREVIEW_RELEASE_ID || ''} />
+          <ComponentsStudio active={active} tenantId={String($tenantIdStore || '')} configuration={previewConfiguration} configurationReady={configLoadState === 'ready'} previewOrigin={previewBaseUrl} {previewEnvironment} expectedSourceCommit={publicEnvironment.PUBLIC_APP_PREVIEW_COMMIT || ''} expectedReleaseId={publicEnvironment.PUBLIC_APP_PREVIEW_RELEASE_ID || ''} />
         </div>
       {:else if activeTab === 'Version history'}
         <div class="mx-auto h-full max-w-4xl overflow-y-auto p-5 sm:p-6">
           <VersionHistoryPanel versions={versionHistory} state={versionHistoryState} currentVersion={configVersion} truncated={versionHistoryTruncated} disabled={submitState === 'loading'} onRetry={() => activeTenantId && loadVersionHistory(activeTenantId)} onUseVersion={useVersionAsRollbackDraft} />
         </div>
       {:else}
-        <div class="grid min-h-full lg:h-full lg:grid-cols-[minmax(20rem,0.8fr)_minmax(28rem,1.2fr)]">
+        <div class="min-h-full lg:h-full">
           <aside aria-label={`${activeTab} settings`} class="min-w-0 overflow-y-auto border-r border-gray-200 bg-white p-5 sm:p-6">
             {#if activeTab === 'Branding'}
               <div class="space-y-6">
@@ -618,12 +648,23 @@
               <NavigationPanel bind:tabsConfig disabled={submitState === 'loading'} duplicateLabels={hasDuplicateTabLabels(currentConfiguration())} {activeContentCount} onMove={moveTab} />
             {/if}
           </aside>
-          <section aria-label="Live family app preview" class="crm-ui-studio-preview">
-            <div class="pointer-events-none absolute inset-0 opacity-5" style="background-image: radial-gradient(var(--crm-brand-primary) 1px, transparent 1px); background-size: 20px 20px;"></div>
-            <AppPreviewFrame compact previewOrigin={previewBaseUrl} tenantId={String($tenantIdStore || '')} environment={previewEnvironment} configuration={previewConfiguration} configurationReady={configLoadState === 'ready'} title={`${appName.trim() || 'Program'} mobile app preview`} expectedSourceCommit={publicEnvironment.PUBLIC_APP_PREVIEW_COMMIT || ''} expectedReleaseId={publicEnvironment.PUBLIC_APP_PREVIEW_RELEASE_ID || ''} />
-          </section>
+
         </div>
       {/if}
     </div>
   </div>
 </div>
+
+</div></div>{/if}
+<style>
+  .my-app-canvas { position: relative; display: flex; flex: 1; min-height: 0; width: min(100%, 480px); height: 100%; margin: 0 auto; overflow: hidden; background: #fafafa; }
+  .canvas-tools { position: absolute; bottom: max(100px, calc(env(safe-area-inset-bottom) + 92px)); left: 50%; transform: translateX(-50%); z-index: 10; padding: 4px; background: white; border: 1px solid #dce2eb; border-radius: 18px; box-shadow: 0 5px 20px #0002; }
+  .canvas-tools button { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 16px; white-space: nowrap; border-radius: 13px; background: var(--crm-brand-control); color: var(--crm-on-primary); font-size: 14px; font-weight: 600; }
+  .draft-dot { width: 7px; height: 7px; background: currentColor; border-radius: 50%; }
+  .canvas-error { position: absolute; inset: 80px 20px auto; z-index: 12; padding: 20px; border-radius: 14px; background: white; color: #991b1b; }
+  .canvas-error button { margin-top: 12px; text-decoration: underline; }
+  .app-tools-overlay { position: fixed; inset: 0; z-index: 40; align-items: center; justify-content: center; padding: 12px; background: #0f172a66; }
+  .app-tools-dialog { width: min(100%, 1000px); height: 100%; max-height: 920px; min-height: 0; overflow: hidden; border-radius: 20px; background: white; }
+  .app-tools-done { min-height: 44px; padding: 8px 12px; border-radius: 12px; font-size: 14px; font-weight: 600; background: var(--crm-brand-surface); color: var(--crm-brand-link); }
+  @media(max-width: 767px) { .app-tools-overlay { padding: 0; } .app-tools-dialog { border-radius: 0; max-height: none; } }
+</style>

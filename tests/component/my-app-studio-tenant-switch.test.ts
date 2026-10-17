@@ -295,8 +295,27 @@ describe('MyAppStudio tenant preview isolation', () => {
     });
   });
 
+  it('starts with an unframed tenant canvas and keeps it mounted when tools and workspaces change', async () => {
+    const view = render(TestedMyAppStudio);
+    const frame = await screen.findByTitle('Alpha League mobile app preview');
+    expect(frame.closest('.crm-ui-studio-device')?.querySelector('.crm-ui-studio-notch')).toBeNull();
+    expect(screen.queryByRole('dialog', { name: /^Edit app/ })).toBeNull();
+    const source = frame.getAttribute('src');
+    await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
+    await fireEvent.input(screen.getByLabelText('App Name'), { target: { value: 'Alpha edited' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Back to app' }));
+    expect(screen.queryByRole('dialog', { name: /^Edit app/ })).toBeNull();
+    expect(screen.getByTitle('Alpha edited mobile app preview')).toBe(frame);
+    await view.rerender({ active: false });
+    await view.rerender({ active: true });
+    expect(screen.getByTitle('Alpha edited mobile app preview').getAttribute('src')).toBe(source);
+    await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
+    expect(screen.getByLabelText('App Name')).toHaveValue('Alpha edited');
+  });
+
   it('publishes appearance, reloads it, and resets it on tenant switch', async () => {
     render(TestedMyAppStudio);
+    await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
     const select = await screen.findByLabelText('App appearance');
     expect(select).toHaveValue('system');
     await fireEvent.change(select, { target: { value: 'dark' } });
@@ -316,6 +335,7 @@ describe('MyAppStudio tenant preview isolation', () => {
       return { ...publishResult(), publicationSyncStatus: 'deferred' };
     });
     render(TestedMyAppStudio);
+    await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
     await fireEvent.change(await screen.findByLabelText('App appearance'), { target: { value: 'light' } });
     await reviewAndPublish();
     await screen.findByText(/Consumer publication is pending/);
@@ -326,6 +346,7 @@ describe('MyAppStudio tenant preview isolation', () => {
 
   it('shows a compact, usable logo chooser without unavailable-state copy', async () => {
     render(TestedMyAppStudio);
+    await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
     expect(await screen.findByLabelText('Change logo')).toBeEnabled();
     expect(screen.queryByText(/Last published/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Published · v/)).not.toBeInTheDocument();
@@ -336,6 +357,7 @@ describe('MyAppStudio tenant preview isolation', () => {
 
   it('uploads and publishes a selected logo before publishing app configuration', async () => {
     render(TestedMyAppStudio);
+    await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
     const logo = new File(['logo-bytes'], 'new-logo.png', { type: 'image/png' });
     await fireEvent.change(await screen.findByLabelText('Change logo'), {
       target: { files: [logo] },
@@ -367,6 +389,7 @@ describe('MyAppStudio tenant preview isolation', () => {
 
   it('rebuilds the Flutter preview URL when the selected tenant changes', async () => {
     render(TestedMyAppStudio);
+    await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
     const alphaPreview = await findTenantPreview('Alpha League');
     expect(alphaPreview).toHaveAttribute(
       'src',
@@ -386,6 +409,7 @@ describe('MyAppStudio tenant preview isolation', () => {
 
   it('streams unsaved branding changes to the selected tenant preview', async () => {
     render(TestedMyAppStudio);
+    await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
     const preview = await findTenantPreview('Alpha League') as HTMLIFrameElement;
     const postMessage = vi.spyOn(preview.contentWindow!, 'postMessage');
 
@@ -452,6 +476,7 @@ describe('MyAppStudio tenant preview isolation', () => {
       },
     );
     render(TestedMyAppStudio);
+    await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
 
     await fireEvent.click(await screen.findByRole('button', { name: 'Pages' }));
     expect(screen.getByText('5 of 5 active')).toBeVisible();
@@ -494,6 +519,7 @@ describe('MyAppStudio tenant preview isolation', () => {
       },
     }));
     render(TestedMyAppStudio);
+    await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
 
     await fireEvent.click(await screen.findByRole('button', { name: 'Pages' }));
     expect(screen.getAllByLabelText(/Tab name for/)).toHaveLength(5);
@@ -527,6 +553,7 @@ describe('MyAppStudio tenant preview isolation', () => {
       },
     }));
     render(TestedMyAppStudio);
+    await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
 
     await fireEvent.click(await screen.findByRole('button', { name: 'Pages' }));
     expect(screen.getByText('6 of 5 active')).toBeVisible();
@@ -542,6 +569,7 @@ describe('MyAppStudio tenant preview isolation', () => {
 
   it('resends the authoritative draft after the selected tenant preview is ready', async () => {
     render(TestedMyAppStudio);
+    await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
     const preview = await findTenantPreview('Alpha League') as HTMLIFrameElement;
     const postMessage = vi.spyOn(preview.contentWindow!, 'postMessage');
 
@@ -587,6 +615,7 @@ describe('MyAppStudio tenant preview isolation', () => {
       },
     );
     render(TestedMyAppStudio);
+    await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
     const nameInput = await screen.findByLabelText('App Name');
     expect(screen.getByAltText('Logo preview')).toHaveAttribute(
       'src',
@@ -636,6 +665,7 @@ describe('MyAppStudio tenant preview isolation', () => {
       },
     );
     render(TestedMyAppStudio);
+    await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
 
     await fireEvent.input(
       await screen.findByLabelText('Secondary brand color hex value'),
@@ -664,6 +694,7 @@ describe('MyAppStudio tenant preview isolation', () => {
       }),
     );
     render(TestedMyAppStudio);
+    await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
     await fireEvent.input(await screen.findByLabelText('App Name'), {
       target: { value: 'Alpha League Retitled' },
     });
@@ -688,6 +719,7 @@ describe('MyAppStudio tenant preview isolation', () => {
   it('rejects a mismatched readback and clears a pending prior tenant publish', async () => {
     appMocks.publishAppConfiguration.mockResolvedValueOnce(publishResult());
     render(TestedMyAppStudio);
+    await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
     await fireEvent.input(await screen.findByLabelText('App Name'), {
       target: { value: 'Not Persisted' },
     });
@@ -730,6 +762,7 @@ describe('MyAppStudio tenant preview isolation', () => {
       requestId: 'history-request',
     });
     render(TestedMyAppStudio);
+    await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
     await findTenantPreview('Alpha League');
     await fireEvent.click(screen.getByRole('button', { name: 'Version history' }));
 

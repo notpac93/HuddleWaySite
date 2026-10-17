@@ -159,6 +159,28 @@ describe("CRM modal stacking and navigation", () => {
     signOutMock.mockReset();
   });
 
+  it('reveals Admin tabs over My App without leaving or resolving its draft', async () => {
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+    render(TestedCrmShellSearchHarness);
+    await fireEvent.click(within(screen.getByRole('navigation', { name: 'Admin quick access' })).getByRole('button', { name: 'My App' }));
+    expect(screen.getByRole('status', { name: 'current tab' })).toHaveTextContent('My App');
+    expect(screen.queryByRole('navigation', { name: 'Admin quick access' })).toBeNull();
+    const discard = vi.fn();
+    registerPortalDraft({ id: 'my-app-configuration', title: 'App draft', message: 'Keep editing', onDiscard: discard });
+    await fireEvent.click(screen.getByRole('button', { name: 'Admin tabs' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('navigation', { name: 'Admin quick access' })).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Hide tabs' }));
+    expect(screen.queryByRole('navigation', { name: 'Admin quick access' })).toBeNull();
+    expect(discard).not.toHaveBeenCalled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Admin tabs' }));
+    await fireEvent.click(within(screen.getByRole('navigation', { name: 'Admin quick access' })).getByRole('button', { name: 'Events' }));
+    expect(screen.getByRole('dialog')).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Stay' }));
+    expect(screen.getByRole('status', { name: 'current tab' })).toHaveTextContent('My App');
+    await fireEvent.click(screen.getByRole('button', { name: 'Hide tabs' }));
+  });
+
   it('opens More as a guarded page and returns from its child workspace', async () => {
     vi.stubGlobal('matchMedia', vi.fn(() => ({
       matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn(),

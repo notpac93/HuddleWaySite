@@ -112,6 +112,7 @@ export function parseAppPreviewMessage(
     && payload.type !== 'huddleway.crm.preview.applied'
     && payload.type !== 'huddleway.crm.preview.rejected'
     && payload.type !== 'huddleway.crm.preview.field-selected'
+    && payload.type !== 'huddleway.crm.preview.interaction'
   ) { onInvalid('unsupported-type'); return null; }
   return payload;
 }

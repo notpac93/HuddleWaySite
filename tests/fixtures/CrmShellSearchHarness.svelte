@@ -8,6 +8,7 @@
     { name: 'Roster', icon: '' },
     { name: 'Teams', icon: '' },
     { name: 'Events', icon: '' },
+    { name: 'My App', icon: 'myApp' },
   ];
 </script>
 

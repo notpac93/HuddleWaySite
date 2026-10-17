@@ -12,7 +12,7 @@ function mount(configurationReady = true) {
   return render(AppPreviewFrame, { previewOrigin: origin, tenantId: 'stem-it-up-sports', environment: 'stage',
     configuration, configurationReady, title: 'Consumer fixture preview', expectedSourceCommit: sourceCommit, expectedReleaseId: releaseId });
 }
-function message(frame: HTMLIFrameElement, type: 'ready' | 'applied' | 'rejected', extra = {}, originOverride = origin) {
+function message(frame: HTMLIFrameElement, type: 'ready' | 'applied' | 'rejected' | 'interaction', extra = {}, originOverride = origin) {
   const query = new URL(frame.src).searchParams;
   window.dispatchEvent(new MessageEvent('message', { origin: originOverride, source: frame.contentWindow,
     data: JSON.stringify({ type: `huddleway.crm.preview.${type}`, protocolVersion: 1,
@@ -21,6 +21,24 @@ function message(frame: HTMLIFrameElement, type: 'ready' | 'applied' | 'rejected
 }
 
 describe('live consumer preview handshake', () => {
+  it('only forwards interactions from the attested active consumer frame', async () => {
+    const onInteract = vi.fn();
+    const view = mount();
+    await view.rerender({ onInteract });
+    const frame = screen.getByTitle('Consumer fixture preview') as HTMLIFrameElement;
+    const send = vi.spyOn(frame.contentWindow!, 'postMessage');
+    message(frame, 'interaction');
+    expect(onInteract).not.toHaveBeenCalled();
+    message(frame, 'ready');
+    await waitFor(() => expect(send).toHaveBeenCalled());
+    message(frame, 'applied', { revision: JSON.parse(send.mock.calls.at(-1)![0] as string).revision });
+    message(frame, 'interaction', {}, 'https://untrusted.example');
+    message(frame, 'interaction', { nonce: 'wrong' });
+    expect(onInteract).not.toHaveBeenCalled();
+    message(frame, 'interaction');
+    expect(onInteract).toHaveBeenCalledOnce();
+  });
+
   it('requires acknowledgement for each changed draft after an earlier successful preview', async () => {
     vi.useFakeTimers();
     try {

@@ -22,6 +22,8 @@
   export let componentDraft: AppComponentPreviewDraft | null = null;
   export let onFieldSelected: (fieldId: string) => void = () => {};
   export let compact = false;
+  export let immersive = false;
+  export let onInteract: () => void = () => {};
 
   let frame: HTMLIFrameElement | null = null;
   let session: AppPreviewSession | null = null;
@@ -122,6 +124,10 @@
     const payload = parseAppPreviewMessage(event.data, session, (reason) => { lastFrameMessage = reason; });
     if (!payload) return;
     lastFrameMessage = String(payload.type).replace('huddleway.crm.preview.', '');
+    if (payload.type === 'huddleway.crm.preview.interaction') {
+      if (attested && state === 'synced') onInteract();
+      return;
+    }
     if (payload.type === 'huddleway.crm.preview.field-selected') {
       if (!attested) return;
       const fieldId = String(payload.fieldId || '').trim();
@@ -187,12 +193,12 @@
   onDestroy(clearHandshakeTimer);
 </script>
 
-<div class="flex flex-1 flex-col items-center justify-start {compact ? 'py-2' : 'py-4'}">
+<div class:immersive class="preview-host flex flex-1 flex-col items-center justify-start {immersive ? '' : compact ? 'py-2' : 'py-4'}">
   <div class:crm-ui-studio-device-compact={compact} class="crm-ui-studio-device"
     data-preview-state={state} data-preview-attested={attested}
     data-preview-revision={revision} data-preview-configuration-ready={configurationReady}
     data-preview-last-message={lastFrameMessage}>
-    <div class="crm-ui-studio-notch"></div>
+    {#if !immersive}<div class="crm-ui-studio-notch"></div>{/if}
     {#if tenantId && previewSrc}
       <iframe
         bind:this={frame}
@@ -228,3 +234,9 @@
     {/if}
   </div>
 </div>
+
+<style>
+  .immersive { width: 100%; height: 100%; min-height: 0; }
+  .immersive :global(.crm-ui-studio-device) { width: 100%; max-width: none; height: 100%; max-height: none; min-height: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; aspect-ratio: auto; }
+  .immersive :global(.crm-ui-studio-app-frame) { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; border-radius: 0; }
+</style>

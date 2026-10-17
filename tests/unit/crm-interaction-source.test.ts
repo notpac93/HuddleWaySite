@@ -33,9 +33,8 @@ describe('CRM interaction hardening source evidence', () => {
     );
     expect(navigation).toContain('aria-pressed={tab.enabled}');
     expect(navigation).not.toContain('Route: {tab.route}');
-    expect(studio).toContain(
-      'class="pointer-events-none absolute inset-0 opacity-5"',
-    );
+    expect(studio).toContain('<AppPreviewFrame immersive');
+    expect(studio).not.toContain('background-size: 20px 20px');
   });
 
   it('keeps every CRM modal panel above its backdrop', () => {

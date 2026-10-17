@@ -31,6 +31,7 @@
   let activeTeam: any = null;
   let activeResultId: string | null = null;
   let activeComponent: Component<any> | null = null;
+  let myAppComponent: Component<any> | null = null;
   let requestedTab = '';
   let loadedTab = '';
   let moduleLoadError = '';
@@ -128,6 +129,7 @@
     try {
       const module = await loader();
       if (sequence !== moduleLoadSequence || requestedTab !== tab) return;
+      if (tab === 'My App') myAppComponent = module.default;
       activeComponent = module.default;
       loadedTab = tab;
     } catch {
@@ -461,7 +463,16 @@
         <p class="mt-1 text-sm">Reopen Connect Stripe to start a new secure setup link.</p>
       </div>
     {/if}
-    {#if activeComponent && loadedTab === activeTab}
+    {#if myAppComponent && !isTenantSwitching && currentTabs.some(tab => tab.name === 'My App')}
+      {#key $tenantIdStore}
+        <div hidden={activeTab !== 'My App'} style:display={activeTab === 'My App' ? 'flex' : 'none'} class="min-h-0 flex-1 flex-col">
+          <svelte:component this={myAppComponent} active={activeTab === 'My App'} />
+        </div>
+      {/key}
+    {/if}
+    {#if activeTab === 'My App' && myAppComponent}
+      <!-- Keep the consumer preview mounted while other Admin workspaces open. -->
+    {:else if activeComponent && loadedTab === activeTab}
       <svelte:component this={activeComponent} {...activeComponentProps} />
     {:else if moduleLoadError}
       <div

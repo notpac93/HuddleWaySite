@@ -28,6 +28,7 @@
   } from './componentStudioDraft';
 
   export let tenantId: string;
+  export let active = true;
   export let configuration: CrmAppConfiguration;
   export let configurationReady: boolean;
   export let previewOrigin: string | null;
@@ -68,12 +69,12 @@
     activeTenantId = tenantId;
     resetAndLoad(tenantId);
   }
-  $: if (dirty && tenantId) {
+  $: if (active && dirty && tenantId) {
     registerPortalDraft({
       id: 'my-app-components',
       title: 'Unpublished component changes',
       message: 'Stay on this page or discard the component changes before leaving.',
-      retainLabel: 'Stay on page',
+      retainLabel: 'Keep draft and leave',
       onDiscard: discardChanges,
       onRetain: () => {},
     });

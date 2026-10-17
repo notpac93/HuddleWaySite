@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Component } from 'svelte';
-  import { onDestroy, onMount, tick } from 'svelte';
+  import { onDestroy, onMount, setContext, tick } from 'svelte';
   import { get } from 'svelte/store';
   import { auth } from '../../lib/firebase';
   import { signOut } from 'firebase/auth';
@@ -23,6 +23,7 @@
   import CrmBreadcrumbs from './CrmBreadcrumbs.svelte';
   import Icon from './ui/Icon.svelte';
   import AdminQuickAccess from './AdminQuickAccess.svelte';
+  import { MY_APP_NAVIGATION, type MyAppNavigation } from '../../lib/crm/myAppNavigation';
   import AdminMoreScreen from './AdminMoreScreen.svelte';
 
   export let activeTab = 'Dashboard';
@@ -39,6 +40,9 @@
   let showGlobalSearch = false;
   let showMobileMenu = false;
   let showMore = false;
+  let showAdminTabs = false;
+  setContext<MyAppNavigation>(MY_APP_NAVIGATION, { dismiss: () => showAdminTabs = false });
+  $: immersiveApp = activeTab === 'My App' && !showMore;
   let mobileMenuOpener: HTMLButtonElement | null = null;
   let isMobileViewport = false;
   const quickAccessNames = new Set(['Dashboard', 'Events', 'Messages', 'My App']);
@@ -377,7 +381,7 @@
 
 <svelte:window on:keydown={handleGlobalShortcut} on:beforeunload={handleBeforeUnload} />
 
-<div class="crm-ui-shell-root" style={themeStyle} data-branding-state={brandingState}>
+<div class="crm-ui-shell-root" class:immersive-app={immersiveApp} style={themeStyle} data-branding-state={brandingState}>
   {#if showMobileMenu}
     <div class="fixed inset-0 z-50 md:hidden">
       <button
@@ -569,7 +573,7 @@
   <!-- Main content area -->
   <main class="crm-ui-shell-main">
     <!-- Top Bar -->
-    <header class="crm-ui-shell-header">
+    <header class="crm-ui-shell-header" hidden={immersiveApp}>
       <button
         type="button"
         bind:this={mobileMenuTrigger}
@@ -655,7 +659,13 @@
     </div>
   </main>
 
-  {#if isMobileViewport}
+  {#if immersiveApp}
+    <button type="button" class="app-admin-toggle" aria-controls="app-admin-navigation" aria-expanded={showAdminTabs} on:click={() => showAdminTabs = !showAdminTabs}>
+      <Icon name="menu" size={18} />{showAdminTabs ? 'Hide tabs' : 'Admin tabs'}
+    </button>
+  {/if}
+  {#if isMobileViewport || immersiveApp}
+    <div id="app-admin-navigation" class:app-navigation-overlay={immersiveApp} class:app-navigation-hidden={immersiveApp && !showAdminTabs} inert={immersiveApp && !showAdminTabs} aria-hidden={immersiveApp && !showAdminTabs ? 'true' : undefined}>
     <AdminQuickAccess
       {tabs}
       activeTab={showMore ? '' : activeTab}
@@ -663,6 +673,7 @@
       onMore={openMore}
       moreSelected={showMore}
     />
+    </div>
   {/if}
 
   <!-- Logout Confirmation Modal -->
@@ -752,6 +763,14 @@
 </div>
 
 <style>
+  .immersive-app { position: relative; height: 100dvh; }
+  .immersive-app :global(.crm-theme-sidebar), .immersive-app .crm-ui-shell-header { display: none; }
+  .immersive-app .crm-ui-shell-main { min-height: 0; overflow: hidden; z-index: auto; }
+  .app-admin-toggle { position: absolute; top: max(12px, env(safe-area-inset-top)); right: max(12px, calc((100% - 480px) / 2 + 12px)); z-index: 36; display: flex; align-items: center; gap: 6px; min-height: 44px; border: 1px solid #dce2eb; border-radius: 14px; background: white; padding: 8px 12px; color: #183049; font-size: 12px; font-weight: 600; box-shadow: 0 3px 14px #0001; }
+  .app-navigation-overlay { position: absolute; bottom: 0; left: 50%; width: min(100%, 480px); z-index: 36; min-height: 84px; padding-top: 8px; background: white; transform: translate(-50%, 0); transition: transform 380ms cubic-bezier(.22,1,.36,1), visibility 0s; box-shadow: 0 -2px 10px #0001; }
+  .app-navigation-hidden { transform: translate(-50%, 110%); visibility: hidden; pointer-events: none; transition: transform 380ms cubic-bezier(.22,1,.36,1), visibility 0s 380ms; }
+  @media (prefers-reduced-motion: reduce) { .app-navigation-overlay { transition: none; } }
+
   @media (max-width: 767px) {
     .crm-ui-shell-root {
       height: 100dvh;
