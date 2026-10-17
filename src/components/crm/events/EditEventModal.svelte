@@ -374,13 +374,13 @@
         <!-- Team Assignment & Status -->
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label for="team-select" class="crm-ui-label-caps">Assigned Team</label>
+            <label for="team-select" class="crm-ui-label-caps">Assigned {$programTermsStore.group}</label>
             <select
               id="team-select"
               bind:value={teamId}
               class="crm-ui-input-teal"
             >
-              <option value="" disabled>Select a team</option>
+              <option value="" disabled>Select a {$programTermsStore.group.toLowerCase()}</option>
               {#each Object.entries(teams) as [id, name]}
                 <option value={id}>{name}</option>
               {/each}

@@ -478,23 +478,23 @@
                 </div>
 
                 <div>
-                  <label for="team" class="crm-ui-label">Team *{teamId ? ' · scope locked' : ''}</label>
+                  <label for="team" class="crm-ui-label">{$programTermsStore.group} *{teamId ? ' · scope locked' : ''}</label>
                   <div class="mt-1">
                     <select id="team" name="team" bind:value={selectedTeamId} disabled={Boolean(teamId)} class="crm-ui-input-teal-compact disabled:bg-gray-100">
-                      <option value="" disabled>Choose a team</option>
+                      <option value="" disabled>Choose a {$programTermsStore.group.toLowerCase()}</option>
                       {#each teams as team}
                         <option value={team.id}>{team.name}</option>
                       {/each}
                       {#if teams.length === 0}
-                        <option value="" disabled>Select a team</option>
+                        <option value="" disabled>Select a {$programTermsStore.group.toLowerCase()}</option>
                       {/if}
                     </select>
                     {#if $teamsProjectionScope.loading}
-                      <p class="crm-ui-hint" role="status">Loading teams…</p>
+                      <p class="crm-ui-hint" role="status">Loading {$programTermsStore.groups.toLowerCase()}…</p>
                     {:else if $teamsProjectionScope.error}
                       <p class="mt-1 text-xs text-red-700" role="alert">{$teamsProjectionScope.error}</p>
                     {:else if $teamsProjectionScope.truncated}
-                      <p class="mt-1 text-xs text-amber-700">Only the first {$teamsProjectionScope.limit} teams are available.</p>
+                      <p class="mt-1 text-xs text-amber-700">Only the first {$teamsProjectionScope.limit} {$programTermsStore.groups.toLowerCase()} are available.</p>
                     {/if}
                   </div>
                 </div>
