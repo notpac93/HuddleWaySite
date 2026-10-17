@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { programTermsStore } from '../../../lib/crm/programVocabulary';
   import { createEventDispatcher, onDestroy } from 'svelte';
   import { tenantIdStore } from '../../../lib/authStore';
   import { backendClient } from '../../../lib/api/backendClient';
@@ -299,7 +300,7 @@
             <button type="button" class="crm-ui-event-time-preview" on:click={() => showTimes = true}>
               <div class="flex justify-between items-center">
                 <div>
-                  <span class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Event Time{timeSlots.length > 1 ? 's' : ''}</span>
+                  <span class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">{$programTermsStore.singular} Time{timeSlots.length > 1 ? 's' : ''}</span>
                   {#each timeSlots as slot}
                     <span class="block text-sm font-medium text-gray-900">{formatTime12hr(slot.startTime)} - {formatTime12hr(slot.endTime)}</span>
                   {/each}
@@ -310,7 +311,7 @@
           {:else}
             <div class="crm-ui-event-time-editor">
               <div class="flex justify-between items-center mb-3">
-                <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Event Time{timeSlots.length > 1 ? 's' : ''}</span>
+                <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">{$programTermsStore.singular} Time{timeSlots.length > 1 ? 's' : ''}</span>
                 <button type="button" on:click={() => showTimes = false} class="text-[var(--crm-brand-link)] text-xs font-semibold">Done</button>
               </div>
               <div class="space-y-4">

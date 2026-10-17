@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import type { Component } from 'svelte';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const backendMocks = vi.hoisted(() => ({
   updateEvent: vi.fn(),
@@ -56,11 +56,33 @@ vi.mock('../../src/lib/services/DataStore', async () => {
   };
 });
 
+import { get, type Writable } from 'svelte/store';
+import { eventsStore } from '../../src/lib/services/DataStore';
+import { programProfileStore } from '../../src/lib/crm/programVocabulary';
 import EventScheduler from '../../src/components/crm/EventScheduler.svelte';
 
 const TestedEventScheduler = EventScheduler as unknown as Component;
 
+const eventRecords = eventsStore as Writable<any[]>;
+const baseline = get(eventRecords);
 describe('event publication flow', () => {
+  beforeEach(() => { eventRecords.set(baseline); programProfileStore.set({ tenantId: '', profile: null }); });
+  it('shows a yoga empty state without filters and uses class creation wording', async () => {
+    eventRecords.set([]);
+    programProfileStore.set({ tenantId: 'fixture-tenant', profile: { catalogVersion: 1, profileId: 'yoga', group: 'Class', groups: 'Classes' } });
+    render(TestedEventScheduler);
+    expect(screen.getByRole('heading', { name: 'Classes' })).toBeVisible();
+    expect(screen.queryByRole('searchbox')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Create your first class' })).toBeVisible();
+  });
+  it('keeps published items above drafts with secondary filters collapsed', async () => {
+    eventRecords.set([{ ...baseline[0], id: 'published', title: 'Published practice', date: '2031-08-10T16:00:00.000Z', lifecycleStatus: 'published' }, ...baseline]);
+    render(TestedEventScheduler);
+    expect(screen.getAllByRole('article')[0]).toHaveTextContent('Published practice');
+    expect(screen.queryByLabelText('Status')).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+    expect(screen.getByLabelText('Status')).toBeVisible();
+  });
   it('requires deliberate confirmation and sends an audited publish transition', async () => {
     backendMocks.updateEvent.mockResolvedValue({
       success: true,

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { programTermsStore } from '../../../lib/crm/programVocabulary';
   import { createEventDispatcher, onDestroy } from 'svelte';
   import { tenantIdStore } from '../../../lib/authStore';
   import { backendClient } from '../../../lib/api/backendClient';
@@ -295,7 +296,7 @@
     <div class="crm-ui-event-edit-panel" tabindex="-1" use:modalFocus={{ onEscape: handleClose }}>
       <fieldset disabled={submitState === 'loading'} class="m-0 min-w-0 border-0 p-0">
       <div class="flex justify-between items-center pb-3 border-b border-gray-200">
-        <h3 class="crm-ui-title" id="modal-title">Edit Event</h3>
+        <h3 class="crm-ui-title" id="modal-title">Edit {$programTermsStore.singular}</h3>
         <button type="button" aria-label="Close event editor" disabled={submitState === 'loading'} on:click={handleClose} class="text-gray-400 hover:text-gray-600 p-1 rounded-md disabled:opacity-50">
           <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />

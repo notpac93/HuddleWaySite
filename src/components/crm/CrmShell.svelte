@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Component } from 'svelte';
+  import { programProfileStore, programTermsStore, programTabLabel, type ProgramProfile } from '../../lib/crm/programVocabulary';
   import { onDestroy, onMount, setContext, tick } from 'svelte';
   import { get } from 'svelte/store';
   import { auth } from '../../lib/firebase';
@@ -74,12 +75,12 @@
     return () => mobileViewport.removeEventListener('change', updateViewport);
   });
 
-  function tabLabel(tab: any) {
-    return String(tab?.label || tab?.name || 'Portal');
+  function tabLabel(tab: any, terms = $programTermsStore) {
+    return programTabLabel(tab?.name, String(tab?.label || tab?.name || 'Portal'), terms);
   }
 
   $: currentTabTitle = showMore ? 'More' : tabLabel(
-    tabs.find((tab) => tab.name === activeTab) || { name: activeTab },
+    tabs.find((tab) => tab.name === activeTab) || { name: activeTab }, $programTermsStore,
   );
 
   function toggleSidebar() {
@@ -182,9 +183,21 @@
   // Other hosted logos retain normal image loading without a CORS requirement.
   $: logoCrossOrigin = resolvedLogoUrl.startsWith(`${resolveBackendUrl(publicEnvironment)}/`) ? 'anonymous' : undefined;
 
+  async function loadProgramProfile(tenantId: string, generation: number) {
+    try {
+      const result = await backendClient.request<{ programProfile: ProgramProfile }>('/admin/owner-onboarding/vocabulary', { query: { tenantId } });
+      if (isCurrentBrandingRequest(generation, tenantId)) programProfileStore.set({ tenantId, profile: result.programProfile });
+    } catch {
+      // Older programs may not have a versioned onboarding profile.
+      if (isCurrentBrandingRequest(generation, tenantId)) programProfileStore.set({ tenantId, profile: null });
+    }
+  }
+
   async function loadTenantBranding(tenantId: string | null) {
     const generation = beginBrandingRequest();
     resetBranding();
+    programProfileStore.set({ tenantId: tenantId || '', profile: null });
+    if (tenantId) void loadProgramProfile(tenantId, generation);
     brandingState = 'idle';
     brandingMessage = '';
     if (tenantId) {
@@ -434,7 +447,7 @@
                 strokeWidth={1.5}
                 className="mr-3 shrink-0 {activeTab === tab.name ? '' : 'crm-theme-sidebar-icon'}"
               />
-              {tabLabel(tab)}
+              {tabLabel(tab, $programTermsStore)}
             </button>
           {/each}
         </nav>
@@ -500,9 +513,9 @@
           type="button"
           class="portal-motion-color flex min-h-11 w-full items-center {isSidebarExpanded ? 'justify-start px-3.5' : 'justify-center px-0'} rounded-lg py-2.5 text-sm font-semibold {activeTab === tab.name ? 'crm-theme-sidebar-active shadow-md' : 'crm-theme-sidebar-idle'}"
           on:click={() => setActiveTab(tab.name)}
-          title={!isSidebarExpanded ? tabLabel(tab) : ''}
+          title={!isSidebarExpanded ? tabLabel(tab, $programTermsStore) : ''}
           aria-current={activeTab === tab.name ? 'page' : undefined}
-          aria-label={!isSidebarExpanded ? tabLabel(tab) : undefined}
+          aria-label={!isSidebarExpanded ? tabLabel(tab, $programTermsStore) : undefined}
         >
           <Icon
             name={tab.icon}
@@ -511,7 +524,7 @@
             className="shrink-0 {activeTab === tab.name ? '' : 'crm-theme-sidebar-icon'} {isSidebarExpanded ? 'mr-3.5' : ''}"
           />
           {#if isSidebarExpanded}
-            <span class="whitespace-nowrap font-medium">{tabLabel(tab)}</span>
+            <span class="whitespace-nowrap font-medium">{tabLabel(tab, $programTermsStore)}</span>
           {/if}
         </button>
       {/each}
@@ -642,7 +655,7 @@
       {/if}
       {#if showMore}
         <AdminMoreScreen
-          tabs={moreTabs.map((tab) => ({ ...tab, label: tabLabel(tab) }))}
+          tabs={moreTabs.map((tab) => ({ ...tab, label: tabLabel(tab, $programTermsStore) }))}
           programs={$availableTenants.map((id, index) => ({ id, name: organizationName(id, index) }))}
           currentProgram={$tenantIdStore || ''}
           onNavigate={setActiveTab}
@@ -667,7 +680,7 @@
   {#if isMobileViewport || immersiveApp}
     <div id="app-admin-navigation" class:app-navigation-overlay={immersiveApp} class:app-navigation-hidden={immersiveApp && !showAdminTabs} inert={immersiveApp && !showAdminTabs} aria-hidden={immersiveApp && !showAdminTabs ? 'true' : undefined}>
     <AdminQuickAccess
-      {tabs}
+      tabs={tabs.map(tab => ({ ...tab, label: tabLabel(tab, $programTermsStore) }))}
       activeTab={showMore ? '' : activeTab}
       onNavigate={setActiveTab}
       onMore={openMore}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { programTermsStore } from '../../lib/crm/programVocabulary';
   import {
     DataStore,
     eventsProjectionScope,
@@ -223,7 +224,7 @@
     && (!eventSeasonFilter || event.seasonId === eventSeasonFilter)
     && (!eventFromDate || event.dateKey >= eventFromDate)
     && (!eventToDate || event.dateKey <= eventToDate)
-  );
+  ).sort((a, b) => Number(b.lifecycleStatus === 'published') - Number(a.lifecycleStatus === 'published'));
   $: selectedDraftEvents = events.filter((event) => selectedDraftEventIds.has(event.id) && event.lifecycleStatus === 'draft');
   $: registrationProjectionIsAuthoritative =
     !$registrationsProjectionScope.loading
@@ -507,23 +508,11 @@
 
 <div class="p-4 sm:p-6 md:p-8 space-y-5">
   <header class="flex items-center justify-between gap-3">
-    <h2 class="crm-ui-page-title">Events</h2>
-    <button type="button" class="crm-ui-event-top-primary" on:click={() => isCreateFormOpen = true}>New event</button>
+    <h2 class="crm-ui-page-title">{$programTermsStore.title}</h2>
+    {#if events.length > 0}<button type="button" class="crm-ui-event-top-primary" on:click={() => isCreateFormOpen = true}>{$programTermsStore.add}</button>{/if}
   </header>
 
-  <details class="rounded-xl border border-gray-200 bg-white">
-    <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-700">Import CSV</summary>
-    <EventCsvImport
-      teams={$teamsStore.map((team) => ({ id: String(team.id || ''), name: String(team.name || '') }))}
-      existingEvents={events.map((event) => ({
-        id: event.id,
-        title: event.title,
-        teamId: event.teamId,
-        dateKey: event.dateKey,
-        startTime: event.dateObj ? `${String(event.dateObj.getHours()).padStart(2, '0')}:${String(event.dateObj.getMinutes()).padStart(2, '0')}` : '',
-      }))}
-    />
-  </details>
+
 
   {#if selectedDraftEvents.length > 0}
     <div class="crm-ui-notice-card flex items-center justify-between gap-3"><span>{selectedDraftEvents.length} draft {selectedDraftEvents.length === 1 ? 'event' : 'events'} selected</span><button type="button" class="crm-ui-event-top-primary" disabled={publishingSelectedDrafts} on:click={() => showBatchPublishReview = true}>Review publication</button></div>
@@ -552,7 +541,7 @@
       This view is limited to {$eventsProjectionScope.limit} events and {$teamsProjectionScope.limit} teams. Search, series validation, and counts may be incomplete.
     </p>
   {/if}
-  {#if exactEventCountIncomplete}
+  {#if events.length > 0 && exactEventCountIncomplete}
     <p class="crm-ui-notice-card" role="status">
       Event registration counts are loading or unavailable. The participant list remains safely limited to {$registrationsProjectionScope.limit} loaded records.
     </p>
@@ -563,7 +552,11 @@
     </p>
   {/if}
 
+  {#if events.length > 0}
   <EventFilters
+    itemPlural={$programTermsStore.plural}
+    group={$programTermsStore.group}
+    groups={$programTermsStore.groups}
     bind:search={eventSearch}
     bind:teamId={eventTeamFilter}
     bind:status={eventStatusFilter}
@@ -584,7 +577,7 @@
         aria-pressed={activeTab === 'Upcoming'}
         class="crm-ui-event-tab {activeTab === 'Upcoming' ? 'crm-ui-event-tab-active' : 'crm-ui-event-tab-idle'}"
       >
-        Upcoming Events
+        Upcoming
       </button>
       <button
         type="button"
@@ -592,13 +585,15 @@
         aria-pressed={activeTab === 'Past'}
         class="crm-ui-event-tab {activeTab === 'Past' ? 'crm-ui-event-tab-active' : 'crm-ui-event-tab-idle'}"
       >
-        Past Events
+        Past
       </button>
     </nav>
   </div>
 
+  {/if}
+
   {#if $eventsProjectionScope.loading || $teamsProjectionScope.loading}
-    <div class="crm-ui-empty" role="status">Loading events…</div>
+    <div class="crm-ui-empty" role="status">Loading {$programTermsStore.plural.toLowerCase()}…</div>
   {:else if $eventsProjectionScope.error || $teamsProjectionScope.error}
     <div class="crm-ui-danger" role="alert">
       {$eventsProjectionScope.error || $teamsProjectionScope.error}
@@ -721,7 +716,7 @@
           <div class="border-t border-gray-200 bg-slate-50 p-6 space-y-4">
             <div class="crm-ui-between">
               <div>
-                <h4 class="text-sm font-bold text-gray-900 uppercase tracking-wider">Event details</h4>
+                <h4 class="text-sm font-bold text-gray-900 uppercase tracking-wider">{$programTermsStore.singular} details</h4>
                 <p class="mt-1 text-sm text-gray-600">Review this event without changing it. Use Edit to make updates.</p>
               </div>
               <button
@@ -751,7 +746,7 @@
                 <dd class="mt-1 text-sm text-gray-900">{event.location || 'Location unavailable'}</dd>
               </div>
               <div>
-                <dt class="crm-ui-label-caps-sm">Event type</dt>
+                <dt class="crm-ui-label-caps-sm">{$programTermsStore.singular} type</dt>
                 <dd class="mt-1 text-sm text-gray-900">{eventTypeLabel(event)}</dd>
               </div>
               <div>
@@ -854,12 +849,27 @@
         <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
-        <h3 class="mt-2 text-sm font-medium text-gray-900">No {activeTab.toLowerCase()} events</h3>
+        <h3 class="mt-2 text-sm font-medium text-gray-900">No {activeTab.toLowerCase()} {$programTermsStore.plural.toLowerCase()}</h3>
+        {#if events.length === 0}<button type="button" class="crm-ui-button-primary mt-4" on:click={() => isCreateFormOpen = true}>Create your first {$programTermsStore.singular.toLowerCase()}</button>{/if}
       </div>
     {/each}
   </div>
   {/if}
 </div>
+
+  <details class="rounded-xl border border-gray-200 bg-white">
+    <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-700">Import CSV</summary>
+    <EventCsvImport
+      teams={$teamsStore.map((team) => ({ id: String(team.id || ''), name: String(team.name || '') }))}
+      existingEvents={events.map((event) => ({
+        id: event.id,
+        title: event.title,
+        teamId: event.teamId,
+        dateKey: event.dateKey,
+        startTime: event.dateObj ? `${String(event.dateObj.getHours()).padStart(2, '0')}:${String(event.dateObj.getMinutes()).padStart(2, '0')}` : '',
+      }))}
+    />
+  </details>
 
 {#if showRegistrantsForEvent}
   <EventRegistrantsModal

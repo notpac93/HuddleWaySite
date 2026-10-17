@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { programTermsStore } from '../../../lib/crm/programVocabulary';
   import { createEventDispatcher, onDestroy } from 'svelte';
   import { tenantIdStore } from '../../../lib/authStore';
   import { backendClient } from '../../../lib/api/backendClient';
@@ -455,27 +456,23 @@
         <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
           {#if currentStep === 1}
             <h3 class="crm-ui-modal-title" id="modal-title">
-              Let's create a new event
+              {$programTermsStore.add}
             </h3>
             <div class="mt-4 space-y-4">
               <div>
-                <label for="title" class="crm-ui-label">Event Title</label>
+                <label for="title" class="crm-ui-label">{$programTermsStore.singular} Title</label>
                 <div class="mt-1">
-                  <input type="text" name="title" id="title" bind:value={title} maxlength="200" class="crm-ui-input-teal-compact" placeholder="e.g. U12 Practice, Championship Game">
+                  <input type="text" name="title" id="title" bind:value={title} maxlength="200" class="crm-ui-input-teal-compact" placeholder={$programTermsStore.singular === 'Class' ? 'e.g. Morning class' : 'e.g. U12 Practice, Championship Game'}>
                 </div>
               </div>
 
               <div class="crm-ui-grid-two">
                 <div>
-                  <label for="type" class="crm-ui-label">Event Type *</label>
+                  <label for="type" class="crm-ui-label">{$programTermsStore.singular} Type *</label>
                   <div class="mt-1">
                     <select id="type" name="type" bind:value={eventType} class="crm-ui-input-teal-compact">
-                      <option value="" disabled>Choose an event type</option>
-                      <option value="Practice">Practice</option>
-                      <option value="Game">Game</option>
-                      <option value="Meeting">Meeting</option>
-                      <option value="Tournament">Tournament</option>
-                      <option value="Other">Other</option>
+                      <option value="" disabled>Choose a type</option>
+                      {#each $programTermsStore.types as type}<option value={type}>{type}</option>{/each}
                     </select>
                   </div>
                 </div>
@@ -537,7 +534,7 @@
             </h3>
             <p class="mt-1 text-sm text-gray-500">{scheduleKind === 'one_time' ? 'Choose the single event date.' : 'Generate or select every occurrence date.'}</p>
             {#if scheduleKind === 'one_time'}
-              <div class="mt-4"><label for="event-one-time-date" class="crm-ui-label">Event date *</label><input id="event-one-time-date" type="date" bind:value={oneTimeDate} class="crm-ui-input-teal-compact mt-1" /></div>
+              <div class="mt-4"><label for="event-one-time-date" class="crm-ui-label">{$programTermsStore.singular} date *</label><input id="event-one-time-date" type="date" bind:value={oneTimeDate} class="crm-ui-input-teal-compact mt-1" /></div>
             {:else}
               <div class="mt-4"><RecurrenceSelector bind:selectedDateKeys /></div>
             {/if}
@@ -569,7 +566,7 @@
                 <button type="button" class="crm-ui-event-time-preview" on:click={() => showTimes = true}>
                   <div class="flex justify-between items-center">
                     <div>
-                      <span class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Event Time{timeSlots.length > 1 ? 's' : ''}</span>
+                      <span class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">{$programTermsStore.singular} Time{timeSlots.length > 1 ? 's' : ''}</span>
                       {#each timeSlots as slot}
                         <span class="block text-sm font-medium text-gray-900">{formatTime12hr(slot.startTime)} - {formatTime12hr(slot.endTime)}</span>
                       {/each}
@@ -580,7 +577,7 @@
               {:else}
                 <div class="crm-ui-event-time-editor">
                   <div class="flex justify-between items-center mb-3">
-                    <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Event Time{timeSlots.length > 1 ? 's' : ''} · each applies to {selectedDateKeys.length} selected date{selectedDateKeys.length === 1 ? '' : 's'}</span>
+                    <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">{$programTermsStore.singular} Time{timeSlots.length > 1 ? 's' : ''} · each applies to {selectedDateKeys.length} selected date{selectedDateKeys.length === 1 ? '' : 's'}</span>
                     <button type="button" on:click={() => showTimes = false} class="text-[var(--crm-brand-link)] text-xs font-semibold">Done</button>
                   </div>
                   <div class="space-y-4">
@@ -642,7 +639,7 @@
             <div class="mt-4 border-t border-gray-100 pt-4">
               <p class="block text-sm font-medium text-gray-700 mb-2">Lifecycle</p>
               <p class="crm-ui-notice-card">
-                These records will be saved as drafts. Review and publish them from Events when they are ready for tenant-scoped consumer feeds.
+                Save drafts, then publish from {$programTermsStore.title} when ready.
               </p>
             </div>
 
@@ -692,7 +689,7 @@
             state={submitState}
             on:click={handleSave}
             disabled={submitState === 'loading'}
-            idleText="Save event drafts"
+            idleText={`Save ${$programTermsStore.singular.toLowerCase()} drafts`}
             loadingText="Processing..."
             successText="Success!"
             errorText="Retry draft save"
