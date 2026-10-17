@@ -726,23 +726,26 @@
 
   {#if pendingDraftAction && $portalDraftStore}
     <div class="crm-ui-modal-root" role="dialog" aria-modal="true" aria-labelledby="draft-navigation-title">
+      <div class="crm-ui-modal-shell">
       <button type="button" class="crm-ui-backdrop" aria-label="Stay on this page" tabindex="-1" disabled={draftResolutionState === 'loading'} on:click={stayWithDraft}></button>
       <span class="crm-ui-modal-spacer" aria-hidden="true">&#8203;</span>
-      <div class="relative z-10 inline-block w-full max-w-lg overflow-hidden rounded-lg bg-white text-left align-bottom shadow-xl sm:my-8 sm:align-middle" tabindex="-1" use:modalFocus={{ onEscape: stayWithDraft }}>
+      <div class="crm-ui-shell-logout-panel draft-navigation-panel" tabindex="-1" use:modalFocus={{ onEscape: stayWithDraft }}>
         <div class="p-6">
           <h2 id="draft-navigation-title" class="text-lg font-semibold text-gray-950">{$portalDraftStore.title}</h2>
           <p class="mt-2 text-sm leading-5 text-gray-600">{$portalDraftStore.message}</p>
           {#if draftResolutionError}<p class="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-800" role="alert">{draftResolutionError}</p>{/if}
         </div>
-        <div class="flex flex-col-reverse gap-3 bg-gray-50 px-6 py-4 sm:flex-row sm:justify-end">
-          <button type="button" class="crm-ui-button-secondary" disabled={draftResolutionState === 'loading'} on:click={stayWithDraft}>Stay</button>
-          <button type="button" class="crm-ui-button-danger-outline" disabled={draftResolutionState === 'loading'} on:click={() => resolveDraft(false)}>Discard changes</button>
+        <div class="draft-navigation-actions">
+          <button type="button" class="crm-ui-button-secondary" disabled={draftResolutionState === 'loading'} on:click={stayWithDraft}>Keep editing</button>
           {#if $portalDraftStore.onRetain}
             <button type="button" class="crm-ui-button-primary" disabled={draftResolutionState === 'loading'} on:click={() => resolveDraft(true)}>
-              {draftResolutionState === 'loading' ? 'Saving…' : $portalDraftStore.retainLabel || 'Save draft and leave'}
+              {draftResolutionState === 'loading' ? 'Saving…' : $portalDraftStore.retainLabel || 'Save draft & leave'}
             </button>
+          {:else}
+            <button type="button" class="crm-ui-button-danger-outline" disabled={draftResolutionState === 'loading'} on:click={() => resolveDraft(false)}>Discard & leave</button>
           {/if}
         </div>
+      </div>
       </div>
     </div>
   {/if}
@@ -763,6 +766,8 @@
 </div>
 
 <style>
+  .draft-navigation-panel { width: 100%; max-width: 420px; border-radius: 20px; }
+  .draft-navigation-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 0 24px 24px; }
   .immersive-app { position: relative; height: 100dvh; }
   .immersive-app :global(.crm-theme-sidebar), .immersive-app .crm-ui-shell-header { display: none; }
   .immersive-app .crm-ui-shell-main { min-height: 0; overflow: hidden; z-index: auto; }

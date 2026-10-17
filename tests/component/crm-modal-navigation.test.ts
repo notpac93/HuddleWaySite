@@ -176,9 +176,28 @@ describe("CRM modal stacking and navigation", () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Admin tabs' }));
     await fireEvent.click(within(screen.getByRole('navigation', { name: 'Admin quick access' })).getByRole('button', { name: 'Events' }));
     expect(screen.getByRole('dialog')).toBeVisible();
-    await fireEvent.click(screen.getByRole('button', { name: 'Stay' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
     expect(screen.getByRole('status', { name: 'current tab' })).toHaveTextContent('My App');
     await fireEvent.click(screen.getByRole('button', { name: 'Hide tabs' }));
+  });
+
+  it('uses the shared modal shell with two actions and keeps a failed save open for retry', async () => {
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+    render(TestedCrmShellSearchHarness);
+    const retain = vi.fn().mockRejectedValueOnce(new Error('Storage unavailable')).mockResolvedValue(undefined);
+    registerPortalDraft({ id: 'test-draft', title: 'Save your changes?', message: 'Save a draft to continue later.', onDiscard: vi.fn(), onRetain: retain });
+    await fireEvent.click(screen.getByRole('button', { name: 'Events' }));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.querySelector('.crm-ui-modal-shell')).not.toBeNull();
+    expect(dialog.querySelectorAll('.draft-navigation-actions button')).toHaveLength(2);
+    expect(within(dialog).queryByRole('button', { name: /Discard/ })).toBeNull();
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Save draft & leave' }));
+    await waitFor(() => expect(within(dialog).getByRole('alert')).toBeVisible());
+    expect(screen.getByRole('status', { name: 'current tab' })).toHaveTextContent('Activity');
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Save draft & leave' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByRole('status', { name: 'current tab' })).toHaveTextContent('Events');
+    expect(retain).toHaveBeenCalledTimes(2);
   });
 
   it('opens More as a guarded page and returns from its child workspace', async () => {
@@ -194,10 +213,10 @@ describe("CRM modal stacking and navigation", () => {
     });
     await fireEvent.click(nav.getByRole('button', { name: 'More, current section: Activity' }));
     expect(screen.queryByRole('region', { name: 'More' })).toBeNull();
-    await fireEvent.click(screen.getByRole('button', { name: 'Stay' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
     expect(discard).not.toHaveBeenCalled();
     await fireEvent.click(nav.getByRole('button', { name: 'Events' }));
-    await fireEvent.click(screen.getByRole('button', { name: 'Discard changes' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Discard & leave' }));
     await waitFor(() => expect(screen.getByRole('status', { name: 'current tab' })).toHaveTextContent('Events'));
     expect(discard).toHaveBeenCalledOnce();
 

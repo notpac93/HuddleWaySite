@@ -8,6 +8,8 @@ import {
 } from '@testing-library/svelte';
 import type { Component } from 'svelte';
 import type { Writable } from 'svelte/store';
+import { get } from 'svelte/store';
+import { portalDraftStore } from '../../src/lib/ui/portalDraftGuard';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 type SnapshotSubscription = {
@@ -295,6 +297,39 @@ describe('MyAppStudio tenant preview isolation', () => {
     });
   });
 
+  it('does not treat suggested tabs or opening tools as edits, but guards deliberate edits', async () => {
+    appMocks.appConfiguration.mockImplementation(async (tenantId: string) => {
+      const snapshot = configurationSnapshot(tenantId);
+      snapshot.configuration.navigationTabs = snapshot.configuration.navigationTabs.filter(tab =>
+        ['home', 'schedule', 'messaging'].includes(tab.key));
+      return snapshot;
+    });
+    const view = render(TestedMyAppStudio);
+    await screen.findByTitle('Alpha League mobile app preview');
+    await waitFor(() => expect(get(portalDraftStore)).toBeNull());
+    await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
+    expect(screen.getByRole('button', { name: 'Publish App' })).toBeDisabled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Pages' }));
+    expect(screen.getByText('3 of 5 active')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Show Teams tab' })).toBeVisible();
+    expect(get(portalDraftStore)).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Show Teams tab' }));
+    expect(get(portalDraftStore)?.id).toBe('my-app-configuration');
+    await fireEvent.click(screen.getByRole('button', { name: 'Hide Teams tab' }));
+    expect(get(portalDraftStore)).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Branding' }));
+    await fireEvent.input(screen.getByLabelText('App Name'), { target: { value: 'Edited app' } });
+    expect(get(portalDraftStore)?.onRetain).toBeTypeOf('function');
+    await act(async () => { await get(portalDraftStore)!.onRetain!(); });
+    expect(get(portalDraftStore)).toBeNull();
+    await view.rerender({ active: false });
+    await view.rerender({ active: true });
+    expect(get(portalDraftStore)).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
+    await fireEvent.input(screen.getByLabelText('App Name'), { target: { value: 'Another edit' } });
+    expect(get(portalDraftStore)?.id).toBe('my-app-configuration');
+  });
+
   it('starts with an unframed tenant canvas and keeps it mounted when tools and workspaces change', async () => {
     const view = render(TestedMyAppStudio);
     const frame = await screen.findByTitle('Alpha League mobile app preview');
@@ -529,12 +564,12 @@ describe('MyAppStudio tenant preview isolation', () => {
     expect(screen.getByRole('heading', { name: 'Events' })).toBeVisible();
     expect(screen.getByLabelText('Tab name for Events')).toHaveValue('Events');
     expect(screen.queryByText(/Route:/)).toBeNull();
-    expect(screen.getByRole('button', { name: 'Hide Events tab' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Show Events tab' })).toHaveAttribute(
       'aria-pressed',
-      'true',
+      'false',
     );
-    expect(screen.getByText('5 of 5 active')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Publish App' })).toBeEnabled();
+    expect(screen.getByText('4 of 5 active')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Publish App' })).toBeDisabled();
   });
 
   it('blocks publication when more than five app tabs are active', async () => {

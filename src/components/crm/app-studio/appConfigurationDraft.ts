@@ -84,7 +84,7 @@ export function completeFiveTabSlots(tabs: NavigationTabDraft[]) {
         (tab) => tab.key === candidate.key || tab.route === candidate.route,
       )
     ) {
-      completed.push({ ...candidate });
+      completed.push({ ...candidate, enabled: false });
     }
   }
   return completed;

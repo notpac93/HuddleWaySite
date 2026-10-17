@@ -69,6 +69,7 @@
   let appName = '';
   let appStyle: 'light' | 'dark' | 'system' = 'system';
   let tabsConfig: NavigationTabDraft[] = [];
+  let suggestedTabKeys = new Set<string>();
   let logoUrl = null;
   let logoFile: File | null = null;
   let logoPreviewDataUrl: string | null = null;
@@ -80,6 +81,7 @@
   let configLoadState: 'idle' | 'loading' | 'ready' | 'error' | 'permission' = 'idle';
   let configLoadMessage = '';
   let loadedConfigSignature = '';
+  let retainedConfigSignature = '';
   let publishMessage = '';
   let publicationPending = false;
   let draftNotice = '';
@@ -118,7 +120,11 @@
       secondaryColor,
       tertiaryColor,
       logoUrl,
-      navigationTabs: tabsConfig.map((tab) => ({ ...tab, label: tab.label.trim() })),
+      // Suggested controls are not configuration changes until explicitly used.
+      navigationTabs: tabsConfig.filter((tab) =>
+        !suggestedTabKeys.has(tab.key) || tab.enabled
+        || tab.label.trim() !== initialTabs.find((item) => item.key === tab.key)?.label,
+      ).map((tab) => ({ ...tab, label: tab.label.trim() })),
     };
   }
 
@@ -141,6 +147,7 @@
     secondaryColor;
     tertiaryColor;
     tabsConfig;
+    suggestedTabKeys;
     logoUrl;
     logoFile;
     currentConfigSignature = buildConfigSignature();
@@ -152,6 +159,7 @@
       || Boolean(logoFile)
     );
   $: {
+    currentConfigSignature;
     appName;
     appStyle;
     primaryColor;
@@ -196,6 +204,7 @@
     configVersionToken,
   });
   $: {
+    currentConfigSignature;
     appName;
     appStyle;
     primaryColor;
@@ -235,6 +244,7 @@
     appStyle = 'system';
     publicationPending = false;
     tabsConfig = [];
+    suggestedTabKeys = new Set();
     logoUrl = null;
     logoFile = null;
     logoPreviewDataUrl = null;
@@ -262,12 +272,13 @@
     }
   }
 
-  $: if (active && isDirty && activeTenantId) {
+  $: if (active && isDirty && activeTenantId
+    && (currentConfigSignature !== retainedConfigSignature || Boolean(logoFile))) {
     registerPortalDraft({
       id: 'my-app-configuration',
-      title: 'Unpublished family app changes',
-      message: 'You can stay, discard the changes, or save a browser draft before leaving this page.',
-      retainLabel: 'Save draft and leave',
+      title: 'Save your changes?',
+      message: 'Save a draft to continue later.',
+      retainLabel: 'Save draft & leave',
       onDiscard: discardLocalChanges,
       onRetain: retainLocalDraft,
     });
@@ -310,6 +321,7 @@
     };
     controller.saveDraft(activeTenantId, draft);
     savedDraft = draft;
+    retainedConfigSignature = buildConfigSignature();
   }
 
   function removeLocalDraft() {
@@ -325,7 +337,7 @@
       secondaryColor = loadedConfiguration.secondaryColor;
       tertiaryColor = loadedConfiguration.tertiaryColor;
       logoUrl = loadedConfiguration.logoUrl;
-      tabsConfig = loadedConfiguration.navigationTabs.map((tab) => ({ ...tab }));
+      tabsConfig = completeFiveTabSlots(loadedConfiguration.navigationTabs);
     }
     logoFile = null;
     removeLocalDraft();
@@ -402,6 +414,8 @@
 
   async function loadTenantConfig(tenantId) {
     configLoadState = 'loading';
+    suggestedTabKeys = new Set();
+    retainedConfigSignature = '';
     configLoadMessage = '';
     configVersionToken = '';
     const result = await controller.loadConfiguration(tenantId);
@@ -424,6 +438,9 @@
         loadedConfigSignature = buildConfigSignature();
         loadedConfiguration = currentConfiguration();
         tabsConfig = completeFiveTabSlots(tabsConfig);
+        suggestedTabKeys = new Set(tabsConfig.filter((tab) =>
+          !configuration.navigationTabs.some((saved) => saved.key === tab.key),
+        ).map((tab) => tab.key));
       } else {
         primaryColor = '';
         secondaryColor = '';
