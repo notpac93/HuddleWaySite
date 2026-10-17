@@ -1,5 +1,6 @@
 <script lang="ts">
   import DataTable from '../DataTable.svelte';
+  import { programTermsStore } from '../../../lib/crm/programVocabulary';
   import { tenantIdStore } from '../../../lib/authStore';
   import { backendClient } from '../../../lib/api/backendClient';
   import {
@@ -21,6 +22,7 @@
   export let error = '';
   export let truncated = false;
   export let onAddPlayer: () => void = () => {};
+  export let onImportPlayers: () => void = () => {};
 
   let roleFilter = '';
   let statusFilter = '';
@@ -307,23 +309,25 @@
   columns={[
     { key: 'name', label: 'Name' },
     { key: 'role', label: 'Role' },
-    { key: 'team', label: 'Team' },
+    { key: 'team', label: $programTermsStore.group },
     { key: 'status', label: 'Status' }
     ,{ key: 'details', label: '' }
   ]}
   exportFilename="roster"
-  searchPlaceholder="Search players..."
+  searchPlaceholder={`Search ${$programTermsStore.people.toLowerCase()}`}
   selectable={true}
   filterable={true}
-  filterExpanded={showAdvancedFilters}
+  bind:filterExpanded={showAdvancedFilters}
+  activeFilterCount={[roleFilter, statusFilter].filter(Boolean).length}
   activeRowId={activeResultId}
   {loading}
   {error}
   {truncated}
   {onTargetConsumed}
   on:selectionChange={(e) => selectedPlayerIds = e.detail}
-  on:filter={() => showAdvancedFilters = !showAdvancedFilters}
 >
+  <svelte:fragment slot="tools"><button type="button" class="crm-ui-button-secondary bg-white" on:click={onImportPlayers}>Import people CSV</button></svelte:fragment>
+  <svelte:fragment slot="view"><slot name="view" /></svelte:fragment>
   <svelte:fragment slot="filters">
     {#if operationMessage}
       <span class="ml-4 text-sm text-gray-700" role={submitState === 'error' ? 'alert' : 'status'}>
@@ -436,10 +440,17 @@
       on:click={onAddPlayer}
     >
       <span class="mr-2 text-lg leading-none" aria-hidden="true">+</span>
-      Add player
+      {$programTermsStore.people === 'Members' ? 'Add member' : $programTermsStore.people === 'Students' ? 'Add student' : 'Add player'}
     </button>
   </svelte:fragment>
 
+  <svelte:fragment slot="mobile-record" let:row>
+    <button type="button" class="block w-full pr-12 [overflow-wrap:anywhere] text-left text-base font-semibold text-gray-900" aria-label={`Open ${row.name} details`} on:click={() => detailPlayer = row}>{row.name}</button>
+    <div class="mt-2 text-sm text-gray-600">
+      {#if row.teamId}<button type="button" class="text-left" on:click={() => setActiveTeam({ name: row.team, id: row.teamId })}>{row.team}</button>{:else}{row.role}{/if}
+    </div>
+    <span class="mt-3 inline-flex rounded-md bg-[var(--crm-brand-surface)] px-2 py-1 text-xs text-[var(--crm-on-brand-surface)]">{row.status}</span>
+  </svelte:fragment>
   <svelte:fragment slot="cell" let:row let:column>
     {#if column.key === 'name'}
       <div class="crm-ui-center">
@@ -460,7 +471,7 @@
             </div>
           {/if}
         </div>
-        <div class="ml-4">
+        <div class="ml-3 min-w-0">
           <button
             type="button"
             class="text-left text-sm font-medium text-[var(--crm-brand-link)] hover:text-[var(--crm-brand-primary-hover)] hover:underline"
@@ -469,7 +480,6 @@
           >
             {row.name}
           </button>
-          <div class="text-sm text-gray-500">{row.email}</div>
         </div>
       </div>
     {:else if column.key === 'team'}

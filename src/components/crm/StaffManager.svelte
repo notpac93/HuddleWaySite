@@ -1,5 +1,6 @@
 <script lang="ts">
-  import FilterDisclosure from './ui/FilterDisclosure.svelte';
+  import RecordToolbar from './ui/RecordToolbar.svelte';
+  import RecordItem from './ui/RecordItem.svelte';
   import { registerLiveRefresh } from '../../lib/crm/liveRefresh';
   import { onMount as mountRefresh } from 'svelte';
   import { onMount } from 'svelte';
@@ -398,15 +399,11 @@
     </p>
   {/if}
 
-  <div class="border-b border-gray-200">
-    <nav class="-mb-px flex gap-8" aria-label="Staff views">
-      <button type="button" aria-label="Staff directory" class="whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium {activeTab === 'Directory' ? 'border-[var(--crm-brand-border)] text-[var(--crm-brand-link)]' : 'border-transparent text-gray-500'}" aria-current={activeTab === 'Directory' ? 'page' : undefined} on:click={() => activeTab = 'Directory'}>Staff directory ({directory?.staff.length || 0})</button>
-      <button type="button" aria-label="Pending invites" class="whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium {activeTab === 'Invites' ? 'border-[var(--crm-brand-border)] text-[var(--crm-brand-link)]' : 'border-transparent text-gray-500'}" aria-current={activeTab === 'Invites' ? 'page' : undefined} on:click={() => activeTab = 'Invites'}>Pending invites ({directory?.pendingInvites.length || 0})</button>
-    </nav>
-  </div>
-
-  <FilterDisclosure activeCount={[searchQuery.trim(), roleFilter, statusFilter, verificationFilter].filter(Boolean).length}>
-  <div class="flex flex-col gap-4 sm:flex-row">
+  <RecordToolbar activeCount={[searchQuery.trim(), roleFilter, statusFilter, verificationFilter].filter(Boolean).length}>
+    <select slot="view" aria-label="Staff view" bind:value={activeTab}>
+      <option value="Directory">Staff directory</option><option value="Invites">Pending invites</option>
+    </select>
+  <div class="flex flex-col gap-4 sm:flex-row sm:flex-wrap">
     <label class="flex-1">
       <span class="sr-only">Search staff by name or email</span>
       <input type="search" bind:value={searchQuery} class="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" placeholder="Search staff by name or email" />
@@ -426,7 +423,7 @@
       </select>
     </label>
   </div>
-  </FilterDisclosure>
+  </RecordToolbar>
 
   {#if activeListTruncated}
     <p class="crm-ui-notice-card" role="status">
@@ -434,71 +431,32 @@
     </p>
   {/if}
 
-  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-  <div class="overflow-x-auto rounded-md border border-gray-200 shadow-sm" role="region" tabindex="0" aria-label={activeTab === 'Directory' ? 'Scrollable staff directory table' : 'Scrollable pending invitations table'}>
-    <table class="crm-ui-table">
-      <thead class="bg-gray-50">
-        <tr>
-          <th scope="col" class="crm-ui-th-wide">Name</th>
-          <th scope="col" class="crm-ui-th-wide">Role</th>
-          <th scope="col" class="crm-ui-th-wide">Status</th>
-          <th scope="col" class="crm-ui-th-wide">Date</th>
-          <th scope="col" class="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-900">Actions</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-gray-200 bg-white">
-        {#if isLoading}
-          <tr><td colspan="5" class="px-6 py-12 text-center text-gray-500"><div role="status">Loading staff access…</div></td></tr>
-        {:else if loadError}
-          <tr>
-            <td colspan="5" class="px-6 py-12 text-center">
-              <div role="alert">
-              <p class="text-sm text-red-700">{loadError}</p>
-              <button type="button" class="mt-4 rounded-md border border-gray-300 px-3 py-2 text-sm" on:click={() => activeTenantId && loadStaffDirectory(activeTenantId)}>Try again</button>
-              </div>
-            </td>
-          </tr>
-        {:else if activeRows.length === 0}
-          <tr><td colspan="5" class="px-6 py-12 text-center text-gray-500">
-            {#if normalizedSearch || roleFilter}
-              No {activeTab === 'Directory' ? 'memberships' : 'pending invites'} match the current filters.
-            {:else}
-              No {activeTab === 'Directory' ? 'active staff memberships' : 'pending staff invitations'} are available.
-            {/if}
-          </td></tr>
-        {:else if activeTab === 'Directory'}
-          {#each staffRows as staff (staff.membershipId)}
-            <tr>
-              <td class="px-6 py-4">
-                <p class="text-sm font-medium text-gray-900">{staff.displayName || 'Name unavailable'}</p>
-                <p class="crm-ui-hint-xs">{staff.email || 'Email unavailable'}</p>
-                {#if !staff.displayName}<button type="button" class="crm-theme-link mt-1 text-xs font-medium" on:click={() => onNavigateTab('Settings')}>Complete profile in My profile</button>{/if}
-              </td>
-              <td class="px-6 py-4 text-sm capitalize text-gray-700">{staff.role}</td>
-              <td class="px-6 py-4 text-sm text-gray-700">{staff.active ? 'Active membership' : 'Inactive membership'}{staff.emailVerified ? ' · verified email' : ' · email unverified'}</td>
-              <td class="px-6 py-4 text-sm text-gray-500">{formatDate(staff.joinedAt)}</td>
-              <td class="px-6 py-4 text-right">
-                <button type="button" class="crm-theme-link text-sm font-medium" on:click={() => openManageDialog(staff)}>Manage access</button>
-              </td>
-            </tr>
-          {/each}
-        {:else}
-          {#each inviteRows as invite (invite.id)}
-            <tr>
-              <td class="px-6 py-4">
-                <p class="text-sm font-medium text-gray-900">{invite.displayName || 'Name unavailable'}</p>
-                <p class="crm-ui-hint-xs">{invite.email || 'Email unavailable'}</p>
-              </td>
-              <td class="px-6 py-4 text-sm capitalize text-gray-700">{invite.role}</td>
-              <td class="px-6 py-4 text-sm text-amber-700">Pending invitation</td>
-              <td class="px-6 py-4 text-sm text-gray-500">Sent {formatDate(invite.createdAt)} · expires {formatDate(invite.expiresAt)}</td>
-              <td class="px-6 py-4 text-right">
-                <div class="flex flex-wrap justify-end gap-3"><button type="button" class="text-sm font-medium text-blue-700 hover:text-blue-900" disabled={Boolean(inviteActionId)} on:click={() => resendInvite(invite)}>{inviteActionId === invite.id ? 'Resending…' : 'Resend'}</button><button type="button" class="text-sm font-medium text-blue-700 hover:text-blue-900" disabled={Boolean(inviteActionId)} on:click={() => copyInviteLink(invite)}>Copy link</button><button type="button" class="text-sm font-medium text-red-700 hover:text-red-900" disabled={Boolean(inviteActionId)} on:click={() => openRevokeDialog(invite)}>Revoke</button></div>
-              </td>
-            </tr>
-          {/each}
-        {/if}
-      </tbody>
-    </table>
+  <div class="rounded-xl border border-gray-200 bg-white text-gray-900" aria-label={activeTab === 'Directory' ? 'Staff directory' : 'Pending invitations'}>
+    {#if isLoading}
+      <p class="p-6 text-center" role="status">Loading staff access…</p>
+    {:else if loadError}
+      <div class="p-6" role="alert"><p>{loadError}</p><button type="button" class="crm-ui-button-secondary mt-3" on:click={() => activeTenantId && loadStaffDirectory(activeTenantId)}>Try again</button></div>
+    {:else if activeRows.length === 0}
+      <p class="p-6 text-center">No {activeTab === 'Directory' ? 'staff' : 'pending invites'}{normalizedSearch || roleFilter || statusFilter || verificationFilter ? ' match the current filters.' : ' are available.'}</p>
+    {:else if activeTab === 'Directory'}
+      {#each staffRows as staff (staff.membershipId)}
+        <RecordItem title={staff.displayName || 'Name unavailable'} context={staff.role.charAt(0).toUpperCase() + staff.role.slice(1)} status={staff.active ? 'Active' : 'Inactive'} date={formatDate(staff.joinedAt)}>
+          <dl><dt>Email</dt><dd>{staff.email || 'Email unavailable'}</dd><dt>Verification</dt><dd>{staff.emailVerified ? 'Verified email' : 'Email unverified'}</dd><dt>Joined</dt><dd>{formatDate(staff.joinedAt)}</dd></dl>
+          {#if !staff.displayName}<button type="button" class="crm-theme-link mr-3 text-sm" on:click={() => onNavigateTab('Settings')}>Complete profile in My profile</button>{/if}
+          <button type="button" class="crm-theme-link text-sm font-semibold" on:click={() => openManageDialog(staff)}>Manage access</button>
+        </RecordItem>
+      {/each}
+    {:else}
+      {#each inviteRows as invite (invite.id)}
+        <RecordItem title={invite.displayName || 'Name unavailable'} context={invite.role.charAt(0).toUpperCase() + invite.role.slice(1)} status="Pending" date={formatDate(invite.createdAt)}>
+          <dl><dt>Email</dt><dd>{invite.email || 'Email unavailable'}</dd><dt>Expires</dt><dd>{formatDate(invite.expiresAt)}</dd></dl>
+          <div class="flex flex-wrap gap-4">
+            <button type="button" class="crm-theme-link text-sm font-medium" disabled={Boolean(inviteActionId)} on:click={() => resendInvite(invite)}>{inviteActionId === invite.id ? 'Resending…' : 'Resend'}</button>
+            <button type="button" class="crm-theme-link text-sm font-medium" disabled={Boolean(inviteActionId)} on:click={() => copyInviteLink(invite)}>Copy link</button>
+            <button type="button" class="text-sm font-medium text-red-700" disabled={Boolean(inviteActionId)} on:click={() => openRevokeDialog(invite)}>Revoke</button>
+          </div>
+        </RecordItem>
+      {/each}
+    {/if}
   </div>
 </div>

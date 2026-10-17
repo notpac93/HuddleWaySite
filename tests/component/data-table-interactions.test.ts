@@ -8,6 +8,7 @@ const TestedDataTableHarness = DataTableHarness as unknown as Component;
 describe('DataTable production interaction contract', () => {
   it('selects the current page by stable ID, preserves scope across pages, and clears after bulk mutation', async () => {
     const view = render(TestedDataTableHarness);
+    await fireEvent.click(screen.getByRole('button', { name: 'Search and filters' }));
     const table = view.container.querySelector('table')!;
 
     await fireEvent.click(
@@ -81,6 +82,7 @@ describe('DataTable production interaction contract', () => {
 
   it('reviews the selected export scope before creating a CSV', async () => {
     const view = render(TestedDataTableHarness);
+    await fireEvent.click(screen.getByRole('button', { name: 'Search and filters' }));
     const table = view.container.querySelector('table')!;
     await fireEvent.click(
       table.querySelector<HTMLInputElement>('input[aria-label="Select Alpha"]')!,

@@ -566,29 +566,9 @@
     teamLocked={Boolean(selectedTeamId)}
     teams={$teamsStore.map((team) => ({ id: String(team.id || ''), name: String(team.name || 'Team name unavailable') }))}
     seasons={$seasonsStore.map((season) => ({ id: String(season.id || ''), name: String(season.name || season.title || 'Season name unavailable') }))}
-  />
-
-  <!-- Tabs -->
-  <div class="border-b border-gray-200">
-    <nav class="-mb-px flex space-x-8" aria-label="Tabs">
-      <button
-        type="button"
-      on:click={() => activeTab = 'Upcoming'}
-        aria-pressed={activeTab === 'Upcoming'}
-        class="crm-ui-event-tab {activeTab === 'Upcoming' ? 'crm-ui-event-tab-active' : 'crm-ui-event-tab-idle'}"
-      >
-        Upcoming
-      </button>
-      <button
-        type="button"
-      on:click={() => activeTab = 'Past'}
-        aria-pressed={activeTab === 'Past'}
-        class="crm-ui-event-tab {activeTab === 'Past' ? 'crm-ui-event-tab-active' : 'crm-ui-event-tab-idle'}"
-      >
-        Past
-      </button>
-    </nav>
-  </div>
+  >
+    <select slot="view" aria-label={`${$programTermsStore.title} view`} bind:value={activeTab}><option>Upcoming</option><option>Past</option></select>
+  </EventFilters>
 
   {/if}
 
@@ -616,8 +596,8 @@
               on:error={handleImgError}
             />
           </div>
-          <div class="flex-1">
-            <div class="flex items-center gap-2">
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2">
               <h3 class="crm-ui-title">{event.title}</h3>
               {#if event.dateObj && event.dateObj < now}
                 <span class="crm-ui-event-badge crm-ui-event-badge-expired">

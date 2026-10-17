@@ -15,9 +15,9 @@ const reviewedControlCounts: Record<string, number> = {
   'CrmApp.svelte': 3,
   'CrmBreadcrumbs.svelte': 1,
   'CrmShell.svelte': 22,
-  'DataTable.svelte': 12,
+  'DataTable.svelte': 13,
   'DocumentsManager.svelte': 14,
-  'EventScheduler.svelte': 18,
+  'EventScheduler.svelte': 17,
   'FinancialOperationsWorkspace.svelte': 6,
   'GlobalDashboard.svelte': 9,
   'GlobalSearch.svelte': 5,
@@ -27,7 +27,7 @@ const reviewedControlCounts: Record<string, number> = {
   'MyAppStudio.svelte': 8,
   'SettingsManager.svelte': 12,
   'SetupWorkflow.svelte': 11,
-  'StaffManager.svelte': 20,
+  'StaffManager.svelte': 19,
   'TeamsManager.svelte': 14,
   'TenantOperations.svelte': 10,
   'app-studio/BrandingControls.svelte': 7,
@@ -53,7 +53,7 @@ const reviewedControlCounts: Record<string, number> = {
   'events/EditEventModal.svelte': 12,
   'events/EventBatchPublishReview.svelte': 4,
   'events/EventCsvImport.svelte': 4,
-  'events/EventFilters.svelte': 8,
+  'events/EventFilters.svelte': 7,
   'events/EventRegistrantsModal.svelte': 2,
   'events/RecurrenceSelector.svelte': 13,
   'registration/CreateRegistrationForm.svelte': 28,
@@ -63,8 +63,8 @@ const reviewedControlCounts: Record<string, number> = {
   'registration/RegistrationManager.svelte': 8,
   'roster/ImportCsv.svelte': 2,
   'roster/ParticipantDetailPanel.svelte': 13,
-  'roster/PlayerTable.svelte': 10,
-  'roster/RosterManager.svelte': 4,
+  'roster/PlayerTable.svelte': 13,
+  'roster/RosterManager.svelte': 3,
   'roster/RosterParticipantEntry.svelte': 9,
   'roster/TeamTable.svelte': 5,
   'seasons/CreateSeasonModal.svelte': 7,
@@ -83,6 +83,8 @@ const reviewedControlCounts: Record<string, number> = {
   'ui/LoadingState.svelte': 0,
   'ui/PageHeader.svelte': 0,
   'ui/PortalExperienceCatalog.svelte': 5,
+  'ui/RecordItem.svelte': 0,
+  'ui/RecordToolbar.svelte': 1,
   'ui/StatusButton.svelte': 1,
   'ui/StatusNotice.svelte': 1,
 };
@@ -151,7 +153,7 @@ describe('exhaustive CRM control inventory', () => {
     );
 
     expect(actual).toEqual(reviewedControlCounts);
-    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(619);
+    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(620);
   });
 
   it('keeps every inventoried CRM component reachable from a production entry point', () => {

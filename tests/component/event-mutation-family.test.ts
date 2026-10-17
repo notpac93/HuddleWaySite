@@ -194,7 +194,7 @@ describe('event mutation family', () => {
     eventRecords.set([{ ...openingPractice, teamId: 'esports' }]);
     render(TestedEventScheduler, { activeTeam: 'tenant-a_esports' });
     expect(screen.getByRole('heading', { name: 'Opening practice' })).toBeVisible();
-    await fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Search and filters' }));
     expect(screen.getByLabelText('Team')).toHaveValue('tenant-a_esports');
     expect(screen.getAllByText('Esports').length).toBeGreaterThan(1);
     for (const mock of Object.values(backendMocks)) expect(mock).not.toHaveBeenCalled();
@@ -206,7 +206,7 @@ describe('event mutation family', () => {
     registrationRecords.set([{ id: 'registration-a', eventId: 'event-1', teamId: 'esports',
       participantName: 'Owned Participant', status: 'confirmed' }]);
     render(TestedEventScheduler);
-    await fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Search and filters' }));
     await fireEvent.change(screen.getByLabelText('Team'), { target: { value: 'tenant-a_esports' } });
     expect(screen.getByRole('heading', { name: 'Opening practice' })).toBeVisible();
     await fireEvent.click(screen.getByRole('button', { name: 'View 0 registrants for Opening practice' }));

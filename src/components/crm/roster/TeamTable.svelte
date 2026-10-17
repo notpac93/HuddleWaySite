@@ -1,4 +1,5 @@
 <script lang="ts">
+  import RecordToolbar from '../ui/RecordToolbar.svelte';
   import CreateTeamForm from '../teams/CreateTeamForm.svelte';
 
   export let teams: any[] = [];
@@ -80,6 +81,8 @@
     </button>
   </div>
 
+  <RecordToolbar activeCount={searchTerm.trim() ? 1 : 0}>
+    <svelte:fragment slot="view"><slot name="view" /></svelte:fragment>
   <label class="block max-w-sm">
     <span class="sr-only">Search teams</span>
     <input
@@ -89,6 +92,7 @@
       placeholder="Search teams..."
     />
   </label>
+  </RecordToolbar>
 
   {#if omittedTeamCount > 0}
     <p class="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status">

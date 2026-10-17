@@ -176,22 +176,14 @@ describe('RosterManager projection and navigation controls', () => {
     expect(screen.queryByText(/roster-load-7/i)).not.toBeInTheDocument();
     expect(screen.queryByText('raw provider detail')).toBeNull();
 
-    await fireEvent.click(
-      screen.getByRole('button', { name: 'Teams & Divisions' }),
-    );
+    await fireEvent.change(screen.getByRole('combobox', { name: 'Roster view' }), { target: { value: 'Teams' } });
     expect(screen.getAllByText('Owls')[0]).toBeVisible();
     expect(screen.queryAllByText('Falcons')).toHaveLength(0);
-    expect(
-      screen.getByRole('button', { name: 'Teams & Divisions' }),
-    ).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('combobox', { name: 'Roster view' })).toHaveValue('Teams');
 
-    await fireEvent.click(
-      screen.getByRole('button', { name: 'CSV Import' }),
-    );
+    await fireEvent.change(screen.getByRole('combobox', { name: 'Roster view' }), { target: { value: 'Import' } });
     expect(screen.getByText('Import Roster Changes via CSV')).toBeVisible();
-    expect(
-      screen.getByRole('button', { name: 'CSV Import' }),
-    ).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('combobox', { name: 'Roster view' })).toHaveValue('Import');
   });
 
   it('opens manual player entry from the All Players action row', async () => {
@@ -228,7 +220,7 @@ describe('RosterManager projection and navigation controls', () => {
       );
     });
 
-    await fireEvent.click(screen.getByRole('button', { name: /^Filter$/ }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Search and filters' }));
     const status = screen.getByLabelText('Filter players by status');
     expect(status).toHaveTextContent('Confirmed');
     await fireEvent.change(status, { target: { value: 'Confirmed' } });

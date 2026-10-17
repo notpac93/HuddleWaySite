@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
+  import { programTermsStore } from '../../../lib/crm/programVocabulary';
   import { tenantIdStore } from '../../../lib/authStore';
   import { RosterService } from '../../../lib/services/RosterService';
   import {
@@ -140,41 +141,10 @@
 <div class="h-full flex flex-col p-6 space-y-6 overflow-y-auto bg-white">
   <div class="flex justify-between items-center">
     <div>
-      <h2 class="crm-ui-page-title">Rosters & Teams</h2>
+      <h2 class="crm-ui-page-title">{$programTermsStore.people}</h2>
     </div>
-    <button type="button" class="rounded bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-semibold text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)]" on:click={() => { entrySuccess = ''; entryMode = 'csv'; }}>Import players CSV</button>
   </div>
   {#if entrySuccess}<p class="rounded border border-green-200 bg-green-50 p-3 text-sm text-green-800" role="status">{entrySuccess}</p>{/if}
-
-  <!-- Tabs -->
-  <div class="border-b border-gray-200">
-    <nav class="-mb-px flex space-x-8" aria-label="Roster views">
-      <button
-        type="button"
-        aria-pressed={activeTab === 'Players'}
-        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm {activeTab === 'Players' ? 'border-[var(--crm-brand-border)] text-[var(--crm-brand-link)]' : 'border-transparent text-gray-500 hover:text-gray-700'}"
-        on:click={() => activeTab = 'Players'}
-      >
-        All Players
-      </button>
-      <button
-        type="button"
-        aria-pressed={activeTab === 'Teams'}
-        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm {activeTab === 'Teams' ? 'border-[var(--crm-brand-border)] text-[var(--crm-brand-link)]' : 'border-transparent text-gray-500 hover:text-gray-700'}"
-        on:click={() => activeTab = 'Teams'}
-      >
-        Teams & Divisions
-      </button>
-      <button
-        type="button"
-        aria-pressed={activeTab === 'Import'}
-        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm {activeTab === 'Import' ? 'border-[var(--crm-brand-border)] text-[var(--crm-brand-link)]' : 'border-transparent text-gray-500 hover:text-gray-700'}"
-        on:click={() => activeTab = 'Import'}
-      >
-        CSV Import
-      </button>
-    </nav>
-  </div>
 
   {#if activeTab === 'Players'}
     <PlayerTable
@@ -188,8 +158,11 @@
       {activeResultId}
       {onTargetConsumed}
       onAddPlayer={() => { entrySuccess = ''; entryMode = 'manual'; }}
+      onImportPlayers={() => { entrySuccess = ''; entryMode = 'csv'; }}
       on:changed={refreshPlayers}
-    />
+    >
+      <select slot="view" aria-label="Roster view" bind:value={activeTab}><option value="Players">{$programTermsStore.people}</option><option value="Teams">{$programTermsStore.groups}</option><option value="Import">Bulk updates</option></select>
+    </PlayerTable>
   {:else if activeTab === 'Teams'}
     <TeamTable
       teams={teamsWithRosterCounts}
@@ -197,8 +170,11 @@
       loading={$teamsProjectionScope.loading}
       error={$teamsProjectionScope.error}
       {setActiveTeam}
-    />
+    >
+      <select slot="view" aria-label="Roster view" bind:value={activeTab}><option value="Players">{$programTermsStore.people}</option><option value="Teams">{$programTermsStore.groups}</option><option value="Import">Bulk updates</option></select>
+    </TeamTable>
   {:else if activeTab === 'Import'}
+    <select aria-label="Roster view" bind:value={activeTab}><option value="Players">{$programTermsStore.people}</option><option value="Teams">{$programTermsStore.groups}</option><option value="Import">Bulk updates</option></select>
     <ImportCsv {activeTeam} teams={$teamsStore} />
   {/if}
 </div>

@@ -79,8 +79,8 @@ describe('event publication flow', () => {
     eventRecords.set([{ ...baseline[0], id: 'published', title: 'Published practice', date: '2031-08-10T16:00:00.000Z', lifecycleStatus: 'published' }, ...baseline]);
     render(TestedEventScheduler);
     expect(screen.getAllByRole('article')[0]).toHaveTextContent('Published practice');
-    expect(screen.queryByLabelText('Status')).toBeNull();
-    await fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+    expect(screen.getByLabelText('Status')).not.toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Search and filters' }));
     expect(screen.getByLabelText('Status')).toBeVisible();
   });
   it('requires deliberate confirmation and sends an audited publish transition', async () => {

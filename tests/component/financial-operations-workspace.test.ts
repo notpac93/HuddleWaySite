@@ -67,6 +67,7 @@ function overview(complete = true) {
 
 describe('dedicated CRM financial operations', () => {
   beforeEach(() => {
+    window.history.replaceState({}, '', '/');
     mocks.financialOverview.mockReset().mockResolvedValue(overview());
     mocks.billingPackages.mockResolvedValue([]);
     roles.set('owner');
@@ -79,6 +80,7 @@ describe('dedicated CRM financial operations', () => {
     expect(await screen.findByText('Bank deposit')).toBeVisible();
     expect(screen.getAllByText('$123.45')).toHaveLength(2);
     expect(screen.queryByText('opaque-1')).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Search and filters' }));
     expect(screen.getByRole('button', { name: 'Export' })).toBeEnabled();
   });
 
@@ -86,10 +88,9 @@ describe('dedicated CRM financial operations', () => {
     render(Tested);
     await screen.findByText('Bank deposit');
     expect(screen.queryByRole('button', { name: /^Refresh$/ })).toBeNull();
-    expect(screen.getByText('Search & filters').closest('details')).not.toHaveAttribute('open');
-    await fireEvent.click(screen.getByText('Search & filters'));
-    // jsdom does not implement the details default toggle.
-    screen.getByText('Search & filters').closest('details')!.open = true;
+    expect(screen.getByRole('button', { name: 'Search and filters' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('searchbox')).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Search and filters' }));
     const search = screen.getByRole('searchbox');
     await fireEvent.input(search, { target: { value: 'Bank' } });
     const updated = overview(); updated.operations.views.deposits[0].amountCents = 20000;
@@ -122,8 +123,34 @@ describe('dedicated CRM financial operations', () => {
   it('switches to payment setup without mixing it into ledger rows', async () => {
     render(Tested);
     await screen.findByText('Bank deposit');
-    await fireEvent.click(screen.getByRole('button', { name: 'Payment setup' }));
+    await fireEvent.change(screen.getByRole('combobox', { name: 'Financial operation view' }), { target: { value: 'payment_setup' } });
     expect(await screen.findByRole('heading', { name: 'Payment setup' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Add payment setup' })).toBeVisible();
+  });
+
+  it('keeps full record details and search state while compact tools are closed', async () => {
+    const result = overview();
+    result.operations.views.deposits[0].label = 'Alexandra Montgomery-Williams';
+    result.operations.views.deposits[0].detail = 'October membership deposit — checking ending in 6789';
+    mocks.financialOverview.mockResolvedValue(result);
+    render(Tested);
+    const title = await screen.findByText('Alexandra Montgomery-Williams');
+    const detail = screen.getByText('October membership deposit — checking ending in 6789');
+    expect(title).toBeVisible();
+    expect(detail).not.toBeVisible();
+    title.closest('details')!.open = true; // jsdom does not implement summary activation reliably.
+    expect(detail).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Search and filters' }));
+    const search = screen.getByRole('searchbox');
+    await waitFor(() => expect(search).toHaveFocus());
+    await fireEvent.input(search, { target: { value: 'Alexandra' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Close search and filters' }));
+    expect(screen.queryByRole('searchbox')).toBeNull();
+    expect(title).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Search and filters' }));
+    expect(screen.getByRole('searchbox')).toHaveValue('Alexandra');
+    await fireEvent.change(screen.getByRole('combobox', { name: 'Financial operation view' }), { target: { value: 'transactions' } });
+    expect(screen.getByText('No transactions yet.')).toBeVisible();
+    expect(window.location.search).toContain('financeView=transactions');
   });
 });

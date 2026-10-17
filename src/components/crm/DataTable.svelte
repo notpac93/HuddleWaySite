@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, tick } from 'svelte';
   import Papa from 'papaparse';
+  import RecordToolbar from './ui/RecordToolbar.svelte';
   import { modalFocus } from '../../lib/ui/modalFocus';
 
   type Row = Record<string, any>;
@@ -18,6 +19,7 @@
   export let searchable = true;
   export let filterable = false;
   export let filterExpanded = false;
+  export let activeFilterCount = 0;
   export let searchPlaceholder = 'Search records';
   export let exportable = true;
   export let exportFilename = 'export';
@@ -233,53 +235,24 @@
   <div class="crm-ui-modal-root" role="dialog" aria-modal="true" aria-labelledby="table-export-review-title"><button type="button" class="crm-ui-backdrop" aria-label="Cancel export" tabindex="-1" on:click={() => exportReviewOpen = false}></button><div class="relative z-10 mx-auto mt-[15vh] w-[calc(100%-2rem)] max-w-lg rounded-lg bg-white p-6 shadow-xl" tabindex="-1" use:modalFocus={{ onEscape: () => exportReviewOpen = false, initialFocusSelector: '[data-export-cancel]' }}><h2 id="table-export-review-title" class="text-lg font-semibold text-gray-950">Review CSV export</h2><p class="mt-2 text-sm text-gray-600">{exportRows.length} {selectedExportRows.length ? 'selected' : 'filtered'} record{exportRows.length === 1 ? '' : 's'} will be downloaded.</p><p class="mt-3 text-sm"><strong>Scope:</strong> {selectedExportRows.length ? 'Selected records across all table pages' : 'All records matching the current search, filters, and sort order'}</p><p class="mt-1 text-sm"><strong>Columns:</strong> {columns.filter((column) => column.label && column.key !== 'actions').map((column) => column.label).join(', ')}</p><p class="mt-1 text-xs text-gray-500">Filename: {exportFilename}_{new Date().toISOString().split('T')[0]}.csv · Generated {new Date().toLocaleString()}</p>{#if truncated}<p class="mt-3 text-sm text-amber-800">Only loaded records can be exported because this projection is limited.</p>{/if}<div class="mt-6 flex justify-end gap-3"><button type="button" data-export-cancel class="crm-ui-button-secondary" on:click={() => exportReviewOpen = false}>Cancel</button><button type="button" class="crm-ui-button-primary" on:click={exportCSV}>Download CSV</button></div></div></div>
 {/if}
 
-<div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-  <div class="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+<RecordToolbar searchable={searchable || filterable || exportable} bind:expanded={filterExpanded} activeCount={activeFilterCount + (searchQuery.trim() ? 1 : 0)}>
+  <svelte:fragment slot="view"><slot name="view"><span class="text-sm text-gray-600">{filteredAndSortedData.length} records</span></slot></svelte:fragment>
+  <svelte:fragment slot="actions"><slot name="actions" /></svelte:fragment>
+  <div class="flex flex-wrap items-end gap-3">
     {#if searchable}
-      <label class="min-w-0 sm:w-64">
-        <span class="sr-only">Search table records</span>
-        <input
-          type="search"
-          bind:value={searchQuery}
-          on:input={handleSearchInput}
-          placeholder={searchPlaceholder}
-          class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--crm-brand-border)] focus:outline-none focus:ring-[var(--crm-brand-focus)]"
-        />
-      </label>
-      {#if filterable}
-        <button
-          type="button"
-          class="inline-flex items-center justify-center rounded-md bg-[var(--crm-brand-control)] px-3 py-2 text-sm font-medium text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)]"
-          aria-expanded={filterExpanded}
-          on:click={() => dispatch('filter')}
-        >
-          <svg class="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-          </svg>
-          Filter
-        </button>
-      {/if}
+      <label class="min-w-0 flex-1"><span class="sr-only">Search table records</span><input type="search" bind:value={searchQuery} on:input={handleSearchInput} placeholder={searchPlaceholder} class="w-full rounded-md border border-gray-300 bg-white px-3 py-2" /></label>
     {/if}
-    <slot name="filters"></slot>
-  </div>
-  <div class="flex flex-wrap gap-3">
     {#if exportable}
-      <button
-        type="button"
-        on:click={() => exportReviewOpen = true}
-        disabled={exportRows.length === 0 || loading || permissionDenied || Boolean(effectiveError)}
-        title={exportRows.length === 0 ? 'There are no records in the stated export scope.' : undefined}
-        class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        <svg class="mr-2 h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-        </svg>
-        {exportLabel}
-      </button>
+      <button type="button" on:click={() => exportReviewOpen = true} disabled={exportRows.length === 0 || loading || permissionDenied || Boolean(effectiveError)} class="crm-ui-button-secondary bg-white">{exportLabel}</button>
     {/if}
-    <slot name="actions"></slot>
+    <slot name="tools" />
+    <label class="min-w-0"><span class="sr-only">Sort records</span><select class="crm-ui-input bg-white" value={sortColumn} on:change={(event) => { sortColumn = event.currentTarget.value; currentPage = 1; }}>
+      {#each columns.filter(column => column.label && column.sortable !== false) as column}<option value={column.key}>{column.label}</option>{/each}
+    </select></label>
+    <button type="button" class="text-sm font-semibold" on:click={() => sortDirection = sortDirection === 'asc' ? 'desc' : 'asc'}>{sortDirection === 'asc' ? 'Ascending' : 'Descending'}</button>
   </div>
-</div>
+</RecordToolbar>
+<div class="table-extra-controls flex flex-wrap items-center gap-3"><slot name="filters" /></div>
 
 <div bind:this={tableRegion} class="mt-4">
   {#if truncated && !loading && !permissionDenied && !effectiveError}
@@ -364,7 +337,7 @@
                 </td>
               {/if}
               {#each columns as column}
-                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500 {column.align === 'right' ? 'text-right' : ''}">
+                <td class="px-6 py-4 text-sm text-gray-500 {column.align === 'right' ? 'text-right' : ''}">
                   <slot name="cell" {row} {column}>{row[column.key]}</slot>
                 </td>
               {/each}
@@ -374,34 +347,36 @@
       </table>
     </div>
 
-    <div class="space-y-3 md:hidden">
+    <div class="divide-y divide-gray-200 overflow-hidden rounded-xl border border-gray-200 bg-white md:hidden">
       {#each pageRows as row (stableId(row))}
         <article
           data-record-id={stableId(row)}
-          class="rounded-lg border bg-white p-4 shadow-sm {selectedRows.has(stableId(row)) ? 'crm-theme-selected' : 'border-gray-200'} {activeRowId === stableId(row) ? 'ring-2 ring-[var(--crm-brand-focus)]' : ''}"
+          class="relative bg-white p-4 {selectedRows.has(stableId(row)) ? 'crm-theme-selected' : ''} {activeRowId === stableId(row) ? 'ring-2 ring-[var(--crm-brand-focus)]' : ''}"
           tabindex="-1"
         >
           {#if selectable}
-            <label class="mb-3 flex items-center gap-2 text-sm font-medium text-gray-700">
+            <label class="absolute right-2 top-2 flex h-11 w-11 items-center justify-center text-sm font-medium text-gray-700">
               <input
                 type="checkbox"
                 class="h-4 w-4 rounded border-gray-300 text-[var(--crm-brand-link)] focus:ring-[var(--crm-brand-focus)]"
                 checked={selectedRows.has(stableId(row))}
                 on:change={() => toggleRow(row)}
               />
-              Select {row.name || row.title || stableId(row)}
+              <span class="sr-only">Select {row.name || row.title || stableId(row)}</span>
             </label>
           {/if}
-          <dl class="space-y-3">
-            {#each columns as column}
-              <div class="grid grid-cols-[minmax(0,0.4fr)_minmax(0,0.6fr)] gap-3">
-                <dt class="text-xs font-semibold uppercase tracking-wide text-gray-500">{column.label || 'Actions'}</dt>
+          <slot name="mobile-record" {row}>
+          <dl class="flex flex-wrap items-start gap-x-5 gap-y-3">
+            {#each columns as column, index}
+              <div class={index === 0 ? 'w-full min-w-0 pr-12' : 'min-w-0 max-w-full'}>
+                <dt class={index === 0 || !column.label ? 'sr-only' : 'text-xs text-gray-500 mb-1'}>{column.label || 'Actions'}</dt>
                 <dd class="min-w-0 break-words text-sm text-gray-900 {column.align === 'right' ? 'text-right' : ''}">
                   <slot name="cell" {row} {column}>{row[column.key]}</slot>
                 </dd>
               </div>
             {/each}
           </dl>
+          </slot>
         </article>
       {/each}
     </div>
@@ -436,3 +411,7 @@
     </div>
   {/if}
 </div>
+
+<style>
+  .table-extra-controls:not(:has(*)) { display: none; }
+</style>

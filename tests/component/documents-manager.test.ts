@@ -78,6 +78,7 @@ describe('DocumentsManager server-derived controls', () => {
 
     const lockedDocument = (await screen.findByText('Player handbook')).closest('li');
     expect(lockedDocument).not.toBeNull();
+    lockedDocument!.querySelector('details')!.open = true;
     expect(
       within(lockedDocument!).getByRole('button', { name: 'Delete' }),
     ).toBeDisabled();
@@ -104,6 +105,7 @@ describe('DocumentsManager server-derived controls', () => {
 
     const eligibleDocument = (await screen.findByText('Outdated schedule')).closest('li');
     expect(eligibleDocument).not.toBeNull();
+    eligibleDocument!.querySelector('details')!.open = true;
     const deleteButton = within(eligibleDocument!).getByRole('button', {
       name: 'Delete',
     });

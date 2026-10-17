@@ -110,6 +110,7 @@ describe('StaffManager audited lifecycle controls', () => {
     });
     render(TestedStaffManager);
 
+    (await screen.findByText('Editor One')).closest('details')!.open = true;
     await fireEvent.click(
       await screen.findByRole('button', { name: 'Manage access' }),
     );
@@ -142,9 +143,8 @@ describe('StaffManager audited lifecycle controls', () => {
     expect(updateMock.mock.calls[1][0].idempotencyKey)
       .toBe(updateMock.mock.calls[0][0].idempotencyKey);
 
-    await fireEvent.click(
-      screen.getByRole('button', { name: 'Pending invites' }),
-    );
+    await fireEvent.change(screen.getByRole('combobox', { name: 'Staff view' }), { target: { value: 'Invites' } });
+    (await screen.findByText('Viewer Invite')).closest('details')!.open = true;
     await fireEvent.click(
       await screen.findByRole('button', { name: 'Revoke' }),
     );
@@ -200,6 +200,7 @@ describe('StaffManager audited lifecycle controls', () => {
     }>();
     lifecycleMocks.updateStaffMembership.mockReturnValue(pending.promise);
     render(TestedStaffManager);
+    (await screen.findByText('Editor One')).closest('details')!.open = true;
     await fireEvent.click(
       await screen.findByRole('button', { name: 'Manage access' }),
     );

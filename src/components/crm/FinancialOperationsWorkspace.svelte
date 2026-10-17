@@ -1,5 +1,6 @@
 <script lang="ts">
-  import FilterDisclosure from './ui/FilterDisclosure.svelte';
+  import RecordToolbar from './ui/RecordToolbar.svelte';
+  import RecordItem from './ui/RecordItem.svelte';
   import { registerLiveRefresh } from '../../lib/crm/liveRefresh';
   import { onMount as mountRefresh } from 'svelte';
   import { onMount } from 'svelte';
@@ -153,11 +154,17 @@
       </div>
 
     </div>
-    <nav class="mt-4 flex gap-2 overflow-x-auto pb-1" aria-label="Financial operation views">
-      {#each views as view}
-        <button type="button" aria-pressed={activeView === view.id} class="whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold {activeView === view.id ? 'border-[var(--crm-brand-border)] bg-[var(--crm-brand-surface)] text-[var(--crm-on-brand-surface)]' : 'border-gray-200 bg-white text-gray-700'}" on:click={() => setView(view.id)}>{view.label}</button>
-      {/each}
-    </nav>
+    <RecordToolbar activeCount={[search.trim(), status].filter(Boolean).length} searchable={ownerAuthorized && activeView !== 'payment_setup' && (rows.length > 0 || Boolean(search || status))}>
+      <select slot="view" aria-label="Financial operation view" value={activeView} on:change={(event) => setView(event.currentTarget.value as WorkspaceView)}>
+        {#each views as view}<option value={view.id}>{view.label}</option>{/each}
+      </select>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <label>Search<input class="crm-ui-input w-full bg-white" type="search" bind:value={search} placeholder="Search records" /></label>
+        <label>Status<select class="crm-ui-input w-full bg-white" bind:value={status}><option value="">All statuses</option>{#each statusOptions as option}<option value={option}>{humanStatus(option)}</option>{/each}</select></label>
+        {#if search || status}<button type="button" class="justify-self-start text-sm font-semibold" on:click={() => { search = ''; status = ''; }}>Clear filters</button>{/if}
+        {#if rows.length > 0}<button type="button" class="justify-self-start crm-ui-button-secondary bg-white" disabled={!operations?.complete || filteredRows.length === 0} on:click={exportVisibleRows}>Export</button>{/if}
+      </div>
+    </RecordToolbar>
   </header>
 
   <main class="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
@@ -187,55 +194,21 @@
         <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950" role="status">Reconciliation needs attention: {operations.reconciliation.unreconciledTransactionCount} transaction records and {operations.reconciliation.unreconciledDepositCount} deposits.</div>
       {/if}
 
-      <section class="rounded-xl border border-gray-200 bg-white shadow-sm">
-        {#if rows.length > 0 || search || status}
-        <header class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 px-4 py-2">
-          {#if rows.length > 0 || search || status}
-            <FilterDisclosure activeCount={[search.trim(), status].filter(Boolean).length}>
-              <div class="flex flex-wrap gap-3 pb-2">
-                <label><span class="sr-only">Search financial records</span><input class="crm-ui-input bg-white" type="search" bind:value={search} placeholder="Search records" /></label>
-                <label><span class="sr-only">Status</span><select class="crm-ui-input bg-white" bind:value={status}><option value="">All statuses</option>{#each statusOptions as option}<option value={option}>{humanStatus(option)}</option>{/each}</select></label>
-                {#if search || status}<button type="button" class="text-sm font-semibold text-[var(--crm-brand-link)]" on:click={() => { search = ''; status = ''; }}>Clear filters</button>{/if}
-              </div>
-            </FilterDisclosure>
-          {/if}
-          {#if rows.length > 0}<button type="button" class="crm-ui-button-secondary bg-white" disabled={!operations.complete || filteredRows.length === 0} title={!operations.complete ? 'Export is available when all records load.' : undefined} on:click={exportVisibleRows}>Export</button>{/if}
-        </header>
-        {/if}
-        <div class="grid grid-cols-2 gap-px bg-gray-200 sm:grid-cols-3">
-          <div class="bg-white p-4"><p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Records</p><p class="mt-1 text-2xl font-bold text-gray-950">{filteredRows.length}</p></div>
-          <div class="bg-white p-4 sm:col-span-2"><p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Visible total</p><p class="mt-1 text-2xl font-bold text-gray-950">{rows.every((row) => row.currency === rows[0]?.currency) ? money(visibleTotal, rows[0]?.currency || 'USD') : 'Multiple currencies'}</p></div>
-        </div>
-        <!-- Keyboard users must be able to focus and scroll this overflow region. -->
-        <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-        <div class="overflow-x-auto" role="region" tabindex="0" aria-label={`${activeView} financial records`}>
-          <table class="crm-ui-table">
-            <thead><tr><th class="crm-ui-th">Date</th><th class="crm-ui-th">Record</th><th class="crm-ui-th">Context</th><th class="crm-ui-th">Status</th><th class="crm-ui-th text-right">Amount</th></tr></thead>
-            <tbody class="divide-y divide-gray-100">
-              {#each filteredRows as row (rowKey(row))}
-                <tr>
-                  <td data-label="Date" class="px-4 py-3 text-sm text-gray-700">{row.dateLabel || 'Not recorded'}</td>
-                  <td data-label="Record" class="px-4 py-3"><span class="text-sm font-semibold text-gray-950">{row.label}</span>{#if row.detail}<span class="block text-xs text-gray-500">{row.detail}</span>{/if}</td>
-                  <td data-label="Context" class="px-4 py-3 text-sm text-gray-700">{row.context || '—'}</td>
-                  <td data-label="Status" class="px-4 py-3 text-sm"><span class="inline-flex rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-800">{row.statusLabel}</span></td>
-                  <td data-label="Amount" class="px-4 py-3 text-right text-sm font-semibold text-gray-950">{money(row.amountCents, row.currency)}</td>
-                </tr>
-              {/each}
-              {#if filteredRows.length === 0}<tr><td colspan="5" class="px-6 py-10 text-center text-sm text-gray-600">{rows.length === 0 ? `No ${activeView} records are available.` : 'No records match the current filters.'}</td></tr>{/if}
-            </tbody>
-          </table>
-        </div>
+      <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2 text-sm text-gray-600" aria-live="polite">
+        <span>{filteredRows.length} {filteredRows.length === 1 ? 'record' : 'records'}</span>
+        <span>Visible total <strong class="ml-2 text-gray-950 tabular-nums">{rows.every((row) => row.currency === rows[0]?.currency) ? money(visibleTotal, rows[0]?.currency || 'USD') : 'Multiple currencies'}</strong></span>
+      </div>
+      <section class="rounded-xl border border-gray-200 bg-white text-gray-900" aria-label="Financial records">
+        {#each filteredRows as row (rowKey(row))}
+          <RecordItem title={row.label} context={row.context || ''} status={row.statusLabel} date={row.dateLabel || 'Date not recorded'} value={money(row.amountCents, row.currency)}>
+            <dl>
+              {#if row.detail}<dt>Details</dt><dd>{row.detail}</dd>{/if}
+              <dt>Currency</dt><dd>{row.currency || 'Not recorded'}</dd>
+            </dl>
+          </RecordItem>
+        {/each}
+        {#if filteredRows.length === 0}<p class="p-6 text-center text-sm text-gray-600">{rows.length === 0 ? `No ${activeView} yet.` : 'No records match the current filters.'}</p>{/if}
       </section>
     {/if}
   </main>
 </div>
-
-<style>
-  @media (max-width: 639px) {
-    table, thead, tbody, th, td, tr { display: block; }
-    thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-    tbody tr { border-bottom: 1px solid rgb(229 231 235); padding: 0.5rem 0; }
-    tbody td { display: flex; align-items: start; justify-content: space-between; gap: 1rem; text-align: right; }
-    tbody td[data-label]::before { content: attr(data-label); flex: none; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: rgb(107 114 128); }
-  }
-</style>

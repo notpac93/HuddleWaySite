@@ -8,8 +8,6 @@ const source = (relativePath: string) =>
 
 const nativeTableCounts: Record<string, number> = {
   'DataTable.svelte': 1,
-  'FinancialOperationsWorkspace.svelte': 1,
-  'StaffManager.svelte': 1,
   'registration/RegistrationDetail.svelte': 2,
   'seasons/SeasonDetail.svelte': 2,
   'seasons/SeasonsManager.svelte': 1,
@@ -21,8 +19,11 @@ describe('exhaustive CRM table and projection audit', () => {
       expect(source(file).match(/<table\b/g)).toHaveLength(count);
     }
     expect(Object.values(nativeTableCounts).reduce((sum, count) => sum + count, 0))
-      .toBe(8);
+      .toBe(6);
 
+    for (const file of ['FinancialOperationsWorkspace.svelte', 'StaffManager.svelte', 'DocumentsManager.svelte']) {
+      expect(source(file)).toContain('<RecordItem');
+    }
     for (const file of [
       'events/EventRegistrantsModal.svelte',
       'registration/FormsTable.svelte',

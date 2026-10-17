@@ -1,5 +1,6 @@
 <script lang="ts">
-  import FilterDisclosure from './ui/FilterDisclosure.svelte';
+  import RecordToolbar from './ui/RecordToolbar.svelte';
+  import RecordItem from './ui/RecordItem.svelte';
   import { registerLiveRefresh } from '../../lib/crm/liveRefresh';
   import { onMount as mountRefresh } from 'svelte';
   import { onMount } from 'svelte';
@@ -271,20 +272,18 @@
 
   <section class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" aria-labelledby="document-list-title">
     <div class="border-b border-gray-200 p-4">
-      <h3 id="document-list-title" class="font-semibold text-gray-900">Available documents</h3>
+      <h3 id="document-list-title" class="sr-only">Documents</h3>
       <p class="crm-ui-hint">{documents.length} available</p>
       {#if truncated}
         <p class="crm-ui-notice-spaced" role="status">
           More documents are available.
         </p>
       {/if}
-      <FilterDisclosure activeCount={[Boolean(searchQuery.trim()), categoryFilter !== 'all', audienceFilter !== 'all', availabilityFilter !== 'all'].filter(Boolean).length}>
-      <div class="mt-4 grid gap-3 md:grid-cols-4">
+      <RecordToolbar activeCount={[Boolean(searchQuery.trim()), categoryFilter !== 'all', audienceFilter !== 'all', availabilityFilter !== 'all'].filter(Boolean).length}>
+      <select slot="view" aria-label="Document category" bind:value={categoryFilter}><option value="all">All documents</option>{#each categories as category}<option value={category}>{category}</option>{/each}</select>
+      <div class="grid gap-3 md:grid-cols-3">
         <label class="text-sm">Search
           <input type="search" class="mt-1 block w-full rounded-md border border-gray-300 p-2" bind:value={searchQuery} placeholder="Title, category, type, uploader" />
-        </label>
-        <label class="text-sm">Category
-          <select class="mt-1 block w-full rounded-md border border-gray-300 p-2" bind:value={categoryFilter}><option value="all">All categories</option>{#each categories as category}<option value={category}>{category}</option>{/each}</select>
         </label>
         <label class="text-sm">Audience
           <select class="mt-1 block w-full rounded-md border border-gray-300 p-2" bind:value={audienceFilter}><option value="all">All audiences</option><option value="organization">Entire organization</option><option value="selected_live_events">Selected live events</option><option value="saved_for_later">Saved for later</option></select>
@@ -293,7 +292,7 @@
           <select class="mt-1 block w-full rounded-md border border-gray-300 p-2" bind:value={availabilityFilter}><option value="all">Any availability</option><option value="available">Available</option><option value="unavailable">Unavailable</option></select>
         </label>
       </div>
-      </FilterDisclosure>
+      </RecordToolbar>
     </div>
     {#if isLoading}
       <div class="p-8 text-center text-gray-500" role="status">Loading documents…</div>
@@ -309,24 +308,15 @@
     {:else}
       <ul class="divide-y divide-gray-200">
         {#each filteredDocuments as documentRecord (documentRecord.id)}
-          <li class="flex flex-col gap-4 p-4 hover:bg-gray-50 sm:flex-row sm:items-center sm:justify-between">
-            <div class="min-w-0">
-              <p class="break-words text-sm font-medium text-gray-900">{documentRecord.title || 'Document title unavailable'}</p>
-              <p class="crm-ui-hint">
-                {documentRecord.fileType || 'File type unavailable'} ·
-                {documentRecord.category || 'Category unavailable'} ·
-                {documentRecord.uploadedAt ? new Date(documentRecord.uploadedAt).toLocaleDateString() : 'Upload date unavailable'}
-              </p>
-              <p class="crm-ui-hint">{documentRecord.availabilityScope || 'Availability scope unavailable'}</p>
-              <p class="crm-ui-hint">
-                {documentRecord.storageSizeBytes ? `${(documentRecord.storageSizeBytes / 1024 / 1024).toFixed(2)} MB` : 'Size unavailable'} ·
-                {documentRecord.linkedEventIds?.length || 0} linked event{(documentRecord.linkedEventIds?.length || 0) === 1 ? '' : 's'} ·
-                {documentRecord.isAvailable ? 'Available' : 'Unavailable'}
-              </p>
-              {#if !documentRecord.canDelete && documentRecord.deleteUnavailableReason}
-                <p class="crm-ui-hint">{documentRecord.deleteUnavailableReason}</p>
-              {/if}
-            </div>
+          <li>
+            <RecordItem title={documentRecord.title || 'Document title unavailable'} context={documentRecord.category || ''} status={documentRecord.isAvailable ? 'Available' : 'Unavailable'} date={documentRecord.uploadedAt ? new Date(documentRecord.uploadedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}>
+              <dl>
+                <dt>File type</dt><dd>{documentRecord.fileType?.toUpperCase() || 'Not provided'}</dd>
+                <dt>Audience</dt><dd>{documentRecord.availabilityScope === 'organization' ? 'Entire organization' : documentRecord.availabilityScope === 'selected_live_events' ? 'Selected activities' : documentRecord.availabilityScope === 'saved_for_later' ? 'Saved for later' : 'Not provided'}</dd>
+                <dt>Size</dt><dd>{documentRecord.storageSizeBytes ? `${(documentRecord.storageSizeBytes / 1024 / 1024).toFixed(2)} MB` : 'Not provided'}</dd>
+                <dt>Linked activities</dt><dd>{documentRecord.linkedEventIds?.length || 0}</dd>
+              </dl>
+              {#if !documentRecord.canDelete && documentRecord.deleteUnavailableReason}<p class="mb-3 text-sm">{documentRecord.deleteUnavailableReason}</p>{/if}
             <div class="flex shrink-0 flex-wrap gap-4">
               <button type="button" disabled={!canManageTenant || !documentRecord.storagePath} title={!canManageTenant ? 'Viewer access is read-only.' : !documentRecord.storagePath ? 'Repair the approved storage object before editing.' : undefined} class="crm-theme-link text-sm font-medium disabled:text-gray-400" on:click={() => editorRecord = documentRecord}>Edit</button>
               <button
@@ -346,6 +336,7 @@
                 on:click={() => openDeleteDialog(documentRecord)}
               >Delete</button>
             </div>
+            </RecordItem>
           </li>
         {/each}
       </ul>
