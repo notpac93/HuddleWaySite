@@ -194,6 +194,7 @@ async function signIn(page: Page, email: string) {
 
 async function mockAuthenticatedBackend(page: Page, tenantId: string) {
   const operationalResponses: Record<string, Record<string, unknown>> = {
+    '/admin/owner-onboarding/vocabulary': { programProfile: null },
     '/admin/inbox/threads': { success: true, threads: [], truncated: false },
     '/admin/crm/documents': { documents: [], truncated: false },
     '/admin/staff': { staff: [], pendingInvites: [], truncated: { staff: false, pendingInvites: false } },
@@ -436,13 +437,16 @@ async function mockAuthenticatedBackend(page: Page, tenantId: string) {
 
 async function openCrmTab(page: Page, tab: string, mobile: boolean) {
   const visibleLabel = tab === 'Settings' ? 'My profile' : tab;
-  if (mobile) {
+  const appToggle = page.getByRole('button', { name: 'Admin tabs', exact: true });
+  if (await appToggle.isVisible()) await appToggle.click();
+  const appNavigation = page.locator('#app-admin-navigation.app-navigation-overlay');
+  if (mobile || await appNavigation.isVisible()) {
     const quickAccess = page.getByRole('navigation', { name: 'Admin quick access' });
     if (['Dashboard', 'Events', 'Messages', 'My App'].includes(tab)) {
       await quickAccess.getByRole('button', { name: visibleLabel, exact: true }).click();
     } else {
       await quickAccess.getByRole('button', { name: /^More/ }).click();
-      const drawer = page.getByRole('dialog', { name: 'More · Fixture Athletics' });
+      const drawer = page.getByRole('navigation', { name: 'More sections' });
       await drawer.getByRole('button', { name: visibleLabel, exact: true }).click();
       await expect(drawer).toBeHidden();
     }
@@ -456,8 +460,8 @@ async function openCrmTab(page: Page, tab: string, mobile: boolean) {
   }
 
   await expect(
-    page.locator('header.crm-ui-shell-header').getByText(visibleLabel, { exact: true }),
-  ).toBeVisible();
+    page.locator('main h1.sr-only'),
+  ).toHaveText(visibleLabel);
   await expect(
     page.locator('main span.sr-only').filter({ hasText: `Loading ${tab}` }),
   ).toHaveCount(0);
@@ -556,9 +560,11 @@ test('verified owner can use the authenticated CRM shell by keyboard and mobile 
   await page.keyboard.press('Enter');
   await expect(searchDialog).toBeHidden();
   await expect(page.getByRole('heading', { name: 'Teams', exact: true }).first()).toBeVisible();
-  await expect(
-    page.getByRole('navigation', { name: 'Breadcrumb' }).locator('[aria-current="page"]'),
-  ).toHaveText('Fixture Falcons');
+  if (mobile) {
+    await expect(page.getByRole('heading', { name: 'Fixture Falcons', exact: true, level: 2 })).toBeVisible();
+  } else {
+    await expect(page.getByRole('navigation', { name: 'Breadcrumb' }).locator('[aria-current="page"]')).toHaveText('Fixture Falcons');
+  }
 
   const horizontalOverflow = await page.evaluate(
     () =>
@@ -593,6 +599,7 @@ test('admin tabs survive repeated visits, reload, and unsaved My App navigation'
   await expect(page.getByRole('heading', { name: 'Operations Portal' })).toHaveCount(0);
 
   await openCrmTab(page, 'My App', mobile);
+  await page.getByRole('button', { name: /^Edit app(?: Unpublished changes)?$/ }).click();
   for (const section of ['Pages', 'Components', 'Version history', 'Branding']) {
     await page.getByRole('navigation', { name: 'My App sections' }).getByRole('button', { name: section, exact: true }).click();
     await expect(page.getByRole('alert').filter({ hasText: /could not|unavailable|invalid/i })).toHaveCount(0);
@@ -600,19 +607,27 @@ test('admin tabs survive repeated visits, reload, and unsaved My App navigation'
   }
   const appName = page.getByLabel('App Name', { exact: true });
   await appName.fill('Unsaved test name');
-  const events = mobile
-    ? page.getByRole('navigation', { name: 'Admin quick access' }).getByRole('button', { name: 'Events', exact: true })
-    : page.locator('aside[data-sidebar-expanded] nav').getByRole('button', { name: 'Events', exact: true });
+  await page.getByRole('button', { name: 'Back to app', exact: true }).click();
+  await page.getByRole('button', { name: 'Admin tabs', exact: true }).click();
+  const events = page.getByRole('navigation', { name: 'Admin quick access' }).getByRole('button', { name: 'Events', exact: true });
   await events.click();
-  const guard = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: 'Stay', exact: true }) });
+  const guard = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: 'Keep editing', exact: true }) });
   await expect(guard).toBeVisible();
-  await guard.getByRole('button', { name: 'Stay', exact: true }).click();
+  await expect(guard.locator('.draft-navigation-actions button')).toHaveCount(2);
+  await guard.getByRole('button', { name: 'Keep editing', exact: true }).click();
+  await page.getByRole('button', { name: /^Edit app(?: Unpublished changes)?$/ }).click();
   await expect(appName).toHaveValue('Unsaved test name');
+  await page.getByRole('button', { name: 'Back to app', exact: true }).click();
+  if (await page.getByRole('button', { name: 'Admin tabs', exact: true }).isVisible()) {
+    await page.getByRole('button', { name: 'Admin tabs', exact: true }).click();
+  }
   await events.click();
-  await guard.getByRole('button', { name: 'Discard changes', exact: true }).click();
-  await expect(page.locator('header.crm-ui-shell-header').getByText('Events', { exact: true })).toBeVisible();
+  await guard.getByRole('button', { name: 'Save draft & leave', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Events', exact: true, level: 1 }).first()).toBeVisible();
   await openCrmTab(page, 'My App', mobile);
-  await expect(appName).not.toHaveValue('Unsaved test name');
+  await page.getByRole('button', { name: /^Edit app(?: Unpublished changes)?$/ }).click();
+  await page.getByRole('button', { name: 'Restore', exact: true }).click();
+  await expect(appName).toHaveValue('Unsaved test name');
   expect(errors).toEqual([]);
 });
 

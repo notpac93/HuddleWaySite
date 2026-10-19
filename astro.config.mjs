@@ -1,6 +1,7 @@
 import { defineConfig } from 'astro/config';
 import svelte from '@astrojs/svelte';
 import tailwindcss from '@tailwindcss/vite';
+import adminStyles from './scripts/consolidate-admin-styles.mjs';
 
 export default defineConfig({
   site: 'https://huddleway.com',
@@ -14,8 +15,9 @@ export default defineConfig({
   trailingSlash: 'ignore',
   build: {
     format: 'directory',
+    inlineStylesheets: 'never',
   },
-  integrations: [svelte()],
+  integrations: [svelte(), adminStyles()],
   vite: {
     cacheDir: process.env.PLAYWRIGHT_ISOLATED_ADMIN === '1'
       ? '.astro/admin-ui-vite'
@@ -23,6 +25,7 @@ export default defineConfig({
     plugins: [tailwindcss()],
     build: {
       minify: 'terser',
+      cssMinify: 'lightningcss',
       terserOptions: {
         compress: {
           passes: 3,
@@ -34,6 +37,7 @@ export default defineConfig({
       rolldownOptions: {
         output: {
           codeSplitting: {
+            minSize: 30_000,
             groups: [
               {
                 name: 'firebase',

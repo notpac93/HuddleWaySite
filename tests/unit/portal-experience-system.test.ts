@@ -56,7 +56,7 @@ describe('Operations Portal experience foundations', () => {
     const layout = source('src/layouts/CrmLayout.astro');
     const css = source('src/styles/portal-experience.css');
     expect(layout).toContain("import '../styles/portal-experience.css'");
-    expect(css).toContain("@fontsource/roboto/400.css");
-    expect(css).toContain("--portal-font-ui: 'Roboto'");
+    expect(css).toContain("@fontsource-variable/roboto");
+    expect(css).toContain("--portal-font-ui: 'Roboto Variable'");
   });
 });
