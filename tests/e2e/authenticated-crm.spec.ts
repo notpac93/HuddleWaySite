@@ -190,6 +190,7 @@ async function signIn(page: Page, email: string) {
   await page.getByLabel('Password').fill(password);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByText('Quick Actions')).toBeVisible();
+  await expect(page.locator('astro-dev-toolbar')).toHaveCount(0);
 }
 
 async function mockAuthenticatedBackend(page: Page, tenantId: string) {

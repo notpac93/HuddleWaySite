@@ -14,12 +14,8 @@
   export let isOpen = false;
 
   let searchQuery = '';
-  let searchInput: HTMLInputElement;
   const dispatch = createEventDispatcher();
 
-  $: if (isOpen && searchInput) {
-    setTimeout(() => searchInput?.focus(), 50);
-  }
 
   function closeSearch() {
     isOpen = false;
@@ -109,7 +105,6 @@
               </svg>
             </div>
             <input
-              bind:this={searchInput}
               bind:value={searchQuery}
               id="global-search-input"
               type="search"

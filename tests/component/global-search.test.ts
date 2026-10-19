@@ -106,6 +106,26 @@ describe('GlobalSearch bounded record routing', () => {
     ).toBeEnabled();
   });
 
+  it('does not steal focus back after keyboard navigation starts', async () => {
+    stores.registrations!.set([{ id: 'registration-1', participantName: 'Fixture Player' }]);
+    vi.useFakeTimers();
+    const { unmount } = render(TestedGlobalSearch, { isOpen: true });
+    try {
+      const input = screen.getByRole('searchbox');
+      await fireEvent.input(input, { target: { value: 'Fixture' } });
+      await vi.advanceTimersByTimeAsync(20);
+      expect(input).toHaveFocus();
+      const result = screen.getByRole('button', { name: /Fixture Player/ });
+      await fireEvent.keyDown(input, { key: 'ArrowDown' });
+      expect(result).toHaveFocus();
+      await vi.advanceTimersByTimeAsync(100);
+      expect(result).toHaveFocus();
+    } finally {
+      unmount();
+      vi.useRealTimers();
+    }
+  });
+
   it('moves focus through all result categories and wraps without leaving the dialog', async () => {
     stores.registrations!.set([{ id: 'registration-1', participantName: 'Fixture Player' }]);
     stores.teams!.set([{ id: 'team-1', name: 'Fixture Team' }]);

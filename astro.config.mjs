@@ -8,7 +8,10 @@ export default defineConfig({
   output: 'static',
   // The development toolbar covers bottom navigation on phone viewports.
   // Keep it available for normal development, but exclude it from UI journeys.
-  devToolbar: { enabled: process.env.PLAYWRIGHT_ISOLATED_ADMIN !== '1' },
+  devToolbar: {
+    enabled: process.env.PLAYWRIGHT_TEST !== '1'
+      && process.env.PLAYWRIGHT_ISOLATED_ADMIN !== '1',
+  },
   // Static hosting serves directory artifacts with trailing slashes while
   // application links omit them. Accept both so bookmarks and provider return
   // links cannot strand a user on Astro's development/static 404 page.
