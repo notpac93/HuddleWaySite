@@ -39,5 +39,8 @@ if (result.error) throw result.error;
 if (result.status !== 0) {
   process.exitCode = result.status ?? 1;
 } else {
+  const startup = spawnSync('npm', ['run', 'check:startup'], { cwd: process.cwd(), stdio: 'inherit' });
+  if (startup.error) throw startup.error;
+  if (startup.status !== 0) process.exit(startup.status ?? 1);
   await writeStageCanaryReleaseManifest(join(process.cwd(), 'dist'), explicit);
 }

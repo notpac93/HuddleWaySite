@@ -36,6 +36,9 @@ export default defineConfig({
       },
       rolldownOptions: {
         output: {
+          // Firebase has eager initializers across size-split chunks. Keep their
+          // original execution order so hydration cannot read uninitialized classes.
+          strictExecutionOrder: true,
           codeSplitting: {
             minSize: 30_000,
             groups: [

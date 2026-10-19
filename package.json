@@ -18,7 +18,7 @@
     "check:performance": "node scripts/check-crm-performance.mjs",
     "check:security": "node scripts/check-security-headers.mjs",
     "test": "npm run test:unit && npm run test:component",
-    "test:build": "npm run build && npm run check:performance",
+    "test:build": "npm run build && npm run check:startup && npm run check:performance",
     "test:type": "npm run check -- --minimumSeverity error",
     "test:unit": "vitest run --config vitest.config.ts",
     "test:unit:watch": "vitest --config vitest.config.ts",
@@ -46,7 +46,8 @@
     "release:deploy:rollback-receipt": "node scripts/release/crm-production-deploy.mjs record-rollback",
     "release:deploy:rollback-verify": "node scripts/release/crm-production-deploy.mjs verify-rollback-live",
     "release:audit": "npm audit --omit=dev --audit-level=high",
-    "release:ci": "npm run release:preflight && npm run test:type && npm run test:unit && npm run test:component && npm run test:integration && npm run test:e2e && npm run release:audit && npm run release:clean && npm run build && npm run release:quarantine && npm run check:security && npm run check:performance && npm run release:manifest && npm run release:verify"
+    "release:ci": "npm run release:preflight && npm run test:type && npm run test:unit && npm run test:component && npm run test:integration && npm run test:e2e && npm run release:audit && npm run release:clean && npm run build && npm run check:startup && npm run release:quarantine && npm run check:security && npm run check:performance && npm run release:manifest && npm run release:verify",
+    "check:startup": "node scripts/check-crm-bundle-initialization.mjs"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.9",
