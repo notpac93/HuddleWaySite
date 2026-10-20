@@ -22,13 +22,15 @@
   export let componentDraft: AppComponentPreviewDraft | null = null;
   export let onFieldSelected: (fieldId: string) => void = () => {};
   export let compact = false;
+  export let deferUntilVisible = false;
   export let immersive = false;
   export let onInteract: () => void = () => {};
 
   let frame: HTMLIFrameElement | null = null;
   let session: AppPreviewSession | null = null;
   let previewSrc = '';
-  let state: 'idle' | 'loading' | 'awaiting' | 'synced' | 'error' = 'idle';
+  let state: 'idle' | 'deferred' | 'loading' | 'awaiting' | 'synced' | 'error' = 'idle';
+  let previewStarted = !deferUntilVisible;
   let errorMessage = '';
   let revision = 0;
   let lastConfiguration = '';
@@ -76,8 +78,35 @@
       window.location.origin,
       session,
     );
-    state = 'loading';
-    startHandshakeTimer(30000);
+    state = previewStarted ? 'loading' : 'deferred';
+    if (previewStarted) startHandshakeTimer(30000);
+  }
+
+  function observePreviewVisibility(node: HTMLElement) {
+    if (!deferUntilVisible || previewStarted) return;
+    // A hidden Flutter iframe may not receive animation frames, including the
+    // first-frame ready proof. Start the real app and its unchanged deadline
+    // only when this actual preview region can render. Keep it mounted after.
+    if (typeof IntersectionObserver === 'undefined') {
+      state = 'error';
+      errorMessage = 'Preview visibility could not be detected. Reopen this preview in a supported browser.';
+      return;
+    }
+    let disposed = false;
+    const observer = new IntersectionObserver((entries) => {
+      if (disposed || !node.isConnected || previewStarted || !entries.some(entry => entry.target === node
+        && entry.isIntersecting
+        && entry.intersectionRect.width > 0
+        && entry.intersectionRect.height > 0)) return;
+      previewStarted = true;
+      observer.disconnect();
+      if (session) {
+        state = 'loading';
+        startHandshakeTimer(30000);
+      }
+    }, { threshold: 0 });
+    observer.observe(node);
+    return { destroy: () => { disposed = true; observer.disconnect(); } };
   }
 
   function handleLoad() {
@@ -194,12 +223,13 @@
 </script>
 
 <div class:immersive class="preview-host flex flex-1 flex-col items-center justify-start {immersive ? '' : compact ? 'py-2' : 'py-4'}">
-  <div class:crm-ui-studio-device-compact={compact} class="crm-ui-studio-device"
+  <div use:observePreviewVisibility class:crm-ui-studio-device-compact={compact} class="crm-ui-studio-device"
     data-preview-state={state} data-preview-attested={attested}
     data-preview-revision={revision} data-preview-configuration-ready={configurationReady}
     data-preview-last-message={lastFrameMessage}>
     {#if !immersive}<div class="crm-ui-studio-notch"></div>{/if}
     {#if tenantId && previewSrc}
+      {#if previewStarted}
       <iframe
         bind:this={frame}
         src={previewSrc}
@@ -208,6 +238,7 @@
         allow="clipboard-read; clipboard-write; fullscreen"
         on:load={handleLoad}
       ></iframe>
+      {/if}
       {#if state !== 'synced'}
         <div
           class={state === 'error'
@@ -222,6 +253,8 @@
               class="mt-3 rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold"
               on:click={() => resetSession(sessionKey)}
             >Reload preview</button>
+          {:else if state === 'deferred'}
+            Scroll to this preview to start the consumer app.
           {:else}
             Verifying the exact consumer app…
           {/if}

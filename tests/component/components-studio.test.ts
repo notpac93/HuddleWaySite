@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/svelte";
 import type { Component } from "svelte";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CrmComponentStudioSnapshot } from "../../src/lib/api/BackendApi";
 
 const api = vi.hoisted(() => ({
@@ -111,7 +111,17 @@ function renderStudio() {
 }
 
 describe("ComponentsStudio", () => {
+  afterEach(() => vi.unstubAllGlobals());
   beforeEach(() => {
+    // Interaction tests model a positively intersecting preview; visibility and
+    // timing boundaries are separately exercised by AppPreviewFrame tests.
+    vi.stubGlobal('IntersectionObserver', class {
+      constructor(private callback: IntersectionObserverCallback) {}
+      observe(target: Element) { queueMicrotask(() => this.callback([
+        { target, isIntersecting: true, intersectionRect: { width: 232, height: 503 } } as IntersectionObserverEntry,
+      ], {} as IntersectionObserver)); }
+      disconnect() {}
+    });
     api.componentStudio.mockReset();
     api.componentStudio.mockResolvedValue(snapshot());
     api.publishPageLayout.mockReset();

@@ -380,7 +380,7 @@
       type="search"
       aria-label="Search participants"
       bind:value={searchQuery}
-      class="block w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[var(--crm-brand-border)] shadow-sm"
+      class="block w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded text-base sm:text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[var(--crm-brand-border)] shadow-sm"
       placeholder="Search by participant name or email"
       />
     </label>

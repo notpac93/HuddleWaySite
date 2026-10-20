@@ -346,7 +346,7 @@
               <ComponentEditor bind:this={componentEditor} component={selectedComponent} definition={selectedDefinition} adding={Boolean(addingComponent)} busy={state === 'publishing'} onChange={changeField} onFieldFocus={focusPreviewField} onToggleVisibility={toggleVisibility} onRemove={removeSelected} onConfirmAdd={confirmAdd} onCancel={closeEditor} />
             </div>
             <section aria-label="Live isolated component preview" class="min-h-0 min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-gray-100 p-2">
-              <AppPreviewFrame compact {previewOrigin} tenantId={tenantId} environment={previewEnvironment} {configuration} {configurationReady} title={`${selectedComponent.label} isolated consumer preview`} {expectedSourceCommit} {expectedReleaseId} componentDraft={{ pageRoute: selectedPage.route, component: selectedComponent, selectedFieldId: selectedFieldId || null }} onFieldSelected={focusEditorField} />
+              <AppPreviewFrame compact deferUntilVisible {previewOrigin} tenantId={tenantId} environment={previewEnvironment} {configuration} {configurationReady} title={`${selectedComponent.label} isolated consumer preview`} {expectedSourceCommit} {expectedReleaseId} componentDraft={{ pageRoute: selectedPage.route, component: selectedComponent, selectedFieldId: selectedFieldId || null }} onFieldSelected={focusEditorField} />
             </section>
           </div>
         {:else}

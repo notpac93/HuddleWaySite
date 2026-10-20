@@ -8,9 +8,9 @@ const sourceCommit = 'a'.repeat(40);
 const releaseId = 'consumer-stage-fixture';
 const configuration = { name: 'STEM It Up Sports', primaryColor: '#0b5c42', secondaryColor: '#0f2747',
   tertiaryColor: '#f4b41a', logoUrl: null, navigationTabs: [{ key: 'home', pageId: 'home', label: 'Home', route: '/', enabled: true }] };
-function mount(configurationReady = true) {
+function mount(configurationReady = true, extra = {}) {
   return render(AppPreviewFrame, { previewOrigin: origin, tenantId: 'stem-it-up-sports', environment: 'stage',
-    configuration, configurationReady, title: 'Consumer fixture preview', expectedSourceCommit: sourceCommit, expectedReleaseId: releaseId });
+    configuration, configurationReady, title: 'Consumer fixture preview', expectedSourceCommit: sourceCommit, expectedReleaseId: releaseId, ...extra });
 }
 function message(frame: HTMLIFrameElement, type: 'ready' | 'applied' | 'rejected' | 'interaction', extra = {}, originOverride = origin) {
   const query = new URL(frame.src).searchParams;
@@ -150,5 +150,114 @@ describe('live consumer preview handshake', () => {
     expect(send).not.toHaveBeenCalled();
     await view.rerender({ configurationReady: true });
     await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+  });
+});
+
+
+function visibilityObserver() {
+  let callback: IntersectionObserverCallback;
+  let target: Element;
+  const disconnect = vi.fn();
+  vi.stubGlobal('IntersectionObserver', class {
+    constructor(value: IntersectionObserverCallback) { callback = value; }
+    observe(node: Element) { target = node; }
+    disconnect = disconnect;
+  });
+  return { disconnect, enter(visible = true, width = 232.5, height = 503.44) {
+    callback([{ target, isIntersecting: visible, intersectionRect: { width, height } } as IntersectionObserverEntry], {} as IntersectionObserver);
+  } };
+}
+
+describe('isolated preview initial visibility', () => {
+  it('disconnects an unmounted deferred preview without starting a late frame or timer', async () => {
+    vi.useFakeTimers();
+    const observer = visibilityObserver();
+    try {
+      const view = mount(true, { deferUntilVisible: true }); await tick();
+      view.unmount(); observer.enter(); await tick();
+      expect(observer.disconnect).toHaveBeenCalledOnce();
+      expect(vi.getTimerCount()).toBe(0);
+      expect(screen.queryByTitle('Consumer fixture preview')).not.toBeInTheDocument();
+    } finally { vi.useRealTimers(); vi.unstubAllGlobals(); }
+  });
+
+  it('fails closed when isolated visibility cannot be observed', async () => {
+    vi.stubGlobal('IntersectionObserver', undefined);
+    try {
+      mount(true, { deferUntilVisible: true }); await tick();
+      expect(screen.queryByTitle('Consumer fixture preview')).not.toBeInTheDocument();
+      expect(screen.getByRole('alert')).toHaveTextContent('visibility could not be detected');
+    } finally { vi.unstubAllGlobals(); }
+  });
+
+  it('defers the real iframe and deadline offscreen, then preserves the full30-second startup bound', async () => {
+    vi.useFakeTimers();
+    const observer = visibilityObserver();
+    try {
+      mount(true, { deferUntilVisible: true }); await tick();
+      expect(screen.queryByTitle('Consumer fixture preview')).not.toBeInTheDocument();
+      expect(screen.getByRole('status')).toHaveTextContent('Scroll to this preview');
+      await vi.advanceTimersByTimeAsync(60000);
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      observer.enter(false); observer.enter(true, 0, 503); await tick();
+      expect(screen.queryByTitle('Consumer fixture preview')).not.toBeInTheDocument();
+      observer.enter(); await tick();
+      expect(screen.getByTitle('Consumer fixture preview')).toBeInTheDocument();
+      expect(observer.disconnect).toHaveBeenCalledOnce();
+      await vi.advanceTimersByTimeAsync(29999);
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      await vi.advanceTimersByTimeAsync(2);
+      expect(screen.getByRole('alert')).toHaveTextContent('did not prove');
+    } finally { vi.useRealTimers(); vi.unstubAllGlobals(); }
+  });
+
+  it('applies only the latest draft with unchanged attestation and8-second acknowledgement after first visibility', async () => {
+    vi.useFakeTimers();
+    const observer = visibilityObserver();
+    try {
+      const view = mount(true, { deferUntilVisible: true }); await tick();
+      await view.rerender({ configuration: { ...configuration, name: 'Latest deferred draft' } });
+      observer.enter(); await tick();
+      const frame = screen.getByTitle('Consumer fixture preview') as HTMLIFrameElement;
+      const send = vi.spyOn(frame.contentWindow!, 'postMessage');
+      message(frame, 'ready', {}, 'https://untrusted.example'); await tick();
+      expect(send).not.toHaveBeenCalled();
+      message(frame, 'ready'); await tick();
+      const payload = JSON.parse(send.mock.calls.at(-1)![0] as string);
+      expect(payload.configuration.name).toBe('Latest deferred draft');
+      message(frame, 'applied', { revision: payload.revision - 1 }); await tick();
+      expect(screen.getByRole('status')).toBeInTheDocument();
+      await vi.advanceTimersByTimeAsync(8001);
+      expect(screen.getByRole('alert')).toHaveTextContent('did not prove');
+    } finally { vi.useRealTimers(); vi.unstubAllGlobals(); }
+  });
+
+  it('keeps the same mounted attested session after scrolling out and disconnects on destruction', async () => {
+    const observer = visibilityObserver();
+    try {
+      const view = mount(true, { deferUntilVisible: true }); await tick();
+      observer.enter(); await tick();
+      const frame = screen.getByTitle('Consumer fixture preview') as HTMLIFrameElement;
+      const session = new URL(frame.src).searchParams.get('previewSession');
+      const send = vi.spyOn(frame.contentWindow!, 'postMessage');
+      message(frame, 'ready'); await tick();
+      message(frame, 'applied', { revision: JSON.parse(send.mock.calls.at(-1)![0] as string).revision }); await tick();
+      observer.enter(false); await tick();
+      expect(screen.getByTitle('Consumer fixture preview')).toBe(frame);
+      expect(new URL(frame.src).searchParams.get('previewSession')).toBe(session);
+      expect(view.container.querySelector('[data-preview-attested]')).toHaveAttribute('data-preview-attested', 'true');
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      view.unmount(); expect(observer.disconnect).toHaveBeenCalledTimes(2);
+    } finally { vi.unstubAllGlobals(); }
+  });
+
+  it('rejects a source mismatch after visibility instead of treating mounted as ready', async () => {
+    const observer = visibilityObserver();
+    try {
+      mount(true, { deferUntilVisible: true }); observer.enter(); await tick();
+      const frame = screen.getByTitle('Consumer fixture preview') as HTMLIFrameElement;
+      message(frame, 'ready', { sourceCommit: 'b'.repeat(40) }); await tick();
+      expect(screen.getByRole('alert')).toHaveTextContent('does not match');
+    } finally { vi.unstubAllGlobals(); }
   });
 });

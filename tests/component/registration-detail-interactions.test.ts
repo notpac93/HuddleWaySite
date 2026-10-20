@@ -135,6 +135,10 @@ describe('RegistrationDetail table interactions', () => {
         const page = await browser.newPage({ viewport });
         await page.route('**/*', route => route.abort());
         await page.setContent(`<style>${css}</style>${html}`);
+        // Keep mobile input at16px and the existing desktop control at14px.
+        // Actual iOS focus/viewport behavior still requires physical validation.
+        const searchFont = await page.getByLabel('Search participants').evaluate(element => getComputedStyle(element).fontSize);
+        expect(searchFont).toBe(viewport.width < 640 ? '16px' : '14px');
         const region = page.getByRole('region', { name: 'Scrollable participants table', exact: true });
         const manager = page.locator('[data-manager]');
         await manager.evaluate(element => { element.scrollTop = element.scrollHeight; });
