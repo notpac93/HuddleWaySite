@@ -117,6 +117,8 @@ vi.mock('../../src/lib/services/DataStore', async () => {
     teamsProjectionScope: writable(healthy),
     eventsProjectionScope: writable(healthy),
     seasonRegistrationsProjectionScope: writable(healthy),
+    registrationsProjectionScope: writable(healthy),
+    refundsStore: writable([]),
     financialProjectionScope: writable(financial),
   };
 });

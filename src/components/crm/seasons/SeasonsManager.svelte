@@ -208,7 +208,7 @@
   });
 </script>
 
-<div class="h-full overflow-y-auto bg-gray-50/50 p-6 md:p-8">
+<div class="h-full min-w-0 w-full overflow-y-auto bg-gray-50/50 p-4 sm:p-6 md:p-8">
   {#if seasonReceipt}
     <div class="mb-6">
       <ChangeReceipt status="success" title={seasonReceipt.title} message={seasonReceipt.message} onDismiss={() => seasonReceipt = null} />

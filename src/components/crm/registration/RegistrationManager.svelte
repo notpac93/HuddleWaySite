@@ -310,7 +310,7 @@
   />
 {/if}
 
-<div class="h-full flex flex-col p-8 space-y-6 overflow-y-auto bg-white">
+<div class="h-full min-w-0 w-full flex flex-col p-4 sm:p-8 space-y-6 overflow-y-auto bg-white">
   {#if formChangeReceipt}
     <div class="flex items-start justify-between gap-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900" role="status">
       <span>{formChangeReceipt}</span>

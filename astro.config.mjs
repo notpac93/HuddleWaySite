@@ -2,6 +2,7 @@ import { defineConfig } from 'astro/config';
 import svelte from '@astrojs/svelte';
 import tailwindcss from '@tailwindcss/vite';
 import adminStyles from './scripts/consolidate-admin-styles.mjs';
+import { crmCssTarget, crmCssTargets } from './scripts/crm-css-compatibility.mjs';
 
 export default defineConfig({
   site: 'https://huddleway.com',
@@ -23,9 +24,12 @@ export default defineConfig({
       ? '.astro/admin-ui-vite'
       : undefined,
     plugins: [tailwindcss()],
+    css: { lightningcss: { targets: crmCssTargets } },
     build: {
       minify: 'terser',
       cssMinify: 'lightningcss',
+      // Preserve the native app's iOS 15.5 minimum, including media-query syntax.
+      cssTarget: crmCssTarget,
       terserOptions: {
         compress: {
           passes: 3,
