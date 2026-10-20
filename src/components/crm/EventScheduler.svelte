@@ -158,6 +158,8 @@
               typeof data.registrationKind === 'string' && data.registrationKind.trim()
                 ? data.registrationKind.trim()
                 : null,
+            paymentTerms: data.paymentTerms ?? null,
+            paymentPolicies: data.paymentPolicies ?? null,
             notes: data.notes || '',
             seasonId: data.seasonId || null,
             registrationFormId: data.registrationFormId || null,
@@ -481,6 +483,7 @@
   <EditEventModal
     bind:event={editingEvent}
     {teams}
+    teamReferences={teamReferenceIndex}
     seriesSize={editingEvent.eventSeriesId
       ? events.filter((event) => event.eventSeriesId === editingEvent.eventSeriesId).length
       : 1}

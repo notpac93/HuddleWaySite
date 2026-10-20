@@ -71,3 +71,24 @@ if (isNativeWorkspace) {
     readyHandlerReady: typeof window.huddlewayNativeReady === "function",
   });
 }
+
+// Never forward SDK messages, arbitrary provider codes, identities or tokens.
+export function notifyNativeAuthorization(diagnostic: {
+  state: 'attempt_failed' | 'exhausted' | 'resolved' | 'retry_requested';
+  phase?: string; reason?: string; httpStatus?: number; attempt?: number; elapsedMs?: number;
+}) {
+  if (!nativeBridgeAvailable() || !validNativeWorkspaceNonce(nativeNonce)) return false;
+  if (!['attempt_failed', 'exhausted', 'resolved', 'retry_requested'].includes(diagnostic.state)) return false;
+  const phases = ['identity_ready', 'identity_token', 'app_check', 'authorization_http', 'authorization_request'];
+  const reasons = ['network_error', 'token_expired', 'token_revoked', 'user_disabled', 'fetch_status', 'recaptcha_error', 'throttled', 'not_initialized', 'deadline', 'unauthenticated', 'forbidden', 'http_error', 'unknown'];
+  const payload = {
+    type: 'authorization', nonce: nativeNonce, state: diagnostic.state,
+    ...(phases.includes(diagnostic.phase || '') ? { phase: diagnostic.phase } : {}),
+    ...(reasons.includes(diagnostic.reason || '') ? { reason: diagnostic.reason } : {}),
+    ...(Number.isInteger(diagnostic.httpStatus) && diagnostic.httpStatus! >= 100 && diagnostic.httpStatus! <= 599 ? { httpStatus: diagnostic.httpStatus } : {}),
+    ...(Number.isInteger(diagnostic.attempt) && diagnostic.attempt! >= 1 && diagnostic.attempt! <= 3 ? { attempt: diagnostic.attempt } : {}),
+    ...(Number.isInteger(diagnostic.elapsedMs) && diagnostic.elapsedMs! >= 0 && diagnostic.elapsedMs! <= 120000 ? { elapsedMs: diagnostic.elapsedMs } : {}),
+  };
+  try { window.HuddleWayNative!.postMessage(JSON.stringify(payload)); return true; }
+  catch { return false; }
+}

@@ -2,6 +2,7 @@ import { getToken as getAppCheckToken } from 'firebase/app-check';
 import { appCheck, auth, firebaseEnvironment } from '../firebase';
 import { resolveBackendUrl, publicEnvironment } from '../config/publicEnvironment';
 import { BackendApi } from './BackendApi';
+import { credentialBoundary } from './credentialBoundary';
 
 export const backendClient = new BackendApi({
   baseUrl: resolveBackendUrl(publicEnvironment),
@@ -9,14 +10,14 @@ export const backendClient = new BackendApi({
     // Lazy-loaded CRM modules can mount while Firebase is still restoring the
     // persisted browser session. Wait for that first auth resolution before
     // deciding the administrator is signed out.
-    await auth.authStateReady();
+    await credentialBoundary('identity_ready', () => auth.authStateReady());
     const user = auth.currentUser;
     if (!user) throw new Error('Sign in to continue.');
-    return user.getIdToken(forceRefresh);
+    return credentialBoundary('identity_token', () => user.getIdToken(forceRefresh));
   },
   getAppCheckToken: async (forceRefresh) => {
     if (!appCheck) return '';
-    return (await getAppCheckToken(appCheck, forceRefresh)).token;
+    return (await credentialBoundary('app_check', () => getAppCheckToken(appCheck!, forceRefresh))).token;
   },
   // Static Astro builds set PROD=true for both Dev and Production artifacts.
   // Enforce App Check based on the resolved Firebase project, so a Dev build

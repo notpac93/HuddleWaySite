@@ -8,10 +8,12 @@
   import ImageFilePicker from '../ui/ImageFilePicker.svelte';
   import { validateImageFile } from '../../../lib/media/imageUpload';
   import { modalFocus } from '../../../lib/ui/modalFocus';
+  import type { TeamReferenceIndex } from '../../../lib/ui/teamReferences';
   import EventPaymentTermsEditor from '../billing/EventPaymentTermsEditor.svelte';
 
   export let event: any = null;
   export let teams: Record<string, string> = {};
+  export let teamReferences: TeamReferenceIndex = new Map();
   export let seriesSize = 0;
   export let projectionComplete = true;
 
@@ -19,7 +21,11 @@
 
   let title = event ? event.title || '' : '';
   let location = event ? event.location || '' : '';
-  let teamId = event ? event.teamId || '' : '';
+  const originalTeamId = String(event?.teamId || '');
+  // Resolve the displayed option only; unchanged writes retain the stored alias.
+  let teamId = teamReferences.get(originalTeamId)?.documentId || originalTeamId;
+  const originalSelectedTeamId = teamId;
+  const originalLocation = location;
   let lifecycleStatus = event ? event.lifecycleStatus || 'draft' : 'draft';
   let imageUrl = event ? event.imageUrl || '' : '';
   let imageFile: File | null = null;
@@ -46,6 +52,9 @@
   let rawEndTime = event && event.endDateObj
     ? new Date(event.endDateObj).toTimeString().slice(0, 5)
     : '';
+  const initialSchedule = { rawDate, rawTime, rawEndTime };
+  const initialPayment = JSON.stringify({ price, paymentChoice, installmentCount, installmentCadence, cancellationPolicy, refundPolicy });
+  $: paymentChanged = initialPayment !== JSON.stringify({ price, paymentChoice, installmentCount, installmentCadence, cancellationPolicy, refundPolicy });
   let applyToSeries = false;
   const auditReason = 'Event updated from CRM.';
 
@@ -157,12 +166,12 @@
         `Type ${publishConfirmationText} before publishing this event.`;
       return;
     }
-    if (!/^\d+(\.\d{1,2})?$/.test(price.trim())) {
+    if (paymentChanged && !/^\d+(\.\d{1,2})?$/.test(price.trim())) {
       errorMessage = 'Enter a valid registration price with no more than two decimal places.';
       return;
     }
     const priceCents = Math.round(Number(price) * 100);
-    if (priceCents > 0 && (!cancellationPolicy.trim() || !refundPolicy.trim())) {
+    if (paymentChanged && priceCents > 0 && (!cancellationPolicy.trim() || !refundPolicy.trim())) {
       errorMessage = 'Add the cancellation and refund policies families should see.';
       return;
     }
@@ -194,9 +203,13 @@
       ) return;
       const update: Parameters<typeof backendClient.updateEvent>[2] = {
         title: title.trim(),
-        location: location.trim(),
-        teamId,
         applyToSeries: applyToSeries && Boolean(event.eventSeriesId),
+      };
+      if (location !== originalLocation) update.location = location.trim();
+      if (teamId !== originalSelectedTeamId) update.teamId = teamId;
+      // The API requires this atomic block, but ordinary edits must preserve
+      // versioned terms and policies without rewriting them.
+      if (paymentChanged) Object.assign(update, {
         priceCents,
         paymentTerms: {
           mode: paymentChoice,
@@ -209,14 +222,16 @@
           cancellation: cancellationPolicy.trim(),
           refund: refundPolicy.trim(),
         } : null,
-      };
+      });
       if (lifecycleStatus !== originalLifecycleStatus) {
         update.lifecycleStatus = lifecycleStatus;
       }
       if (uploadedImage) {
         update.imageReservationId = uploadedImage.reservationId;
       }
-      if (!update.applyToSeries) {
+      const scheduleChanged = rawDate !== initialSchedule.rawDate
+        || rawTime !== initialSchedule.rawTime || rawEndTime !== initialSchedule.rawEndTime;
+      if (!update.applyToSeries && scheduleChanged) {
         const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
         const startAt = new Date(`${rawDate}T${rawTime}:00`);
         const endAt = new Date(`${rawDate}T${rawEndTime}:00`);
@@ -381,6 +396,9 @@
               class="crm-ui-input-teal"
             >
               <option value="" disabled>Select a {$programTermsStore.group.toLowerCase()}</option>
+              {#if originalSelectedTeamId && !Object.hasOwn(teams, originalSelectedTeamId)}
+                <option value={originalSelectedTeamId} disabled>Team unavailable</option>
+              {/if}
               {#each Object.entries(teams) as [id, name]}
                 <option value={id}>{name}</option>
               {/each}

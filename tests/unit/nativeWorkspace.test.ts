@@ -165,3 +165,16 @@ test("leaving the main frame stops ready announcements", async () => {
   await vi.advanceTimersByTimeAsync(1000);
   expect(messages).toHaveLength(1);
 });
+
+test('authorization diagnostics bind the current load and omit arbitrary SDK/identity payloads', async () => {
+  const context = await import('../../src/lib/crm/nativeWorkspaceContext');
+  expect(context.notifyNativeAuthorization({state:'resolved'})).toBe(false);
+  context.setNativeWorkspaceNonce(nonce);
+  expect(context.notifyNativeAuthorization({state:'attempt_failed',phase:'app_check',reason:'recaptcha_error',attempt:2,elapsedMs:20})).toBe(true);
+  expect(messages).toEqual([{type:'authorization',nonce,state:'attempt_failed',phase:'app_check',reason:'recaptcha_error',attempt:2,elapsedMs:20}]);
+  context.notifyNativeAuthorization({state:'exhausted',phase:'private-token',reason:'private-uid',httpStatus:999,attempt:9,elapsedMs:-1});
+  expect(messages.at(-1)).toEqual({type:'authorization',nonce,state:'exhausted'});
+  window.location.pathname = '/account/';
+  expect(context.notifyNativeAuthorization({state:'resolved'})).toBe(false);
+  expect(messages).toHaveLength(2);
+});

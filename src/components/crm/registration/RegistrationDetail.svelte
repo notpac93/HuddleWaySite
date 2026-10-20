@@ -331,19 +331,19 @@
     <div class="grid grid-cols-2 gap-3 text-center sm:grid-cols-4 items-stretch">
       <div class="flex min-w-0 flex-col">
         <p class="crm-ui-meta flex min-h-10 items-end justify-center">Processing Fees</p>
-        <p class="crm-ui-title whitespace-nowrap">{formatScopedMoney(financials.totalFees)}</p>
+        <p class="crm-ui-title min-w-0 whitespace-normal break-words">{formatScopedMoney(financials.totalFees)}</p>
       </div>
       <div class="flex min-w-0 flex-col">
         <p class="crm-ui-meta flex min-h-10 items-end justify-center">Collected</p>
-        <p class="crm-ui-title whitespace-nowrap">{formatScopedMoney(financials.totalCollected)}</p>
+        <p class="crm-ui-title min-w-0 whitespace-normal break-words">{formatScopedMoney(financials.totalCollected)}</p>
       </div>
       <div class="flex min-w-0 flex-col">
         <p class="crm-ui-meta flex min-h-10 items-end justify-center">Refunds</p>
-        <p class="crm-ui-title whitespace-nowrap">{formatScopedMoney(financials.totalRefunds)}</p>
+        <p class="crm-ui-title min-w-0 whitespace-normal break-words">{formatScopedMoney(financials.totalRefunds)}</p>
       </div>
       <div class="flex min-w-0 flex-col">
         <p class="crm-ui-meta flex min-h-10 items-end justify-center">Balance</p>
-        <p class="crm-ui-title whitespace-nowrap">{formatScopedMoney(financials.totalBalance)}</p>
+        <p class="crm-ui-title min-w-0 whitespace-normal break-words">{formatScopedMoney(financials.totalBalance)}</p>
       </div>
     </div>
   </div>
@@ -397,9 +397,9 @@
       <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
     </div>
     <label>
-      <span class="sr-only">Search participants</span>
       <input
       type="search"
+      aria-label="Search participants"
       bind:value={searchQuery}
       class="block w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[var(--crm-brand-border)] shadow-sm"
       placeholder="Search by participant name or email"

@@ -200,6 +200,66 @@ describe('event mutation family', () => {
     for (const mock of Object.values(backendMocks)) expect(mock).not.toHaveBeenCalled();
   });
 
+  it('hydrates the owned alias and payment policies and preserves all unrelated fields on a title-only edit', async () => {
+    teamRecords.set([{ id: 'tenant-a_esports', referenceId: 'esports', name: 'Esports' }]);
+    eventRecords.set([{
+      ...openingPractice,
+      teamId: 'esports',
+      date: '2030-08-10T16:00:37.123Z',
+      endDate: '2030-08-10T18:00:59.456Z',
+      startTime: '11:00:37', endTime: '13:00:59', timeZone: 'America/Chicago',
+      priceCents: 1700,
+      paymentTerms: { mode: 'installments', installmentCount: 4, cadence: 'weekly',
+        totalCents: 1700, currency: 'USD', version: 7, adminChoiceConfirmed: true },
+      paymentPolicies: {
+        cancellation: { text: 'Original cancellation policy', version: 3 },
+        refund: { text: 'Original refund policy', version: 2 },
+      },
+    }]);
+    backendMocks.updateEvent.mockResolvedValue({ eventIds: ['event-1'], updatedCount: 1 });
+    render(TestedEventScheduler);
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+    expect(screen.getByLabelText('Assigned Team')).toHaveValue('tenant-a_esports');
+    expect(screen.getByRole('radio', { name: 'Allow split payments' })).toBeChecked();
+    expect(screen.getByLabelText('Payments')).toHaveValue('4');
+    expect(screen.getByLabelText('Frequency')).toHaveValue('weekly');
+    expect(screen.getByLabelText('Cancellation policy')).toHaveValue('Original cancellation policy');
+    expect(screen.getByLabelText('Refund policy')).toHaveValue('Original refund policy');
+    await fireEvent.input(screen.getByLabelText('Event Title *'), { target: { value: 'Reviewed title' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Save Event Changes' }));
+    await waitFor(() => expect(backendMocks.updateEvent).toHaveBeenCalledTimes(1));
+    expect(backendMocks.updateEvent.mock.calls[0][2]).toEqual({ title: 'Reviewed title', applyToSeries: false });
+  });
+
+  it('submits deliberate team, schedule and payment edits without dropping the atomic payment contract', async () => {
+    backendMocks.updateEvent.mockResolvedValue({ eventIds: ['event-1'], updatedCount: 1 });
+    render(TestedEditEventModal, {
+      event: { ...openingPractice,
+        dateObj: new Date('2030-08-10T16:00:37.123Z'),
+        endDateObj: new Date('2030-08-10T18:00:59.456Z'),
+        priceCents: 1700,
+        paymentTerms: { mode: 'installments', installmentCount: 4, cadence: 'weekly' },
+        paymentPolicies: { cancellation: { text: 'Original cancellation' }, refund: { text: 'Original refund' } },
+      }, teams: { 'team-1': 'Tigers', 'team-2': 'Bears' },
+    });
+    await fireEvent.change(screen.getByLabelText('Assigned Team'), { target: { value: 'team-2' } });
+    await fireEvent.input(screen.getByLabelText('Date *'), { target: { value: '2030-08-11' } });
+    await fireEvent.input(screen.getByLabelText('Event registration price'), { target: { value: '18.00' } });
+    await fireEvent.input(screen.getByLabelText('Refund policy'), { target: { value: 'Revised refund' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Save Event Changes' }));
+    await waitFor(() => expect(backendMocks.updateEvent).toHaveBeenCalledTimes(1));
+    const update = backendMocks.updateEvent.mock.calls[0][2];
+    expect(update).toMatchObject({ teamId: 'team-2', dateKey: '2030-08-11', priceCents: 1800,
+      paymentTerms: { mode: 'installments', installmentCount: 4, cadence: 'weekly', adminChoiceConfirmed: true },
+      paymentPolicies: { cancellation: 'Original cancellation', refund: 'Revised refund' },
+    });
+    expect(update.startAt).toEqual(expect.any(String));
+    expect(update.endAt).toEqual(expect.any(String));
+    expect(update.timeZone).toEqual(expect.any(String));
+    expect(update).not.toHaveProperty('location');
+  });
+
   it('resolves the owned registrant team without changing its stored reference or edit identity', async () => {
     teamRecords.set([{ id: 'tenant-a_esports', referenceId: 'esports', name: 'Esports' }]);
     eventRecords.set([{ ...openingPractice, teamId: 'esports' }]);
