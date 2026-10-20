@@ -24,6 +24,7 @@
     serializeCrmThemeVariables,
   } from '../../lib/ui/crmTheme';
   import CrmBreadcrumbs from './CrmBreadcrumbs.svelte';
+  import CrmPortalScope from './CrmPortalScope.svelte';
   import Icon from './ui/Icon.svelte';
   import AdminQuickAccess from './AdminQuickAccess.svelte';
   import { MY_APP_NAVIGATION, type MyAppNavigation } from '../../lib/crm/myAppNavigation';
@@ -590,7 +591,7 @@
   <!-- Main content area -->
   <main class="crm-ui-shell-main" use:pullToRefresh={!immersiveApp && !showMore}>
     <!-- Top Bar -->
-    <header class="crm-ui-shell-header" hidden={immersiveApp}>
+    <header class="crm-ui-shell-header lg:flex-nowrap" class:flex-wrap={Boolean(activeTeam)} hidden={immersiveApp}>
       <button
         type="button"
         bind:this={mobileMenuTrigger}
@@ -609,22 +610,7 @@
       {:else}
         <CrmBreadcrumbs items={breadcrumbItems} />
       {/if}
-      <div
-        class="hidden min-w-0 items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600 lg:flex"
-        aria-label="Current portal scope"
-      >
-        <span class="font-medium text-gray-500">Scope</span>
-        <span class="max-w-40 truncate font-semibold text-gray-900">{appName}</span>
-        {#if activeTeam}
-          <span aria-hidden="true">/</span>
-          <span class="max-w-40 truncate font-semibold text-[var(--crm-brand-link)]">{activeTeam.name || 'Team'}</span>
-          <button
-            type="button"
-            class="portal-motion-color rounded px-1.5 py-1 font-semibold text-[var(--crm-brand-link)] hover:bg-[var(--crm-brand-surface)]"
-            on:click={exitTeam}
-          >All teams</button>
-        {/if}
-      </div>
+      <CrmPortalScope {appName} {activeTeam} onExitTeam={exitTeam} />
       <div class="max-w-lg md:flex-1 md:px-4 lg:px-8">
         <div class="relative group">
           <div class="crm-ui-shell-search-icon hidden md:block">
@@ -648,6 +634,7 @@
         </div>
       </div>
       <div class="flex space-x-3"></div>
+      <CrmPortalScope {appName} {activeTeam} onExitTeam={exitTeam} mobile />
     </header>
 
     <div class="flex min-h-0 flex-1 flex-col">
