@@ -193,7 +193,7 @@ describe('deployed app preview parity contract', () => {
       .rejects.toThrow(/does not attest.*consumer release marker/i);
   });
 
-  it('builds one exact-origin session and a valid five-route draft', () => {
+  it('builds one exact-origin session and a valid current four-route draft', () => {
     const options = stageOptions();
     const session = { sessionId: 'session-1', nonce: 'nonce-1' };
     const url = new URL(buildConsumerPreviewUrl(options, session));
@@ -210,10 +210,10 @@ describe('deployed app preview parity contract', () => {
       revision: 1,
     });
     expect(configuration.navigationTabs.map((tab) => tab.route)).toEqual([
-      '/', '/teams', '/schedule', '/messaging', '/events',
+      '/', '/teams', '/schedule', '/messaging',
     ]);
     expect(configuration.navigationTabs.map((tab) => tab.label)).toEqual([
-      'HProbe', 'TProbe', 'SProbe', 'BProbe', 'EProbe',
+      'HProbe', 'TProbe', 'SProbe', 'BProbe',
     ]);
   });
 

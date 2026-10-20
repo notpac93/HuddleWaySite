@@ -5,6 +5,7 @@ import {
   hasDuplicateTabLabels,
   readableTextColor,
 } from '../../src/lib/ui/appConfigurationReview';
+import { completeFiveTabSlots, validAppConfiguration } from '../../src/components/crm/app-studio/appConfigurationDraft';
 import type { CrmAppConfiguration } from '../../src/lib/api/BackendApi';
 
 const baseline: CrmAppConfiguration = {
@@ -20,6 +21,21 @@ const baseline: CrmAppConfiguration = {
 };
 
 describe('app configuration publication review', () => {
+  it('suggests missing current tabs while preserving the historical stored-entry limit', () => {
+    const tabs = [
+      ...baseline.navigationTabs,
+      { key: 'teams', pageId: 'teams', route: '/teams', label: 'Teams', enabled: true },
+      { key: 'messaging', pageId: 'board', route: '/messaging', label: 'Board', enabled: true },
+      { key: 'contact', pageId: 'contact', route: '/contact', label: 'Contact', enabled: true },
+    ];
+    const completed = completeFiveTabSlots(tabs);
+    expect(completed).toHaveLength(6);
+    expect(completed.find(tab => tab.key === 'events')).toEqual(tabs[1]);
+    expect(completed.find(tab => tab.key === 'schedule')).toMatchObject({ enabled: false });
+    expect(validAppConfiguration({ ...baseline, navigationTabs: completed })).toBe(true);
+    expect(validAppConfiguration({ ...baseline, navigationTabs: completed.map(tab => ({ ...tab, enabled: true })) })).toBe(false);
+  });
+
   it('describes every changed family-facing value', () => {
     const changes = describeAppConfigurationChanges(baseline, {
       ...baseline,

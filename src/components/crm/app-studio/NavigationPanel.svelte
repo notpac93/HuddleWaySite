@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { NavigationTabDraft } from './appConfigurationDraft';
-  import { maxActiveTabs, permanentTabName } from './appConfigurationDraft';
+  import { maxActiveTabs, permanentTabName, isRetiredNavigationTab } from './appConfigurationDraft';
 
   export let tabsConfig: NavigationTabDraft[] = [];
   export let disabled = false;
@@ -8,7 +8,10 @@
   export let activeContentCount: (tab: NavigationTabDraft) => number;
   export let onMove: (index: number, direction: -1 | 1) => void;
 
-  $: activeTabCount = tabsConfig.filter((tab) => tab.enabled).length;
+  $: activeTabCount = tabsConfig.filter((tab) => tab.enabled && !isRetiredNavigationTab(tab)).length;
+
+  $: storedEnabledCount = tabsConfig.filter((tab) => tab.enabled).length;
+  $: retiredEnabledCount = storedEnabledCount - activeTabCount;
 
   function toggleTab(index: number) {
     tabsConfig[index].enabled = !tabsConfig[index].enabled;
@@ -33,6 +36,11 @@
         The app can show up to five tabs. Turn off at least {activeTabCount - maxActiveTabs} tab{activeTabCount - maxActiveTabs === 1 ? '' : 's'} before publishing.
       </p>
     {/if}
+    {#if retiredEnabledCount > 0 && storedEnabledCount > maxActiveTabs}
+      <p class="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-800" role="alert">
+        The preserved retired Events setting still uses {retiredEnabledCount} stored configuration slot{retiredEnabledCount === 1 ? '' : 's'}. Turn off at least {storedEnabledCount - maxActiveTabs} current tab{storedEnabledCount - maxActiveTabs === 1 ? '' : 's'} before publishing to meet the five-entry configuration limit.
+      </p>
+    {/if}
     {#if duplicateLabels}
       <p class="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-800" role="alert">Active app tabs must have unique names so families can distinguish each destination.</p>
     {/if}
@@ -40,6 +48,12 @@
     <div class="space-y-4">
       {#each tabsConfig as tab, index (tab.key)}
         <div class="crm-ui-studio-module-row">
+          {#if isRetiredNavigationTab(tab)}
+            <div class="min-w-0" role="note" aria-label="Retired Events tab">
+              <h4 class="text-sm font-semibold text-gray-900">Events (retired)</h4>
+              <p class="mt-1 text-xs text-gray-500">Families use Schedule for events. This historical setting is preserved and is not an active family tab.</p>
+            </div>
+          {:else}
           <div class="min-w-0 flex-1 pr-4">
             <h4 class="text-sm font-semibold text-gray-900">{permanentTabName(tab)}</h4>
             <input
@@ -63,11 +77,12 @@
             <span class="inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {tab.enabled ? 'translate-x-5' : 'translate-x-0'}"></span>
           </button>
           <div class="ml-3 flex flex-col gap-1">
-            <button type="button" aria-label={`Move ${permanentTabName(tab)} tab up`} disabled={disabled || index === 0} class="rounded border px-2 py-1 text-xs disabled:opacity-40" on:click={() => onMove(index, -1)}>↑</button>
-            <button type="button" aria-label={`Move ${permanentTabName(tab)} tab down`} disabled={disabled || index === tabsConfig.length - 1} class="rounded border px-2 py-1 text-xs disabled:opacity-40" on:click={() => onMove(index, 1)}>↓</button>
+            <button type="button" aria-label={`Move ${permanentTabName(tab)} tab up`} disabled={disabled || index === 0 || isRetiredNavigationTab(tabsConfig[index - 1])} class="rounded border px-2 py-1 text-xs disabled:opacity-40" on:click={() => onMove(index, -1)}>↑</button>
+            <button type="button" aria-label={`Move ${permanentTabName(tab)} tab down`} disabled={disabled || index === tabsConfig.length - 1 || isRetiredNavigationTab(tabsConfig[index + 1])} class="rounded border px-2 py-1 text-xs disabled:opacity-40" on:click={() => onMove(index, 1)}>↓</button>
           </div>
           {#if tab.enabled && activeContentCount(tab) > 0}
             <p class="mt-2 basis-full text-xs text-amber-800">Hiding this tab would remove access to {activeContentCount(tab)} active {permanentTabName(tab).toLowerCase()} record{activeContentCount(tab) === 1 ? '' : 's'} from family navigation; the content itself is retained.</p>
+          {/if}
           {/if}
         </div>
       {/each}

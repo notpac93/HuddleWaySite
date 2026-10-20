@@ -41,18 +41,11 @@ export const initialTabs: NavigationTabDraft[] = [
     label: "Board",
     enabled: true,
   },
-  {
-    key: "events",
-    pageId: "events_page",
-    route: "/events",
-    label: "Events",
-    enabled: true,
-  },
 ];
 
 export const maxActiveTabs = 5;
 
-const missingTabPriority = ["home", "teams", "schedule", "messaging", "events"];
+const missingTabPriority = ["home", "teams", "schedule", "messaging"];
 const permanentTabNames: Record<string, string> = {
   home: "Home",
   teams: "Teams",
@@ -65,6 +58,13 @@ const permanentTabNames: Record<string, string> = {
   contact: "Contact",
 };
 
+// Matches the Consumer route retirement policy; preserve historical payloads.
+export function isRetiredNavigationTab(tab: NavigationTabDraft) {
+  const route = tab.route.trim();
+  const withLeadingSlash = route.startsWith('/') ? route : `/${route}`;
+  return withLeadingSlash.replace(/\/$/, '') === '/events';
+}
+
 export function permanentTabName(tab: NavigationTabDraft) {
   return permanentTabNames[tab.key] || "Teams";
 }
@@ -72,7 +72,7 @@ export function permanentTabName(tab: NavigationTabDraft) {
 export function completeFiveTabSlots(tabs: NavigationTabDraft[]) {
   const completed = tabs.map((tab) => ({ ...tab }));
   for (const key of missingTabPriority) {
-    if (completed.length >= maxActiveTabs) break;
+    if (completed.filter((tab) => !isRetiredNavigationTab(tab)).length >= maxActiveTabs) break;
     const candidate = initialTabs.find((tab) => tab.key === key);
     const alreadyHasTeamsPurpose =
       key === "teams" &&

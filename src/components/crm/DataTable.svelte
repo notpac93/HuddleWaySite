@@ -240,7 +240,7 @@
   <svelte:fragment slot="actions"><slot name="actions" /></svelte:fragment>
   <div class="flex flex-wrap items-end gap-3">
     {#if searchable}
-      <label class="min-w-0 flex-1"><span class="sr-only">Search table records</span><input type="search" bind:value={searchQuery} on:input={handleSearchInput} placeholder={searchPlaceholder} class="w-full rounded-md border border-gray-300 bg-white px-3 py-2" /></label>
+      <label class="w-full min-w-0 basis-full sm:w-auto sm:min-w-[12rem] sm:flex-1"><span class="sr-only">Search table records</span><input type="search" bind:value={searchQuery} on:input={handleSearchInput} placeholder={searchPlaceholder} class="w-full rounded-md border border-gray-300 bg-white px-3 py-2" /></label>
     {/if}
     {#if exportable}
       <button type="button" on:click={() => exportReviewOpen = true} disabled={exportRows.length === 0 || loading || permissionDenied || Boolean(effectiveError)} class="crm-ui-button-secondary bg-white">{exportLabel}</button>

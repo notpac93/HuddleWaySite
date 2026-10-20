@@ -489,6 +489,35 @@ describe('MyAppStudio tenant preview isolation', () => {
     expect(appMocks.publishAppConfiguration).not.toHaveBeenCalled();
   });
 
+  it('explains the preserved retired entry limit without changing historical settings', async () => {
+    const navigationTabs = [
+      { key: 'home', pageId: 'home_page', route: '/', label: 'Home', enabled: true },
+      { key: 'teams', pageId: 'teams_page', route: '/teams', label: 'Teams', enabled: true },
+      { key: 'events', pageId: 'events_page', route: '/events', label: 'Events', enabled: true },
+      { key: 'messaging', pageId: 'board_page', route: '/messaging', label: 'Board', enabled: true },
+      { key: 'schedule', pageId: 'schedule_page', route: '/schedule', label: 'Schedule', enabled: true },
+      { key: 'staff', pageId: 'staff_page', route: '/staff', label: 'Staff', enabled: true },
+    ];
+    appMocks.appConfiguration.mockImplementation(async (tenantId: string) => ({
+      ...configurationSnapshot(tenantId), configuration: {
+        ...configurationSnapshot(tenantId).configuration, navigationTabs,
+      },
+    }));
+    render(TestedMyAppStudio);
+    await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
+    await fireEvent.click(await screen.findByRole('button', { name: 'Pages' }));
+    expect(screen.getByText('5 of 5 active')).toBeVisible();
+    expect(screen.getByRole('alert')).toHaveTextContent('preserved retired Events setting still uses 1 stored configuration slot');
+    expect(screen.getByRole('button', { name: 'Publish App' })).toBeDisabled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Hide Staff tab' }));
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByText('4 of 5 active')).toBeVisible();
+    await reviewAndPublish();
+    expect(appMocks.publishAppConfiguration).toHaveBeenCalledWith('tenant-a', expect.objectContaining({
+      navigationTabs: expect.arrayContaining([navigationTabs[2]]),
+    }), expect.any(String), expect.any(String));
+  });
+
   it('renames and hides app tabs through the published navigation contract', async () => {
     let navigationTabs = [
       { key: 'home', pageId: 'home_page', route: '/', label: 'Home', enabled: true },
@@ -514,12 +543,18 @@ describe('MyAppStudio tenant preview isolation', () => {
     await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
 
     await fireEvent.click(await screen.findByRole('button', { name: 'Pages' }));
-    expect(screen.getByText('5 of 5 active')).toBeVisible();
+    expect(screen.getByText('4 of 5 active')).toBeVisible();
+    expect(screen.getByRole('note', { name: 'Retired Events tab' })).toHaveTextContent('not an active family tab');
+    expect(screen.queryByLabelText('Tab name for Events')).toBeNull();
+    expect(screen.queryByRole('button', { name: /(?:Hide|Show|Move) Events/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Move Teams tab down' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Move Board tab up' })).toBeDisabled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Move Home tab down' }));
     await fireEvent.input(screen.getByLabelText('Tab name for Home'), {
       target: { value: 'Start' },
     });
     await fireEvent.click(screen.getByRole('button', { name: 'Hide Teams tab' }));
-    expect(screen.getByText('4 of 5 active')).toBeVisible();
+    expect(screen.getByText('3 of 5 active')).toBeVisible();
     await reviewAndPublish();
 
     expect(
@@ -533,6 +568,7 @@ describe('MyAppStudio tenant preview isolation', () => {
         navigationTabs: expect.arrayContaining([
           expect.objectContaining({ key: 'home', label: 'Start', enabled: true }),
           expect.objectContaining({ key: 'teams', label: 'Teams', enabled: false }),
+          { key: 'events', pageId: 'events_page', route: '/events', label: 'Events', enabled: true },
         ]),
       }),
       expect.any(String),
@@ -557,17 +593,12 @@ describe('MyAppStudio tenant preview isolation', () => {
     await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
 
     await fireEvent.click(await screen.findByRole('button', { name: 'Pages' }));
-    expect(screen.getAllByLabelText(/Tab name for/)).toHaveLength(5);
+    expect(screen.getAllByLabelText(/Tab name for/)).toHaveLength(4);
     expect(screen.getByRole('heading', { name: 'Teams' })).toBeVisible();
     expect(screen.getByLabelText('Tab name for Teams')).toHaveValue('Esports');
     expect(screen.queryByRole('heading', { name: 'Esports' })).toBeNull();
-    expect(screen.getByRole('heading', { name: 'Events' })).toBeVisible();
-    expect(screen.getByLabelText('Tab name for Events')).toHaveValue('Events');
-    expect(screen.queryByText(/Route:/)).toBeNull();
-    expect(screen.getByRole('button', { name: 'Show Events tab' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
+    expect(screen.queryByRole('heading', { name: 'Events' })).toBeNull();
+    expect(screen.queryByLabelText('Tab name for Events')).toBeNull();
     expect(screen.getByText('4 of 5 active')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Publish App' })).toBeDisabled();
   });
@@ -580,7 +611,7 @@ describe('MyAppStudio tenant preview isolation', () => {
         navigationTabs: [
           { key: 'home', pageId: 'home_page', route: '/', label: 'Home', enabled: true },
           { key: 'teams', pageId: 'teams_page', route: '/teams', label: 'Teams', enabled: true },
-          { key: 'events', pageId: 'events_page', route: '/events', label: 'Events', enabled: true },
+          { key: 'contact', pageId: 'contact_page', route: '/contact', label: 'Contact', enabled: true },
           { key: 'messaging', pageId: 'board_page', route: '/messaging', label: 'Board', enabled: true },
           { key: 'schedule', pageId: 'schedule_page', route: '/schedule', label: 'Schedule', enabled: true },
           { key: 'staff', pageId: 'staff_page', route: '/staff', label: 'Staff', enabled: true },

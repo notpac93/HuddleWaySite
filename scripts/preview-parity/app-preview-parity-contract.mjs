@@ -279,7 +279,6 @@ export function previewProbeConfiguration(environment) {
       { key: 'teams', pageId: 'teams_page', route: '/teams', label: 'TProbe', enabled: true },
       { key: 'schedule', pageId: 'schedule_page', route: '/schedule', label: 'SProbe', enabled: true },
       { key: 'messaging', pageId: 'board_page', route: '/messaging', label: 'BProbe', enabled: true },
-      { key: 'events', pageId: 'events_page', route: '/events', label: 'EProbe', enabled: true },
     ],
   };
 }
