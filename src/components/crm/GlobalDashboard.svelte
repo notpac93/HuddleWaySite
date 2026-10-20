@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { minorUnits } from '../../lib/services/financialAmounts';
   import { registerLiveRefresh } from '../../lib/crm/liveRefresh';
   import { onMount as mountRefresh } from 'svelte';
   import type { Component } from 'svelte';
@@ -115,12 +116,12 @@
   // Keep totals separated by currency and format integer minor units only.
   $: revenueProjection = $transactionsStore.reduce((projection, transaction) => {
     if (transaction.status !== 'succeeded') return projection;
-    const amount = Number(transaction.grossAmount);
+    const amount = minorUnits(transaction.grossAmount);
     const currency = typeof transaction.currency === 'string'
       && /^[A-Za-z]{3}$/.test(transaction.currency.trim())
       ? transaction.currency.trim().toUpperCase()
       : '';
-    if (!Number.isSafeInteger(amount) || !currency) {
+    if (amount === null || !currency) {
       projection.invalid += 1;
       return projection;
     }

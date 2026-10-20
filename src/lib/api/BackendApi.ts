@@ -1,3 +1,4 @@
+import { loadFinancialOverview } from './FinancialOverview';
 import { validAnnouncementBatchResult, type AnnouncementBatchResult } from './AnnouncementDeliveryResult';
 
 export type BackendFetch = (
@@ -1733,61 +1734,11 @@ export class BackendApi {
   }
 
   async financialOverview(tenantId: string) {
-    const payload = await this.send<FinancialOverview>(
-      "/admin/crm/financial-overview",
-      {
-        query: { tenantId },
-      },
-    );
-    assertTenantEnvelope(
-      payload as unknown as Record<string, unknown>,
+    return loadFinancialOverview(
+      query => this.send<FinancialOverview>("/admin/crm/financial-overview", { query }),
       tenantId,
+      payload => invalidBackendResponse(payload || {}),
     );
-    if (
-      !Array.isArray(payload.transactions) ||
-      !Array.isArray(payload.refunds) ||
-      !Array.isArray(payload.invoices) ||
-      !Array.isArray(payload.deposits) ||
-      !payload.recordCounts ||
-      typeof payload.recordCounts !== "object" ||
-      Object.values(payload.recordCounts).some(
-        (count) => !Number.isSafeInteger(count) || count < 0,
-      ) ||
-      !payload.tracking ||
-      typeof payload.tracking !== "object" ||
-      typeof payload.tracking.complete !== "boolean" ||
-      !Number.isSafeInteger(payload.tracking.unreconciledTransactionCount) ||
-      !Number.isSafeInteger(payload.tracking.unreconciledDepositCount) ||
-      !Array.isArray(payload.tracking.sourceCollections) ||
-      !payload.truncated ||
-      typeof payload.truncated !== "object" ||
-      Object.values(payload.truncated).some(
-        (truncated) => typeof truncated !== "boolean",
-      ) ||
-      typeof payload.complete !== "boolean" ||
-      !payload.operations ||
-      typeof payload.operations !== "object" ||
-      typeof payload.operations.complete !== "boolean" ||
-      !payload.operations.reconciliation ||
-      typeof payload.operations.reconciliation.complete !== "boolean" ||
-      (["unreconciledTransactionCount", "unreconciledDepositCount", "currencyIntegrityErrorCount"] as const).some(
-        (key) => !Number.isSafeInteger(payload.operations.reconciliation[key]) || payload.operations.reconciliation[key] < 0,
-      ) ||
-      !payload.operations.views ||
-      (
-        [
-          "deposits",
-          "transactions",
-          "scheduled",
-          "overdue",
-          "invoices",
-        ] as const
-      ).some((view) => !Array.isArray(payload.operations.views[view])) ||
-      !String(payload.requestId || "").trim()
-    ) {
-      invalidBackendResponse(payload as unknown as Record<string, unknown>);
-    }
-    return payload;
   }
 
   async crmAuthorization() {

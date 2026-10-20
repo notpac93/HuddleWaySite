@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { visibleFinancialTotal } from '../../lib/services/financialAmounts';
   import RecordToolbar from './ui/RecordToolbar.svelte';
   import RecordItem from './ui/RecordItem.svelte';
   import { registerLiveRefresh } from '../../lib/crm/liveRefresh';
@@ -48,8 +49,7 @@
     return [row.label, row.context, row.statusLabel, row.detail, row.dateLabel]
       .some((value) => String(value || '').toLowerCase().includes(query));
   });
-  $: visibleTotal = filteredRows.reduce((sum, row) =>
-    Number.isSafeInteger(row.amountCents) ? sum + Number(row.amountCents) : sum, 0);
+  $: visibleTotal = visibleFinancialTotal(filteredRows);
   $: if ($tenantIdStore && $tenantIdStore !== loadedTenantId && ownerAuthorized) {
     loadedTenantId = $tenantIdStore;
     void loadOperations();
@@ -196,7 +196,7 @@
 
       <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2 text-sm text-gray-600" aria-live="polite">
         <span>{filteredRows.length} {filteredRows.length === 1 ? 'record' : 'records'}</span>
-        <span>Visible total <strong class="ml-2 text-gray-950 tabular-nums">{rows.every((row) => row.currency === rows[0]?.currency) ? money(visibleTotal, rows[0]?.currency || 'USD') : 'Multiple currencies'}</strong></span>
+        <span>Visible total <strong class="ml-2 text-gray-950 tabular-nums">{visibleTotal.mixedCurrency ? 'Multiple currencies' : money(operations.complete ? visibleTotal.amount : null, visibleTotal.currency)}</strong></span>
       </div>
       <section class="rounded-xl border border-gray-200 bg-white text-gray-900" aria-label="Financial records">
         {#each filteredRows as row (rowKey(row))}

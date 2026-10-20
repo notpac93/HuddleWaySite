@@ -1,3 +1,4 @@
+import { minorUnits } from './financialAmounts';
 import { readable, derived, get, writable, type Readable } from 'svelte/store';
 import { registerLiveRefresh } from '../crm/liveRefresh';
 import { tenantIdStore } from '../authStore';
@@ -476,10 +477,6 @@ export const teamsMap = derived(teamsStore, $teams => {
   return map;
 });
 
-function minorUnits(value: unknown): number | null {
-  const amount = Number(value);
-  return Number.isSafeInteger(amount) ? amount : null;
-}
 
 function references(record: any, field: string, id: string) {
   return record?.[field] === id || record?.metadata?.[field] === id;

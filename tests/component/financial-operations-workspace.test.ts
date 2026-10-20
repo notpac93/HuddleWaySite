@@ -153,4 +153,14 @@ describe('dedicated CRM financial operations', () => {
     expect(screen.getByText('No transactions yet.')).toBeVisible();
     expect(window.location.search).toContain('financeView=transactions');
   });
+  it('does not display a partial visible total when one amount is unknown', async () => {
+    const result = overview();
+    result.operations.views.deposits.push({ ...result.operations.views.deposits[0], key: 'unknown', label: 'Pending accounting', amountCents: null as unknown as number });
+    mocks.financialOverview.mockResolvedValue(result);
+    render(Tested);
+    await screen.findByText('Pending accounting');
+    const total = screen.getByText('Visible total').querySelector('strong');
+    expect(total).toHaveTextContent('Unavailable');
+  });
+
 });
