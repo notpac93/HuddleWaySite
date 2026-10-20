@@ -172,10 +172,11 @@
     .map((event) => ({
       id: String(event.id || '').trim(),
       title: String(event.title || event.name || event.id || 'Untitled event').trim(),
-      priceCents: Number.parseInt(String(event.priceCents || 0), 10) || 0,
-      currency: String(event.currency || 'USD').trim().toUpperCase() || 'USD',
       endDate: serializedDate(event.registrationEndDate || event.endDate || event.date),
-      status: String(event.status || '').toLowerCase(),
+      status: String(event.lifecycleStatus || '').trim().toLowerCase(),
+      isVisible: event.isVisible === true,
+      isDeleted: event.isDeleted === true,
+      isRegistrationEnabled: event.isRegistrationEnabled === true,
       teamId: String(event.teamId || '').trim(),
       seasonId: String(event.seasonId || '').trim(),
       imageUrl: String(event.imageUrl || '').trim(),
@@ -186,7 +187,7 @@
     .sort((a, b) => a.title.localeCompare(b.title));
   $: eligibleEventOptions = eventOptions.filter((event) => {
     const date = event.endDate ? new Date(event.endDate) : null;
-    return !['completed', 'archived', 'cancelled'].includes(event.status)
+    return event.status === 'published' && event.isVisible && !event.isDeleted && event.isRegistrationEnabled
       && (!date || Number.isNaN(date.getTime()) || date.getTime() >= Date.now());
   });
   $: seasonOptions = $seasonsStore

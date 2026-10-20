@@ -667,7 +667,7 @@
             </div>
 
             <div class="mt-4 border-t border-gray-100 pt-4">
-              <EventPaymentTermsEditor bind:price bind:choice={paymentChoice} bind:installmentCount bind:cadence={installmentCadence} bind:cancellationPolicy bind:refundPolicy />
+              <EventPaymentTermsEditor currency="USD" bind:price bind:choice={paymentChoice} bind:installmentCount bind:cadence={installmentCadence} bind:cancellationPolicy bind:refundPolicy />
             </div>
           {/if}
 

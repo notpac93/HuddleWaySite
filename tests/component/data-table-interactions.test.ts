@@ -32,10 +32,10 @@ describe('DataTable production interaction contract', () => {
         if (width < 640) {
           const label = page.getByLabel('Search table records').locator('..');
           const correctedClass = await label.getAttribute('class');
-          await label.evaluate(element => { element.className = 'min-w-0 flex-1'; });
+          await label.evaluate(element => { element.setAttribute('class', 'min-w-0 flex-1'); });
           // The old real flex sizing fails the same usable-width contract.
           expect((await page.getByLabel('Search table records').boundingBox())!.width).toBeLessThan(250);
-          await label.evaluate((element, value) => { element.className = value!; }, correctedClass);
+          await label.evaluate((element, value) => { element.setAttribute('class', value!); }, correctedClass);
         }
         for (const count of ['0', '1000']) {
           await page.getByRole('button', { name: /^Export .*filtered$/ }).evaluate((button, count) => {

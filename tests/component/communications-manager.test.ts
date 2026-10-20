@@ -100,6 +100,9 @@ import { registrationOutreachApi } from '../../src/lib/api/RegistrationOutreachA
 import { BackendApiError } from '../../src/lib/api/BackendApi';
 import CommunicationsManager from '../../src/components/crm/CommunicationsManager.svelte';
 
+import { eventsStore } from '../../src/lib/services/DataStore';
+const eventRecords = eventsStore as Writable<any[]>;
+
 const TestedCommunicationsManager =
   CommunicationsManager as unknown as Component;
 const tenants = tenantIdStore as Writable<string | null>;
@@ -223,6 +226,7 @@ async function confirmAnnouncementReview() {
 describe('CommunicationsManager recall boundary', () => {
   beforeEach(() => {
     tenants.set('tenant-a');
+    eventRecords.set([{ id: 'event-1', title: 'Summer Showcase', imageUrl: 'https://example.com/showcase.webp', importance: 'featured', accentColorHex: '#2457d6', teamId: 'varsity', seasonId: 'season-1', lifecycleStatus: 'published', isVisible: true, isDeleted: false, isRegistrationEnabled: true, endDate: '2030-08-10T18:00:00Z' }]);
     mocks.getDocs.mockReset();
     mocks.adminInboxThreads.mockReset();
     mocks.adminInboxThreads.mockResolvedValue({
@@ -888,6 +892,29 @@ describe('CommunicationsManager recall boundary', () => {
     )).toBeVisible();
     expect(screen.queryByText(/quota-preview-block/i)).not.toBeInTheDocument();
     expect(registrationOutreachApi.sendOneWayEmail).not.toHaveBeenCalled();
+  });
+
+  it('excludes archived or unavailable events from registration outreach without sending', async () => {
+    const active = { id: 'current', title: 'Current registration', lifecycleStatus: 'published', isVisible: true,
+      isDeleted: false, isRegistrationEnabled: true, endDate: '2030-08-10T18:00:00Z' };
+    eventRecords.set([active,
+      { ...active, id: 'archived', title: 'Archived workshop', lifecycleStatus: 'archived', status: 'published' },
+      { ...active, id: 'legacy', title: 'No lifecycle', lifecycleStatus: undefined, status: 'published' },
+      { ...active, id: 'hidden', title: 'Hidden workshop', isVisible: false },
+      { ...active, id: 'disabled', title: 'Disabled registration', isRegistrationEnabled: false },
+      { ...active, id: 'deleted', title: 'Deleted workshop', isDeleted: true },
+    ]);
+    mocks.getDocs.mockResolvedValueOnce(emptySnapshot());
+    render(TestedCommunicationsManager);
+    await screen.findByText('No Wall announcements have been published.');
+    await fireEvent.click(screen.getByRole('button', { name: 'Start registration email' }));
+    const events = screen.getByLabelText('Event');
+    expect(within(events).getByRole('option', { name: /^Current registration/ })).toBeInTheDocument();
+    for (const name of ['Archived workshop', 'No lifecycle', 'Hidden workshop', 'Disabled registration', 'Deleted workshop']) {
+      expect(within(events).queryByRole('option', { name: new RegExp(name) })).toBeNull();
+    }
+    expect(mocks.createRegistrationInviteLink).not.toHaveBeenCalled();
+    expect(mocks.sendRegistrationEmail).not.toHaveBeenCalled();
   });
 
   it('emails a temporary event registration page to deduped recipients', async () => {

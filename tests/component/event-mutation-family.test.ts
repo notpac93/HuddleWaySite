@@ -200,6 +200,45 @@ describe('event mutation family', () => {
     for (const mock of Object.values(backendMocks)) expect(mock).not.toHaveBeenCalled();
   });
 
+  it('renders current nested-only pricing and keeps conflicting or absent amounts unavailable', async () => {
+    eventRecords.set([{ ...openingPractice, priceCents: 1700, paymentTerms: { currency: 'usd' } }]);
+    render(TestedEventScheduler);
+    await openEventDetails();
+    expect(screen.getByText('$17.00')).toBeVisible();
+    eventRecords.set([{ ...openingPractice, priceCents: 1700, currency: 'CAD', paymentTerms: { currency: 'usd' } }]);
+    expect(await screen.findByText('Currency unavailable')).toBeVisible();
+    eventRecords.set([{ ...openingPractice, priceCents: null, paymentTerms: { currency: 'usd' } }]);
+    expect(await screen.findByText('Price unavailable')).toBeVisible();
+    eventRecords.set([{ ...openingPractice, priceCents: 0 }]);
+    expect(await screen.findByText('Free')).toBeVisible();
+  });
+
+  it('preserves known existing currency for deliberate payment edits', async () => {
+    backendMocks.updateEvent.mockResolvedValue({ eventIds: ['event-1'], updatedCount: 1 });
+    render(TestedEditEventModal, { event: { ...openingPractice, dateObj: new Date('2030-08-10T16:00:00Z'), endDateObj: new Date('2030-08-10T18:00:00Z'), priceCents: 1700,
+      paymentTerms: { mode: 'pay_in_full', currency: 'cad' },
+      paymentPolicies: { cancellation: { text: 'Cancel policy' }, refund: { text: 'Refund policy' } } },
+      teams: { 'team-1': 'Tigers' } });
+    expect(screen.getByText('Price (CAD)')).toBeVisible();
+    await fireEvent.input(screen.getByLabelText('Event registration price'), { target: { value: '18.00' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Save Event Changes' }));
+    await waitFor(() => expect(backendMocks.updateEvent).toHaveBeenCalledTimes(1));
+    expect(backendMocks.updateEvent.mock.calls[0][2]).toMatchObject({ priceCents: 1800, paymentTerms: { currency: 'cad' } });
+  });
+
+  it('allows unrelated edits while unknown payment authority remains untouched', async () => {
+    backendMocks.updateEvent.mockResolvedValue({ eventIds: ['event-1'], updatedCount: 1 });
+    render(TestedEditEventModal, { event: { ...openingPractice, dateObj: new Date('2030-08-10T16:00:00Z'), endDateObj: new Date('2030-08-10T18:00:00Z'), priceCents: null,
+      currency: 'USD', paymentTerms: { currency: 'CAD' } }, teams: { 'team-1': 'Tigers' } });
+    expect(screen.getByLabelText('Event registration price')).toHaveValue('');
+    expect(screen.getByLabelText('Event registration price')).toBeDisabled();
+    expect(screen.getByRole('status')).toHaveTextContent('Currency unavailable or conflicting');
+    await fireEvent.input(screen.getByLabelText('Event Title *'), { target: { value: 'Reviewed title' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Save Event Changes' }));
+    await waitFor(() => expect(backendMocks.updateEvent).toHaveBeenCalledTimes(1));
+    expect(backendMocks.updateEvent.mock.calls[0][2]).toEqual({ title: 'Reviewed title', applyToSeries: false });
+  });
+
   it('hydrates the owned alias and payment policies and preserves all unrelated fields on a title-only edit', async () => {
     teamRecords.set([{ id: 'tenant-a_esports', referenceId: 'esports', name: 'Esports' }]);
     eventRecords.set([{
@@ -239,7 +278,7 @@ describe('event mutation family', () => {
         dateObj: new Date('2030-08-10T16:00:37.123Z'),
         endDateObj: new Date('2030-08-10T18:00:59.456Z'),
         priceCents: 1700,
-        paymentTerms: { mode: 'installments', installmentCount: 4, cadence: 'weekly' },
+        paymentTerms: { mode: 'installments', installmentCount: 4, cadence: 'weekly', currency: 'usd' },
         paymentPolicies: { cancellation: { text: 'Original cancellation' }, refund: { text: 'Original refund' } },
       }, teams: { 'team-1': 'Tigers', 'team-2': 'Bears' },
     });

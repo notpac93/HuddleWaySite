@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { eventPriceCents, eventPriceLabel } from '../../lib/ui/eventMoney';
   import { programTermsStore } from '../../lib/crm/programVocabulary';
   import {
     DataStore,
@@ -147,13 +148,9 @@
               typeof data.eventType === 'string' && data.eventType.trim()
                 ? data.eventType.trim()
                 : null,
-            priceCents: Number.isSafeInteger(Number(data.priceCents)) && Number(data.priceCents) >= 0
-              ? Number(data.priceCents)
-              : null,
-            currency:
-              typeof data.currency === 'string' && /^[A-Za-z]{3}$/.test(data.currency.trim())
-                ? data.currency.trim().toUpperCase()
-                : null,
+            priceCents: eventPriceCents(data),
+            // Keep both supplied authorities intact so conflicts remain visible.
+            currency: data.currency ?? null,
             registrationKind:
               typeof data.registrationKind === 'string' && data.registrationKind.trim()
                 ? data.registrationKind.trim()
@@ -334,16 +331,6 @@
 
   function eventTypeLabel(event: any) {
     return String(event?.type || event?.eventType || '').trim() || 'Type unavailable';
-  }
-
-  function eventPriceLabel(event: any) {
-    if (!Number.isSafeInteger(event?.priceCents) || event.priceCents < 0) return 'Price unavailable';
-    if (event.priceCents === 0) return 'Free';
-    if (!event.currency) return 'Currency unavailable';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: event.currency,
-    }).format(event.priceCents / 100);
   }
 
   function eventTeamLabel(event: any) {

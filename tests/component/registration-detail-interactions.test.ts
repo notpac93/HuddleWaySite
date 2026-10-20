@@ -90,6 +90,19 @@ describe('RegistrationDetail table interactions', () => {
     );
   });
 
+  it('uses offering currency and refuses conflicting or historical participant inference', () => {
+    render(TestedRegistrationDetail, { selectedForm, participants: [{ ...participant(1), eventId: 'unknown', currency: 'USD' }],
+      connectedEvents: [
+        { id: 'nested', title: 'Current offering', priceCents: 1700, paymentTerms: { currency: 'usd' } },
+        { id: 'conflict', title: 'Conflicting offering', priceCents: 1700, currency: 'USD', paymentTerms: { currency: 'CAD' } },
+        { id: 'unknown', title: 'Unknown offering', priceCents: 1700 },
+        { id: 'missing', title: 'Missing price', priceCents: null, paymentTerms: { currency: 'usd' } },
+      ] });
+    expect(screen.getByText('$17.00')).toBeVisible();
+    expect(screen.getAllByText('Currency unavailable')).toHaveLength(2);
+    expect(screen.getByText('Price unavailable')).toBeVisible();
+  });
+
   it('keeps the filtered participant row and pager reachable in the real browser flex layout', async () => {
     const rendered = render(TestedRegistrationDetail, {
       tenantId: 'tenant-a', selectedForm,
@@ -292,7 +305,7 @@ describe('RegistrationDetail table interactions', () => {
     ).not.toHaveBeenCalled();
   });
 
-  it('uses same-event registration currency and explicit payment status for legacy events', () => {
+  it('does not infer current offering currency from historical payments and retains explicit payment status', () => {
     render(TestedRegistrationDetail, {
       selectedForm,
       participants: [{
@@ -310,7 +323,7 @@ describe('RegistrationDetail table interactions', () => {
     });
 
     expect(screen.getByText('Type unavailable')).toBeVisible();
-    expect(screen.getByText('$1.00')).toBeVisible();
+    expect(screen.getByText('Currency unavailable')).toBeVisible();
     expect(screen.getAllByText('Paid')).toHaveLength(2);
     expect(dataMocks.getUserFinancialsForEvents).not.toHaveBeenCalled();
   });

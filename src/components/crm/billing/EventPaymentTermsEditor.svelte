@@ -1,5 +1,6 @@
 <script lang="ts">
   export let price = '';
+  export let currency: string | null = null;
   export let choice: 'pay_in_full' | 'installments' = 'pay_in_full';
   export let installmentCount = 3;
   export let cadence: 'weekly' | 'monthly' = 'monthly';
@@ -17,7 +18,8 @@
     : [];
 
   function money(cents: number) {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
+    if (!currency) return 'Currency unavailable';
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency! }).format(cents / 100);
   }
 
   function installmentTiming(index: number) {
@@ -29,8 +31,10 @@
 
 <section class="rounded-xl border border-gray-200 bg-white p-4">
   <h4 class="font-semibold text-gray-950">Registration cost</h4>
-  <p class="mt-1 text-xs text-gray-600">Leave the price at $0 for a free event.</p>
-  <label class="mt-3 block"><span class="crm-ui-label">Price</span><div class="relative mt-1"><span class="absolute left-3 top-2 text-gray-500">$</span><input class="crm-ui-input pl-7" inputmode="decimal" bind:value={price} aria-label="Event registration price" /></div></label>
+  <p class="mt-1 text-xs text-gray-600">Leave the price at 0 for a free event.</p>
+  {#if !currency}<p class="mt-2 text-sm text-amber-800" role="status">Currency unavailable or conflicting. Existing payment settings are preserved; payment edits are unavailable.</p>{/if}
+  <fieldset disabled={!currency}>
+  <label class="mt-3 block"><span class="crm-ui-label">Price{currency ? ` (${currency})` : ''}</span><div class="mt-1"><input class="crm-ui-input" inputmode="decimal" bind:value={price} aria-label="Event registration price" /></div></label>
   {#if priceCents > 0}
     <fieldset class="mt-4"><legend class="crm-ui-label">How can families pay?</legend><div class="mt-2 grid gap-2 sm:grid-cols-2"><label class="rounded-lg border p-3"><input type="radio" bind:group={choice} value="pay_in_full" /> <span class="ml-2 font-medium">Pay in full only</span></label><label class="rounded-lg border p-3"><input type="radio" bind:group={choice} value="installments" /> <span class="ml-2 font-medium">Allow split payments</span></label></div></fieldset>
     {#if choice === 'installments'}
@@ -39,4 +43,5 @@
     {/if}
     <div class="mt-4 grid gap-3"><label><span class="crm-ui-label">Cancellation policy</span><textarea class="crm-ui-input mt-1" rows="2" maxlength="4000" bind:value={cancellationPolicy} placeholder="What happens if a registration is cancelled?"></textarea></label><label><span class="crm-ui-label">Refund policy</span><textarea class="crm-ui-input mt-1" rows="2" maxlength="4000" bind:value={refundPolicy} placeholder="When are payments refundable?"></textarea></label></div>
   {/if}
+  </fieldset>
 </section>

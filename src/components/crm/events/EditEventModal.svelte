@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { eventCurrency, eventPriceCents } from '../../../lib/ui/eventMoney';
   import { programTermsStore } from '../../../lib/crm/programVocabulary';
   import { createEventDispatcher, onDestroy } from 'svelte';
   import { tenantIdStore } from '../../../lib/authStore';
@@ -30,7 +31,9 @@
   let imageUrl = event ? event.imageUrl || '' : '';
   let imageFile: File | null = null;
   let imageValidationMessage = '';
-  let price = (Number(event?.priceCents || 0) / 100).toFixed(2);
+  const currency = eventCurrency(event);
+  const originalPriceCents = eventPriceCents(event);
+  let price = originalPriceCents === null ? '' : (originalPriceCents / 100).toFixed(2);
   let paymentChoice: 'pay_in_full' | 'installments' = event?.paymentTerms?.mode === 'installments' ? 'installments' : 'pay_in_full';
   let installmentCount = Number(event?.paymentTerms?.installmentCount || 3);
   let installmentCadence: 'weekly' | 'monthly' = event?.paymentTerms?.cadence === 'weekly' ? 'weekly' : 'monthly';
@@ -166,6 +169,10 @@
         `Type ${publishConfirmationText} before publishing this event.`;
       return;
     }
+    if (paymentChanged && !currency) {
+      errorMessage = 'The event currency is unavailable or conflicting. Payment settings cannot be changed.';
+      return;
+    }
     if (paymentChanged && !/^\d+(\.\d{1,2})?$/.test(price.trim())) {
       errorMessage = 'Enter a valid registration price with no more than two decimal places.';
       return;
@@ -216,7 +223,7 @@
           adminChoiceConfirmed: true,
           installmentCount: paymentChoice === 'installments' ? installmentCount : 1,
           cadence: paymentChoice === 'installments' ? installmentCadence : null,
-          currency: 'usd',
+          currency: currency!.toLowerCase(),
         },
         paymentPolicies: priceCents > 0 ? {
           cancellation: cancellationPolicy.trim(),
@@ -343,7 +350,7 @@
           />
         </div>
 
-        <EventPaymentTermsEditor bind:price bind:choice={paymentChoice} bind:installmentCount bind:cadence={installmentCadence} bind:cancellationPolicy bind:refundPolicy />
+        <EventPaymentTermsEditor {currency} bind:price bind:choice={paymentChoice} bind:installmentCount bind:cadence={installmentCadence} bind:cancellationPolicy bind:refundPolicy />
 
         <!-- Date & Time -->
         <div class="grid grid-cols-3 gap-3">

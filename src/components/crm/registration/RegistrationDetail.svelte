@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { eventPriceLabel } from '../../../lib/ui/eventMoney';
   import { createEventDispatcher } from 'svelte';
   import { DataStore, transactionsStore, invoicesStore, refundsStore, eventsStore } from '../../../lib/services/DataStore';
   import { downloadCsv } from '../../../lib/ui/csvExport';
@@ -83,28 +84,6 @@
   function formatEventDate(value: any) {
     const date = value?.toDate ? value.toDate() : value ? new Date(value) : null;
     return date && !Number.isNaN(date.getTime()) ? date.toLocaleDateString() : 'Date unavailable';
-  }
-
-  function formatEventPrice(event: any) {
-    const directCurrency =
-      typeof event.currency === 'string' && /^[A-Za-z]{3}$/.test(event.currency.trim())
-        ? event.currency.trim().toUpperCase()
-        : typeof event?.paymentTerms?.currency === 'string'
-          && /^[A-Za-z]{3}$/.test(event.paymentTerms.currency.trim())
-          ? event.paymentTerms.currency.trim().toUpperCase()
-          : null;
-    const registrationCurrencies = new Set(
-      participants
-        .filter((participant) => String(participant?.eventId || '').trim() === String(event?.id || '').trim())
-        .map((participant) => String(participant?.currency || '').trim().toUpperCase())
-        .filter((currency) => /^[A-Z]{3}$/.test(currency)),
-    );
-    const currency = directCurrency
-      || (registrationCurrencies.size === 1 ? [...registrationCurrencies][0] : null);
-    const priceCents = Number(event?.priceCents);
-    if (!Number.isSafeInteger(priceCents) || priceCents < 0) return 'Price unavailable';
-    if (priceCents === 0) return 'Free';
-    return currency ? formatMoney(priceCents, currency) : 'Currency unavailable';
   }
 
   function formatEventType(event: any) {
@@ -379,7 +358,7 @@
                 {formatEventDate(evt.date)}
               </td>
               <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                {formatEventPrice(evt)}
+                {eventPriceLabel(evt)}
               </td>
             </tr>
           {/each}
