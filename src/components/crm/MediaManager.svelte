@@ -292,7 +292,7 @@
       {#if safeMediaUrl(selected.url)}<img class="mt-5 max-h-80 w-full rounded-lg bg-gray-100 object-contain" src={safeMediaUrl(selected.url)} alt={selected.altText || selected.name || 'Media name unavailable'} width="640" height="480" />{/if}
       <div class="mt-5 grid gap-4 sm:grid-cols-2">
         <label class="text-sm font-medium">Filename<input class="mt-1 block w-full rounded-md border p-2" bind:value={selected.name} disabled={!canManage} /></label>
-        <label class="text-sm font-medium">Category<select class="mt-1 block w-full rounded-md border p-2" bind:value={selected.category} disabled={!canManage}><option value="">Uncategorized</option><option>Logos</option><option>Banners</option><option>Flyers</option></select></label>
+        <label class="text-sm font-medium">Category<select class="mt-1 block w-full rounded-md border p-2" bind:value={selected.category} disabled={!canManage}><option value="">Uncategorized</option><option>Logos</option><option>Banners</option><option>Flyers</option>{#if selected.category && !['Logos', 'Banners', 'Flyers'].includes(selected.category)}<option value={selected.category}>{selected.category}</option>{/if}</select></label>
         <label class="text-sm font-medium sm:col-span-2">Purpose<input class="mt-1 block w-full rounded-md border p-2" bind:value={selected.purpose} disabled={!canManage} /></label>
         <label class="text-sm font-medium sm:col-span-2">Alt text<textarea class="mt-1 block w-full rounded-md border p-2" bind:value={selected.altText} disabled={!canManage} rows="2"></textarea></label>
       </div>

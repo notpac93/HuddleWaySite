@@ -166,6 +166,26 @@ describe('MediaManager bounded tenant projection', () => {
     expect(screen.getByText('Asset archived and removed from the active library.')).toBeVisible();
   });
 
+  it('shows a stored custom category and preserves it when another metadata field changes', async () => {
+    backendMocks.crmOperationalPage.mockResolvedValue(page([{
+      id: 'staff-a', fileName: 'Staff photo.png', imageUrl: 'https://cdn.example.test/staff.png',
+      category: 'Staff', purpose: 'Original staff portrait', altText: 'Coaching staff',
+    }]));
+    render(TestedMediaManager);
+    await fireEvent.click(await screen.findByRole('button', { name: 'Open details for Staff photo.png' }));
+    const details = within(screen.getByRole('dialog', { name: 'Asset details' }));
+    expect(details.getByLabelText('Category')).toHaveValue('Staff');
+    expect(details.getByRole('option', { name: 'Staff' })).toBeInTheDocument();
+    await fireEvent.input(details.getByLabelText('Purpose'), { target: { value: 'Reviewed staff portrait' } });
+    await fireEvent.click(details.getByRole('button', { name: 'Save metadata' }));
+    await waitFor(() => expect(backendMocks.updateMedia).toHaveBeenCalledTimes(1));
+    expect(backendMocks.updateMedia).toHaveBeenCalledWith('tenant-a', 'staff-a', {
+      fileName: 'Staff photo.png', category: 'Staff', purpose: 'Reviewed staff portrait', altText: 'Coaching staff',
+    }, 'Correct reusable media metadata.', expect.stringContaining('program-media-update'));
+    expect(backendMocks.uploadImageAsset).not.toHaveBeenCalled();
+    expect(backendMocks.deleteMedia).not.toHaveBeenCalled();
+  });
+
   it('closes the upload dialog after a completed library upload', async () => {
     backendMocks.uploadImageAsset.mockResolvedValue({ reservationId: 'reservation-a' });
     backendMocks.publishProgramMedia.mockResolvedValue({ success: true });
