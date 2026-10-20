@@ -422,9 +422,11 @@
 </div>
 
 <!-- Participants Table -->
+<!-- Keep this direct flex child at its natural height: horizontal overflow
+     otherwise permits flex shrinking to a zero-height vertical scrollport. -->
 <!-- Keyboard users must be able to focus and scroll this overflow region. -->
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-<div class="border border-gray-200 rounded overflow-x-auto shadow-sm" role="region" tabindex="0" aria-label="Scrollable participants table">
+<div class="shrink-0 border border-gray-200 rounded overflow-x-auto shadow-sm" role="region" tabindex="0" aria-label="Scrollable participants table">
   <table class="crm-ui-table">
     <thead class="bg-white">
       <tr>

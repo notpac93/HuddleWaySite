@@ -5,6 +5,9 @@ import {
   within,
 } from '@testing-library/svelte';
 import type { Component } from 'svelte';
+import { readFile } from 'node:fs/promises';
+import { compile } from '@tailwindcss/node';
+import { chromium } from '@playwright/test';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const dataMocks = vi.hoisted(() => ({
@@ -86,6 +89,61 @@ describe('RegistrationDetail table interactions', () => {
       }),
     );
   });
+
+  it('keeps the filtered participant row and pager reachable in the real browser flex layout', async () => {
+    const rendered = render(TestedRegistrationDetail, {
+      tenantId: 'tenant-a', selectedForm,
+      connectedEvents: [{ id: 'event-layout', title: 'Connected fixture event' }],
+      participants: [participant(1), participant(2)],
+    });
+    await fireEvent.input(screen.getByLabelText('Search participants'), {
+      target: { value: 'Participant 1' },
+    });
+    // Use the actual rendered detail and the manager's actual layout classes.
+    // JSDOM does not compute flex geometry, so measure in an offline browser.
+    const managerSource = await readFile('src/components/crm/registration/RegistrationManager.svelte', 'utf8');
+    const managerClass = managerSource.match(/<div class="(h-full[^"\n]+)"/)![1];
+    const html = `<div class="layout-root"><main class="layout-main"><header class="layout-header">Program</header><div class="layout-content"><div class="layout-slot"><div class="layout-back">More</div><div class="${managerClass}" data-manager>${rendered.container.innerHTML}</div></div></div></main><nav class="layout-footer">Admin navigation</nav></div>`;
+    const compiler = await compile('@import "tailwindcss";', { base: process.cwd(), onDependency() {} });
+    const candidates = [...html.matchAll(/class="([^"]+)"/g)].flatMap(match => match[1].split(/\s+/));
+    const css = compiler.build(candidates) + `
+      .layout-root{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+      .layout-main{display:flex;flex:1;min-height:0;flex-direction:column;overflow-y:auto}
+      .layout-header{position:sticky;top:0;z-index:40;flex-shrink:0;min-height:68px}
+      .layout-content,.layout-slot{display:flex;flex:1;min-height:0;flex-direction:column}
+      .layout-back{padding:12px 16px;min-height:56px}
+      .layout-footer{height:69px;flex-shrink:0}
+      .crm-ui-table{width:100%;min-width:40rem;border-collapse:collapse}
+      .crm-ui-table th,.crm-ui-table td{padding:12px 16px;white-space:nowrap}
+    `;
+    const browser = await chromium.launch({ headless: true });
+    try {
+      for (const viewport of [{ width: 360, height: 752 }, { width: 375, height: 667 }, { width: 1280, height: 800 }]) {
+        const page = await browser.newPage({ viewport });
+        await page.route('**/*', route => route.abort());
+        await page.setContent(`<style>${css}</style>${html}`);
+        const region = page.getByRole('region', { name: 'Scrollable participants table', exact: true });
+        const manager = page.locator('[data-manager]');
+        await manager.evaluate(element => { element.scrollTop = element.scrollHeight; });
+        const geometry = await region.evaluate(element => ({ client: element.clientHeight, scroll: element.scrollHeight }));
+        expect(geometry.client).toBeGreaterThan(100);
+        expect(geometry.scroll).toBeLessThanOrEqual(geometry.client + 1);
+        const footerTop = await page.locator('.layout-footer').evaluate(element => element.getBoundingClientRect().top);
+        for (const target of [region.locator('tbody tr').first(), region.getByText('1 - 1 of 1', { exact: true })]) {
+          const bounds = await target.boundingBox();
+          expect(bounds!.height).toBeGreaterThan(0);
+          expect(bounds!.y).toBeGreaterThanOrEqual(68);
+          expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(footerTop);
+        }
+        // Horizontal scrolling remains available without vertically clipping rows.
+        if (viewport.width < 640) {
+          const horizontal = await region.evaluate(element => { element.scrollLeft = element.scrollWidth; return element.scrollLeft; });
+          expect(horizontal).toBeGreaterThan(0);
+        }
+        await page.close();
+      }
+    } finally { await browser.close(); }
+  }, 15000);
 
   it('reviews connected-event impact and requires a reason before retiring', async () => {
     render(TestedRegistrationDetail, {
