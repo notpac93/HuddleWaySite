@@ -45,7 +45,8 @@ test('identity switch and load replacement withhold stale tokens',async()=>{
 });
 test.each(['origin','frame','bridge','query'])('untrusted %s cannot admit or request native token',async(kind)=>{
  const m=await import('../../src/lib/crm/nativeWorkspaceAttestation');
- if(kind==='origin')window.location.origin='https://other.test';if(kind==='frame')(window as any).top={};if(kind==='bridge')delete window.HuddleWayNative;if(kind==='query')window.location.search='';
+ const location=window.location as unknown as {origin:string;search:string};
+ if(kind==='origin')location.origin='https://other.test';if(kind==='frame')(window as any).top={};if(kind==='bridge')delete window.HuddleWayNative;if(kind==='query')location.search='';
  expect(()=>m.beginNativeAttestation('owner',nonce,{appCheckProtocol:1,tenantId:'stem-it-up-sports'})).toThrow();
  await expect(m.requestNativeAppCheck(false,()=> 'owner')).rejects.toThrow();expect(messages).toEqual([]);
 });

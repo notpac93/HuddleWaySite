@@ -47,7 +47,13 @@ describe('Operations Portal experience foundations', () => {
     const shell = source('src/components/crm/CrmShell.svelte');
     expect(shell).toContain("huddleway.crm.sidebar.expanded");
     expect(shell).toContain("'Collapse navigation' : 'Expand navigation'");
-    expect(shell).toContain('Current portal scope');
+    const scope = source('src/components/crm/CrmPortalScope.svelte');
+    expect(shell).toContain("import CrmPortalScope from './CrmPortalScope.svelte'");
+    expect(shell).toContain('<CrmPortalScope {appName} {activeTeam} onExitTeam={exitTeam} />');
+    expect(shell).toContain('<CrmPortalScope {appName} {activeTeam} onExitTeam={exitTeam} mobile />');
+    expect(scope).toContain('Current portal scope');
+    expect(scope).toContain('Current team scope');
+    expect(scope).toContain('on:click={onExitTeam}');
     expect(shell).not.toContain('on:mouseenter');
     expect(shell).not.toContain('transition-all');
   });

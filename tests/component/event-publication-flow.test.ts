@@ -124,12 +124,13 @@ describe('event publication flow', () => {
       'event-1',
       expect.objectContaining({
         title: 'Opening practice',
-        teamId: 'team-1',
         lifecycleStatus: 'published',
         applyToSeries: false,
       }),
       'Event updated from CRM.',
       expect.stringContaining('event-update:'),
     );
+    // A publish-only edit must preserve the stored team scope, not rewrite it.
+    expect(backendMocks.updateEvent.mock.calls[0][2]).not.toHaveProperty('teamId');
   });
 });

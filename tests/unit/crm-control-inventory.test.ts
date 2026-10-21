@@ -14,7 +14,8 @@ const reviewedControlCounts: Record<string, number> = {
   'ConsumerAdminInbox.svelte': 10,
   'CrmApp.svelte': 3,
   'CrmBreadcrumbs.svelte': 1,
-  'CrmShell.svelte': 22,
+  'CrmPortalScope.svelte': 2,
+  'CrmShell.svelte': 21,
   'DataTable.svelte': 13,
   'DocumentsManager.svelte': 14,
   'EventScheduler.svelte': 17,
@@ -70,6 +71,7 @@ const reviewedControlCounts: Record<string, number> = {
   'seasons/CreateSeasonModal.svelte': 7,
   'seasons/EditSeasonModal.svelte': 8,
   'seasons/LinkEventModal.svelte': 7,
+  'seasons/ParticipantNamesStatus.svelte': 1,
   'seasons/SeasonDetail.svelte': 16,
   'seasons/SeasonsManager.svelte': 10,
   'teams/CreateTeamForm.svelte': 4,
@@ -153,7 +155,7 @@ describe('exhaustive CRM control inventory', () => {
     );
 
     expect(actual).toEqual(reviewedControlCounts);
-    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(620);
+    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(622);
   });
 
   it('keeps every inventoried CRM component reachable from a production entry point', () => {
