@@ -25,7 +25,7 @@
   import Login from './Login.svelte';
   import { usesAppEntry, returnToAppSignIn } from '../../lib/crm/adminEntryContext';
   $: if (usesAppEntry && !$nativeWorkspacePending && !$isAuthLoading && !$userStore) returnToAppSignIn();
-  import { nativeWorkspacePending } from '../../lib/crm/nativeWorkspace';
+  import { isNativeWorkspace, nativeWorkspacePending } from '../../lib/crm/nativeWorkspace';
   import CrmShell from './CrmShell.svelte';
 
   let activeTab = 'Dashboard';
@@ -467,7 +467,7 @@
     {#if myAppComponent && !isTenantSwitching && currentTabs.some(tab => tab.name === 'My App')}
       {#key $tenantIdStore}
         <div hidden={activeTab !== 'My App'} style:display={activeTab === 'My App' ? 'flex' : 'none'} class="min-h-0 flex-1 flex-col">
-          <svelte:component this={myAppComponent} active={activeTab === 'My App'} />
+          <svelte:component this={myAppComponent} active={activeTab === 'My App'} suspendInactivePreviews={isNativeWorkspace} />
         </div>
       {/key}
     {/if}

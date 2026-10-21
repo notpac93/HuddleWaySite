@@ -10,6 +10,7 @@ import type { Component } from 'svelte';
 import type { Writable } from 'svelte/store';
 import { get } from 'svelte/store';
 import { portalDraftStore } from '../../src/lib/ui/portalDraftGuard';
+import { refreshActiveData } from '../../src/lib/crm/liveRefresh';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 type SnapshotSubscription = {
@@ -27,6 +28,7 @@ const appMocks = vi.hoisted(() => ({
   publishAppConfiguration: vi.fn(),
   publishBrandingLogo: vi.fn(),
   uploadImageAsset: vi.fn(),
+  crmOperationalPage: vi.fn(),
 }));
 
 vi.mock('../../src/lib/firebase', () => ({
@@ -346,6 +348,47 @@ describe('MyAppStudio tenant preview isolation', () => {
     expect(screen.getByTitle('Alpha edited mobile app preview').getAttribute('src')).toBe(source);
     await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
     expect(screen.getByLabelText('App Name')).toHaveValue('Alpha edited');
+  });
+
+  it('releases inactive native previews and recreates a fresh session with the retained draft', async () => {
+    const view = render(TestedMyAppStudio, { suspendInactivePreviews: true });
+    const frame = await screen.findByTitle('Alpha League mobile app preview');
+    const source = frame.getAttribute('src');
+    await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
+    expect(view.container.querySelector('iframe')).toBe(frame);
+    await fireEvent.input(screen.getByLabelText('App Name'), { target: { value: 'Retained native draft' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Back to app' }));
+    expect(screen.getByTitle('Retained native draft mobile app preview')).toBe(frame);
+    await view.rerender({ active: false });
+    expect(view.container.querySelector('iframe')).toBeNull();
+    await view.rerender({ active: true });
+    const resumed = screen.getByTitle('Retained native draft mobile app preview');
+    expect(resumed).not.toBe(frame);
+    expect(resumed.getAttribute('src')).not.toBe(source);
+    expect(resumed.closest('[data-preview-attested]')).toHaveAttribute('data-preview-attested', 'false');
+    await view.rerender({ active: false });
+    expect(view.container.querySelector('iframe')).toBeNull();
+    await view.rerender({ active: true });
+    expect(screen.getByTitle('Retained native draft mobile app preview')).toBeInTheDocument();
+    await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
+    expect(screen.getByLabelText('App Name')).toHaveValue('Retained native draft');
+    expect(appMocks.publishAppConfiguration).not.toHaveBeenCalled();
+  });
+
+  it('loads navigation counts only in visible Pages tools and stops refreshing them on exit', async () => {
+    appMocks.crmOperationalPage.mockReset();
+    appMocks.crmOperationalPage.mockResolvedValue({ records: [], hasMore: false });
+    render(TestedMyAppStudio);
+    await screen.findByTitle('Alpha League mobile app preview');
+    expect(appMocks.crmOperationalPage).not.toHaveBeenCalled();
+    await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
+    expect(appMocks.crmOperationalPage).not.toHaveBeenCalled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Pages' }));
+    await waitFor(() => expect(appMocks.crmOperationalPage).toHaveBeenCalledTimes(2));
+    await fireEvent.click(screen.getByRole('button', { name: 'Back to app' }));
+    appMocks.crmOperationalPage.mockClear();
+    await refreshActiveData('pull');
+    expect(appMocks.crmOperationalPage).not.toHaveBeenCalled();
   });
 
   it('publishes appearance, reloads it, and resets it on tenant switch', async () => {

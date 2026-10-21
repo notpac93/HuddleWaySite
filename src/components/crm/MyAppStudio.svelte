@@ -6,6 +6,7 @@
   import { modalFocus } from '../../lib/ui/modalFocus';
 
   export let active = true;
+  export let suspendInactivePreviews = false;
   let showTools = false;
   let toolsMounted = false;
   function openTools() { navigation?.dismiss(); toolsMounted = true; showTools = true; }
@@ -41,7 +42,6 @@
   import AppPublishReview from './app/AppPublishReview.svelte';
   import AppPreviewFrame from './app/AppPreviewFrame.svelte';
   import { resolveAppPreviewEnvironment } from '../../lib/crm/appPreviewProtocol';
-  import { eventsStore, teamsStore } from '../../lib/services/DataStore';
   import BrandingPanel from './app-studio/BrandingPanel.svelte';
   import NavigationPanel from './app-studio/NavigationPanel.svelte';
   import VersionHistoryPanel from './app-studio/VersionHistoryPanel.svelte';
@@ -55,7 +55,6 @@
     completeFiveTabSlots,
     configurationSignature,
     initialTabs,
-    permanentTabName,
     validAppConfiguration,
     type AppVersion,
     type NavigationTabDraft,
@@ -366,13 +365,6 @@
     tabsConfig = next;
   }
 
-  function activeContentCount(tab: NavigationTabDraft) {
-    if (tab.key === 'events') return $eventsStore.length;
-    if (tab.key === 'schedule') return $eventsStore.filter((event) => !['cancelled', 'archived'].includes(String(event.status || event.lifecycleStatus || '').toLowerCase())).length;
-    if (tab.key === 'teams' || permanentTabName(tab) === 'Teams') return $teamsStore.length;
-    return 0;
-  }
-
   function useVersionAsRollbackDraft(version: AppVersion) {
     captureBrandingUndo();
     const configuration = version.configuration;
@@ -582,7 +574,9 @@
 {/if}
 
 <div class="my-app-canvas" aria-label="My App canvas" inert={showTools}>
+  {#if !suspendInactivePreviews || (active && !(showTools && activeTab === 'Components'))}
   <AppPreviewFrame immersive onInteract={() => navigation?.dismiss()} previewOrigin={previewBaseUrl} tenantId={String($tenantIdStore || '')} environment={previewEnvironment} configuration={previewConfiguration} configurationReady={configLoadState === 'ready'} title={`${appName.trim() || 'Program'} mobile app preview`} expectedSourceCommit={publicEnvironment.PUBLIC_APP_PREVIEW_COMMIT || ''} expectedReleaseId={publicEnvironment.PUBLIC_APP_PREVIEW_RELEASE_ID || ''} />
+  {/if}
   {#if configLoadState === 'error' || configLoadState === 'permission'}
     <div class="canvas-error" role="alert"><p>{configLoadMessage}</p>{#if configLoadState === 'error'}<button type="button" on:click={() => loadTenantConfig(activeTenantId)}>Retry</button>{/if}</div>
   {/if}
@@ -637,7 +631,7 @@
     <div class="min-h-0 flex-1 overflow-y-auto bg-gray-50 lg:overflow-hidden">
       {#if activeTab === 'Components'}
         <div class="h-full overflow-y-auto p-4 sm:p-5">
-          <ComponentsStudio active={active} tenantId={String($tenantIdStore || '')} configuration={previewConfiguration} configurationReady={configLoadState === 'ready'} previewOrigin={previewBaseUrl} {previewEnvironment} expectedSourceCommit={publicEnvironment.PUBLIC_APP_PREVIEW_COMMIT || ''} expectedReleaseId={publicEnvironment.PUBLIC_APP_PREVIEW_RELEASE_ID || ''} />
+          <ComponentsStudio active={active} previewActive={!suspendInactivePreviews || (active && showTools)} tenantId={String($tenantIdStore || '')} configuration={previewConfiguration} configurationReady={configLoadState === 'ready'} previewOrigin={previewBaseUrl} {previewEnvironment} expectedSourceCommit={publicEnvironment.PUBLIC_APP_PREVIEW_COMMIT || ''} expectedReleaseId={publicEnvironment.PUBLIC_APP_PREVIEW_RELEASE_ID || ''} />
         </div>
       {:else if activeTab === 'Version history'}
         <div class="mx-auto h-full max-w-4xl overflow-y-auto p-5 sm:p-6">
@@ -661,8 +655,8 @@
                 <BrandingPanel bind:appName disabled={submitState === 'loading'} onCaptureUndo={captureBrandingUndo} />
                 <BrandingControls bind:primaryColor bind:secondaryColor bind:tertiaryColor bind:logoFile bind:logoValidationMessage {safeLogoPreviewUrl} disabled={submitState === 'loading'} canUndo={Boolean(brandingUndoSnapshot)} onCaptureUndo={captureBrandingUndo} onUndo={undoBrandingChange} />
               </div>
-            {:else}
-              <NavigationPanel bind:tabsConfig disabled={submitState === 'loading'} duplicateLabels={hasDuplicateTabLabels(currentConfiguration())} {activeContentCount} onMove={moveTab} />
+            {:else if active && showTools}
+              <NavigationPanel bind:tabsConfig disabled={submitState === 'loading'} duplicateLabels={hasDuplicateTabLabels(currentConfiguration())} onMove={moveTab} />
             {/if}
           </aside>
 

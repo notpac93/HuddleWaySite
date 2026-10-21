@@ -145,6 +145,24 @@ describe("ComponentsStudio", () => {
     ).toBeEnabled();
   });
 
+  it("releases a hidden renderer without discarding component edits", async () => {
+    const view = renderStudio();
+    await fireEvent.click(await screen.findByRole("button", { name: "Edit Home Hero component" }));
+    const oldFrame = screen.getByTitle("Home Hero isolated consumer preview");
+    const oldSource = oldFrame.getAttribute('src');
+    await fireEvent.input(screen.getByLabelText("Headline"), { target: { value: "Retained component draft" } });
+    await view.rerender({ previewActive: false });
+    expect(view.container.querySelector('iframe')).toBeNull();
+    expect(screen.getByLabelText("Headline")).toHaveValue("Retained component draft");
+    await view.rerender({ previewActive: true });
+    const newFrame = await screen.findByTitle("Home Hero isolated consumer preview");
+    expect(newFrame).not.toBe(oldFrame);
+    expect(newFrame.getAttribute('src')).not.toBe(oldSource);
+    expect(screen.getByRole("button", { name: "Publish components" })).toBeEnabled();
+    expect(api.componentStudio).toHaveBeenCalledTimes(1);
+    expect(api.publishPageLayout).not.toHaveBeenCalled();
+  });
+
   it("previews a library definition before adding it to the draft", async () => {
     renderStudio();
     await fireEvent.click(await screen.findByRole("button", { name: "+ Add" }));

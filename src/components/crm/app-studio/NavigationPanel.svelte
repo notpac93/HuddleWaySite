@@ -1,12 +1,20 @@
 <script lang="ts">
   import type { NavigationTabDraft } from './appConfigurationDraft';
   import { maxActiveTabs, permanentTabName, isRetiredNavigationTab } from './appConfigurationDraft';
+  import { eventsStore, teamsStore } from '../../../lib/services/DataStore';
 
   export let tabsConfig: NavigationTabDraft[] = [];
   export let disabled = false;
   export let duplicateLabels = false;
-  export let activeContentCount: (tab: NavigationTabDraft) => number;
   export let onMove: (index: number, direction: -1 | 1) => void;
+
+  // These collections are needed only while the navigation editor is visible.
+  function activeContentCount(tab: NavigationTabDraft) {
+    if (tab.key === 'events') return $eventsStore.length;
+    if (tab.key === 'schedule') return $eventsStore.filter((event) => !['cancelled', 'archived'].includes(String(event.status || event.lifecycleStatus || '').toLowerCase())).length;
+    if (tab.key === 'teams' || permanentTabName(tab) === 'Teams') return $teamsStore.length;
+    return 0;
+  }
 
   $: activeTabCount = tabsConfig.filter((tab) => tab.enabled && !isRetiredNavigationTab(tab)).length;
 
