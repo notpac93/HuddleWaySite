@@ -2,6 +2,7 @@ import { getToken as getAppCheckToken } from 'firebase/app-check';
 import { appCheck, auth, firebaseEnvironment } from '../firebase';
 import { resolveBackendUrl, publicEnvironment } from '../config/publicEnvironment';
 import { BackendApi } from './BackendApi';
+import { nativeAttestationAdvertised, requestNativeAppCheck } from '../crm/nativeWorkspaceAttestation';
 import { credentialBoundary } from './credentialBoundary';
 
 export const backendClient = new BackendApi({
@@ -16,6 +17,7 @@ export const backendClient = new BackendApi({
     return credentialBoundary('identity_token', () => user.getIdToken(forceRefresh));
   },
   getAppCheckToken: async (forceRefresh) => {
+    if (nativeAttestationAdvertised()) return credentialBoundary('app_check', () => requestNativeAppCheck(forceRefresh, () => auth.currentUser?.uid));
     if (!appCheck) return '';
     return (await credentialBoundary('app_check', () => getAppCheckToken(appCheck!, forceRefresh))).token;
   },

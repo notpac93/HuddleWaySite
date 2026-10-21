@@ -5,7 +5,10 @@ declare global {
       token: string,
       uid: string,
       nonce: string,
+      capability?: { appCheckProtocol: 1; tenantId: string },
     ) => Promise<void>;
+    huddlewayNativeAppCheckContext?: (requestId: string) => Record<string, unknown> | null;
+    huddlewayNativeAppCheckResponse?: (value: unknown) => boolean;
     huddlewayNativeReady?: (nonce: string) => void;
     huddlewayNativeBootStatus?: () => {
       contextModuleReady: boolean;

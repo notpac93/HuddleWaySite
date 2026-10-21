@@ -1,3 +1,4 @@
+import { beginNativeAttestation, clearNativeAttestation } from "./nativeWorkspaceAttestation";
 import { writable } from "svelte/store";
 import { signInWithCustomToken, signOut } from "firebase/auth";
 import { auth } from "../firebase";
@@ -34,7 +35,7 @@ if (isNativeWorkspace) {
     setNativeWorkspaceNonce(nonce);
     notifyNativeWorkspace("ready");
   };
-  window.huddlewayNativeSignIn = async (token, uid, nonce) => {
+  window.huddlewayNativeSignIn = async (token, uid, nonce, capability) => {
     if (
       signingIn ||
       !isTrustedNativeWorkspaceContext() ||
@@ -47,6 +48,7 @@ if (isNativeWorkspace) {
     setNativeWorkspaceNonce(nonce);
     nativeWorkspacePending.set(true);
     try {
+      beginNativeAttestation(uid, nonce, capability);
       await signOut(auth);
       const result = await signInWithCustomToken(auth, token);
       if (result.user.uid !== uid || !isTrustedNativeWorkspaceContext()) {
@@ -56,6 +58,7 @@ if (isNativeWorkspace) {
       nativeWorkspacePending.set(false);
       notifyNativeWorkspace("signedIn");
     } catch {
+      clearNativeAttestation();
       notifyNativeWorkspace("failed");
     } finally {
       signingIn = false;
