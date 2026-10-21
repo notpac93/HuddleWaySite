@@ -72,6 +72,7 @@ export default defineConfig({
       env: {
         ...process.env,
         ASTRO_DEV_BACKGROUND: '0',
+        PLAYWRIGHT_TEST: '1',
         PUBLIC_FIREBASE_API_KEY: 'fake-api-key',
         PUBLIC_FIREBASE_APP_ID: '1:123456789:web:e2e',
         PUBLIC_FIREBASE_MESSAGING_SENDER_ID: '123456789',

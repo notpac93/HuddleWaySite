@@ -45,6 +45,7 @@ test('setup validation advances without contacting external Firebase services', 
     ),
   ).toBeVisible();
   await expect(page.locator('astro-island[client-render-time]')).toHaveCount(1);
+  await expect(page.locator('astro-dev-toolbar')).toHaveCount(0);
   const continueButton = page.getByRole('button', { name: 'Continue' });
   await expect(continueButton).toBeDisabled();
 
