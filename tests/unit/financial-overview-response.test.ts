@@ -81,3 +81,24 @@ describe('financial accounting continuation', () => {
     await expect(api.financialOverview('fixture-tenant')).rejects.toMatchObject({ status: 502, code: 'invalid_backend_response' });
   });
 });
+
+describe('dashboard payment summary boundary', () => {
+  const summary = () => ({ schemaVersion: 'crm_dashboard_payments_v1', tenantId: 'fixture-tenant', complete: true, totals: [{ currency: 'USD', grossAmount: 25000 }] });
+  it('requests only the aggregate dashboard view', async () => {
+    let requested = '';
+    const api = new BackendApi({ baseUrl: 'https://api.example.test', getIdToken: async () => 'fixture', fetch: async input => {
+      requested = String(input);
+      return new Response(JSON.stringify(summary()), { status: 200 });
+    } });
+    await expect(api.dashboardPayments('fixture-tenant')).resolves.toEqual(summary());
+    expect(new URL(requested).searchParams.get('view')).toBe('dashboard');
+  });
+  it.each([
+    { tenantId: 'other-tenant' }, { complete: 'true' }, { totals: null },
+    { totals: [{ currency: 'USD', grossAmount: '25000' }] },
+    { totals: [{ currency: '???', grossAmount: 25000 }] },
+    { complete: false },
+  ])('rejects malformed or wrong-tenant summaries: %j', async patch => {
+    await expect(apiFor({ ...summary(), ...patch }).dashboardPayments('fixture-tenant')).rejects.toBeDefined();
+  });
+});

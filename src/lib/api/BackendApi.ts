@@ -1733,6 +1733,26 @@ export class BackendApi {
     return payload;
   }
 
+  async dashboardPayments(tenantId: string) {
+    const payload = await this.send<{
+      schemaVersion: string;
+      tenantId: string;
+      complete: boolean;
+      totals: Array<{ currency: string; grossAmount: number }>;
+    }>("/admin/crm/financial-overview", { query: { tenantId, view: "dashboard" } });
+    assertTenantEnvelope(payload as unknown as Record<string, unknown>, tenantId);
+    if (payload.schemaVersion !== "crm_dashboard_payments_v1"
+      || typeof payload.complete !== "boolean"
+      || !Array.isArray(payload.totals)
+      || payload.totals.some(total => !total
+        || !/^[A-Z]{3}$/.test(total.currency)
+        || !Number.isSafeInteger(total.grossAmount))
+      || (!payload.complete && payload.totals.length > 0)) {
+      invalidBackendResponse(payload as unknown as Record<string, unknown>);
+    }
+    return payload;
+  }
+
   async financialOverview(tenantId: string) {
     return loadFinancialOverview(
       query => this.send<FinancialOverview>("/admin/crm/financial-overview", { query }),

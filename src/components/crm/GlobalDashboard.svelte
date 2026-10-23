@@ -1,12 +1,7 @@
 <script lang="ts">
-  import { minorUnits } from '../../lib/services/financialAmounts';
   import { registerLiveRefresh } from '../../lib/crm/liveRefresh';
   import { onMount as mountRefresh } from 'svelte';
   import type { Component } from 'svelte';
-  import {
-    financialProjectionScope,
-    transactionsStore,
-  } from '../../lib/services/DataStore';
   import { activeTenantRole, tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
 
@@ -59,6 +54,23 @@
     $activeTenantRole === 'owner'
     || $activeTenantRole === 'platform_admin';
   $: canManageTenant = isOwner || $activeTenantRole === 'editor';
+  let paymentSummary = {
+    loading: false, complete: false,
+    totals: [] as Array<{ currency: string; grossAmount: number }>, error: '',
+  };
+  let paymentGeneration = 0;
+  async function loadPaymentSummary(tenantId: string, silent = false) {
+    const generation = ++paymentGeneration;
+    if (!silent) paymentSummary = { loading: true, complete: false, totals: [], error: '' };
+    try {
+      const result = await backendClient.dashboardPayments(tenantId);
+      if (generation !== paymentGeneration) return;
+      paymentSummary = { ...result, loading: false, error: '' };
+    } catch {
+      if (generation !== paymentGeneration) return;
+      paymentSummary = { loading: false, complete: false, totals: [], error: 'Payment totals could not be loaded.' };
+    }
+  }
   async function loadDashboardSummary(tenantId: string, silent = false) {
     const generation = ++dashboardSummaryGeneration;
     if (!silent) dashboardSummary = {
@@ -91,8 +103,11 @@
     loadedDashboardTenant = $tenantIdStore || '';
     if (loadedDashboardTenant) {
       void loadDashboardSummary(loadedDashboardTenant);
+      void loadPaymentSummary(loadedDashboardTenant);
     } else {
       dashboardSummaryGeneration += 1;
+      paymentGeneration += 1;
+      paymentSummary = { loading: false, complete: false, totals: [], error: '' };
       dashboardSummary = {
         loading: false,
         counts: { registrations: 0, teams: 0, events: 0 },
@@ -113,31 +128,9 @@
     ? '—'
     : String(dashboardSummary.counts.events);
 
-  // Keep totals separated by currency and format integer minor units only.
-  $: revenueProjection = $transactionsStore.reduce((projection, transaction) => {
-    if (transaction.status !== 'succeeded') return projection;
-    const amount = minorUnits(transaction.grossAmount);
-    const currency = typeof transaction.currency === 'string'
-      && /^[A-Za-z]{3}$/.test(transaction.currency.trim())
-      ? transaction.currency.trim().toUpperCase()
-      : '';
-    if (amount === null || !currency) {
-      projection.invalid += 1;
-      return projection;
-    }
-    projection.totals.set(
-      currency,
-      (projection.totals.get(currency) || 0) + amount,
-    );
-    return projection;
-  }, { totals: new Map<string, number>(), invalid: 0 });
-  $: revenueTotals = Array.from(revenueProjection.totals.entries()) as [string, number][];
-  $: invalidRevenueRecords = revenueProjection.invalid;
-  $: revenueUnavailable =
-    $financialProjectionScope.loading
-    || $financialProjectionScope.truncated.transactions
-    || invalidRevenueRecords > 0
-    || Boolean($financialProjectionScope.error);
+  $: revenueTotals = paymentSummary.totals.map(({ currency, grossAmount }) =>
+    [currency, grossAmount] as [string, number]);
+  $: revenueUnavailable = paymentSummary.loading || !paymentSummary.complete || Boolean(paymentSummary.error);
 
   // Format currency
   const formatCurrency = (amount: number, currency: string) => {
@@ -198,7 +191,7 @@
   $: incompleteRegistrationCount = recentRegistrations.filter((registration) => !registration.participantName || !registration.email).length;
 
 
-  mountRefresh(() => registerLiveRefresh(() => loadedDashboardTenant ? loadDashboardSummary(loadedDashboardTenant, true) : undefined));
+  mountRefresh(() => registerLiveRefresh(() => loadedDashboardTenant ? Promise.all([loadDashboardSummary(loadedDashboardTenant, true), loadPaymentSummary(loadedDashboardTenant, true)]).then(() => undefined) : undefined));
 </script>
 
 <div class="dashboard h-full flex flex-col p-4 sm:p-6 space-y-5 overflow-y-auto bg-gray-50">
@@ -233,10 +226,10 @@
               <dd>
                 {#if revenueUnavailable}
                   <div class="crm-ui-subtitle">
-                    {$financialProjectionScope.loading ? 'Loading…' : 'Unavailable'}
+                    {paymentSummary.loading ? 'Loading…' : 'Unavailable'}
                   </div>
                   <div class="crm-ui-hint-xs">
-                    {$financialProjectionScope.loading
+                    {paymentSummary.loading
                       ? 'Loading financial projection'
                       : 'Limited or invalid financial projection'}
                   </div>
@@ -248,8 +241,8 @@
                   {/each}
                 {/if}
               </dd>
-              {#if $financialProjectionScope.error}
-                <dd class="mt-1 text-xs text-red-700" role="alert">{$financialProjectionScope.error}</dd>
+              {#if paymentSummary.error}
+                <dd class="mt-1 text-xs text-red-700" role="alert">{paymentSummary.error}</dd>
               {/if}
             </dl>
           </div>

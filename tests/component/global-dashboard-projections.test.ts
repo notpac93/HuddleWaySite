@@ -70,6 +70,7 @@ const stores = vi.hoisted(() => {
 
 const backendMocks = vi.hoisted(() => ({
   crmDashboardSummary: vi.fn(),
+  dashboardPayments: vi.fn(),
 }));
 
 vi.mock('../../src/lib/services/DataStore', () => stores);
@@ -115,6 +116,8 @@ describe('GlobalDashboard bounded operational summary', () => {
       error: '',
     });
     stores.tenantIdStore.set('fixture-tenant');
+    backendMocks.dashboardPayments.mockReset();
+    backendMocks.dashboardPayments.mockResolvedValue({ complete: true, totals: [] });
     backendMocks.crmDashboardSummary.mockReset();
     backendMocks.crmDashboardSummary.mockResolvedValue({
       schemaVersion: 'crm_dashboard_summary_v1',
@@ -161,6 +164,7 @@ describe('GlobalDashboard bounded operational summary', () => {
       grossAmount: 25_000,
       currency: 'usd',
     }]);
+    backendMocks.dashboardPayments.mockResolvedValue({ complete: false, totals: [] });
     stores.financialProjectionScope.update((scope) => ({
       ...scope,
       truncated: { ...scope.truncated, transactions: true },
@@ -187,6 +191,37 @@ describe('GlobalDashboard bounded operational summary', () => {
       'Limited or invalid financial projection',
     );
     expect(revenueCard).not.toHaveTextContent('$250.00');
+  });
+
+  it.each(['owner', 'editor', 'viewer'])('shows summary totals to tenant %s without owner-only financial data', async role => {
+    stores.activeTenantRole.set(role);
+    stores.financialProjectionScope.update(scope => ({ ...scope, error: 'Tenant owner access required.' }));
+    backendMocks.dashboardPayments.mockResolvedValue({ complete: true, totals: [{ currency: 'USD', grossAmount: 25000 }] });
+    render(TestedGlobalDashboard);
+    expect(await screen.findByText('USD $250.00')).toBeVisible();
+    expect(screen.queryByText('Tenant owner access required.')).not.toBeInTheDocument();
+    expect(backendMocks.dashboardPayments).toHaveBeenCalledWith('fixture-tenant');
+  });
+
+  it('never displays zero or old totals when the summary request is denied', async () => {
+    backendMocks.dashboardPayments.mockRejectedValue(new Error('Denied'));
+    render(TestedGlobalDashboard);
+    expect(await screen.findByText('Payment totals could not be loaded.')).toBeVisible();
+    expect(screen.queryByText('No payments')).not.toBeInTheDocument();
+  });
+
+  it('ignores old tenant payment responses after switching tenant', async () => {
+    let resolveOld!: (value: any) => void;
+    backendMocks.dashboardPayments.mockImplementation((tenant: string) => tenant === 'fixture-tenant'
+      ? new Promise(resolve => { resolveOld = resolve; })
+      : Promise.resolve({ complete: true, totals: [{ currency: 'EUR', grossAmount: 100 }] }));
+    render(TestedGlobalDashboard);
+    await waitFor(() => expect(backendMocks.dashboardPayments).toHaveBeenCalledWith('fixture-tenant'));
+    stores.tenantIdStore.set('another-tenant');
+    expect(await screen.findByText('EUR €1.00')).toBeVisible();
+    resolveOld({ complete: true, totals: [{ currency: 'USD', grossAmount: 9900 }] });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(screen.queryByText('USD $99.00')).not.toBeInTheDocument();
   });
 
   it('keeps supported legacy human names and emails without exposing IDs', async () => {

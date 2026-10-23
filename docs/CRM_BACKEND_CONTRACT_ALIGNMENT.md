@@ -127,6 +127,7 @@ not query backend-only collections directly. The current app-owned boundary is:
 | `POST /admin/messages/batch` and `POST /admin/messages/:messageId/recall` | editor | Send or recall canonical messages with stable IDs and audit evidence. |
 | `GET /admin/roster/players` | editor | Return an allowlisted registration/team-membership projection; raw registration form data and membership records are not returned. |
 | `POST /admin/teams/:teamId/roster/preview` and `/commit` | editor | Validate a stable roster change set, then commit it once with an idempotency key. |
+| `GET /admin/crm/financial-overview?view=dashboard` | active tenant staff | Return aggregate-only gross receipt totals by currency; no payer or transaction records. |
 | `GET /admin/crm/financial-overview` | owner | Return allowlisted transaction, refund, invoice, and deposit projections with integer-or-null minor units. |
 | `POST /admin/refund` | owner | Create or resume a durable core refund operation; provider success/local uncertainty is reconciled rather than charged twice. |
 | `GET /admin/crm/audit-events` | viewer | Return a tenant-scoped activity projection without actor UID, resource ID, request ID, PII, raw details, or provider payloads. |
