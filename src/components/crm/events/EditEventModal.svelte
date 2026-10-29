@@ -2,6 +2,7 @@
   import { eventCurrency, eventPriceCents } from '../../../lib/ui/eventMoney';
   import { programTermsStore } from '../../../lib/crm/programVocabulary';
   import { createEventDispatcher, onDestroy } from 'svelte';
+  import { seasonsStore } from '../../../lib/services/DataStore';
   import { tenantIdStore } from '../../../lib/authStore';
   import { backendClient } from '../../../lib/api/backendClient';
   import { BackendApiError, createIdempotencyKey, type CrmEventOccurrenceInput } from '../../../lib/api/BackendApi';
@@ -9,7 +10,7 @@
   import ImageFilePicker from '../ui/ImageFilePicker.svelte';
   import { validateImageFile } from '../../../lib/media/imageUpload';
   import { modalFocus } from '../../../lib/ui/modalFocus';
-  import type { TeamReferenceIndex } from '../../../lib/ui/teamReferences';
+  import { teamReferenceMatches, type TeamReferenceIndex } from '../../../lib/ui/teamReferences';
   import EventPaymentTermsEditor from '../billing/EventPaymentTermsEditor.svelte';
 
   export let event: any = null;
@@ -17,6 +18,7 @@
   export let teamReferences: TeamReferenceIndex = new Map();
   export let seriesSize = 0;
   export let projectionComplete = true;
+  export let defaultApplyToSeries = false;
 
   const dispatch = createEventDispatcher();
 
@@ -27,6 +29,12 @@
   let teamId = teamReferences.get(originalTeamId)?.documentId || originalTeamId;
   const originalSelectedTeamId = teamId;
   const originalLocation = location;
+  const originalSeasonId = String(event?.seasonId || '');
+  const originalSeasonCoverage = event?.seasonCoverage === true;
+  let seasonId = originalSeasonId;
+  let seasonCoverage = originalSeasonCoverage;
+  $: seasonChanged = seasonId !== originalSeasonId || seasonCoverage !== originalSeasonCoverage;
+  $: availableSeasons = $seasonsStore.filter((season) => ['active', 'upcoming'].includes(String(season.status || '')) && (!season.teamId || ['all', 'program', 'general'].includes(String(season.teamId)) || teamReferenceMatches(teamReferences, season.teamId, teamId)));
   let lifecycleStatus = event ? event.lifecycleStatus || 'draft' : 'draft';
   let imageUrl = event ? event.imageUrl || '' : '';
   let imageFile: File | null = null;
@@ -57,8 +65,8 @@
     : '';
   const initialSchedule = { rawDate, rawTime, rawEndTime };
   const initialPayment = JSON.stringify({ price, paymentChoice, installmentCount, installmentCadence, cancellationPolicy, refundPolicy });
-  $: paymentChanged = initialPayment !== JSON.stringify({ price, paymentChoice, installmentCount, installmentCadence, cancellationPolicy, refundPolicy });
-  let applyToSeries = false;
+  $: paymentChanged = seasonChanged || initialPayment !== JSON.stringify({ price, paymentChoice, installmentCount, installmentCadence, cancellationPolicy, refundPolicy });
+  let applyToSeries = defaultApplyToSeries && Boolean(event?.eventSeriesId);
   const auditReason = 'Event updated from CRM.';
 
   let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
@@ -94,6 +102,8 @@
     rawTime,
     rawEndTime,
     applyToSeries,
+    seasonId,
+    seasonCoverage,
     auditReason: auditReason.trim(),
     publishConfirmation,
     price,
@@ -169,19 +179,15 @@
         `Type ${publishConfirmationText} before publishing this event.`;
       return;
     }
-    if (paymentChanged && !currency) {
+    if (paymentChanged && !currency && !seasonCoverage) {
       errorMessage = 'The event currency is unavailable or conflicting. Payment settings cannot be changed.';
       return;
     }
-    if (paymentChanged && !/^\d+(\.\d{1,2})?$/.test(price.trim())) {
+    if (paymentChanged && !seasonCoverage && !/^\d+(\.\d{1,2})?$/.test(price.trim())) {
       errorMessage = 'Enter a valid registration price with no more than two decimal places.';
       return;
     }
-    const priceCents = Math.round(Number(price) * 100);
-    if (paymentChanged && priceCents > 0 && (!cancellationPolicy.trim() || !refundPolicy.trim())) {
-      errorMessage = 'Add the cancellation and refund policies families should see.';
-      return;
-    }
+    const priceCents = seasonCoverage ? 0 : Math.round(Number(price) * 100);
     const eventId = String(event.id);
     const generation = ++operationGeneration;
     const submittedSignature = currentPayloadSignature;
@@ -212,6 +218,7 @@
         title: title.trim(),
         applyToSeries: applyToSeries && Boolean(event.eventSeriesId),
       };
+      if (seasonChanged) { update.seasonId = seasonId || null; update.seasonCoverage = seasonCoverage; }
       if (location !== originalLocation) update.location = location.trim();
       if (teamId !== originalSelectedTeamId) update.teamId = teamId;
       // The API requires this atomic block, but ordinary edits must preserve
@@ -219,16 +226,13 @@
       if (paymentChanged) Object.assign(update, {
         priceCents,
         paymentTerms: {
-          mode: paymentChoice,
+          mode: seasonCoverage ? 'pay_in_full' : paymentChoice,
           adminChoiceConfirmed: true,
-          installmentCount: paymentChoice === 'installments' ? installmentCount : 1,
-          cadence: paymentChoice === 'installments' ? installmentCadence : null,
-          currency: currency!.toLowerCase(),
+          installmentCount: !seasonCoverage && paymentChoice === 'installments' ? installmentCount : 1,
+          cadence: !seasonCoverage && paymentChoice === 'installments' ? installmentCadence : null,
+          currency: (currency || 'USD').toLowerCase(),
         },
-        paymentPolicies: priceCents > 0 ? {
-          cancellation: cancellationPolicy.trim(),
-          refund: refundPolicy.trim(),
-        } : null,
+        paymentPolicies: priceCents > 0 && cancellationPolicy && refundPolicy ? { cancellation: cancellationPolicy, refund: refundPolicy } : null,
       });
       if (lifecycleStatus !== originalLifecycleStatus) {
         update.lifecycleStatus = lifecycleStatus;
@@ -329,7 +333,8 @@
       <div class="mt-4 space-y-4">
         <ImageFilePicker
           inputId="event-edit-image"
-          label="Event Image Banner"
+          label="Cover image"
+          photo
           currentUrl={imageUrl}
           previewAlt="Event image"
           bind:selectedFile={imageFile}
@@ -350,7 +355,9 @@
           />
         </div>
 
-        <EventPaymentTermsEditor {currency} bind:price bind:choice={paymentChoice} bind:installmentCount bind:cadence={installmentCadence} bind:cancellationPolicy bind:refundPolicy />
+        <label class="crm-ui-label block">Attach to a season <span class="font-normal text-gray-500">Optional</span><select class="crm-ui-input mt-2" bind:value={seasonId} on:change={() => { seasonCoverage = Boolean(seasonId); }}><option value="">No season</option>{#if originalSeasonId && !availableSeasons.some((season) => String(season.id) === originalSeasonId)}<option value={originalSeasonId} disabled>Current season unavailable</option>{/if}{#each availableSeasons as season}<option value={String(season.id)}>{season.name || season.title}</option>{/each}</select></label>
+        {#if seasonId && !originalSeasonCoverage && seasonId === originalSeasonId}<label class="flex items-center gap-2 text-sm"><input type="checkbox" bind:checked={seasonCoverage} />Include this event in season enrollment</label>{/if}
+        {#if seasonCoverage}<div class="rounded-lg bg-[var(--crm-brand-surface)] p-4 text-sm text-[var(--crm-on-brand-surface)]">Only covered season participants can register. No additional event charge.</div>{:else}<EventPaymentTermsEditor {currency} bind:price bind:choice={paymentChoice} bind:installmentCount bind:cadence={installmentCadence} />{/if}
 
         <!-- Date & Time -->
         <div class="grid grid-cols-3 gap-3">
@@ -460,8 +467,8 @@
                 <div class="crm-ui-event-toggle-dot {applyToSeries ? 'translate-x-4' : ''}"></div>
               </div>
               <div>
-                <span class="text-sm font-semibold text-gray-900">Apply to all events in this series</span>
-                <p class="crm-ui-hint-xs">Update title, location, team, and status. Dates and times stay unchanged for each occurrence.</p>
+                <span class="text-sm font-semibold text-gray-900">Apply to the entire repeating event</span>
+                <p class="crm-ui-hint-xs">Update the event settings across every scheduled date.</p>
               </div>
             </label>
           </div>

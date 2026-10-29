@@ -184,9 +184,6 @@
         <button type="button" class="mt-3 crm-ui-button-secondary bg-white" on:click={loadOperations}>Retry</button>
       </section>
     {:else if operations}
-      {#if activeTeam}
-        <p class="mb-4 rounded-lg border border-[var(--crm-brand-border)] bg-[var(--crm-brand-surface)] p-4 text-sm text-[var(--crm-on-brand-surface)]">Financial operations are organization-wide so scheduled and overdue balances are not accidentally hidden by team filters.</p>
-      {/if}
       {#if !operations.complete}
         <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950" role="alert"><strong>Some records are unavailable.</strong> Export will be available when all records load.</div>
       {/if}

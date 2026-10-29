@@ -1920,6 +1920,7 @@ export class BackendApi {
       notes: string;
       imageReservationId?: string | null;
       seasonId: string | null;
+      seasonCoverage?: boolean;
       registrationFormId: string | null;
       publishMode: "immediate" | "draft";
       priceCents?: number;
@@ -1996,6 +1997,7 @@ export class BackendApi {
       endAt?: string;
       timeZone?: string;
       seasonId?: string | null;
+      seasonCoverage?: boolean;
       applyToSeries?: boolean;
       priceCents?: number;
       paymentTerms?: Record<string, unknown>;

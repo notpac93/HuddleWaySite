@@ -320,9 +320,6 @@
           <button type="button" class="crm-ui-button-danger-outline inline-flex items-center gap-2" on:click={() => requestDelete(activeTeam)}><Icon name="trash" size={16} /> Delete team</button>
         </div>
       </PageHeader>
-      <div class="mt-6">
-        <StatusNotice tone="info" title={`${activeTeam.name || 'This team'} is your working context`} message="Team-aware pages open filtered to this team. Choose All teams in the scope bar to return to organization-wide work." />
-      </div>
       <section class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Team overview">
         <div class="rounded-lg border bg-white p-4"><p class="text-xs font-semibold uppercase text-gray-500">Status</p><p class="mt-1 text-lg font-semibold">{teamStatus(activeTeam)}</p></div>
         <button type="button" class="rounded-lg border bg-white p-4 text-left hover:border-[var(--crm-brand-focus)]" on:click={() => onNavigateTab('Roster')}><span class="text-xs font-semibold uppercase text-gray-500">Roster</span><span class="mt-1 block text-lg font-semibold">{teamRosterCount(activeTeam)} people</span></button>

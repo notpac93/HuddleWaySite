@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { groupEventSeries } from '../../lib/ui/eventSeries';
   import { eventPriceCents, eventPriceLabel } from '../../lib/ui/eventMoney';
   import { programTermsStore } from '../../lib/crm/programVocabulary';
   import {
@@ -139,6 +140,8 @@
             imageUrl: data.imageUrl || '',
             teamId: data.teamId || 'general',
             eventSeriesId: data.eventSeriesId || null,
+            occurrenceCount: data.occurrenceCount || 1,
+            seasonCoverage: data.seasonCoverage === true,
             isMultiDateSeries: data.isMultiDateSeries || false,
             type:
               typeof data.type === 'string' && data.type.trim()
@@ -216,7 +219,7 @@
     eventTeamFilter = selectedTeamId;
   }
   $: presetEvents = activeTab === 'Upcoming' ? upcomingEvents : pastEvents;
-  $: visibleEvents = presetEvents.filter((event) =>
+  $: filteredEventOccurrences = presetEvents.filter((event) =>
     (!eventSearchQuery || [event.title, event.location, event.type].some((value) => String(value || '').toLocaleLowerCase().includes(eventSearchQuery)))
     && teamReferenceMatches(teamReferenceIndex, event.teamId, eventTeamFilter)
     && (!eventStatusFilter || event.lifecycleStatus === eventStatusFilter)
@@ -224,28 +227,33 @@
     && (!eventFromDate || event.dateKey >= eventFromDate)
     && (!eventToDate || event.dateKey <= eventToDate)
   ).sort((a, b) => Number(b.lifecycleStatus === 'published') - Number(a.lifecycleStatus === 'published'));
-  $: selectedDraftEvents = events.filter((event) => selectedDraftEventIds.has(event.id) && event.lifecycleStatus === 'draft');
+  $: visibleEvents = groupEventSeries(filteredEventOccurrences, events);
+  $: selectedDraftEvents = groupEventSeries(events, events).filter((group) => group.occurrences.some((event) => selectedDraftEventIds.has(event.id) && event.lifecycleStatus === 'draft'));
+  function registrationCount(event: any) {
+    if (!event.occurrences || event.occurrences.length < 2) return DataStore.getEventRegistrationCount(event, $registrationsStore);
+    const ids = new Set(event.occurrences.map((entry: any) => entry.id));
+    return new Set($registrationsStore.filter((entry) => ids.has(entry.eventId)).map((entry) => entry.userId || entry.id)).size;
+  }
   $: registrationProjectionIsAuthoritative =
     !$registrationsProjectionScope.loading
     && !$registrationsProjectionScope.error
     && !$registrationsProjectionScope.truncated;
-  $: exactEventCountIncomplete = !registrationProjectionIsAuthoritative;
   $: if (activeResultId && activeResultId !== consumedTargetId) {
     const targetEvent = events.find((event) => String(event.id) === activeResultId);
     if (targetEvent) {
       const targetId = activeResultId;
       consumedTargetId = targetId;
       activeTab = targetEvent.dateObj && targetEvent.dateObj < now ? 'Past' : 'Upcoming';
-      toggleExpand(targetEvent);
-      void tick().then(() => {
-        const targetButton = Array.from(
-          document.querySelectorAll<HTMLElement>('[data-event-record-id]'),
-        ).find((element) => element.dataset.eventRecordId === targetId);
-        targetButton?.scrollIntoView?.({ block: 'center' });
-        targetButton?.focus();
-        onTargetConsumed(targetId);
-      });
+      void focusEventResult(targetId);
     }
+  }
+  async function focusEventResult(targetId: string) {
+    await tick();
+    const group = visibleEvents.find((entry) => entry.occurrences.some((event) => event.id === targetId));
+    expandedEventId = group?.id || targetId;
+    await tick();
+    const button = Array.from(document.querySelectorAll<HTMLElement>('[data-event-record-id]')).find((element) => element.dataset.eventRecordId === (group?.id || targetId));
+    button?.scrollIntoView?.({ block: 'center' }); button?.focus(); onTargetConsumed(targetId);
   }
   $: if (!activeResultId) consumedTargetId = '';
 
@@ -277,10 +285,16 @@
     editingEvent = null;
   }
 
+  function openEditor(event: any) {
+    editingEvent = { ...event, lifecycleStatus: event.occurrences?.find((entry: any) => entry.id === event.id)?.lifecycleStatus || event.lifecycleStatus };
+  }
+
   function toggleDraftSelection(eventId: string) {
+    const source = events.find((event) => event.id === eventId);
+    const members = events.filter((event) => event.lifecycleStatus === 'draft' && (source?.eventSeriesId ? event.eventSeriesId === source.eventSeriesId : event.id === eventId));
     const next = new Set(selectedDraftEventIds);
-    if (next.has(eventId)) next.delete(eventId);
-    else next.add(eventId);
+    const removing = members.every((event) => next.has(event.id));
+    for (const event of members) { if (removing) next.delete(event.id); else next.add(event.id); }
     selectedDraftEventIds = next;
   }
 
@@ -289,28 +303,21 @@
     if (!tenantId || publishingSelectedDrafts || !selectedDraftEvents.length) return;
     publishingSelectedDrafts = true;
     const batchKey = createIdempotencyKey('event-batch-publish');
-    const targets = [...selectedDraftEvents];
     let published = 0;
     let failed = 0;
-    for (const event of targets) {
-      try {
-        await backendClient.updateEvent(
-          tenantId,
-          event.id,
-          { lifecycleStatus: 'published' },
-          `Publish selected event draft from CRM batch (${selectedDraftEvents.length} events).`,
-          `${batchKey}:${event.id}`,
-        );
-        published += 1;
-        const next = new Set(selectedDraftEventIds);
-        next.delete(event.id);
-        selectedDraftEventIds = next;
-      } catch {
-        failed += 1;
+    for (const group of [...selectedDraftEvents]) {
+      let groupFailed = false;
+      if (group.occurrences.some((event) => event.occurrenceCount > group.occurrences.length) || $eventsProjectionScope.truncated) { failed++; continue; }
+      for (const event of group.occurrences.filter((event) => event.lifecycleStatus === 'draft' && selectedDraftEventIds.has(event.id))) {
+        try {
+          await backendClient.updateEvent(tenantId, event.id, { lifecycleStatus: 'published' }, 'Publish reviewed event schedule from CRM.', `${batchKey}:${event.id}`);
+          const next = new Set(selectedDraftEventIds); next.delete(event.id); selectedDraftEventIds = next;
+        } catch { groupFailed = true; }
       }
+      if (groupFailed) failed++; else published++;
     }
     publishingSelectedDrafts = false;
-    if (published > 0) refreshOperationalCollections('events');
+    refreshOperationalCollections('events');
     showBatchPublishReview = false;
     batchPublishReceipt = { published, failed, reference: batchKey };
   }
@@ -475,6 +482,7 @@
       ? events.filter((event) => event.eventSeriesId === editingEvent.eventSeriesId).length
       : 1}
     projectionComplete={!$eventsProjectionScope.truncated}
+    defaultApplyToSeries={Boolean(editingEvent.occurrences?.length > 1)}
     on:cancel={() => editingEvent = null}
     on:success={handleEditEventSuccess}
   />
@@ -529,11 +537,6 @@
   {#if $eventsProjectionScope.truncated || $teamsProjectionScope.truncated}
     <p class="crm-ui-notice-card" role="status">
       This view is limited to {$eventsProjectionScope.limit} events and {$teamsProjectionScope.limit} teams. Search, series validation, and counts may be incomplete.
-    </p>
-  {/if}
-  {#if events.length > 0 && exactEventCountIncomplete}
-    <p class="crm-ui-notice-card" role="status">
-      Event registration counts are loading or unavailable. The participant list remains safely limited to {$registrationsProjectionScope.limit} loaded records.
     </p>
   {/if}
   {#if malformedEventCount > 0}
@@ -602,7 +605,7 @@
                   Published
                 </span>
               {:else}
-                <span class="crm-ui-event-badge crm-ui-event-badge-unavailable">Status unavailable</span>
+                <span class="crm-ui-event-badge crm-ui-event-badge-unavailable">{event.lifecycleStatus === 'mixed' ? 'Mixed status' : 'Status unavailable'}</span>
               {/if}
             </div>
             <div class="crm-ui-event-meta">
@@ -616,7 +619,7 @@
                 <svg class="mr-1.5 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                {event.date}
+                {event.occurrences.length > 1 ? `Repeating · ${event.date}` : event.date}
               </span>
               <span class="crm-ui-center">
                 <svg class="mr-1.5 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -630,9 +633,9 @@
 
           <div class="flex items-center gap-4">
 
-            {#if event.lifecycleStatus === 'draft'}
+            {#if event.hasDrafts}
               <label class="flex items-center gap-2 text-xs font-semibold text-gray-700">
-                <input type="checkbox" checked={selectedDraftEventIds.has(event.id)} disabled={publishingSelectedDrafts} on:change={() => toggleDraftSelection(event.id)} />
+                <input type="checkbox" checked={event.occurrences.some((occurrence) => selectedDraftEventIds.has(occurrence.id))} disabled={publishingSelectedDrafts} on:change={() => toggleDraftSelection(event.id)} />
                 Select to publish
               </label>
             {/if}
@@ -644,14 +647,14 @@
                 class="text-center pr-2 hover:bg-gray-50 p-1 rounded transition-colors"
                 aria-label={$registrationsProjectionScope.truncated
                   ? `View loaded registrants for ${event.title}; participant list is limited`
-                  : `View ${DataStore.getEventRegistrationCount(event, $registrationsStore)} registrants for ${event.title}`}
+                  : `View ${registrationCount(event)} registrants for ${event.title}`}
                 disabled={$registrationsProjectionScope.loading || Boolean($registrationsProjectionScope.error)}
                 on:click={() => showRegistrantsForEvent = event}
               >
                 <div class="text-lg font-bold text-green-600">
                   {$registrationsProjectionScope.truncated
                     ? '—'
-                    : DataStore.getEventRegistrationCount(event, $registrationsStore)}
+                    : registrationCount(event)}
                 </div>
                 <div class="text-[10px] text-gray-500 uppercase font-semibold">Registered</div>
               </button>
@@ -660,7 +663,7 @@
             <button
               type="button"
               class="crm-ui-button-secondary py-1.5 text-xs"
-              on:click={() => { editingEvent = { ...event }; }}
+              on:click={() => openEditor(event)}
             >
               Edit
             </button>
@@ -692,7 +695,7 @@
               <button
                 type="button"
                 class="crm-ui-button-secondary"
-                on:click={() => { editingEvent = { ...event }; }}
+                on:click={() => openEditor(event)}
               >Edit event</button>
             </div>
 
@@ -732,11 +735,14 @@
                 <dd class="mt-1 text-sm text-gray-900">
                   {$registrationsProjectionScope.truncated
                     ? 'Count unavailable'
-                    : DataStore.getEventRegistrationCount(event, $registrationsStore)}
+                    : registrationCount(event)}
                 </dd>
               </div>
             </dl>
 
+            {#if event.occurrences.length > 1}
+              <details class="rounded-lg border border-gray-200 bg-white p-4"><summary class="cursor-pointer text-sm font-medium text-[var(--crm-brand-link)]">View scheduled dates</summary><ul class="mt-3 divide-y divide-gray-100">{#each event.occurrences as occurrence (occurrence.id)}<li class="flex flex-wrap items-center justify-between gap-3 py-3 text-sm"><span>{occurrence.date}</span><span class="text-gray-500">{eventStatusLabel(occurrence.lifecycleStatus)}</span><button type="button" class="crm-ui-button-secondary text-xs" on:click={() => editingEvent = { ...occurrence }}>Edit session</button></li>{/each}</ul></details>
+            {/if}
             {#if event.notes}
               <section class="rounded-lg border border-gray-200 bg-white p-4">
                 <h5 class="crm-ui-label-caps-sm">Notes</h5>
@@ -848,7 +854,7 @@
     registrations={$registrationsStore}
     incomplete={$registrationsProjectionScope.truncated}
     exactCount={registrationProjectionIsAuthoritative
-      ? DataStore.getEventRegistrationCount(showRegistrantsForEvent, $registrationsStore)
+      ? registrationCount(showRegistrantsForEvent)
       : null}
     onClose={() => showRegistrantsForEvent = null}
   />

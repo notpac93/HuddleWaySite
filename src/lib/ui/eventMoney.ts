@@ -18,6 +18,7 @@ export function eventPriceCents(event: any): number | null {
 }
 
 export function eventPriceLabel(event: any): string {
+  if (event?.seasonCoverage === true) return 'Included with the season';
   const cents = eventPriceCents(event);
   if (cents === null) return 'Price unavailable';
   if (cents === 0) return 'Free';

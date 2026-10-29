@@ -1328,20 +1328,7 @@
               <p class="crm-theme-link shrink-0 text-xs font-medium">Resets {new Date(emailQuota.resetsAt).toLocaleDateString()}</p>
             {/if}
           </div>
-          <div class="crm-ui-message-allowance-meta {emailQuota.capacityMode === 'normal' ? 'crm-ui-message-meta-normal' : 'crm-ui-message-meta-limited'}">
-            <p>
-              {emailQuota.providerReconciliationStatus === 'verified'
-                ? `Email usage checked${emailQuota.providerReconciledAt ? ` ${new Date(emailQuota.providerReconciledAt).toLocaleString()}` : ''}`
-                : emailQuota.providerReconciliationStatus === 'unavailable'
-                  ? 'Protected counter active · usage check will retry'
-                  : 'Protected tenant counter active'}
-            </p>
-            <p class="sm:text-right">
-              {connectedMailbox?.connected && connectedMailbox.email
-                ? `Personal sender available up to 100 · ${connectedMailbox.email}`
-                : 'HuddleWay sender ready · connect a personal email for smaller groups'}
-            </p>
-          </div>
+
         </div>
       {:else if emailQuotaLoading}
         <p class="text-xs text-gray-500" role="status">Loading email allowance…</p>

@@ -18,9 +18,9 @@ const reviewedControlCounts: Record<string, number> = {
   'CrmShell.svelte': 21,
   'DataTable.svelte': 13,
   'DocumentsManager.svelte': 14,
-  'EventScheduler.svelte': 17,
+  'EventScheduler.svelte': 18,
   'FinancialOperationsWorkspace.svelte': 6,
-  'GlobalDashboard.svelte': 9,
+  'GlobalDashboard.svelte': 8,
   'GlobalSearch.svelte': 5,
   'InviteStaffModal.svelte': 6,
   'Login.svelte': 15,
@@ -47,13 +47,15 @@ const reviewedControlCounts: Record<string, number> = {
   'app/AppPublishReview.svelte': 4,
   'messages/AnnouncementPublishReview.svelte': 4,
   'billing/BillingPackagesWorkspace.svelte': 21,
-  'billing/EventPaymentTermsEditor.svelte': 7,
+  'billing/EventPaymentTermsEditor.svelte': 5,
   'documents/DocumentEditor.svelte': 11,
-  'events/CreateEventForm.svelte': 21,
+  'events/CreateEventForm.svelte': 19,
   'events/DuplicateEventModal.svelte': 9,
-  'events/EditEventModal.svelte': 12,
+  'events/EditEventModal.svelte': 14,
   'events/EventBatchPublishReview.svelte': 4,
   'events/EventCsvImport.svelte': 4,
+  'events/EventCreationPreview.svelte': 1,
+  'events/EventRecurrenceEditor.svelte': 5,
   'events/EventFilters.svelte': 7,
   'events/EventRegistrantsModal.svelte': 2,
   'events/RecurrenceSelector.svelte': 13,
@@ -81,7 +83,7 @@ const reviewedControlCounts: Record<string, number> = {
   'ui/FilterBar.svelte': 2,
   'ui/FilterDisclosure.svelte': 0,
   'ui/Icon.svelte': 0,
-  'ui/ImageFilePicker.svelte': 2,
+  'ui/ImageFilePicker.svelte': 5,
   'ui/LoadingState.svelte': 0,
   'ui/PageHeader.svelte': 0,
   'ui/PortalExperienceCatalog.svelte': 5,
@@ -155,7 +157,7 @@ describe('exhaustive CRM control inventory', () => {
     );
 
     expect(actual).toEqual(reviewedControlCounts);
-    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(622);
+    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(629);
   });
 
   it('keeps every inventoried CRM component reachable from a production entry point', () => {

@@ -384,19 +384,10 @@ describe("CRM modal stacking and navigation", () => {
   it("advances event creation inside the panel without closing the modal", async () => {
     const view = render(TestedCreateEventFormHarness);
 
-    await fireEvent.input(screen.getByLabelText("Event Title"), {
-      target: { value: "Summer Practice" },
-    });
-    await fireEvent.change(screen.getByLabelText("Event Type *"), {
-      target: { value: "Practice" },
-    });
-    await fireEvent.change(screen.getByLabelText("Team *"), {
-      target: { value: "team-1" },
-    });
     await fireEvent.click(screen.getByRole("radio", { name: /One-time/ }));
-    await fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Continue to date & time" }));
 
-    expect(screen.getByText("Choose the event days")).toBeVisible();
+    expect(screen.getByText("When and where?")).toBeVisible();
     expect(
       screen.getByRole("status", { name: "event modal state" }),
     ).toHaveTextContent("open");

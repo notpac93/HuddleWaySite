@@ -187,7 +187,7 @@ describe('GlobalDashboard bounded operational summary', () => {
     const revenueCard =
       screen.getByText('Payments received').closest('dl');
     expect(revenueCard).toHaveTextContent('Unavailable');
-    expect(revenueCard).toHaveTextContent(
+    expect(revenueCard).not.toHaveTextContent(
       'Limited or invalid financial projection',
     );
     expect(revenueCard).not.toHaveTextContent('$250.00');

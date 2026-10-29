@@ -83,6 +83,22 @@ describe('event publication flow', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Search and filters' }));
     expect(screen.getByLabelText('Status')).toBeVisible();
   });
+  it('publishes one repeating event while preserving all nine session transitions', async () => {
+    backendMocks.updateEvent.mockReset().mockResolvedValue({ updatedCount: 1 });
+    eventRecords.set(Array.from({ length: 9 }, (_, index) => ({ ...baseline[0], id: `date-${index}`, occurrenceCount: 9, isMultiDateSeries: true, date: `2030-08-${String(index + 10).padStart(2, '0')}T16:00:00.000Z` })));
+    render(TestedEventScheduler);
+    expect(screen.getAllByRole('article')).toHaveLength(1);
+    await fireEvent.click(screen.getByRole('checkbox', { name: 'Select to publish' }));
+    expect(screen.getByText('1 draft event selected')).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Review publication' }));
+    expect(screen.getByRole('heading', { name: 'Review 1 event before publication' })).toBeVisible();
+    await fireEvent.click(screen.getByRole('checkbox', { name: /I reviewed the schedule/ }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Publish 1 event' }));
+    await waitFor(() => expect(backendMocks.updateEvent).toHaveBeenCalledTimes(9));
+    expect(await screen.findByText('1 event published.')).toBeVisible();
+    backendMocks.updateEvent.mockReset();
+  });
+
   it('requires deliberate confirmation and sends an audited publish transition', async () => {
     backendMocks.updateEvent.mockResolvedValue({
       success: true,

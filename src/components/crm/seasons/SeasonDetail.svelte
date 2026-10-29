@@ -335,7 +335,6 @@
 <!-- Status badges under title -->
 <div class="flex items-center space-x-3 mb-6 mt-2 ml-10">
   <span class="bg-[var(--crm-brand-control)] text-[var(--crm-on-primary)] px-3 py-1 rounded text-sm font-semibold">{season?.status || 'Unsupported status'}</span>
-  <span class="crm-ui-hint-xs">Payment options are managed on the linked registration form.</span>
 </div>
 
 <dl class="mb-6 grid sm:ml-10 gap-3 rounded-lg border border-gray-200 bg-white p-4 text-sm sm:grid-cols-3">

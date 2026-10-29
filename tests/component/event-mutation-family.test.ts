@@ -95,6 +95,7 @@ import {
   registrationsProjectionScope,
   registrationsStore,
   teamsStore,
+  seasonsStore,
 } from '../../src/lib/services/DataStore';
 import { BackendApiError } from '../../src/lib/api/BackendApi';
 import EventScheduler from '../../src/components/crm/EventScheduler.svelte';
@@ -157,23 +158,18 @@ async function openEventDetails() {
 }
 
 async function completeRequiredEventSchedule() {
-  await fireEvent.change(screen.getByLabelText('Event Type *'), {
-    target: { value: 'Practice' },
-  });
-  await fireEvent.change(screen.getByLabelText('Team *'), {
-    target: { value: 'team-1' },
-  });
   await fireEvent.click(screen.getByRole('radio', { name: /One-time/ }));
-  await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-  await fireEvent.input(screen.getByLabelText('Event date *'), {
-    target: { value: '2030-08-20' },
-  });
-  await fireEvent.input(screen.getByLabelText('Start Time'), {
-    target: { value: '17:00' },
-  });
-  await fireEvent.input(screen.getByLabelText('End Time'), {
-    target: { value: '19:00' },
-  });
+  await fireEvent.click(screen.getByRole('button', { name: 'Continue to date & time' }));
+  await fireEvent.input(screen.getByLabelText('Event date'), { target: { value: '2030-08-20' } });
+  await fireEvent.input(screen.getByLabelText('Start time'), { target: { value: '17:00' } });
+  await fireEvent.input(screen.getByLabelText('End time'), { target: { value: '19:00' } });
+}
+async function completeEventDetails() {
+  await fireEvent.click(screen.getByRole('button', { name: 'Continue to event details' }));
+  await fireEvent.input(screen.getByLabelText('Event name'), { target: { value: 'Summer practice' } });
+  await fireEvent.change(screen.getByLabelText('Event type'), { target: { value: 'Practice' } });
+  await fireEvent.change(screen.getByLabelText('Team'), { target: { value: 'team-1' } });
+  await fireEvent.click(screen.getByRole('button', { name: 'Continue to registration' }));
 }
 
 describe('event mutation family', () => {
@@ -263,8 +259,8 @@ describe('event mutation family', () => {
     expect(screen.getByRole('radio', { name: 'Allow split payments' })).toBeChecked();
     expect(screen.getByLabelText('Payments')).toHaveValue('4');
     expect(screen.getByLabelText('Frequency')).toHaveValue('weekly');
-    expect(screen.getByLabelText('Cancellation policy')).toHaveValue('Original cancellation policy');
-    expect(screen.getByLabelText('Refund policy')).toHaveValue('Original refund policy');
+    expect(screen.queryByLabelText('Cancellation policy')).toBeNull();
+    expect(screen.queryByLabelText('Refund policy')).toBeNull();
     await fireEvent.input(screen.getByLabelText('Event Title *'), { target: { value: 'Reviewed title' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Save Event Changes' }));
     await waitFor(() => expect(backendMocks.updateEvent).toHaveBeenCalledTimes(1));
@@ -285,13 +281,13 @@ describe('event mutation family', () => {
     await fireEvent.change(screen.getByLabelText('Assigned Team'), { target: { value: 'team-2' } });
     await fireEvent.input(screen.getByLabelText('Date *'), { target: { value: '2030-08-11' } });
     await fireEvent.input(screen.getByLabelText('Event registration price'), { target: { value: '18.00' } });
-    await fireEvent.input(screen.getByLabelText('Refund policy'), { target: { value: 'Revised refund' } });
+    await fireEvent.change(screen.getByLabelText('Payments'), { target: { value: '3' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Save Event Changes' }));
     await waitFor(() => expect(backendMocks.updateEvent).toHaveBeenCalledTimes(1));
     const update = backendMocks.updateEvent.mock.calls[0][2];
     expect(update).toMatchObject({ teamId: 'team-2', dateKey: '2030-08-11', priceCents: 1800,
-      paymentTerms: { mode: 'installments', installmentCount: 4, cadence: 'weekly', adminChoiceConfirmed: true },
-      paymentPolicies: { cancellation: 'Original cancellation', refund: 'Revised refund' },
+      paymentTerms: { mode: 'installments', installmentCount: 3, cadence: 'weekly', adminChoiceConfirmed: true },
+      paymentPolicies: { cancellation: 'Original cancellation', refund: 'Original refund' },
     });
     expect(update.startAt).toEqual(expect.any(String));
     expect(update.endAt).toEqual(expect.any(String));
@@ -315,6 +311,23 @@ describe('event mutation family', () => {
     for (const mock of Object.values(backendMocks)) expect(mock).not.toHaveBeenCalled();
   });
 
+  it('saves season coverage with no additional price and no duplicate registration form', async () => {
+    (seasonsStore as Writable<any[]>).set([{ id: 'fall', name: 'Fall season', teamId: 'team-1', status: 'active' }]);
+    backendMocks.createEventSeries.mockResolvedValue({ id: 'series', eventIds: ['event-2'] });
+    render(TestedCreateEventForm);
+    await completeRequiredEventSchedule();
+    await completeEventDetails();
+    await fireEvent.input(screen.getByLabelText('Event registration price'), { target: { value: '125' } });
+    await fireEvent.change(screen.getByLabelText(/Attach to a season/), { target: { value: 'fall' } });
+    expect(screen.queryByLabelText('Event registration price')).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Review event' }));
+    expect(screen.getByRole('article', { name: 'Published event preview' })).toHaveTextContent('Included with Fall season');
+    await fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
+    await waitFor(() => expect(backendMocks.createEventSeries).toHaveBeenCalledTimes(1));
+    expect(backendMocks.createEventSeries.mock.calls[0][1]).toMatchObject({ seasonId: 'fall', seasonCoverage: true, priceCents: 0, registrationFormId: null, paymentTerms: { mode: 'pay_in_full', installmentCount: 1 } });
+    (seasonsStore as Writable<any[]>).set([]);
+  });
+
   it('creates drafts with the exact backend contract and no rejected publishAt field', async () => {
     backendMocks.uploadImageAsset.mockResolvedValue({
       reservationId: `image_upload_${'a'.repeat(40)}`,
@@ -327,19 +340,17 @@ describe('event mutation family', () => {
     });
     render(TestedCreateEventForm);
 
-    await fireEvent.input(screen.getByLabelText('Event Title'), {
-      target: { value: '  Summer practice  ' },
-    });
+    await completeRequiredEventSchedule();
+    await completeEventDetails();
     const coverFile = new File(['image-bytes'], 'summer-practice.png', {
       type: 'image/png',
     });
-    await fireEvent.change(screen.getByLabelText('Cover Image (Optional)'), {
+    await fireEvent.change(screen.getByLabelText('Cover image (Optional)'), {
       target: { files: [coverFile] },
     });
-    await completeRequiredEventSchedule();
-    await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Review event' }));
     await fireEvent.click(
-      screen.getByRole('button', { name: 'Save event drafts' }),
+      screen.getByRole('button', { name: 'Save draft' }),
     );
 
     await waitFor(() => {
@@ -471,20 +482,17 @@ describe('event mutation family', () => {
     backendMocks.createEventSeries.mockReturnValue(pending.promise);
     render(TestedCreateEventForm);
 
-    await fireEvent.input(screen.getByLabelText('Event Title'), {
-      target: { value: 'Summer practice' },
-    });
     await completeRequiredEventSchedule();
-    await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await completeEventDetails();
+    await fireEvent.click(screen.getByRole('button', { name: 'Review event' }));
     await fireEvent.click(
-      screen.getByRole('button', { name: 'Save event drafts' }),
+      screen.getByRole('button', { name: 'Save draft' }),
     );
 
-    expect(screen.getByRole('button', { name: 'Processing...' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
     expect(screen.queryByText('Reason for change')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Additional Notes (Optional)')).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Back' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Cancel event creation' })).toBeDisabled();
 
     await act(async () => {
       tenants.set('tenant-b');
@@ -499,17 +507,14 @@ describe('event mutation family', () => {
 
   it('blocks duplicate time slots before creating event occurrences', async () => {
     render(TestedCreateEventForm);
-    await fireEvent.input(screen.getByLabelText('Event Title'), {
-      target: { value: 'Summer practice' },
-    });
     await completeRequiredEventSchedule();
     await fireEvent.click(
       screen.getByRole('button', { name: /Add another time/ }),
     );
-    await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Continue to event details' }));
 
     expect(await screen.findByText(
-      'Select at least one date and provide valid, unique, non-overlapping event times.',
+      'Choose dates and valid, non-overlapping times for up to 200 sessions.',
     )).toBeVisible();
     expect(backendMocks.createEventSeries).not.toHaveBeenCalled();
   });
@@ -731,7 +736,7 @@ describe('event mutation family', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     await fireEvent.click(
       screen.getByRole('checkbox', {
-        name: /Apply to all events in this series/,
+        name: /Apply to the entire repeating event/,
       }),
     );
     await fireEvent.click(

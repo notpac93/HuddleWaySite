@@ -29,3 +29,12 @@ describe("event payment terms editor", () => {
   });
 
 });
+it('limits new weekly splits to three and monthly splits to twelve', async () => {
+  render(Tested, { currency: 'USD', price: '120', choice: 'installments' });
+  await fireEvent.change(screen.getByLabelText('Payments'), { target: { value: '12' } });
+  await fireEvent.change(screen.getByLabelText('Frequency'), { target: { value: 'weekly' } });
+  expect(screen.getByLabelText('Payments')).toHaveValue('3');
+  expect(screen.queryByRole('option', { name: /^12$/ })).toBeNull();
+  expect(screen.queryByLabelText('Cancellation policy')).toBeNull();
+  expect(screen.queryByLabelText('Refund policy')).toBeNull();
+});

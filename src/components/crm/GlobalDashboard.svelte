@@ -228,11 +228,6 @@
                   <div class="crm-ui-subtitle">
                     {paymentSummary.loading ? 'Loading…' : 'Unavailable'}
                   </div>
-                  <div class="crm-ui-hint-xs">
-                    {paymentSummary.loading
-                      ? 'Loading financial projection'
-                      : 'Limited or invalid financial projection'}
-                  </div>
                 {:else if revenueTotals.length === 0}
                   <div class="crm-ui-subtitle">No payments</div>
                 {:else}
@@ -314,12 +309,11 @@
     </button>
   </div>
 
-  {#if incompleteRegistrationCount > 0 || revenueUnavailable}
+  {#if incompleteRegistrationCount > 0}
     <section class="rounded-lg border border-amber-200 bg-amber-50 p-4" aria-labelledby="dashboard-attention-title">
       <h2 id="dashboard-attention-title" class="font-semibold text-amber-950">Needs attention</h2>
       <div class="mt-3 flex flex-wrap gap-3">
         {#if incompleteRegistrationCount > 0}<button type="button" class="rounded-md border border-amber-300 bg-white px-3 py-2 text-sm disabled:opacity-60" disabled={!canManageTenant} on:click={() => onNavigateTab('Roster')}>{incompleteRegistrationCount} recent registration{incompleteRegistrationCount === 1 ? '' : 's'} {incompleteRegistrationCount === 1 ? 'has' : 'have'} incomplete contact details</button>{/if}
-        {#if revenueUnavailable}<button type="button" class="rounded-md border border-amber-300 bg-white px-3 py-2 text-sm disabled:opacity-60" disabled={!isOwner} on:click={() => onNavigateTab('Financials')}>Financial totals need reconciliation or a complete load</button>{/if}
       </div>
     </section>
   {/if}

@@ -15,7 +15,7 @@
   const dispatch = createEventDispatcher();
 
   $: eventRegistrants = registrations.filter((registration) =>
-    registration.eventId === event?.id
+    (event?.occurrences?.map((entry: any) => entry.id) || [event?.id]).includes(registration.eventId)
   ).map((registration) =>
     registrationDisplayRecord(String(registration.id || ''), registration)
   );

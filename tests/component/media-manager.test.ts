@@ -78,6 +78,23 @@ describe('MediaManager bounded tenant projection', () => {
     expect(screen.getByText('No media files')).toBeVisible();
   });
 
+  it('shows category actions only while media is selected', async () => {
+    backendMocks.crmOperationalPage.mockResolvedValueOnce(page([
+      { id: 'banner-a', name: 'Team banner', url: '' },
+    ]));
+    render(TestedMediaManager);
+    await screen.findByText('Team banner');
+    expect(screen.queryByText(/uncategorized assets/)).toBeNull();
+    expect(screen.queryByLabelText('Category for selected media')).toBeNull();
+
+    const selection = screen.getByRole('checkbox', { name: 'Select for bulk category' });
+    await fireEvent.click(selection);
+    expect(screen.getByLabelText('Category for selected media')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Apply to 1 selected' })).toBeEnabled();
+    await fireEvent.click(selection);
+    expect(screen.queryByLabelText('Category for selected media')).toBeNull();
+  });
+
   it('replaces a failed remote preview with an explicit unavailable state', async () => {
     backendMocks.crmOperationalPage.mockResolvedValueOnce(page([{
       id: 'broken-a', fileName: 'Legacy banner.png', imageUrl: 'https://cdn.example.test/missing.png',

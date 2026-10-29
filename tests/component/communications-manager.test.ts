@@ -542,7 +542,7 @@ describe('CommunicationsManager recall boundary', () => {
     expect(await screen.findByText(
       '39,575 of 40,000 emails left this month',
     )).toBeVisible();
-    expect(screen.getByText(/Email usage checked/)).toBeVisible();
+    expect(screen.queryByText(/Email usage checked/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Amazon SES|Resend|provider fallback/i)).not.toBeInTheDocument();
     await fireEvent.click(screen.getByRole('button', { name: 'New email' }));
     await fireEvent.input(screen.getByLabelText('Recipient emails'), {
@@ -806,7 +806,7 @@ describe('CommunicationsManager recall boundary', () => {
     expect(allowance).toHaveTextContent('Up to 100 recipients per email are available. Larger sends will return automatically.');
     expect(allowance).not.toHaveTextContent('39,575');
     expect(allowance).not.toHaveTextContent('40,000');
-    expect(allowance).toHaveTextContent('HuddleWay sender ready');
+    expect(allowance).not.toHaveTextContent('HuddleWay sender ready');
     expect(allowance).not.toHaveTextContent('demo@huddleway.com');
     expect(allowance).not.toHaveTextContent(/AWS|SES|Resend|fallback|backup/i);
     await fireEvent.click(screen.getByRole('button', { name: 'Email connection' }));

@@ -89,7 +89,7 @@ describe('ActivityManager cursor pagination', () => {
     render(TestedActivityManager);
 
     expect(await screen.findByText('Owner One')).toBeVisible();
-    expect(screen.getByText(/More records exist/)).toBeVisible();
+    expect(screen.getByText('1 event loaded')).toBeVisible();
     await fireEvent.click(
       screen.getByRole('button', { name: 'Load more activity' }),
     );
@@ -121,7 +121,7 @@ describe('ActivityManager cursor pagination', () => {
       target: { value: 'First Owner' },
     });
     expect(screen.getByRole('status')).toHaveTextContent(
-      'Showing 1 matching audit event from 2 loaded. More records exist, so filtered results may be incomplete.',
+      '1 matching event in 2 loaded',
     );
     expect(screen.getByText('First Owner')).toBeVisible();
     expect(screen.queryByText('Second Owner')).toBeNull();
