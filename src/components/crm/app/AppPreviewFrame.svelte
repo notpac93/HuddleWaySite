@@ -242,8 +242,8 @@
       {#if state !== 'synced'}
         <div
           class={state === 'error'
-            ? 'crm-ui-studio-preview-loading bg-red-50 text-red-900'
-            : 'crm-ui-studio-preview-loading'}
+            ? 'crm-ui-studio-preview-loading preview-status bg-red-50 text-red-900'
+            : 'crm-ui-studio-preview-loading preview-status'}
           role={state === 'error' ? 'alert' : 'status'}
         >
           {#if state === 'error'}
@@ -269,6 +269,8 @@
 </div>
 
 <style>
+  .preview-status { flex-direction: column; gap: 0.75rem; padding: 1.5rem; text-align: center; }
+  .preview-status p { max-width: 28rem; }
   .immersive { width: 100%; height: 100%; min-height: 0; }
   .immersive :global(.crm-ui-studio-device) { width: 100%; max-width: none; height: 100%; max-height: none; min-height: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; aspect-ratio: auto; }
   .immersive :global(.crm-ui-studio-app-frame) { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; border-radius: 0; }
