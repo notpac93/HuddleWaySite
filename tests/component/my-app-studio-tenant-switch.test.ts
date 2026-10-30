@@ -1,3 +1,4 @@
+import type { GlassAppearance } from '../../src/lib/ui/glassAppearance';
 import {
   act,
   fireEvent,
@@ -21,6 +22,7 @@ type SnapshotSubscription = {
 };
 
 const snapshotSubscriptions: SnapshotSubscription[] = [];
+const configGlass = new Map<string, GlassAppearance>();
 const configStyles = new Map<string, 'light' | 'dark' | 'system'>();
 const appMocks = vi.hoisted(() => ({
   appConfiguration: vi.fn(),
@@ -112,6 +114,7 @@ function configurationSnapshot(tenantId: string) {
     versionToken: `version-${tenantId}-${configNames.get(tenantId)}`,
     configuration: {
       appStyle: configStyles.get(tenantId) || 'system',
+      glassAppearance: configGlass.get(tenantId),
       name: configNames.get(tenantId)
         || (tenantId === 'tenant-a' ? 'Alpha League' : 'Beta League'),
       primaryColor: '#112233',
@@ -264,6 +267,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     snapshotSubscriptions.length = 0;
     configNames.clear();
     configStyles.clear();
+    configGlass.clear();
     configLogos.clear();
     tenants.set('tenant-a');
     appMocks.appConfiguration.mockReset();
@@ -281,10 +285,11 @@ describe('MyAppStudio tenant preview isolation', () => {
     appMocks.publishAppConfiguration.mockImplementation(
       async (
         tenantId: string,
-        data: { name: string; logoUrl: string | null; appStyle?: 'light' | 'dark' | 'system' },
+        data: { name: string; logoUrl: string | null; appStyle?: 'light' | 'dark' | 'system'; glassAppearance?: GlassAppearance },
       ) => {
         configNames.set(tenantId, data.name);
         configStyles.set(tenantId, data.appStyle || 'system');
+        if (data.glassAppearance) configGlass.set(tenantId, data.glassAppearance);
         if (data.logoUrl) configLogos.set(tenantId, data.logoUrl);
         return publishResult();
       },
@@ -405,6 +410,20 @@ describe('MyAppStudio tenant preview isolation', () => {
     expect(screen.getByLabelText('App appearance')).toHaveValue('dark');
     await act(() => tenants.set('tenant-b'));
     await waitFor(() => expect(screen.getByLabelText('App appearance')).toHaveValue('system'));
+  });
+
+  it('offers Pearl glass in Branding and publishes only for the selected program', async () => {
+    render(TestedMyAppStudio);
+    await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
+    await fireEvent.click(await screen.findByRole('radio', { name: /Pearl glass/ }));
+    expect(screen.getByRole('radio', { name: /Pearl glass/ })).toBeChecked();
+    await reviewAndPublish();
+    await waitFor(() => expect(appMocks.publishAppConfiguration).toHaveBeenCalledWith(
+      'tenant-a', expect.objectContaining({ glassAppearance: expect.objectContaining({ style: 'pearl', photoBlur: 0 }) }), expect.any(String), expect.any(String),
+    ));
+    await screen.findByText('App configuration published and reloaded from the server.');
+    await act(() => tenants.set('tenant-b'));
+    await waitFor(() => expect(screen.getByRole('radio', { name: /^Standard/ })).toBeChecked());
   });
 
   it('offers a usable retry when consumer publication is deferred', async () => {
@@ -715,11 +734,12 @@ describe('MyAppStudio tenant preview isolation', () => {
     appMocks.publishAppConfiguration.mockImplementationOnce(
       async (
         tenantId: string,
-        data: { name: string; appStyle?: 'light' | 'dark' | 'system' },
+        data: { name: string; appStyle?: 'light' | 'dark' | 'system'; glassAppearance?: GlassAppearance },
       ) => {
         await pending.promise;
         configNames.set(tenantId, data.name);
         configStyles.set(tenantId, data.appStyle || 'system');
+        if (data.glassAppearance) configGlass.set(tenantId, data.glassAppearance);
         return publishResult();
       },
     );

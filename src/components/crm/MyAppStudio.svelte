@@ -46,6 +46,8 @@
   import NavigationPanel from './app-studio/NavigationPanel.svelte';
   import VersionHistoryPanel from './app-studio/VersionHistoryPanel.svelte';
   import ComponentsStudio from './app-studio/ComponentsStudio.svelte';
+  import GlassAppearanceControls from './app-studio/GlassAppearanceControls.svelte';
+  import { normalizeGlassAppearance } from '../../lib/ui/glassAppearance';
   import BrandingControls from './app-studio/BrandingControls.svelte';
   import {
     createAppStudioController,
@@ -66,6 +68,7 @@
   let secondaryColor = '';
   let tertiaryColor = '';
   let appName = '';
+  let glassAppearance = normalizeGlassAppearance();
   let appStyle: 'light' | 'dark' | 'system' = 'system';
   let tabsConfig: NavigationTabDraft[] = [];
   let suggestedTabKeys = new Set<string>();
@@ -97,7 +100,7 @@
   let versionHistory: AppVersion[] = [];
   let versionHistoryState: 'idle' | 'loading' | 'ready' | 'error' = 'idle';
   let versionHistoryTruncated = false;
-  let brandingUndoSnapshot: Pick<CrmAppConfiguration, 'name' | 'appStyle' | 'primaryColor' | 'secondaryColor' | 'tertiaryColor'> | null = null;
+  let brandingUndoSnapshot: Pick<CrmAppConfiguration, 'name' | 'appStyle' | 'glassAppearance' | 'primaryColor' | 'secondaryColor' | 'tertiaryColor'> | null = null;
   let reviewChanges: string[] = [];
   let previewConfiguration: CrmAppConfiguration;
 
@@ -115,6 +118,7 @@
     return {
       name: appName.trim(),
       appStyle,
+      glassAppearance,
       primaryColor,
       secondaryColor,
       tertiaryColor,
@@ -142,6 +146,7 @@
   $: {
     appName;
     appStyle;
+    glassAppearance;
     primaryColor;
     secondaryColor;
     tertiaryColor;
@@ -161,6 +166,7 @@
     currentConfigSignature;
     appName;
     appStyle;
+    glassAppearance;
     primaryColor;
     secondaryColor;
     tertiaryColor;
@@ -206,6 +212,7 @@
     currentConfigSignature;
     appName;
     appStyle;
+    glassAppearance;
     primaryColor;
     secondaryColor;
     tertiaryColor;
@@ -241,6 +248,7 @@
     tertiaryColor = '';
     appName = '';
     appStyle = 'system';
+    glassAppearance = normalizeGlassAppearance();
     publicationPending = false;
     tabsConfig = [];
     suggestedTabKeys = new Set();
@@ -332,6 +340,7 @@
     if (loadedConfiguration) {
       appName = loadedConfiguration.name;
       appStyle = loadedConfiguration.appStyle || 'system';
+      glassAppearance = normalizeGlassAppearance(loadedConfiguration.glassAppearance);
       primaryColor = loadedConfiguration.primaryColor;
       secondaryColor = loadedConfiguration.secondaryColor;
       tertiaryColor = loadedConfiguration.tertiaryColor;
@@ -343,15 +352,16 @@
   }
 
   function captureBrandingUndo() {
-    brandingUndoSnapshot = { name: appName, appStyle, primaryColor, secondaryColor, tertiaryColor };
+    brandingUndoSnapshot = { name: appName, appStyle, glassAppearance, primaryColor, secondaryColor, tertiaryColor };
   }
 
   function undoBrandingChange() {
     if (!brandingUndoSnapshot) return;
     const prior = brandingUndoSnapshot;
-    brandingUndoSnapshot = { name: appName, appStyle, primaryColor, secondaryColor, tertiaryColor };
+    brandingUndoSnapshot = { name: appName, appStyle, glassAppearance, primaryColor, secondaryColor, tertiaryColor };
     appName = prior.name;
     appStyle = prior.appStyle || 'system';
+    glassAppearance = normalizeGlassAppearance(prior.glassAppearance);
     primaryColor = prior.primaryColor;
     secondaryColor = prior.secondaryColor;
     tertiaryColor = prior.tertiaryColor;
@@ -370,6 +380,7 @@
     const configuration = version.configuration;
     appName = configuration.name;
     appStyle = configuration.appStyle || 'system';
+    glassAppearance = normalizeGlassAppearance(configuration.glassAppearance);
     primaryColor = configuration.primaryColor;
     secondaryColor = configuration.secondaryColor;
     tertiaryColor = configuration.tertiaryColor;
@@ -396,6 +407,7 @@
     const configuration = savedDraft.configuration;
     appName = configuration.name;
     appStyle = configuration.appStyle || 'system';
+    glassAppearance = normalizeGlassAppearance(configuration.glassAppearance);
     primaryColor = configuration.primaryColor;
     secondaryColor = configuration.secondaryColor;
     tertiaryColor = configuration.tertiaryColor;
@@ -425,6 +437,7 @@
         tertiaryColor = configuration.tertiaryColor;
         appName = configuration.name;
         appStyle = configuration.appStyle || 'system';
+        glassAppearance = normalizeGlassAppearance(configuration.glassAppearance);
         logoUrl = configuration.logoUrl;
         tabsConfig = configuration.navigationTabs.map((tab) => ({ ...tab }));
         loadedConfigSignature = buildConfigSignature();
@@ -439,6 +452,7 @@
         tertiaryColor = '';
         appName = '';
         appStyle = 'system';
+        glassAppearance = normalizeGlassAppearance();
         logoUrl = null;
         // Defaults are offered only after the backend confirms initialize mode.
         tabsConfig = initialTabs.map((tab) => ({ ...tab }));
@@ -652,6 +666,7 @@
                     <option value="dark">Dark</option>
                   </select>
                 </div>
+                <GlassAppearanceControls bind:value={glassAppearance} accent={tertiaryColor} disabled={submitState === 'loading'} onCaptureUndo={captureBrandingUndo} />
                 <BrandingPanel bind:appName disabled={submitState === 'loading'} onCaptureUndo={captureBrandingUndo} />
                 <BrandingControls bind:primaryColor bind:secondaryColor bind:tertiaryColor bind:logoFile bind:logoValidationMessage {safeLogoPreviewUrl} disabled={submitState === 'loading'} canUndo={Boolean(brandingUndoSnapshot)} onCaptureUndo={captureBrandingUndo} onUndo={undoBrandingChange} />
               </div>

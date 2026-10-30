@@ -1,3 +1,4 @@
+import { normalizeGlassAppearance, validGlassAppearance } from '../../../lib/ui/glassAppearance';
 import type { CrmAppConfiguration } from "../../../lib/api/BackendApi";
 
 export type NavigationTabDraft = CrmAppConfiguration["navigationTabs"][number];
@@ -94,6 +95,7 @@ export function configurationSignature(configuration: CrmAppConfiguration) {
   return JSON.stringify({
     appName: configuration.name.trim(),
     appStyle: configuration.appStyle || 'system',
+    glassAppearance: normalizeGlassAppearance(configuration.glassAppearance),
     primaryColor: configuration.primaryColor.toLowerCase(),
     secondaryColor: configuration.secondaryColor.toLowerCase(),
     tertiaryColor: configuration.tertiaryColor.toLowerCase(),
@@ -110,6 +112,7 @@ export function validAppConfiguration(configuration: CrmAppConfiguration) {
     configuration.tertiaryColor,
   ];
   return (
+    validGlassAppearance(configuration.glassAppearance) &&
     ['light', 'dark', 'system'].includes(configuration.appStyle || 'system') &&
     configuration.name.trim().length > 0 &&
     configuration.name.trim().length <= 160 &&

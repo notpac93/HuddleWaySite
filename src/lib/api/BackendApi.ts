@@ -1,3 +1,4 @@
+import type { GlassAppearance } from '../ui/glassAppearance';
 import { loadFinancialOverview } from './FinancialOverview';
 import { validAnnouncementBatchResult, type AnnouncementBatchResult } from './AnnouncementDeliveryResult';
 
@@ -386,6 +387,7 @@ export type CrmRegistrationFormSectionInput = {
 };
 
 export type CrmAppConfiguration = {
+  glassAppearance?: GlassAppearance;
   appStyle?: 'light' | 'dark' | 'system';
   name: string;
   primaryColor: string;

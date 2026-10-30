@@ -1,3 +1,4 @@
+import { normalizeGlassAppearance } from './glassAppearance';
 import type { CrmAppConfiguration } from '../api/BackendApi';
 
 function normalizedHex(value: string) {
@@ -14,6 +15,9 @@ export function describeAppConfigurationChanges(
 ) {
   if (!before) return ['Initialize the family app configuration.', `App appearance: ${after.appStyle || 'system'}`];
   const changes: string[] = [];
+  if (JSON.stringify(normalizeGlassAppearance(before.glassAppearance)) !== JSON.stringify(normalizeGlassAppearance(after.glassAppearance))) {
+    changes.push(`Glass appearance: ${normalizeGlassAppearance(after.glassAppearance).style}. Photos retain their original colors.`);
+  }
   if ((before.appStyle || 'system') !== (after.appStyle || 'system')) {
     changes.push(`App appearance: ${before.appStyle || 'system'} → ${after.appStyle || 'system'}`);
   }
