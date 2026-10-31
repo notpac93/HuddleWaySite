@@ -323,6 +323,17 @@ async function mockAuthenticatedBackend(page: Page, tenantId: string) {
   });
 
   await page.route('**/admin/crm/financial-overview**', async (route) => {
+    if (new URL(route.request().url()).searchParams.get('view') === 'dashboard') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          schemaVersion: 'crm_dashboard_payments_v1', tenantId,
+          complete: true, totals: [], requestId: 'e2e-dashboard-payments',
+        }),
+      });
+      return;
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
