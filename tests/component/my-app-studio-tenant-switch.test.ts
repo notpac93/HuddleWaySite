@@ -413,6 +413,7 @@ describe('MyAppStudio tenant preview isolation', () => {
   });
 
   it('offers Pearl glass in Branding and publishes only for the selected program', async () => {
+    configGlass.set('tenant-a', { style: 'standard', tintColor: '#238B93', tintStrength: .18, photoBlur: 0 });
     render(TestedMyAppStudio);
     await fireEvent.click(screen.getByRole('button', { name: /^Edit app/ }));
     await fireEvent.click(await screen.findByRole('radio', { name: /Pearl glass/ }));
@@ -423,7 +424,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     ));
     await screen.findByText('App configuration published and reloaded from the server.');
     await act(() => tenants.set('tenant-b'));
-    await waitFor(() => expect(screen.getByRole('radio', { name: /^Standard/ })).toBeChecked());
+    await waitFor(() => expect(screen.getByRole('radio', { name: /^Pearl glass/ })).toBeChecked());
   });
 
   it('offers a usable retry when consumer publication is deferred', async () => {

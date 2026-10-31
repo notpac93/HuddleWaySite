@@ -7,7 +7,7 @@ export type GlassAppearance = {
 
 export function normalizeGlassAppearance(value?: Partial<GlassAppearance>): GlassAppearance {
   return {
-    style: value?.style ?? 'standard',
+    style: value?.style ?? 'pearl',
     tintColor: value?.tintColor ?? '#238B93',
     tintStrength: value?.tintStrength ?? 0.18,
     photoBlur: value?.photoBlur ?? 0,
