@@ -18,8 +18,8 @@ function components(directory = crmRoot): string[] {
 }
 
 describe('CRM release language contract', () => {
-  it('reviews the entire 84-component release tree', () => {
-    expect(components().map((file) => relative(crmRoot, file))).toHaveLength(84);
+  it('reviews the entire 85-component release tree', () => {
+    expect(components().map((file) => relative(crmRoot, file))).toHaveLength(85);
   });
 
   it('rejects simulated, placeholder, and raw exception language', () => {
