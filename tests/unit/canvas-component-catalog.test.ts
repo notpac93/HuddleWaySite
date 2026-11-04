@@ -1,12 +1,12 @@
-import { createRequire } from 'node:module';
+// Canonical catalog snapshot keeps this repository's tests standalone.
+import catalog from '../fixtures/crm-component-definitions.json';
 import { describe, expect, it, vi } from 'vitest';
 import type { CrmComponentDefinition, CrmComponentStudioPage, CrmPageComponent } from '../../src/lib/api/BackendApi';
 import { canvasPageDraft } from '../../src/components/crm/app-studio/canvasPageDraft';
 import { createCanvasEditingSession } from '../../src/components/crm/app-studio/canvasEditingSession';
 import { createComponent, definitionAvailable, isHeroDefinition } from '../../src/components/crm/app-studio/componentStudioDraft';
 import { insertComponent } from '../../src/components/crm/app-studio/componentLayoutCommands';
-const require = createRequire(import.meta.url);
-const definitions: CrmComponentDefinition[] = require('../../../backend/lib/crm_component_definition_catalog.js').cloneBuiltInDefinitions();
+const definitions = catalog as unknown as CrmComponentDefinition[];
 const bodyDefinitions = definitions.filter(item => !isHeroDefinition(item));
 function emptyPage(): CrmComponentStudioPage {
   return { id: 'home', title: 'Home', route: '/', headline: '', subheader: '', isVisible: true, status: 'published', components: [] };

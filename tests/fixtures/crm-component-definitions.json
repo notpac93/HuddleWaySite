@@ -1,0 +1,1029 @@
+[
+  {
+    "id": "home_hero",
+    "type": "hero_section",
+    "label": "Home Hero",
+    "category": "Hero",
+    "definitionVersion": 3,
+    "repeatable": false,
+    "fields": [
+      {
+        "id": "badgeText",
+        "type": "text",
+        "required": false,
+        "label": "Eyebrow",
+        "maxLength": 24,
+        "previewTarget": "badgeText"
+      },
+      {
+        "id": "headline",
+        "type": "text",
+        "required": true,
+        "label": "Headline",
+        "previewTarget": "headline"
+      },
+      {
+        "id": "subheadline",
+        "type": "text",
+        "required": false,
+        "label": "Supporting text",
+        "previewTarget": "subheadline"
+      },
+      {
+        "id": "backgroundImage",
+        "type": "image",
+        "required": false,
+        "label": "Background image",
+        "previewTarget": "backgroundImage"
+      },
+      {
+        "id": "showCtaButton",
+        "type": "bool",
+        "required": false,
+        "label": "Show action button",
+        "previewTarget": "cta"
+      },
+      {
+        "id": "ctaLabel",
+        "type": "text",
+        "required": true,
+        "label": "Button label",
+        "previewTarget": "ctaLabel"
+      },
+      {
+        "id": "registrationEventId",
+        "type": "text",
+        "required": false,
+        "label": "Registration event",
+        "previewTarget": "cta"
+      }
+    ],
+    "defaultContent": {
+      "badgeText": "REGISTRATION OPEN",
+      "headline": "SUMMER CLUB TRYOUTS",
+      "subheadline": "SECURE YOUR SPOT TODAY.",
+      "backgroundImage": "assets/images/home/demo_hero.png",
+      "showCtaButton": true,
+      "ctaLabel": "Register",
+      "registrationEventId": ""
+    },
+    "presets": [
+      {
+        "id": "classic_brand",
+        "label": "Classic Brand",
+        "description": "Branded hero with a direct registration action.",
+        "content": {
+          "headline": "HUDDLEWAY",
+          "subheadline": "ELEVATE YOUR GAME.",
+          "ctaLabel": "Register"
+        }
+      },
+      {
+        "id": "season_launch",
+        "label": "Season Launch",
+        "description": "Announce a new seasonal cycle or launch window.",
+        "content": {
+          "headline": "NEW SEASON",
+          "subheadline": "TRAIN. COMPETE. GROW.",
+          "ctaLabel": "Register"
+        }
+      }
+    ],
+    "previewSpec": {
+      "title": "Hero Banner",
+      "description": "Large top-of-page section with a headline and action.",
+      "highlights": [
+        "Headline",
+        "Supporting text",
+        "Background image",
+        "Action"
+      ]
+    }
+  },
+  {
+    "id": "events_primary",
+    "type": "events_section",
+    "label": "Primary Event",
+    "category": "Events",
+    "definitionVersion": 1,
+    "repeatable": true,
+    "fields": [
+      {
+        "id": "title",
+        "type": "text",
+        "required": true,
+        "label": "Event title",
+        "previewTarget": "title"
+      },
+      {
+        "id": "date",
+        "type": "text",
+        "required": false,
+        "label": "Date",
+        "previewTarget": "date"
+      },
+      {
+        "id": "location",
+        "type": "text",
+        "required": false,
+        "label": "Location",
+        "previewTarget": "location"
+      },
+      {
+        "id": "flyerImage",
+        "type": "image",
+        "required": false,
+        "label": "Event image",
+        "previewTarget": "image"
+      }
+    ],
+    "defaultContent": {
+      "title": "Primary Event",
+      "date": "",
+      "location": "",
+      "flyerImage": ""
+    },
+    "presets": [],
+    "previewSpec": {
+      "title": "Primary Event",
+      "description": "Cards for an event and its registration action.",
+      "highlights": [
+        "Event title",
+        "Date",
+        "Location",
+        "Registration"
+      ]
+    }
+  },
+  {
+    "id": "upcoming_event_v2",
+    "type": "events_section",
+    "label": "Upcoming Event",
+    "category": "Events",
+    "definitionVersion": 4,
+    "repeatable": true,
+    "fields": [
+      {
+        "id": "displayTitle",
+        "type": "text",
+        "required": false,
+        "label": "Section title",
+        "maxLength": 60,
+        "previewTarget": "title"
+      },
+      {
+        "id": "variant",
+        "type": "text",
+        "required": true,
+        "label": "Card size",
+        "options": [
+          "size1",
+          "size2"
+        ],
+        "defaultValue": "size1",
+        "previewTarget": "layout"
+      },
+      {
+        "id": "overrideImage",
+        "type": "image",
+        "required": false,
+        "label": "Override image",
+        "previewTarget": "image"
+      },
+      {
+        "id": "overrideImageAlt",
+        "type": "text",
+        "required": false,
+        "label": "Image description",
+        "maxLength": 120,
+        "previewTarget": "image"
+      },
+      {
+        "id": "showDate",
+        "type": "bool",
+        "required": false,
+        "label": "Show date",
+        "defaultValue": true,
+        "previewTarget": "date"
+      },
+      {
+        "id": "teamFilter",
+        "type": "text",
+        "required": false,
+        "label": "Team filter",
+        "options": [
+          "auto",
+          "boys",
+          "girls",
+          "all"
+        ],
+        "defaultValue": "auto",
+        "previewTarget": "event"
+      },
+      {
+        "id": "dataBindingSource",
+        "type": "text",
+        "required": true,
+        "label": "Content source",
+        "options": [
+          "events"
+        ],
+        "defaultValue": "events"
+      },
+      {
+        "id": "dataBindingMode",
+        "type": "text",
+        "required": true,
+        "label": "Event selection",
+        "options": [
+          "next_primary"
+        ],
+        "defaultValue": "next_primary"
+      },
+      {
+        "id": "dataBindingFallback",
+        "type": "text",
+        "required": true,
+        "label": "When no event exists",
+        "options": [
+          "manual_disabled"
+        ],
+        "defaultValue": "manual_disabled"
+      }
+    ],
+    "defaultContent": {
+      "displayTitle": "Upcoming Event",
+      "variant": "size1",
+      "overrideImage": "",
+      "overrideImageAlt": "",
+      "showDate": true,
+      "teamFilter": "auto",
+      "dataBindingSource": "events",
+      "dataBindingMode": "next_primary",
+      "dataBindingFallback": "manual_disabled"
+    },
+    "presets": [
+      {
+        "id": "size1_landscape",
+        "label": "Landscape",
+        "description": "Wide card for primary home placement.",
+        "content": {
+          "variant": "size1",
+          "displayTitle": "Upcoming Event"
+        }
+      },
+      {
+        "id": "size2_portrait",
+        "label": "Portrait",
+        "description": "Tall card for tighter vertical stacks.",
+        "content": {
+          "variant": "size2",
+          "displayTitle": "Upcoming Event"
+        }
+      }
+    ],
+    "previewSpec": {
+      "title": "Upcoming Event Card",
+      "description": "Automatically shows the next primary event.",
+      "highlights": [
+        "Two sizes",
+        "Automatic event data",
+        "Optional image override"
+      ]
+    }
+  },
+  {
+    "id": "coach_head",
+    "type": "head_coach_section",
+    "label": "Head Coach",
+    "category": "Coaching",
+    "definitionVersion": 1,
+    "repeatable": false,
+    "fields": [
+      {
+        "id": "name",
+        "type": "text",
+        "required": false,
+        "label": "Name",
+        "previewTarget": "name"
+      },
+      {
+        "id": "role",
+        "type": "text",
+        "required": false,
+        "label": "Role",
+        "previewTarget": "role"
+      },
+      {
+        "id": "bio",
+        "type": "multiline_text",
+        "required": false,
+        "label": "Biography",
+        "previewTarget": "bio"
+      },
+      {
+        "id": "photo",
+        "type": "image",
+        "required": false,
+        "label": "Photo",
+        "previewTarget": "photo"
+      }
+    ],
+    "defaultContent": {
+      "name": "Head Coach",
+      "role": "Program Lead",
+      "bio": "Add head coach bio.",
+      "photo": ""
+    },
+    "presets": [],
+    "previewSpec": {
+      "title": "Head Coach Spotlight",
+      "description": "Single featured coach block with biography and headshot.",
+      "highlights": [
+        "Name",
+        "Role",
+        "Biography",
+        "Photo"
+      ]
+    }
+  },
+  {
+    "id": "coaching_staff_v2",
+    "type": "coach_grid",
+    "label": "Staff",
+    "category": "Coaching",
+    "definitionVersion": 3,
+    "repeatable": true,
+    "fields": [
+      {
+        "id": "title",
+        "type": "text",
+        "required": true,
+        "label": "Section title",
+        "maxLength": 70,
+        "previewTarget": "title"
+      },
+      {
+        "id": "layout",
+        "type": "text",
+        "required": true,
+        "label": "Layout",
+        "options": [
+          "list",
+          "cards"
+        ],
+        "defaultValue": "list",
+        "previewTarget": "layout"
+      },
+      {
+        "id": "expandMode",
+        "type": "text",
+        "required": true,
+        "label": "Biography display",
+        "options": [
+          "accordion",
+          "inline"
+        ],
+        "defaultValue": "accordion",
+        "previewTarget": "layout"
+      },
+      {
+        "id": "teamBindingMode",
+        "type": "text",
+        "required": false,
+        "label": "Staff source",
+        "options": [
+          "team",
+          "all_teams"
+        ],
+        "defaultValue": "all_teams",
+        "previewTarget": "profiles"
+      },
+      {
+        "id": "profiles",
+        "type": "profiles",
+        "required": false,
+        "label": "Staff profiles",
+        "previewTarget": "profiles"
+      }
+    ],
+    "defaultContent": {
+      "title": "Staff",
+      "layout": "list",
+      "expandMode": "accordion",
+      "teamBindingMode": "all_teams",
+      "profiles": []
+    },
+    "presets": [
+      {
+        "id": "staff_list",
+        "label": "Staff List",
+        "description": "List layout with expandable biographies.",
+        "content": {
+          "layout": "list",
+          "expandMode": "accordion"
+        }
+      },
+      {
+        "id": "staff_cards",
+        "label": "Staff Cards",
+        "description": "Card layout with biographies shown inline.",
+        "content": {
+          "layout": "cards",
+          "expandMode": "inline"
+        }
+      }
+    ],
+    "previewSpec": {
+      "title": "Staff List",
+      "description": "Coach profiles with optional expandable biographies.",
+      "highlights": [
+        "Profiles",
+        "List or cards",
+        "Expandable biographies"
+      ]
+    }
+  },
+  {
+    "id": "team_info_carousel",
+    "type": "info_carousel",
+    "label": "Info Carousel",
+    "category": "Storytelling",
+    "definitionVersion": 2,
+    "repeatable": true,
+    "fields": [
+      {
+        "id": "sectionTitle",
+        "type": "text",
+        "required": false,
+        "label": "Section title",
+        "previewTarget": "title"
+      },
+      {
+        "id": "carouselItems",
+        "type": "items",
+        "required": false,
+        "label": "Slides",
+        "previewTarget": "items"
+      }
+    ],
+    "defaultContent": {
+      "sectionTitle": "MEDIA",
+      "carouselItems": [
+        {
+          "id": "carousel_item_1",
+          "tag": "INFO",
+          "title": "SECTION TITLE",
+          "description": "Replace with program-specific information.",
+          "imagePath": ""
+        }
+      ]
+    },
+    "presets": [],
+    "previewSpec": {
+      "title": "Content Carousel",
+      "description": "Scrollable cards for updates, media, and highlights.",
+      "highlights": [
+        "Section title",
+        "Multiple slides",
+        "Images",
+        "Descriptions"
+      ]
+    }
+  },
+  {
+    "id": "contact_section",
+    "type": "contact_section",
+    "label": "Contact Us",
+    "category": "Contact",
+    "definitionVersion": 1,
+    "repeatable": false,
+    "fields": [
+      {
+        "id": "email",
+        "type": "text",
+        "required": false,
+        "label": "Email",
+        "previewTarget": "email"
+      },
+      {
+        "id": "phone",
+        "type": "text",
+        "required": false,
+        "label": "Phone",
+        "previewTarget": "phone"
+      },
+      {
+        "id": "address",
+        "type": "multiline_text",
+        "required": false,
+        "label": "Address",
+        "previewTarget": "address"
+      }
+    ],
+    "defaultContent": {
+      "email": "",
+      "phone": "",
+      "address": ""
+    },
+    "presets": [],
+    "previewSpec": {
+      "title": "Contact Block",
+      "description": "Program contact details and inquiry action.",
+      "highlights": [
+        "Email",
+        "Phone",
+        "Address"
+      ]
+    }
+  },
+  {
+    "id": "info_blocks_v2",
+    "type": "info_blocks",
+    "label": "Info Blocks",
+    "category": "Storytelling",
+    "definitionVersion": 1,
+    "repeatable": true,
+    "fields": [
+      {
+        "id": "title",
+        "type": "text",
+        "required": false,
+        "label": "Section title",
+        "maxLength": 70,
+        "previewTarget": "title"
+      },
+      {
+        "id": "displayStyle",
+        "type": "text",
+        "required": false,
+        "label": "Display style",
+        "options": [
+          "grid",
+          "carousel"
+        ],
+        "defaultValue": "grid",
+        "previewTarget": "layout"
+      },
+      {
+        "id": "columns",
+        "type": "text",
+        "required": false,
+        "label": "Columns",
+        "options": [
+          "1",
+          "2"
+        ],
+        "defaultValue": "2",
+        "previewTarget": "layout"
+      },
+      {
+        "id": "showDividers",
+        "type": "bool",
+        "required": false,
+        "label": "Show dividers",
+        "defaultValue": false,
+        "previewTarget": "layout"
+      },
+      {
+        "id": "items",
+        "type": "items",
+        "required": true,
+        "label": "Information cards",
+        "previewTarget": "items"
+      }
+    ],
+    "defaultContent": {
+      "title": "Program Highlights",
+      "displayStyle": "grid",
+      "columns": "2",
+      "showDividers": false,
+      "items": [
+        {
+          "id": "item_1",
+          "title": "High Standards",
+          "subtitle": "PROGRAM OVERVIEW",
+          "body": "Structured development in a competitive environment.",
+          "image": "",
+          "videoUrl": "",
+          "linkLabel": "",
+          "linkUrl": ""
+        }
+      ]
+    },
+    "presets": [],
+    "previewSpec": {
+      "title": "Info Tile Grid",
+      "description": "Image and text cards with optional links.",
+      "highlights": [
+        "One or two columns",
+        "Repeatable cards",
+        "Optional links"
+      ]
+    }
+  },
+  {
+    "id": "schedule_primary",
+    "type": "schedule_section",
+    "label": "Schedule Feed",
+    "category": "Operations",
+    "definitionVersion": 4,
+    "repeatable": false,
+    "fields": [
+      {
+        "id": "title",
+        "type": "text",
+        "required": true,
+        "label": "Section title",
+        "maxLength": 70,
+        "previewTarget": "title"
+      },
+      {
+        "id": "maxItems",
+        "type": "number",
+        "required": false,
+        "label": "Maximum events",
+        "defaultValue": 0,
+        "previewTarget": "events"
+      },
+      {
+        "id": "dateWindowDays",
+        "type": "number",
+        "required": false,
+        "label": "Days ahead",
+        "defaultValue": 0,
+        "previewTarget": "events"
+      },
+      {
+        "id": "teamFilter",
+        "type": "text",
+        "required": false,
+        "label": "Team filter",
+        "options": [
+          "auto",
+          "boys",
+          "girls",
+          "all"
+        ],
+        "defaultValue": "all",
+        "previewTarget": "events"
+      },
+      {
+        "id": "includePast",
+        "type": "bool",
+        "required": false,
+        "label": "Include past events",
+        "defaultValue": false,
+        "previewTarget": "events"
+      },
+      {
+        "id": "emptyStateText",
+        "type": "text",
+        "required": false,
+        "label": "Empty-state message",
+        "maxLength": 100,
+        "previewTarget": "emptyState"
+      },
+      {
+        "id": "dataBindingSource",
+        "type": "text",
+        "required": true,
+        "label": "Content source",
+        "options": [
+          "events"
+        ],
+        "defaultValue": "events"
+      },
+      {
+        "id": "dataBindingMode",
+        "type": "text",
+        "required": true,
+        "label": "Event selection",
+        "options": [
+          "upcoming"
+        ],
+        "defaultValue": "upcoming"
+      },
+      {
+        "id": "dataBindingSort",
+        "type": "text",
+        "required": true,
+        "label": "Sort order",
+        "options": [
+          "startDateAsc"
+        ],
+        "defaultValue": "startDateAsc"
+      },
+      {
+        "id": "eventIds",
+        "type": "string_list",
+        "required": false,
+        "label": "Pinned event IDs",
+        "previewTarget": "events"
+      },
+      {
+        "id": "showLocation",
+        "type": "bool",
+        "required": false,
+        "label": "Show locations",
+        "defaultValue": true,
+        "previewTarget": "events"
+      }
+    ],
+    "defaultContent": {
+      "title": "Schedule",
+      "maxItems": 0,
+      "dateWindowDays": 0,
+      "teamFilter": "all",
+      "includePast": false,
+      "emptyStateText": "No upcoming events yet.",
+      "dataBindingSource": "events",
+      "dataBindingMode": "upcoming",
+      "dataBindingSort": "startDateAsc",
+      "eventIds": [],
+      "showLocation": true
+    },
+    "presets": [],
+    "previewSpec": {
+      "title": "Auto Schedule Feed",
+      "description": "Upcoming event rows generated from event records.",
+      "highlights": [
+        "Upcoming events",
+        "Optional limits",
+        "Team filtering"
+      ]
+    }
+  },
+  {
+    "id": "board_primary",
+    "type": "messaging_feed",
+    "label": "Board Feed",
+    "category": "Community",
+    "definitionVersion": 1,
+    "repeatable": false,
+    "fields": [
+      {
+        "id": "title",
+        "type": "text",
+        "required": true,
+        "label": "Section title",
+        "previewTarget": "title"
+      }
+    ],
+    "defaultContent": {
+      "title": "Board"
+    },
+    "presets": [],
+    "previewSpec": {
+      "title": "Board Feed",
+      "description": "Public updates with event filters and message cards.",
+      "highlights": [
+        "Section title",
+        "Event filters",
+        "Messages"
+      ]
+    }
+  },
+  {
+    "id": "about_program",
+    "type": "about_section",
+    "label": "About Program",
+    "category": "Storytelling",
+    "definitionVersion": 2,
+    "repeatable": true,
+    "fields": [
+      {
+        "id": "title",
+        "type": "text",
+        "required": false,
+        "label": "Section title",
+        "maxLength": 80,
+        "previewTarget": "title"
+      },
+      {
+        "id": "body",
+        "type": "multiline_text",
+        "required": false,
+        "label": "Body",
+        "maxLength": 600,
+        "previewTarget": "body"
+      },
+      {
+        "id": "image",
+        "type": "image",
+        "required": false,
+        "label": "Image",
+        "previewTarget": "image"
+      },
+      {
+        "id": "imageAlt",
+        "type": "text",
+        "required": false,
+        "label": "Image description",
+        "maxLength": 120,
+        "previewTarget": "image"
+      },
+      {
+        "id": "ctaLabel",
+        "type": "text",
+        "required": false,
+        "label": "Action label",
+        "maxLength": 28,
+        "previewTarget": "cta"
+      },
+      {
+        "id": "layout",
+        "type": "text",
+        "required": false,
+        "label": "Image position",
+        "options": [
+          "image_left",
+          "image_right"
+        ],
+        "defaultValue": "image_left",
+        "previewTarget": "layout"
+      }
+    ],
+    "defaultContent": {
+      "title": "About Program",
+      "body": "Describe your program mission, approach, and highlights.",
+      "image": "",
+      "imageAlt": "",
+      "ctaLabel": "",
+      "layout": "image_left"
+    },
+    "presets": [
+      {
+        "id": "mission_story",
+        "label": "Mission Story",
+        "description": "Mission-led narrative with culture emphasis.",
+        "content": {
+          "title": "Our Mission",
+          "body": "We build complete athletes through discipline, skill, and leadership.",
+          "layout": "image_left"
+        }
+      },
+      {
+        "id": "development_path",
+        "label": "Development Path",
+        "description": "Explain athlete progression from foundation to elite.",
+        "content": {
+          "title": "Player Development Path",
+          "body": "From fundamentals to advanced game IQ, each phase has clear milestones.",
+          "layout": "image_right"
+        }
+      }
+    ],
+    "previewSpec": {
+      "title": "About Story Section",
+      "description": "A focused introduction to your program.",
+      "highlights": [
+        "Title",
+        "Body copy",
+        "Optional image",
+        "Image position"
+      ]
+    }
+  },
+  {
+    "id": "why_us_v2",
+    "type": "about_section",
+    "label": "Why Us Section",
+    "category": "Storytelling",
+    "definitionVersion": 2,
+    "repeatable": true,
+    "fields": [
+      {
+        "id": "title",
+        "type": "text",
+        "required": false,
+        "label": "Section title",
+        "maxLength": 70,
+        "previewTarget": "title"
+      },
+      {
+        "id": "intro",
+        "type": "multiline_text",
+        "required": false,
+        "label": "Introduction",
+        "maxLength": 320,
+        "previewTarget": "intro"
+      },
+      {
+        "id": "highlights",
+        "type": "highlights",
+        "required": false,
+        "label": "Highlights",
+        "previewTarget": "highlights"
+      },
+      {
+        "id": "body",
+        "type": "multiline_text",
+        "required": false,
+        "label": "Supporting text",
+        "maxLength": 900,
+        "previewTarget": "body"
+      },
+      {
+        "id": "logoImage",
+        "type": "image",
+        "required": false,
+        "label": "Logo image",
+        "previewTarget": "logo"
+      },
+      {
+        "id": "backgroundImage",
+        "type": "image",
+        "required": false,
+        "label": "Background image",
+        "previewTarget": "background"
+      },
+      {
+        "id": "contrastMode",
+        "type": "text",
+        "required": false,
+        "label": "Text contrast",
+        "options": [
+          "auto",
+          "light",
+          "dark"
+        ],
+        "defaultValue": "auto",
+        "previewTarget": "theme"
+      },
+      {
+        "id": "showBackgroundOverlay",
+        "type": "bool",
+        "required": false,
+        "label": "Show background overlay",
+        "defaultValue": true,
+        "previewTarget": "theme"
+      }
+    ],
+    "defaultContent": {
+      "title": "Why Choose Us",
+      "intro": "What separates our program from the rest.",
+      "highlights": [
+        {
+          "id": "highlight_1",
+          "title": "Player Development",
+          "description": "Structured growth plans for every athlete."
+        }
+      ],
+      "body": "",
+      "logoImage": "",
+      "backgroundImage": "",
+      "contrastMode": "auto",
+      "showBackgroundOverlay": true
+    },
+    "presets": [],
+    "previewSpec": {
+      "title": "Why Us Section",
+      "description": "A brand-aware value proposition with highlight cards.",
+      "highlights": [
+        "Highlights",
+        "Optional imagery",
+        "Automatic contrast"
+      ]
+    }
+  },
+  {
+    "id": "text_block",
+    "type": "text_block",
+    "label": "Text Block",
+    "category": "Storytelling",
+    "definitionVersion": 1,
+    "repeatable": true,
+    "fields": [
+      {
+        "id": "title",
+        "type": "text",
+        "required": false,
+        "label": "Heading",
+        "maxLength": 120,
+        "previewTarget": "title"
+      },
+      {
+        "id": "body",
+        "type": "multiline_text",
+        "required": true,
+        "label": "Body",
+        "maxLength": 4000,
+        "previewTarget": "body"
+      }
+    ],
+    "defaultContent": {
+      "title": "A note from our program",
+      "body": "Share an announcement, a welcome message, or helpful information for families."
+    },
+    "presets": [],
+    "previewSpec": {
+      "title": "Text Block",
+      "description": "A heading and paragraph rendered in the normal app layout.",
+      "highlights": [
+        "Heading",
+        "Body copy"
+      ]
+    }
+  }
+]

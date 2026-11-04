@@ -1,10 +1,10 @@
-import { createRequire } from 'node:module';
+// Canonical catalog snapshot keeps this repository's tests standalone.
+import catalog from '../fixtures/crm-component-definitions.json';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import ComponentLibrary from '../../src/components/crm/app-studio/ComponentLibrary.svelte';
 import type { CrmComponentDefinition, CrmComponentStudioPage } from '../../src/lib/api/BackendApi';
-const require = createRequire(import.meta.url);
-const definitions: CrmComponentDefinition[] = require('../../../backend/lib/crm_component_definition_catalog.js').cloneBuiltInDefinitions();
+const definitions = catalog as unknown as CrmComponentDefinition[];
 const page: CrmComponentStudioPage = { id: 'home', title: 'Home', route: '/', headline: '', subheader: '', isVisible: true, status: 'published', components: [] };
 describe('complete component library', () => {
   it('shows every non-hero definition and hides heroes on a hero-less page', async () => {
