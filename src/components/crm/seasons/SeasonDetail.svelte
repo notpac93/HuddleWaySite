@@ -507,7 +507,7 @@
 {#if activeTab === 'events'}
   <!-- Events Toolbar -->
   <div class="flex justify-between items-center mb-4">
-    <h3 class="text-lg font-semibold text-gray-900">Events</h3>
+    <h3 class="text-lg font-semibold text-gray-900">Schedule</h3>
     <button type="button" disabled={!seasonId || $eventsProjectionScope.loading || Boolean($eventsProjectionScope.error)} class="bg-[var(--crm-brand-control)] text-[var(--crm-on-primary)] px-4 py-2 rounded text-sm font-semibold hover:bg-[var(--crm-brand-primary-hover)] flex items-center shadow-sm disabled:opacity-50" on:click={() => showLinkEventModal = true}>
       <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
       Add / Link Event

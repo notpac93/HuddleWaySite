@@ -194,7 +194,7 @@
                 {#if filteredEvents.length > 0}
                   {#if filteredPlayers.length > 0 || filteredTeams.length > 0}<div class="border-t border-gray-100 my-2"></div>{/if}
                   <div class="px-4 py-2">
-                    <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Events & Forms</h3>
+                    <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Schedule & Forms</h3>
                     <ul class="space-y-1">
                       {#each filteredEvents as event (event.id)}
                         <li>
@@ -208,7 +208,7 @@
                               <p class="crm-ui-hint-xs">{event.type || 'Event type unavailable'}</p>
                             </div>
                           </div>
-                          <span class="text-xs text-gray-400">Event</span>
+                          <span class="text-xs text-gray-400">Schedule</span>
                           </button>
                         </li>
                       {/each}

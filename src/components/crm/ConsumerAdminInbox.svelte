@@ -9,6 +9,9 @@
     type AdminInboxThread,
   } from '../../lib/api/BackendApi';
 
+  import Icon from './ui/Icon.svelte';
+  import './messages/messaging.css';
+
   const SUBJECT_LIMIT = 200;
   const MESSAGE_LIMIT = 4_000;
   const dispatch = createEventDispatcher<{ unreadCount: number }>();
@@ -22,6 +25,7 @@
   let selectedThreadId = '';
   let search = '';
   let statusFilter: 'all' | 'unread' | 'awaiting' | 'replied' = 'all';
+  let filtersOpen = false;
   let teamFilter = '';
   let eventFilter = '';
   let sinceDate = '';
@@ -58,8 +62,25 @@
     return lastMessage(thread)?.direction === 'consumer';
   }
 
-  function isUnread(thread: AdminInboxThread) {
-    return isAwaitingReply(thread) && !viewedThreadIds.has(thread.id);
+  function isUnread(thread: AdminInboxThread, viewed = viewedThreadIds) {
+    return isAwaitingReply(thread) && !viewed.has(viewKey(thread));
+  }
+
+  function viewKey(thread: AdminInboxThread) {
+    return `${thread.id}:${lastMessage(thread)?.id || thread.lastMessageAt || ''}`;
+  }
+
+  function initials(thread: AdminInboxThread) {
+    return (thread.consumerName || thread.consumerEmail || '?').split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toLocaleUpperCase();
+  }
+
+  function threadContext(thread: AdminInboxThread) {
+    const teamIds = threadRegistrationIds(thread, 'teamId');
+    const eventIds = threadRegistrationIds(thread, 'eventId');
+    return [
+      ...teams.filter((team) => teamIds.has(team.id)).map((team) => team.name || team.id),
+      ...events.filter((event) => eventIds.has(event.id)).map((event) => event.title || event.name || event.id),
+    ].slice(0, 2).join(' · ') || 'Program conversation';
   }
 
   function readViewedThreadIds(storageTenantId: string) {
@@ -88,7 +109,7 @@
       ].some((value) => String(value || '').toLocaleLowerCase().includes(normalizedSearch));
       const awaiting = isAwaitingReply(thread);
       const matchesStatus = statusFilter === 'all'
-        || (statusFilter === 'unread' && isUnread(thread))
+        || (statusFilter === 'unread' && isUnread(thread, viewedThreadIds))
         || (statusFilter === 'awaiting' && awaiting)
         || (statusFilter === 'replied' && !awaiting);
       const matchesTeam = !teamFilter || threadRegistrationIds(thread, 'teamId').has(teamFilter);
@@ -96,7 +117,7 @@
       const matchesDate = !sinceDate || Boolean(thread.lastMessageAt && thread.lastMessageAt.slice(0, 10) >= sinceDate);
       return matchesSearch && matchesStatus && matchesTeam && matchesEvent && matchesDate;
     });
-  $: unreadCount = threads.filter(isUnread).length;
+  $: unreadCount = threads.filter((thread) => isUnread(thread, viewedThreadIds)).length;
   $: dispatch('unreadCount', unreadCount);
   $: replyIsValid = Boolean(
     selectedThread
@@ -115,6 +136,8 @@
     teamFilter = '';
     eventFilter = '';
     sinceDate = '';
+    filtersOpen = false;
+    search = '';
     viewedThreadIds = readViewedThreadIds(tenantId);
     resetReply();
     if (tenantId) void loadThreads(tenantId);
@@ -135,7 +158,7 @@
 
   function selectThread(thread: AdminInboxThread) {
     selectedThreadId = thread.id;
-    viewedThreadIds = new Set([...viewedThreadIds, thread.id]);
+    viewedThreadIds = new Set([...viewedThreadIds, viewKey(thread)]);
     window.localStorage.setItem(`huddleway-inbox-viewed:${tenantId}`, JSON.stringify([...viewedThreadIds]));
     replySubject = thread.subject.toLocaleLowerCase().startsWith('re:')
       ? thread.subject
@@ -222,24 +245,24 @@
   mountRefresh(() => registerLiveRefresh(() => tenantId && loadState !== 'loading' && replyState !== 'loading' ? loadThreads(tenantId, true, true) : undefined));
 </script>
 
-<section class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" aria-labelledby="direct-inbox-heading">
-  <div class="border-b border-gray-200 p-4">
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <h3 id="direct-inbox-heading" class="font-semibold text-gray-900">Direct conversations</h3>
-        <p class="crm-ui-hint">Private account-holder messages and program replies. These are separate from public announcements.</p>
-      </div>
-      <div class="min-w-0 flex-1">
-        <label for="direct-inbox-search" class="block text-xs font-medium text-gray-600">Search conversations</label>
-        <input id="direct-inbox-search" type="search" bind:value={search} class="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm sm:w-72" />
-      </div>
+<section class="crm-message-inbox crm-auth-card" class:crm-inbox-reading={Boolean(selectedThread)} aria-labelledby="direct-inbox-heading">
+  <div class="crm-inbox-controls">
+    <div class="crm-inbox-toolbar"><div><h3 id="direct-inbox-heading">Inbox</h3></div><button type="button" class="crm-message-filter-toggle" aria-expanded={filtersOpen} aria-controls="inbox-extra-filters" on:click={() => filtersOpen = !filtersOpen}><Icon name="filter" size={20} />Filters{teamFilter || eventFilter || sinceDate ? ' · Active' : ''}</button></div>
+    <label class="crm-inbox-search"><Icon name="search" size={20} /><span class="sr-only">Search conversations</span><input id="direct-inbox-search" type="search" bind:value={search} placeholder="Search people or messages" /></label>
+    <div class="crm-inbox-status" role="group" aria-label="Conversation status">
+      <button type="button" aria-pressed={statusFilter === 'all'} on:click={() => statusFilter = 'all'}>All · {threads.length}</button>
+      <button type="button" aria-pressed={statusFilter === 'unread'} on:click={() => statusFilter = 'unread'}>Unread · {unreadCount}</button>
+      <button type="button" aria-pressed={statusFilter === 'awaiting'} on:click={() => statusFilter = 'awaiting'}>Awaiting reply</button>
+      <button type="button" aria-pressed={statusFilter === 'replied'} on:click={() => statusFilter = 'replied'}>Replied</button>
     </div>
-    <div class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-      <label class="text-xs font-medium text-gray-600">Status<select class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" bind:value={statusFilter}><option value="all">All ({threads.length})</option><option value="unread">Unread ({unreadCount})</option><option value="awaiting">Awaiting reply</option><option value="replied">Replied</option></select></label>
-      <label class="text-xs font-medium text-gray-600">Team<select class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" bind:value={teamFilter}><option value="">All teams</option>{#each teams as team}<option value={team.id}>{team.name || team.id}</option>{/each}</select></label>
-      <label class="text-xs font-medium text-gray-600">Conversation event<select class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" bind:value={eventFilter}><option value="">All events</option>{#each events as event}<option value={event.id}>{event.title || event.name || event.id}</option>{/each}</select></label>
-      <label class="text-xs font-medium text-gray-600">Since<input type="date" class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" bind:value={sinceDate} /></label>
-    </div>
+    {#if filtersOpen}
+      <div id="inbox-extra-filters" class="crm-inbox-extra-filters">
+        <label>Team<select class="crm-ui-message-select" bind:value={teamFilter}><option value="">All teams</option>{#each teams as team}<option value={team.id}>{team.name || team.id}</option>{/each}</select></label>
+        <label>Conversation event<select class="crm-ui-message-select" bind:value={eventFilter}><option value="">All events</option>{#each events as event}<option value={event.id}>{event.title || event.name || event.id}</option>{/each}</select></label>
+        <label>Since<input type="date" class="crm-ui-message-field" bind:value={sinceDate} /></label>
+        <button type="button" class="crm-auth-link" on:click={() => { teamFilter = ''; eventFilter = ''; sinceDate = ''; }}>Clear filters</button>
+      </div>
+    {/if}
   </div>
 
   {#if loadState === 'loading'}
@@ -253,8 +276,8 @@
     <p class="p-8 text-center text-sm text-gray-500">No direct conversations yet.</p>
   {:else}
     {#if loadMessage}<p class="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900" role="status">{loadMessage}</p>{/if}
-    <div class="grid min-h-[28rem] md:grid-cols-[minmax(16rem,22rem)_1fr]">
-      <div class="border-b border-gray-200 md:border-b-0 md:border-r">
+    <div class="crm-inbox-layout">
+      <div class="crm-inbox-thread-list">
         {#if visibleThreads.length === 0}
           <p class="p-6 text-center text-sm text-gray-500">No conversations match “{search}”.</p>
         {:else}
@@ -263,15 +286,18 @@
               <li>
                 <button
                   type="button"
-                  class="w-full p-4 text-left hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--crm-brand-focus)] {selectedThreadId === thread.id ? 'crm-theme-selected' : ''}"
+                  class="crm-inbox-thread {selectedThreadId === thread.id ? 'crm-inbox-thread-selected' : ''}"
                   aria-pressed={selectedThreadId === thread.id}
                   on:click={() => selectThread(thread)}
                 >
-                  <span class="block truncate text-sm font-semibold text-gray-950">{thread.consumerName || 'Account holder'}</span>
-                  <span class="mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold {isUnread(thread) ? 'bg-blue-100 text-blue-800' : isAwaitingReply(thread) ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'}">{isUnread(thread) ? 'Unread' : isAwaitingReply(thread) ? 'Awaiting reply' : 'Replied'}</span>
-                  <span class="block truncate text-xs text-gray-500">{thread.consumerEmail}</span>
-                  <span class="mt-1 block truncate text-sm text-gray-700">{thread.subject || 'Message'}</span>
-                  <span class="mt-1 block text-xs text-gray-500">{thread.lastMessageAt ? new Date(thread.lastMessageAt).toLocaleString() : 'Timestamp unavailable'}</span>
+                  <span class="crm-inbox-avatar" aria-hidden="true">{initials(thread)}</span>
+                  <span class="crm-inbox-thread-copy">
+                    <span class="crm-inbox-thread-title"><strong>{thread.consumerName || thread.consumerEmail || 'Account holder'}</strong><time datetime={thread.lastMessageAt || undefined}>{thread.lastMessageAt ? new Date(thread.lastMessageAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'No date'}</time></span>
+                    <span class="crm-inbox-context">{#if isUnread(thread, viewedThreadIds)}<span class="crm-inbox-unread-dot" aria-label="Unread"></span>{/if}{threadContext(thread)}</span>
+                    <span class="crm-inbox-subject">{thread.subject || 'Message'}</span>
+                    <span class="crm-inbox-snippet">{lastMessageText(thread)}</span>
+
+                  </span>
                 </button>
               </li>
             {/each}
@@ -280,12 +306,14 @@
       </div>
 
       {#if selectedThread}
-        <div class="flex min-w-0 flex-col">
-          <div class="border-b border-gray-200 p-4">
+        <div class="crm-inbox-detail">
+          <div class="crm-inbox-detail-heading">
+            <button type="button" class="crm-inbox-back crm-auth-link" on:click={() => selectedThreadId = ''}><Icon name="chevronLeft" size={20} />Back to conversations</button>
             <h4 class="font-semibold text-gray-950">{selectedThread.subject || 'Direct conversation'}</h4>
             <p class="text-sm text-gray-500">{selectedThread.consumerName || 'Account holder'} · {selectedThread.consumerEmail}</p>
+            <p class="crm-inbox-detail-context">{threadContext(selectedThread)}</p>
           </div>
-          <ol class="flex-1 space-y-3 overflow-y-auto bg-gray-50 p-4" aria-label="Conversation messages">
+          <ol class="crm-inbox-messages" aria-label="Conversation messages">
             {#each selectedThread.messages as message (message.id)}
               <li class="flex {message.direction === 'admin' ? 'justify-end' : 'justify-start'}">
                 <article class="max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm {message.direction === 'admin' ? 'bg-[var(--crm-brand-control)] text-[var(--crm-on-primary)]' : 'border border-gray-200 bg-white text-gray-900'}">
@@ -296,14 +324,14 @@
               </li>
             {/each}
           </ol>
-          <form class="space-y-3 border-t border-gray-200 p-4" on:submit|preventDefault={sendReply}>
+          <form class="crm-inbox-reply" on:submit|preventDefault={sendReply}>
             <div>
               <label for="direct-reply-subject" class="crm-ui-label">Subject</label>
-              <input id="direct-reply-subject" bind:value={replySubject} maxlength={SUBJECT_LIMIT} class="mt-1 block w-full rounded-md border border-gray-300 p-2 text-sm" />
+              <input id="direct-reply-subject" bind:value={replySubject} maxlength={SUBJECT_LIMIT} class="crm-ui-message-field" />
             </div>
             <div>
               <label for="direct-reply-message" class="crm-ui-label">Reply</label>
-              <textarea id="direct-reply-message" bind:value={replyMessage} on:input={saveReplyDraft} maxlength={MESSAGE_LIMIT} rows="4" class="mt-1 block w-full rounded-md border border-gray-300 p-2 text-sm"></textarea>
+              <textarea id="direct-reply-message" bind:value={replyMessage} on:input={saveReplyDraft} maxlength={MESSAGE_LIMIT} rows="3" placeholder="Write a reply…" class="crm-ui-message-field"></textarea>
               <p class="crm-ui-hint">{replyMessage.length}/{MESSAGE_LIMIT} characters</p>
             </div>
             {#if replyStatus}
@@ -312,14 +340,14 @@
               </div>
             {/if}
             <div class="flex justify-end">
-              <button type="submit" disabled={!replyIsValid || replyState === 'loading'} class="rounded-md bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-semibold text-[var(--crm-on-primary)] disabled:opacity-50">
+              <button type="submit" disabled={!replyIsValid || replyState === 'loading'} class="crm-auth-button-primary">
                 {replyState === 'loading' ? 'Sending…' : 'Send reply'}
               </button>
             </div>
           </form>
         </div>
       {:else}
-        <div class="grid place-items-center p-8 text-center text-sm text-gray-500">Choose a conversation to read and reply.</div>
+        <div class="crm-inbox-no-selection"><Icon name="messages" size={32} /><h4>Your conversations, together.</h4><p>Choose a conversation to read and reply.</p></div>
       {/if}
     </div>
   {/if}

@@ -158,18 +158,18 @@ async function openEventDetails() {
 }
 
 async function completeRequiredEventSchedule() {
-  await fireEvent.click(screen.getByRole('radio', { name: /One-time/ }));
-  await fireEvent.click(screen.getByRole('button', { name: 'Continue to date & time' }));
-  await fireEvent.input(screen.getByLabelText('Event date'), { target: { value: '2030-08-20' } });
+  await fireEvent.click(screen.getByRole('button', { name: 'Once' }));
+  await fireEvent.input(screen.getByLabelText('Date'), { target: { value: '2030-08-20' } });
   await fireEvent.input(screen.getByLabelText('Start time'), { target: { value: '17:00' } });
   await fireEvent.input(screen.getByLabelText('End time'), { target: { value: '19:00' } });
 }
 async function completeEventDetails() {
-  await fireEvent.click(screen.getByRole('button', { name: 'Continue to event details' }));
-  await fireEvent.input(screen.getByLabelText('Event name'), { target: { value: 'Summer practice' } });
-  await fireEvent.change(screen.getByLabelText('Event type'), { target: { value: 'Practice' } });
+  await fireEvent.click(screen.getByRole('button', { name: 'Next: Name' }));
+  await fireEvent.input(screen.getByLabelText('Activity name'), { target: { value: 'Summer practice' } });
+  await fireEvent.click(screen.getByText('Label', { selector: 'summary' }));
+  await fireEvent.input(screen.getByLabelText('Activity label'), { target: { value: 'Practice' } });
   await fireEvent.change(screen.getByLabelText('Team'), { target: { value: 'team-1' } });
-  await fireEvent.click(screen.getByRole('button', { name: 'Continue to registration' }));
+  await fireEvent.click(screen.getByRole('button', { name: 'Next: Details' }));
 }
 
 describe('event mutation family', () => {
@@ -320,7 +320,7 @@ describe('event mutation family', () => {
     await fireEvent.input(screen.getByLabelText('Event registration price'), { target: { value: '125' } });
     await fireEvent.change(screen.getByLabelText(/Attach to a season/), { target: { value: 'fall' } });
     expect(screen.queryByLabelText('Event registration price')).toBeNull();
-    await fireEvent.click(screen.getByRole('button', { name: 'Review event' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Review schedule' }));
     expect(screen.getByRole('article', { name: 'Published event preview' })).toHaveTextContent('Included with Fall season');
     await fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
     await waitFor(() => expect(backendMocks.createEventSeries).toHaveBeenCalledTimes(1));
@@ -348,7 +348,7 @@ describe('event mutation family', () => {
     await fireEvent.change(screen.getByLabelText('Cover image (Optional)'), {
       target: { files: [coverFile] },
     });
-    await fireEvent.click(screen.getByRole('button', { name: 'Review event' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Review schedule' }));
     await fireEvent.click(
       screen.getByRole('button', { name: 'Save draft' }),
     );
@@ -484,7 +484,7 @@ describe('event mutation family', () => {
 
     await completeRequiredEventSchedule();
     await completeEventDetails();
-    await fireEvent.click(screen.getByRole('button', { name: 'Review event' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Review schedule' }));
     await fireEvent.click(
       screen.getByRole('button', { name: 'Save draft' }),
     );
@@ -492,7 +492,7 @@ describe('event mutation family', () => {
     expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
     expect(screen.queryByText('Reason for change')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Back' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Cancel event creation' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Close schedule creation' })).toBeDisabled();
 
     await act(async () => {
       tenants.set('tenant-b');
@@ -509,9 +509,9 @@ describe('event mutation family', () => {
     render(TestedCreateEventForm);
     await completeRequiredEventSchedule();
     await fireEvent.click(
-      screen.getByRole('button', { name: /Add another time/ }),
+      screen.getByRole('button', { name: 'Add time slot' }),
     );
-    await fireEvent.click(screen.getByRole('button', { name: 'Continue to event details' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Next: Name' }));
 
     expect(await screen.findByText(
       'Choose dates and valid, non-overlapping times for up to 200 sessions.',
@@ -763,5 +763,57 @@ describe('event mutation family', () => {
       'The registration projection is truncated. This loaded list is not a complete event roster.',
     )).toBeVisible();
     expect(screen.getByText('Opening practice • Count unavailable')).toBeVisible();
+  });  it('starts with three neutral patterns and leaves recurrence days unselected', async () => {
+    render(TestedCreateEventForm);
+    expect(screen.getByRole('heading', { name: 'How often?' })).toBeVisible();
+    expect(screen.queryByLabelText('Activity name')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Choose dates' })).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Repeats' }));
+    for (const day of ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']) expect(screen.getByRole('button', { name: day })).toHaveAttribute('aria-pressed','false');
+    expect(screen.getByLabelText('Start date')).toHaveValue('');
+    await fireEvent.input(screen.getByLabelText('Start date'), { target: { value: '2030-08-20' } });
+    await fireEvent.input(screen.getByLabelText('End date'), { target: { value: '2030-08-31' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Tuesday' }));
+    await fireEvent.input(screen.getByLabelText('Start time'), { target: { value: '17:00' } });
+    await fireEvent.input(screen.getByLabelText('End time'), { target: { value: '18:00' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Next: Name' }));
+    expect(screen.getByLabelText('Activity name')).toHaveValue('');
+    expect(screen.getByText(/2 dates/)).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit schedule' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Choose dates' }));
+    expect(screen.getByText('0 selected')).toBeVisible();
   });
+
+  it('saves chosen dates with a freeform name and date-specific title, location and times', async () => {
+    backendMocks.createEventSeries.mockResolvedValue({ id: 'chosen-series', eventIds: ['first','second'] });
+    render(TestedCreateEventForm);
+    await fireEvent.click(screen.getByRole('button', { name: 'Choose dates' }));
+    const today = new Date();
+    for (const day of [10,12]) {
+      const date = new Date(today.getFullYear(),today.getMonth(),day);
+      await fireEvent.click(screen.getByRole('button', { name: date.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) }));
+    }
+    await fireEvent.input(screen.getByLabelText('Start time'), { target: { value: '17:00' } });
+    await fireEvent.input(screen.getByLabelText('End time'), { target: { value: '18:00' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Next: Name' }));
+    await fireEvent.input(screen.getByLabelText('Activity name'), { target: { value: 'Open studio' } });
+    await fireEvent.change(screen.getByLabelText('Team'), { target: { value: 'team-1' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Next: Details' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Review schedule' }));
+    await fireEvent.click(screen.getAllByRole('button', { name: /^Edit .* only$/ })[1]);
+    await fireEvent.input(screen.getByLabelText('Name for this date'), { target: { value: 'Open studio — guest instructor' } });
+    await fireEvent.input(screen.getByLabelText('Start time for this date'), { target: { value: '18:00' } });
+    await fireEvent.input(screen.getByLabelText('End time for this date'), { target: { value: '19:00' } });
+    await fireEvent.input(screen.getByLabelText('Location for this date'), { target: { value: 'Studio B' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
+    await waitFor(() => expect(backendMocks.createEventSeries).toHaveBeenCalledTimes(1));
+    const data=backendMocks.createEventSeries.mock.calls[0][1];
+    expect(data.title).toBe('Open studio');
+    expect(data.type).toBe('Other');
+    expect(data.occurrences).toHaveLength(2);
+    expect(data.occurrences[0]).not.toHaveProperty('title');
+    expect(data.occurrences[1]).toMatchObject({title:'Open studio — guest instructor',location:'Studio B',startTime:'18:00',endTime:'19:00'});
+  });
+
 });

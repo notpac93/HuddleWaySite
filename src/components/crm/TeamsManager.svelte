@@ -36,7 +36,7 @@
   const teamWorkspaces: Workspace[] = [
     { tab: 'Roster', icon: 'roster', label: 'Manage roster', detail: 'Add, import, and review participants.' },
     { tab: 'Seasons', icon: 'seasons', label: 'Manage seasons', detail: 'Review the team’s season relationships.' },
-    { tab: 'Events', icon: 'events', label: 'Manage events', detail: 'Schedule and publish team events.' },
+    { tab: 'Events', icon: 'events', label: 'Open schedule', detail: 'Schedule and publish team events.' },
     { tab: 'Financials', icon: 'financials', label: 'Review financials', detail: 'Inspect team-related financial activity.' },
   ];
 
@@ -324,7 +324,7 @@
         <div class="rounded-lg border bg-white p-4"><p class="text-xs font-semibold uppercase text-gray-500">Status</p><p class="mt-1 text-lg font-semibold">{teamStatus(activeTeam)}</p></div>
         <button type="button" class="rounded-lg border bg-white p-4 text-left hover:border-[var(--crm-brand-focus)]" on:click={() => onNavigateTab('Roster')}><span class="text-xs font-semibold uppercase text-gray-500">Roster</span><span class="mt-1 block text-lg font-semibold">{teamRosterCount(activeTeam)} people</span></button>
         <button type="button" class="rounded-lg border bg-white p-4 text-left hover:border-[var(--crm-brand-focus)]" on:click={() => onNavigateTab('Seasons')}><span class="text-xs font-semibold uppercase text-gray-500">Active season</span><span class="mt-1 block text-lg font-semibold">{seasonSummaryState || activeSeasonName(activeTeam, $seasonsStore, teamReferences)}</span></button>
-        <button type="button" class="rounded-lg border bg-white p-4 text-left hover:border-[var(--crm-brand-focus)]" on:click={() => onNavigateTab('Events')}><span class="text-xs font-semibold uppercase text-gray-500">Upcoming events</span><span class="mt-1 block text-lg font-semibold">{eventSummaryState || upcomingTeamEventCount(activeTeam, $eventsStore, teamReferences)}</span></button>
+        <button type="button" class="rounded-lg border bg-white p-4 text-left hover:border-[var(--crm-brand-focus)]" on:click={() => onNavigateTab('Events')}><span class="text-xs font-semibold uppercase text-gray-500">Upcoming activities</span><span class="mt-1 block text-lg font-semibold">{eventSummaryState || upcomingTeamEventCount(activeTeam, $eventsStore, teamReferences)}</span></button>
       </section>
       <section class="mt-6" aria-labelledby="team-workspaces-title">
         <h3 id="team-workspaces-title" class="text-base font-semibold text-gray-900">Team workspaces</h3>

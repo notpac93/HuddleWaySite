@@ -1221,6 +1221,18 @@ describe('BackendApi', () => {
     });
   });
 
+  it('requires the backend to confirm the exact registered event before allowing publication', async () => {
+    const payload = { success: true, tenantId: 'fixture-tenant', scope: 'tenant_account_holders', eligibleAccountCount: 1, eligibleDeviceCount: 1, truncated: false, requestId: 'preview' };
+    const fetchMock = vi.fn().mockResolvedValue(response(200, payload));
+    const api = new BackendApi({ baseUrl: 'https://api.example.test', fetch: fetchMock, getIdToken: async () => 'token' });
+    const selection = { audienceVisibility: 'event_registrants', eventId: 'event-a' };
+    await expect(api.announcementAudiencePreview('fixture-tenant', selection)).rejects.toThrow();
+    fetchMock.mockResolvedValue(response(200, { ...payload, ...selection, eventId: 'event-b' }));
+    await expect(api.announcementAudiencePreview('fixture-tenant', selection)).rejects.toThrow();
+    fetchMock.mockResolvedValue(response(200, { ...payload, ...selection }));
+    await expect(api.announcementAudiencePreview('fixture-tenant', selection)).resolves.toMatchObject(selection);
+  });
+
   it('validates app-configuration read and publish envelopes', async () => {
     const configuration = validAppConfiguration();
     const fetchMock = vi

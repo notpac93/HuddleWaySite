@@ -174,7 +174,7 @@ describe("CRM modal stacking and navigation", () => {
     expect(screen.queryByRole('navigation', { name: 'Admin quick access' })).toBeNull();
     expect(discard).not.toHaveBeenCalled();
     await fireEvent.click(screen.getByRole('button', { name: 'Admin tabs' }));
-    await fireEvent.click(within(screen.getByRole('navigation', { name: 'Admin quick access' })).getByRole('button', { name: 'Events' }));
+    await fireEvent.click(within(screen.getByRole('navigation', { name: 'Admin quick access' })).getByRole('button', { name: 'Schedule' }));
     expect(screen.getByRole('dialog')).toBeVisible();
     await fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
     expect(screen.getByRole('status', { name: 'current tab' })).toHaveTextContent('My App');
@@ -186,7 +186,7 @@ describe("CRM modal stacking and navigation", () => {
     render(TestedCrmShellSearchHarness);
     const retain = vi.fn().mockRejectedValueOnce(new Error('Storage unavailable')).mockResolvedValue(undefined);
     registerPortalDraft({ id: 'test-draft', title: 'Save your changes?', message: 'Save a draft to continue later.', onDiscard: vi.fn(), onRetain: retain });
-    await fireEvent.click(screen.getByRole('button', { name: 'Events' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Schedule' }));
     const dialog = screen.getByRole('dialog');
     expect(dialog.querySelector('.crm-ui-modal-shell')).not.toBeNull();
     expect(dialog.querySelectorAll('.draft-navigation-actions button')).toHaveLength(2);
@@ -215,7 +215,7 @@ describe("CRM modal stacking and navigation", () => {
     expect(screen.queryByRole('region', { name: 'More' })).toBeNull();
     await fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
     expect(discard).not.toHaveBeenCalled();
-    await fireEvent.click(nav.getByRole('button', { name: 'Events' }));
+    await fireEvent.click(nav.getByRole('button', { name: 'Schedule' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Discard & leave' }));
     await waitFor(() => expect(screen.getByRole('status', { name: 'current tab' })).toHaveTextContent('Events'));
     expect(discard).toHaveBeenCalledOnce();
@@ -223,10 +223,10 @@ describe("CRM modal stacking and navigation", () => {
     await fireEvent.click(nav.getByRole('button', { name: 'More' }));
     const more = screen.getByRole('region', { name: 'More' });
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(within(more).queryByRole('button', { name: 'Events' })).toBeNull();
+    expect(within(more).queryByRole('button', { name: 'Schedule' })).toBeNull();
     expect(within(more).getByRole('button', { name: 'Roster' })).toBeVisible();
     expect(nav.getByRole('button', { name: 'More' })).toHaveAttribute('aria-current', 'page');
-    expect(nav.getByRole('button', { name: 'Events' })).not.toHaveAttribute('aria-current');
+    expect(nav.getByRole('button', { name: 'Schedule' })).not.toHaveAttribute('aria-current');
     expect(screen.queryByRole('status', { name: 'current tab' })).toBeNull();
 
     await fireEvent.click(within(more).getByRole('button', { name: 'Roster' }));
@@ -234,7 +234,7 @@ describe("CRM modal stacking and navigation", () => {
     expect(screen.getByRole('status', { name: 'current tab' })).toHaveTextContent('Roster');
     await fireEvent.click(screen.getByRole('button', { name: '← More' }));
     expect(screen.getByRole('region', { name: 'More' })).toBeVisible();
-    await fireEvent.click(nav.getByRole('button', { name: 'Events' }));
+    await fireEvent.click(nav.getByRole('button', { name: 'Schedule' }));
     expect(screen.queryByRole('region', { name: 'More' })).toBeNull();
     expect(screen.getByRole('status', { name: 'current tab' })).toHaveTextContent('Events');
   });
@@ -253,7 +253,7 @@ describe("CRM modal stacking and navigation", () => {
     );
     expect(currentTab).toHaveTextContent("Events");
     expect(currentResultId).toHaveTextContent("event-1");
-    expect(screen.getByRole("heading", { level: 1, name: "Events" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Schedule" })).toBeInTheDocument();
 
     await openSearchFor("Tigers");
     await fireEvent.click(screen.getByRole("button", { name: /Tigers/ }));
@@ -384,19 +384,14 @@ describe("CRM modal stacking and navigation", () => {
   it("advances event creation inside the panel without closing the modal", async () => {
     const view = render(TestedCreateEventFormHarness);
 
-    await fireEvent.click(screen.getByRole("radio", { name: /One-time/ }));
-    await fireEvent.click(screen.getByRole("button", { name: "Continue to date & time" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Once" }));
 
-    expect(screen.getByText("When and where?")).toBeVisible();
+    expect(screen.getByText("When?")).toBeVisible();
     expect(
       screen.getByRole("status", { name: "event modal state" }),
     ).toHaveTextContent("open");
 
-    const backdrop = view.container.querySelector<HTMLElement>(
-      ".crm-ui-backdrop, .fixed.inset-0.z-0",
-    );
-    expect(backdrop).not.toBeNull();
-    await fireEvent.click(backdrop!);
+    await fireEvent.click(screen.getByRole('button', { name: 'Close schedule creation' }));
     await waitFor(() => {
       expect(
         screen.getByRole("status", { name: "event modal state" }),

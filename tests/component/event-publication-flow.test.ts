@@ -71,9 +71,9 @@ describe('event publication flow', () => {
     eventRecords.set([]);
     programProfileStore.set({ tenantId: 'fixture-tenant', profile: { catalogVersion: 1, profileId: 'yoga', group: 'Class', groups: 'Classes' } });
     render(TestedEventScheduler);
-    expect(screen.getByRole('heading', { name: 'Classes' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Schedule' })).toBeVisible();
     expect(screen.queryByRole('searchbox')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Create your first class' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Add to Schedule' })).toBeVisible();
   });
   it('keeps published items above drafts with secondary filters collapsed', async () => {
     eventRecords.set([{ ...baseline[0], id: 'published', title: 'Published practice', date: '2031-08-10T16:00:00.000Z', lifecycleStatus: 'published' }, ...baseline]);

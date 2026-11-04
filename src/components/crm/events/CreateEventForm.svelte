@@ -10,6 +10,11 @@
     teamsStore,
   } from '../../../lib/services/DataStore';
   import { RegistrationService } from '../../../lib/services/RegistrationService';
+  import './schedule-creation.css';
+  import ScheduleDatePicker from './ScheduleDatePicker.svelte';
+  import ScheduleOccurrenceEditor from './ScheduleOccurrenceEditor.svelte';
+  import Icon from '../ui/Icon.svelte';
+  import { fullscreenMessage } from '../messages/fullscreenMessage';
   import RecurrenceSelector from './EventRecurrenceEditor.svelte';
   import CreateRegistrationForm from '../registration/CreateRegistrationForm.svelte';
   import StatusButton from '../ui/StatusButton.svelte';
@@ -31,7 +36,7 @@
   // Form State
   let title = '';
   let eventType = '';
-  let scheduleKind: 'one_time' | 'recurring' | '' = '';
+  let scheduleKind: 'one_time' | 'recurring' | 'dates' | '' = '';
 
   let teams: {id: string, name: string}[] = [];
   let selectedTeamId = '';
@@ -101,11 +106,12 @@
 
   let selectedDateKeys: string[] = [];
   let oneTimeDate = '';
-  let recurrenceStartDate = formatDateKey(new Date());
+  let recurrenceStartDate = '';
   let recurrenceEndDate = '';
   let recurrencePattern = 'weekly';
-  let recurrenceDays = [new Date().getDay()];
+  let recurrenceDays: number[] = [];
   let recurrenceSkipped: string[] = [];
+  let occurrenceOverrides: Record<string, { title?: string; location?: string; startTime?: string; endTime?: string }> = {};
   let timeSlots = [{ startTime: '', endTime: '' }];
 
   $: if (scheduleKind === 'one_time') {
@@ -155,6 +161,7 @@
     selectedTeamId,
     selectedDateKeys,
     timeSlots,
+    occurrenceOverrides,
     location: location.trim(),
     notes: notes.trim(),
     coverRevision,
@@ -219,9 +226,9 @@
 
   function handleNext() {
     errorMessage = '';
-    if (currentStep === 1 && !scheduleKind) { errorMessage = 'Choose a one-time or repeating schedule.'; return; }
+    if (currentStep === 1 && !scheduleKind) { errorMessage = 'Choose how often to add to your schedule.'; return; }
     if (currentStep === 2 && (!selectedDateKeys.length || !hasValidTimeSlots() || !hasUniqueTimeSlots() || hasOverlappingTimeSlots() || selectedDateKeys.length * timeSlots.length > 200)) { errorMessage = 'Choose dates and valid, non-overlapping times for up to 200 sessions.'; return; }
-    if (currentStep === 3 && (!title.trim() || !eventType || !selectedTeamId)) { errorMessage = 'Provide an event name, type, and team.'; return; }
+    if (currentStep === 3 && (!title.trim() || !selectedTeamId)) { errorMessage = 'Add a name and choose a group.'; return; }
     if (currentStep === 4) {
       imageValidationMessage = validateImageFile(imageFile);
       if (imageValidationMessage) return;
@@ -229,6 +236,18 @@
       if (!seasonId && Number(price) > 0 && !selectedFormId) { errorMessage = 'Choose a registration form for this paid event.'; return; }
     }
     currentStep++;
+  }
+
+  function scheduleSummary() {
+    const date = selectedDateKeys[0];
+    const dateLabel = selectedDateKeys.length === 1 && date ? new Date(`${date}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : `${selectedDateKeys.length} dates`;
+    const timeLabel = (value: string) => new Date(`2026-01-01T${value}:00`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return `${dateLabel} · ${timeSlots.length === 1 ? `${timeLabel(timeSlots[0].startTime)}–${timeLabel(timeSlots[0].endTime)}` : `${timeSlots.length} times per date`}`;
+  }
+
+  function choosePattern(kind: 'one_time' | 'recurring' | 'dates') {
+    if (scheduleKind !== kind) { selectedDateKeys = []; oneTimeDate = ''; recurrenceStartDate = ''; recurrenceEndDate = ''; recurrenceDays = []; recurrenceSkipped = []; occurrenceOverrides = {}; }
+    scheduleKind = kind; errorMessage = ''; currentStep = 2;
   }
 
   function handleBack() {
@@ -260,6 +279,13 @@
   function hasOverlappingTimeSlots() {
     const sorted = [...timeSlots].sort((first, second) => first.startTime.localeCompare(second.startTime));
     return sorted.some((slot, index) => index > 0 && slot.startTime < sorted[index - 1].endTime);
+  }
+
+  function customizedOccurrencesValid() {
+    return selectedDateKeys.every(date => {
+      const slots = timeSlots.map((slot, index) => ({ ...slot, ...occurrenceOverrides[`${date}:${index}`] })).sort((a, b) => a.startTime.localeCompare(b.startTime));
+      return slots.every((slot, index) => /^\d{2}:\d{2}$/.test(slot.startTime) && /^\d{2}:\d{2}$/.test(slot.endTime) && slot.endTime > slot.startTime && (!index || slot.startTime >= slots[index - 1].endTime));
+    });
   }
 
   async function handleSave() {
@@ -299,6 +325,8 @@
       currentStep = 2;
       return;
     }
+    if (!title.trim()) { errorMessage = 'Add an activity name.'; currentStep = 3; return; }
+    if (!customizedOccurrencesValid()) { errorMessage = 'Check the customized times. Sessions must end after they start and cannot overlap.'; currentStep = 5; return; }
     const normalizedPrice = seasonId ? '0' : price.trim();
     if (!/^\d+(\.\d{1,2})?$/.test(normalizedPrice)) {
       errorMessage = 'Enter a valid registration price with no more than two decimal places.';
@@ -322,7 +350,10 @@
 
     try {
       const flatOccurrences = selectedDateKeys.flatMap(dateKey =>
-        timeSlots.map(slot => occurrenceInput(dateKey, slot.startTime, slot.endTime))
+        timeSlots.map((slot, index) => {
+          const edit = occurrenceOverrides[`${dateKey}:${index}`] || {};
+          return { ...occurrenceInput(dateKey, edit.startTime ?? slot.startTime, edit.endTime ?? slot.endTime), ...(edit.title?.trim() ? { title: edit.title.trim() } : {}), ...(edit.location !== undefined ? { location: edit.location.trim() } : {}) };
+        })
       );
       const uploadedImage = imageFile
         ? await backendClient.uploadImageAsset(
@@ -342,7 +373,7 @@
         {
           teamId: selectedTeamId,
           title: title.trim(),
-          type: eventType,
+          type: eventType.trim() || 'Other',
           occurrences: flatOccurrences,
           location: location.trim(),
           notes: notes.trim(),
@@ -350,7 +381,7 @@
           seasonId: seasonId || null,
           seasonCoverage: Boolean(seasonId),
           registrationFormId: seasonId && !extraForm ? null : selectedFormId || null,
-          publishMode,
+                publishMode,
           priceCents,
           paymentTerms: {
             mode: priceCents > 0 ? paymentChoice : 'pay_in_full',
@@ -398,50 +429,49 @@
   }
 </script>
 
-<div class="crm-ui-modal-root" aria-labelledby="event-create-title" role="dialog" aria-modal="true">
-  <div class="crm-ui-modal-shell">
-    <button type="button" disabled={submitState === 'loading'} class="crm-ui-backdrop" aria-label="Cancel event creation" tabindex="-1" on:click={handleCancel}></button>
-    <span class="crm-ui-modal-spacer" aria-hidden="true">&#8203;</span>
-    <div class="crm-ui-event-create-panel" tabindex="-1" use:modalFocus={{ onEscape: handleCancel }}>
-      <fieldset disabled={submitState === 'loading'} class="m-0 min-w-0 border-0 p-0 text-left">
-        <p class="mb-4 text-xs font-medium text-gray-500">Step {currentStep} of 5 · {['Schedule', 'When & where', 'Event details', 'Registration & cost', 'Preview'][currentStep - 1]}</p>
-        <div class="mb-6 flex gap-1.5" aria-hidden="true">{#each [1, 2, 3, 4, 5] as step}<span class="h-1 flex-1 rounded-full {currentStep >= step ? 'bg-[var(--crm-brand-control)]' : 'bg-gray-200'}"></span>{/each}</div>
-        <h3 class="crm-ui-modal-title mb-5" id="event-create-title">{['New event', 'When and where?', 'Event details', 'Registration & cost', 'Preview your event'][currentStep - 1]}</h3>
-        <div class="space-y-5">
-        {#if currentStep === 1}
-          <fieldset><legend class="crm-ui-label mb-3">How often?</legend><div class="grid gap-3 sm:grid-cols-2">
-            <label class="rounded-xl border border-gray-200 p-5"><input type="radio" bind:group={scheduleKind} value="one_time" /> <strong class="ml-2 text-sm">One-time</strong><span class="mt-3 block text-xs text-gray-500">One date, with one or more time slots.</span></label>
-            <label class="rounded-xl border border-gray-200 p-5"><input type="radio" bind:group={scheduleKind} value="recurring" /> <strong class="ml-2 text-sm">Repeating</strong><span class="mt-3 block text-xs text-gray-500">One event with a repeating schedule.</span></label>
-          </div></fieldset>
-        {:else if currentStep === 2}
-          {#if scheduleKind === 'one_time'}<label class="crm-ui-label block">Event date<input type="date" bind:value={oneTimeDate} class="crm-ui-input mt-2" /></label>{:else}<RecurrenceSelector bind:selectedDateKeys bind:startDate={recurrenceStartDate} bind:endDate={recurrenceEndDate} bind:pattern={recurrencePattern} bind:days={recurrenceDays} bind:skipped={recurrenceSkipped} />{/if}
-          {#each timeSlots as slot, index}<div class="grid grid-cols-2 gap-3"><label class="crm-ui-label">Start time<input type="time" bind:value={slot.startTime} class="crm-ui-input mt-2" /></label><label class="crm-ui-label">End time<input type="time" bind:value={slot.endTime} class="crm-ui-input mt-2" /></label></div>{#if index > 0}<button type="button" class="text-sm text-[var(--crm-brand-link)]" on:click={() => timeSlots = timeSlots.filter((_, i) => i !== index)}>Remove time slot</button>{/if}{/each}
-          <label class="crm-ui-label block">Location <span class="font-normal text-gray-500">Optional</span><input type="text" bind:value={location} maxlength="500" class="crm-ui-input mt-2" placeholder="e.g. Main field" /></label>
-          <details><summary class="cursor-pointer text-sm text-[var(--crm-brand-link)]">Additional time slots</summary><button type="button" class="mt-3 text-sm text-[var(--crm-brand-link)]" on:click={() => timeSlots = [...timeSlots, { startTime: '', endTime: '' }]}>+ Add another time slot</button></details>
-        {:else if currentStep === 3}
-          <label class="crm-ui-label block">Event name<input type="text" bind:value={title} maxlength="200" class="crm-ui-input mt-2" placeholder="e.g. Varsity practice" /></label>
-          <label class="crm-ui-label block">Event type<select bind:value={eventType} class="crm-ui-input mt-2"><option value="" disabled>Choose a type</option>{#each $programTermsStore.types as type}<option value={type}>{type}</option>{/each}</select></label>
-          <label class="crm-ui-label block">{$programTermsStore.group}<select bind:value={selectedTeamId} disabled={Boolean(teamId)} class="crm-ui-input mt-2"><option value="" disabled>Choose a {$programTermsStore.group.toLowerCase()}</option>{#each teams as team}<option value={team.id}>{team.name}</option>{/each}</select></label>
-          {#if $teamsProjectionScope.error}<p class="text-sm text-red-700" role="alert">{$teamsProjectionScope.error}</p>{/if}
+<div class="schedule-create-anchor">
+<div class="schedule-create-screen crm-theme-default-host" aria-labelledby="event-create-title" role="dialog" aria-modal="true" tabindex="-1" use:fullscreenMessage use:modalFocus={{ onEscape: handleCancel }}>
+  <header class="schedule-create-header"><button type="button" class="schedule-icon" aria-label={currentStep > 1 ? 'Back' : 'Back to Schedule'} disabled={submitState === 'loading'} on:click={currentStep > 1 ? handleBack : handleCancel}><Icon name="chevronRight" size={24} className="schedule-back-icon" /></button><strong>Add to Schedule</strong><button type="button" class="schedule-icon" aria-label="Close schedule creation" disabled={submitState === 'loading'} on:click={handleCancel}><Icon name="close" size={20} /></button></header>
+  <div class="schedule-create-scroll">
+    <fieldset disabled={submitState === 'loading'} class="schedule-create-content">
+      <nav class="schedule-steps" aria-label="Creation progress">{#each ['Pattern', 'When', 'Name', 'Details', 'Review'] as label, index}<span aria-current={currentStep === index + 1 ? 'step' : undefined}>{label}</span>{/each}</nav>
+      <h2 id="event-create-title">{['How often?', 'When?', 'What will you call it?', 'Make it yours', 'Review your schedule'][currentStep - 1]}</h2>
+      <div class="schedule-step-content">
+      {#if currentStep === 1}
+        <div class="schedule-pattern-options">{#each [{ kind: 'one_time', name: 'Once', marks: [9] }, { kind: 'recurring', name: 'Repeats', marks: [2, 9, 16] }, { kind: 'dates', name: 'Choose dates', marks: [1, 10, 19] }] as option}
+          <button type="button" class="schedule-pattern-option" on:click={() => choosePattern(option.kind as 'one_time' | 'recurring' | 'dates')}><span class="schedule-pattern-picture" aria-hidden="true">{#each Array.from({ length: 21 }, (_, index) => index) as dot}<i class:marked={option.marks.includes(dot)}></i>{/each}</span><span><strong>{option.name}</strong></span><Icon name="chevronRight" size={20} /></button>
+        {/each}</div>
+      {:else if currentStep === 2}
+        {#if scheduleKind === 'one_time'}<label class="schedule-field">Date<input type="date" aria-label="Date" bind:value={oneTimeDate} /></label>
+        {:else if scheduleKind === 'dates'}<ScheduleDatePicker bind:selectedDateKeys />
+        {:else}<RecurrenceSelector bind:selectedDateKeys bind:startDate={recurrenceStartDate} bind:endDate={recurrenceEndDate} bind:pattern={recurrencePattern} bind:days={recurrenceDays} bind:skipped={recurrenceSkipped} />{/if}
+        {#each timeSlots as slot, index}<div class="schedule-field-pair"><label class="schedule-field">Starts<input type="time" aria-label={index === 0 ? 'Start time' : `Start time ${index + 1}`} bind:value={slot.startTime} /></label><label class="schedule-field">Ends<input type="time" aria-label={index === 0 ? 'End time' : `End time ${index + 1}`} bind:value={slot.endTime} /></label></div>{#if index > 0}<button type="button" class="schedule-text-button" on:click={() => timeSlots = timeSlots.filter((_, i) => i !== index)}>Remove time slot</button>{/if}{/each}
+        <details class="schedule-extra"><summary>More times</summary><button type="button" class="schedule-text-button" on:click={() => timeSlots = [...timeSlots, { startTime: '', endTime: '' }]}>Add time slot</button></details>
+      {:else if currentStep === 3}
+        <div class="schedule-chosen-summary"><Icon name="events" size={20} /><span>{scheduleSummary()}</span><button type="button" class="schedule-icon" aria-label="Edit schedule" on:click={() => currentStep = 2}><Icon name="pencil" size={16} /></button></div>
+        <label class="schedule-field schedule-name-field">Activity name<input type="text" bind:value={title} maxlength="200" placeholder="Your activity name" /></label><div class="schedule-name-later"><Icon name="pencil" size={16} />Your wording · Change anytime</div>
+        <details class="schedule-extra"><summary>Label <span>Optional</span></summary><label class="schedule-field">Activity label<input type="text" list="schedule-label-suggestions" bind:value={eventType} maxlength="80" placeholder="Your own label" /><datalist id="schedule-label-suggestions">{#each $programTermsStore.types as type}<option value={type}></option>{/each}</datalist></label></details>
+        <label class="schedule-field">{$programTermsStore.group}<select aria-label={$programTermsStore.group} bind:value={selectedTeamId} disabled={Boolean(teamId)}><option value="" disabled>Choose a {$programTermsStore.group.toLowerCase()}</option>{#each teams as team}<option value={team.id}>{team.name}</option>{/each}</select></label>
+        {#if $teamsProjectionScope.error}<p class="schedule-error" role="alert">{$teamsProjectionScope.error}</p>{/if}
+        <label class="schedule-field">Location <span>Optional</span><input type="text" aria-label="Location" bind:value={location} maxlength="500" placeholder="Add a location" /></label>
         {:else if currentStep === 4}
           <label class="crm-ui-label block">Attach to a season <span class="font-normal text-gray-500">Optional</span><select bind:value={seasonId} class="crm-ui-input mt-2"><option value={null}>No season</option>{#each eligibleSeasons as season}<option value={String(season.id)}>{season.name || season.title || 'Season name unavailable'}</option>{/each}</select></label>
-          {#if seasonId}<div class="rounded-xl bg-[var(--crm-brand-surface)] p-4 text-sm text-[var(--crm-on-brand-surface)]"><strong>Included with the season</strong><p class="mt-2">Only covered season participants can register. No additional event charge.</p></div><label class="flex items-center gap-2 text-sm"><input type="checkbox" bind:checked={extraForm} />Collect an additional event form</label>
+          {#if seasonId}<div class="rounded-xl bg-[var(--crm-brand-surface)] p-4 text-sm text-[var(--crm-on-brand-surface)]"><strong>Included with the season</strong><p class="mt-2">Only covered season participants can register. No additional event charge.</p></div><label class="flex items-center gap-2 text-sm"><input type="checkbox" bind:checked={extraForm} />Collect an additional form</label>
           {:else}<EventPaymentTermsEditor currency="USD" bind:price bind:choice={paymentChoice} bind:installmentCount bind:cadence={installmentCadence} />{/if}
           {#if !seasonId || extraForm}<label class="crm-ui-label block">Registration form<select bind:value={selectedFormId} on:change={handleFormSelectionChange} class="crm-ui-input mt-2"><option value="" disabled={!seasonId && Number(price) > 0}>{!seasonId && Number(price) > 0 ? 'Choose a registration form' : 'No new form needed'}</option>{#each registrationForms as form}<option value={form.id}>{form.title}</option>{/each}<option value="CREATE_NEW">+ Create a new form</option></select></label>{/if}
           {#if registrationFormsError}<p class="text-sm text-red-700" role="alert">{registrationFormsError}</p>{/if}
           <ImageFilePicker inputId="event-create-image" label="Cover image (Optional)" currentUrl={coverPreviewUrl} photo bind:selectedFile={imageFile} bind:validationMessage={imageValidationMessage} disabled={submitState === 'loading'} />
-          <label class="crm-ui-label block">Notes for the team <span class="font-normal text-gray-500">Optional</span><textarea bind:value={notes} maxlength="5000" rows="2" class="crm-ui-input mt-2"></textarea></label>
+          <label class="crm-ui-label block">Notes <span class="font-normal text-gray-500">Optional</span><textarea bind:value={notes} maxlength="5000" rows="2" class="crm-ui-input mt-2"></textarea></label>
         {:else}
-          <EventCreationPreview {title} type={eventType} team={teams.find((team) => team.id === selectedTeamId)?.name || ''} dates={selectedDateKeys} slots={timeSlots} {location} {notes} imageUrl={coverPreviewUrl} seasonName={eligibleSeasons.find((season) => String(season.id) === seasonId)?.name || eligibleSeasons.find((season) => String(season.id) === seasonId)?.title || ''} price={Number(price)} installments={paymentChoice === 'installments' ? installmentCount : 1} cadence={installmentCadence} registration={Boolean(selectedFormId)} />
+          <ScheduleOccurrenceEditor dates={selectedDateKeys} slots={timeSlots} {title} {location} bind:overrides={occurrenceOverrides} />
+          <details class="schedule-extra"><summary>App preview</summary><EventCreationPreview {title} type={eventType} team={teams.find((team) => team.id === selectedTeamId)?.name || ''} dates={selectedDateKeys} slots={timeSlots} {location} {notes} imageUrl={coverPreviewUrl} seasonName={eligibleSeasons.find((season) => String(season.id) === seasonId)?.name || eligibleSeasons.find((season) => String(season.id) === seasonId)?.title || ''} price={Number(price)} installments={paymentChoice === 'installments' ? installmentCount : 1} cadence={installmentCadence} registration={Boolean(selectedFormId && (!seasonId || extraForm))} /></details>
         {/if}
-        </div>
-        {#if errorMessage}<p class="crm-ui-danger mt-4" role="alert">{errorMessage}</p>{/if}
-        <div class="mt-6 border-t border-gray-200 pt-4">
-          {#if currentStep < 5}<button type="button" class="crm-ui-event-step-primary" on:click={handleNext}>{['Continue to date & time', 'Continue to event details', 'Continue to registration', 'Review event'][currentStep - 1]}</button>{:else}<StatusButton state={submitState} on:click={handleSave} idleText="Save draft" loadingText="Saving…" successText="Saved" errorText="Retry save" class="crm-ui-event-step-primary" />{/if}
-          {#if currentStep > 1}<button type="button" class="crm-ui-event-step-secondary" on:click={handleBack}>Back</button>{:else}<button type="button" class="crm-ui-event-step-cancel" on:click={handleCancel}>Cancel</button>{/if}
-        </div>
-      </fieldset>
-    </div>
+
+      </div>
+      {#if errorMessage}<p class="schedule-error" role="alert">{errorMessage}</p>{/if}
+    </fieldset>
   </div>
+  {#if currentStep > 1}<footer class="schedule-create-footer"><div>{#if currentStep < 5}<button type="button" class="crm-auth-button-primary" disabled={submitState === 'loading'} on:click={handleNext}>{['', 'Next: Name', 'Next: Details', 'Review schedule'][currentStep - 1]}</button>{:else}<StatusButton state={submitState} on:click={handleSave} idleText="Save draft" loadingText="Saving…" successText="Saved" errorText="Retry save" class="crm-auth-button-primary" />{/if}</div></footer>{/if}
 </div>
-{#if showCreateForm}<CreateRegistrationForm on:success={handleRegistrationCreated} on:cancel={() => showCreateForm = false} />{/if}
+</div>
+{#if showCreateForm}<CreateRegistrationForm previewEvent={{ title, date: selectedDateKeys[0] ? new Date(`${selectedDateKeys[0]}T${timeSlots[0]?.startTime || '00:00'}:00`).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '', price: seasonId ? 'Included with season' : Number(price) > 0 ? `$${Number(price).toFixed(2)}` : 'Free', imageUrl: coverPreviewUrl }} on:success={handleRegistrationCreated} on:cancel={() => showCreateForm = false} />{/if}

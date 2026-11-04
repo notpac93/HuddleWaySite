@@ -55,6 +55,8 @@ function thread(tenantSuffix = 'a') {
 
 describe('ConsumerAdminInbox', () => {
   beforeEach(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
     tenants.set('tenant-a');
     mocks.adminInboxThreads.mockReset();
     mocks.replyAdminInbox.mockReset();
@@ -68,6 +70,20 @@ describe('ConsumerAdminInbox', () => {
   });
 
   afterEach(() => cleanup());
+
+  it('updates unread counts when opening a thread and treats a new inbound message as unread', async () => {
+    const first = render(TestedInbox);
+    expect(await screen.findByRole('button', { name: 'Unread · 1' })).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: /Family A/ }));
+    expect(screen.getByRole('button', { name: 'Unread · 0' })).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Back to conversations' }));
+    first.unmount();
+    const updated = thread('a');
+    updated.messages.push({ ...updated.messages[0], id: 'new-inbound-message', message: 'One more question.' });
+    mocks.adminInboxThreads.mockResolvedValueOnce({ threads: [updated], truncated: false });
+    render(TestedInbox);
+    expect(await screen.findByRole('button', { name: 'Unread · 1' })).toBeVisible();
+  });
 
   it('loads a private thread and replies through the tenant-scoped backend contract', async () => {
     mocks.replyAdminInbox.mockResolvedValue({
@@ -115,7 +131,7 @@ describe('ConsumerAdminInbox', () => {
 
   it('clears prior-tenant content before loading a switched tenant', async () => {
     render(TestedInbox);
-    expect(await screen.findByText('family-a@example.com')).toBeVisible();
+    expect(await screen.findByText('Family A')).toBeVisible();
 
     mocks.adminInboxThreads.mockResolvedValueOnce({
       success: true,
@@ -126,8 +142,8 @@ describe('ConsumerAdminInbox', () => {
     });
     tenants.set('tenant-b');
 
-    expect(await screen.findByText('family-b@example.com')).toBeVisible();
-    expect(screen.queryByText('family-a@example.com')).toBeNull();
+    expect(await screen.findByText('Family B')).toBeVisible();
+    expect(screen.queryByText('Family A')).toBeNull();
     expect(mocks.adminInboxThreads).toHaveBeenLastCalledWith('tenant-b');
   });
 
@@ -161,8 +177,7 @@ describe('ConsumerAdminInbox', () => {
     });
 
     const first = render(TestedInbox);
-    expect(await screen.findByText('Account holder')).toBeVisible();
-    expect(screen.getByText('family-a@example.com')).toBeVisible();
+    expect(await screen.findByText('family-a@example.com')).toBeVisible();
     first.unmount();
     render(TestedInbox);
     expect(await screen.findByText('family-a@example.com')).toBeVisible();

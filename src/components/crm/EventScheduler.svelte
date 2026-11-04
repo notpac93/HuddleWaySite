@@ -270,7 +270,7 @@
   function handleCreateEventSuccess() {
     refreshOperationalCollections('events');
     eventChangeReceipt = {
-      title: 'Event created',
+      title: 'Schedule draft saved',
       message: 'The event was created and the event list is refreshing.',
     };
     isCreateFormOpen = false;
@@ -507,7 +507,7 @@
 <div class="p-4 sm:p-6 md:p-8 space-y-5">
   <header class="flex items-center justify-between gap-3">
     <h2 class="crm-ui-page-title">{$programTermsStore.title}</h2>
-    {#if events.length > 0}<button type="button" class="crm-ui-event-top-primary" on:click={() => isCreateFormOpen = true}>{$programTermsStore.add}</button>{/if}
+    <button type="button" class="crm-ui-event-top-primary" on:click={() => isCreateFormOpen = true}>{$programTermsStore.add}</button>
   </header>
 
 
@@ -566,7 +566,7 @@
   {/if}
 
   {#if $eventsProjectionScope.loading || $teamsProjectionScope.loading}
-    <div class="crm-ui-empty" role="status">Loading {$programTermsStore.plural.toLowerCase()}…</div>
+    <div class="crm-ui-empty" role="status">Loading schedule…</div>
   {:else if $eventsProjectionScope.error || $teamsProjectionScope.error}
     <div class="crm-ui-danger" role="alert">
       {$eventsProjectionScope.error || $teamsProjectionScope.error}
@@ -619,7 +619,7 @@
                 <svg class="mr-1.5 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                {event.occurrences.length > 1 ? `Repeating · ${event.date}` : event.date}
+                {event.occurrences.length > 1 ? `${event.occurrences.length} sessions · ${event.date}` : event.date}
               </span>
               <span class="crm-ui-center">
                 <svg class="mr-1.5 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -825,8 +825,8 @@
         <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
-        <h3 class="mt-2 text-sm font-medium text-gray-900">No {activeTab.toLowerCase()} {$programTermsStore.plural.toLowerCase()}</h3>
-        {#if events.length === 0}<button type="button" class="crm-ui-button-primary mt-4" on:click={() => isCreateFormOpen = true}>Create your first {$programTermsStore.singular.toLowerCase()}</button>{/if}
+        <h3 class="mt-2 text-sm font-medium text-gray-900">{activeTab === 'Upcoming' ? 'Nothing scheduled yet' : 'No past activities'}</h3>
+        {#if events.length === 0}<p class="mt-3 text-xs text-gray-500">Once · Repeating · Your dates</p>{/if}
       </div>
     {/each}
   </div>

@@ -10,7 +10,7 @@ export function programTerms(profile?: ProgramProfile | null) {
   const plural = singular === 'Class' ? 'Classes' : singular === 'Activity' ? 'Activities' : `${singular}s`;
   const label = (key: 'group' | 'groups' | 'people' | 'staff', fallback: string) => id ? profile?.overrides?.[key]?.trim() || profile?.[key]?.trim() || fallback : fallback;
   const types = classes ? ['Class', 'Workshop', 'Other'] : id === 'personal-training' ? ['Session', 'Assessment', 'Other'] : id === 'esports' ? ['Practice', 'Match', 'Tournament', 'Meeting', 'Other'] : id === 'camp' ? ['Camp', 'Activity', 'Other'] : ['educational-club', 'after-school'].includes(id) ? ['Activity', 'Workshop', 'Meeting', 'Other'] : ['Practice', 'Game', 'Meeting', 'Tournament', 'Other'];
-  return { types, title: sports ? 'Schedule' : plural, singular, plural, add: sports ? 'Add to schedule' : `New ${singular.toLowerCase()}`,
+  return { types, title: 'Schedule', singular, plural, add: 'Add to Schedule',
     group: label('group', 'Team'), groups: label('groups', 'Teams'), people: label('people', 'Roster'), staff: label('staff', 'Staff') };
 }
 export const programProfileStore = writable<{ tenantId: string; profile: ProgramProfile | null }>({ tenantId: '', profile: null });

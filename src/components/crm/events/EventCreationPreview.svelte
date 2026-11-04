@@ -18,7 +18,7 @@
 <article class="overflow-hidden rounded-xl border border-gray-200 bg-white text-left" aria-label="Published event preview">
   {#if imageUrl}<img src={imageUrl} alt={`${title} cover`} width="640" height="360" class="aspect-video w-full object-cover" />{:else}<div class="flex aspect-video items-center justify-center bg-[var(--crm-brand-sidebar)] text-[var(--crm-on-sidebar)]"><span class="text-sm">{team}</span></div>{/if}
   <div class="space-y-4 p-5">
-    <div class="flex items-center gap-2 text-xs"><span class="rounded bg-[var(--crm-brand-surface)] px-2 py-1 text-[var(--crm-brand-link)]">{type}</span><span class="text-gray-500">{team}</span></div>
+    <div class="flex items-center gap-2 text-xs">{#if type && type !== 'Other'}<span class="rounded bg-[var(--crm-brand-surface)] px-2 py-1 text-[var(--crm-brand-link)]">{type}</span>{/if}<span class="text-gray-500">{team}</span></div>
     <h4 class="text-2xl font-semibold text-gray-950">{title}</h4>
     <p class="text-sm text-gray-700">{dates[0] ? day(dates[0]) : ''}{dates.length > 1 ? ` – ${day(dates[dates.length - 1])}` : ''}</p>
     <p class="text-sm text-gray-700">{slots.map((slot) => `${time(slot.startTime)}–${time(slot.endTime)}`).join(' · ')}</p>

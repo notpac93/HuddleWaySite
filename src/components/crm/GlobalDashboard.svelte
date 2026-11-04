@@ -298,7 +298,7 @@
           </div>
           <div class="ml-5 w-0 flex-1">
             <dl>
-              <dt class="text-sm font-medium text-gray-500 truncate">Events</dt>
+              <dt class="text-sm font-medium text-gray-500 truncate">Schedule</dt>
               <dd>
                 <div class="crm-ui-subtitle">{totalEvents}</div>
               </dd>

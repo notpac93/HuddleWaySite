@@ -212,10 +212,12 @@ export class RegistrationOutreachApi {
     tenantId,
     emails,
     eventId,
+    deliveryMode,
   }: {
     tenantId: string;
     emails: string[];
     eventId?: string;
+    deliveryMode?: 'huddleway' | 'connected_mailbox';
   }) {
     const payload = await this.api.request<MessageAudiencePreview>(
       '/admin/messages/audience-preview',
@@ -226,6 +228,7 @@ export class RegistrationOutreachApi {
           emails,
           ...(eventId ? { eventId } : {}),
           emailRequested: true,
+          ...(deliveryMode ? { deliveryMode } : {}),
           alsoPostPublicly: false,
         },
       },

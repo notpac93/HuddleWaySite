@@ -348,6 +348,8 @@ export interface CrmExportRequest {
 }
 
 export type CrmEventOccurrenceInput = {
+  title?: string;
+  location?: string;
   dateKey: string;
   startTime: string;
   endTime: string;
@@ -790,6 +792,7 @@ export interface ParticipantInstallmentAgreement {
 
 export type CrmOperationalCollection =
   | "board_messages"
+  | "restricted_board_messages"
   | "events"
   | "program_images"
   | "registration_forms"
@@ -3019,20 +3022,26 @@ export class BackendApi {
     return payload;
   }
 
-  async announcementAudiencePreview(tenantId: string) {
+  async announcementAudiencePreview(tenantId: string, announcement?: Record<string, unknown>) {
     const payload = await this.send<{
       success: boolean;
       tenantId: string;
       scope: "tenant_account_holders";
+      audienceVisibility?: "everyone" | "event_registrants";
+      eventId?: string | null;
+      eventIds?: string[];
+      multiTargetSupported?: boolean;
       eligibleAccountCount: number;
       eligibleDeviceCount: number;
       truncated: boolean;
       requestId: string;
     }>("/admin/messages/announcement-preview", {
       method: "POST",
-      body: { tenantId },
+      body: { tenantId, ...(announcement ? { announcement } : {}) },
     });
     if (
+      (announcement && ['eventIds', 'eventTeamIds', 'seasonIds'].some((key) => Array.isArray(announcement[key]) && (announcement[key] as string[]).length > 1) && payload.multiTargetSupported !== true) ||
+      (announcement?.audienceVisibility === 'event_registrants' && (payload.audienceVisibility !== 'event_registrants' || payload.eventId !== announcement.eventId || (Array.isArray(announcement.eventIds) && announcement.eventIds.length > 1 && JSON.stringify([...(payload.eventIds || [])].sort()) !== JSON.stringify([...announcement.eventIds].sort())))) ||
       payload.success !== true ||
       payload.tenantId !== tenantId ||
       payload.scope !== "tenant_account_holders" ||
