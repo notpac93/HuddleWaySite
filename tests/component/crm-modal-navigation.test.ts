@@ -232,7 +232,7 @@ describe("CRM modal stacking and navigation", () => {
     await fireEvent.click(within(more).getByRole('button', { name: 'Roster' }));
     await waitFor(() => expect(nav.getByRole('button', { name: 'More, current section: Roster' })).toBeVisible());
     expect(screen.getByRole('status', { name: 'current tab' })).toHaveTextContent('Roster');
-    await fireEvent.click(screen.getByRole('button', { name: '← More' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Back to More' }));
     expect(screen.getByRole('region', { name: 'More' })).toBeVisible();
     await fireEvent.click(nav.getByRole('button', { name: 'Schedule' }));
     expect(screen.queryByRole('region', { name: 'More' })).toBeNull();
@@ -402,15 +402,13 @@ describe("CRM modal stacking and navigation", () => {
   it("advances registration creation and closes only from the backdrop", async () => {
     const view = render(TestedCreateRegistrationFormHarness);
 
-    await fireEvent.input(screen.getByLabelText("Registration Title *"), {
+    await fireEvent.input(screen.getByLabelText("Form name"), {
       target: { value: "Fall Registration" },
     });
-    await fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Customize" }));
 
     expect(
-      screen.getByText(
-        "Each step appears in this order for future registrations.",
-      ),
+      screen.getByRole("navigation", { name: "Question groups" }),
     ).toBeVisible();
     expect(
       screen.getByRole("status", { name: "registration modal state" }),

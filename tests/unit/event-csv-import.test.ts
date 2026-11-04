@@ -48,3 +48,8 @@ describe('event CSV review', () => {
     expect(result.fileErrors[0]).toContain('starttime');
   });
 });
+
+it('does not count the same team twice when its name matches its id', () => {
+  const result = reviewEventCsv('title,date,start_time,end_time,team\nPractice,2030-09-12,17:00,19:00,varsity\n', [{id:'varsity',name:'Varsity'}], []);
+  expect(result.rows[0].teamId).toBe('varsity');expect(result.rows[0].errors).toEqual([]);
+});

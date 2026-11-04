@@ -8,6 +8,7 @@ vi.mock('../../src/lib/api/backendClient', () => ({
   backendClient: apiMocks,
 }));
 
+import { notifyRegistrationFormsChanged } from '../../src/lib/registration/registrationFormChanges';
 import { RegistrationService } from '../../src/lib/services/RegistrationService';
 
 function page(
@@ -32,6 +33,35 @@ describe('RegistrationService authenticated backend projections', () => {
   beforeEach(() => {
     apiMocks.crmOperationalPage.mockReset();
     vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  it('refreshes every mounted library after saving only within the correct tenant', async () => {
+    let records: any[] = [];
+    apiMocks.crmOperationalPage.mockImplementation(async (tenant: string) => ({...page('registration_forms', records),tenantId:tenant}));
+    const library = vi.fn(), section = vi.fn(), other = vi.fn();
+    const stopLibrary=RegistrationService.subscribeToForms('refresh-tenant',library);
+    const stopSection=RegistrationService.subscribeToForms('refresh-tenant',section);
+    const stopOther=RegistrationService.subscribeToForms('another-tenant',other);
+    await vi.waitFor(()=>expect(library).toHaveBeenCalledTimes(1));
+    records=[{id:'shared-form',title:'Shared form',status:'active',sections:[{fields:[{id:'player_name'}]}]}];
+    notifyRegistrationFormsChanged('refresh-tenant');
+    await vi.waitFor(()=>expect(section).toHaveBeenLastCalledWith([expect.objectContaining({id:'shared-form',title:'Shared form'})]));
+    expect(library).toHaveBeenLastCalledWith([expect.objectContaining({id:'shared-form'})]);
+    expect(other).toHaveBeenCalledTimes(1);
+    stopLibrary();stopSection();stopOther();
+    const requests=apiMocks.crmOperationalPage.mock.calls.length;
+    notifyRegistrationFormsChanged('refresh-tenant');
+    expect(apiMocks.crmOperationalPage).toHaveBeenCalledTimes(requests);
+  });
+
+  it('queues a save refresh behind an earlier in-flight read', async () => {
+    let resolve!: (value: unknown)=>void;
+    apiMocks.crmOperationalPage.mockReturnValueOnce(new Promise(done=>resolve=done)).mockResolvedValueOnce(page('registration_forms',[{id:'new-form',title:'New form',status:'active'}]));
+    const next=vi.fn();const stop=RegistrationService.subscribeToForms('queued-tenant',next);
+    notifyRegistrationFormsChanged('queued-tenant');
+    resolve(page('registration_forms',[]));
+    await vi.waitFor(()=>expect(next).toHaveBeenLastCalledWith([expect.objectContaining({id:'new-form'})]));
+    expect(apiMocks.crmOperationalPage).toHaveBeenCalledTimes(2);stop();
   });
 
   it('does not request a page without a tenant', () => {
@@ -116,6 +146,21 @@ describe('RegistrationService authenticated backend projections', () => {
     expect(result.records.map((record) => record.id)).toEqual(['event-1', 'event-3']);
     expect(result.truncated).toBe(false);
     expect(apiMocks.crmOperationalPage).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps historical form responses without including easy registrations or another form', async () => {
+    apiMocks.crmOperationalPage.mockImplementation(async (_tenant:string,collection:string)=>page(collection,collection==='events' ? [
+      {id:'event-current',registrationFormId:'form-a'},
+      {id:'event-easy',registrationFormId:'form-a',registrationMethod:'easy'},
+    ] : [
+      {id:'historical',eventId:'event-easy',formId:'form-a'},
+      {id:'easy',eventId:'event-easy',formId:'easy:event-easy:v1'},
+      {id:'other-form',eventId:'event-current',formId:'form-b'},
+      {id:'legacy',eventId:'event-current'},
+    ]));
+    const result=await RegistrationService.fetchRegistrationDetailPage('tenant-a','form-a');
+    expect(result.events.records.map(row=>row.id)).toEqual(['event-current']);
+    expect(result.participants.records.map(row=>row.id)).toEqual(['historical','legacy']);
   });
 
   it('returns complete participant details without raw registration answers', async () => {

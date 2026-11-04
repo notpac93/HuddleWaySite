@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, tick } from 'svelte';
   import { tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
-  import { BackendApiError, createIdempotencyKey } from '../../lib/api/BackendApi';
+  import { createIdempotencyKey } from '../../lib/api/BackendApi';
   import StatusButton from './ui/StatusButton.svelte';
   import { modalFocus } from '../../lib/ui/modalFocus';
 
@@ -13,6 +13,8 @@
   let lastName = '';
   let role: 'editor' | 'viewer' = 'viewer';
   let reviewing = false;
+  let heading: HTMLHeadingElement;
+  let firstNameInput: HTMLInputElement;
 
   let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
   let errorMessage = '';
@@ -66,15 +68,23 @@
     } catch (e: unknown) {
       console.error('The staff invitation could not be sent.');
       if ($tenantIdStore !== tenantId) return;
-      const supportId = e instanceof BackendApiError ? e.requestId : null;
       errorMessage = 'The staff invitation could not be sent.';
       submitState = 'error';
     }
   }
 
-  function reviewInvite() {
+  async function reviewInvite() {
     if (!email.trim() || !firstName.trim() || !lastName.trim()) return;
     reviewing = true;
+    await tick(); heading?.focus();
+  }
+
+  async function editInvite() {
+    if (submitState === 'loading') return;
+    reviewing = false;
+    errorMessage = '';
+    if (submitState === 'error') submitState = 'idle';
+    await tick(); firstNameInput?.focus();
   }
 
   function handleCancel() {
@@ -84,78 +94,96 @@
   }
 </script>
 
-<div class="crm-ui-modal-root" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-  <div class="crm-ui-modal-shell">
+<div class="crm-ui-modal-root" aria-labelledby="staff-invite-title" role="dialog" aria-modal="true">
+  <div class="crm-ui-modal-shell staff-invite-shell">
     <button type="button" disabled={submitState === 'loading'} class="crm-ui-backdrop" aria-label="Cancel staff invitation" tabindex="-1" on:click={handleCancel}></button>
-    <span class="crm-ui-modal-spacer" aria-hidden="true">&#8203;</span>
-
-    <div class="relative z-10 inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full" tabindex="-1" use:modalFocus={{ onEscape: handleCancel }}>
+    <div class="staff-invite-card crm-auth-card relative z-10" tabindex="-1" use:modalFocus={{ onEscape: handleCancel }}>
       <form on:submit|preventDefault={() => reviewing ? handleSubmit() : reviewInvite()}>
-        <div class="crm-ui-modal-body">
-          <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4" id="modal-title">Invite Staff Member</h3>
-
-          <div class="space-y-4">
-            <div class="crm-ui-grid-two">
-              <div>
-                <label for="firstName" class="crm-ui-label">First Name *</label>
-                <input type="text" id="firstName" bind:value={firstName} required class="crm-ui-input-blue">
-              </div>
-              <div>
-                <label for="lastName" class="crm-ui-label">Last Name *</label>
-                <input type="text" id="lastName" bind:value={lastName} required class="crm-ui-input-blue">
-              </div>
-            </div>
-
-            <div>
-              <label for="email" class="crm-ui-label">Email Address *</label>
-              <input type="email" id="email" bind:value={email} required class="crm-ui-input-blue" placeholder="coach@example.com">
-            </div>
-
-            <section class="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700" aria-label="Staff permission comparison">
-              <p><strong>Viewer:</strong> can open the Dashboard and read authorized organization information; cannot change records or send messages.</p>
-              <p class="mt-2"><strong>Editor:</strong> can manage teams, seasons, rosters, events, registration, messages, documents, media, and app content. Editors cannot manage Financials, Staff, or Activity.</p>
+        <header class="staff-invite-header">
+          <h3 id="staff-invite-title" tabindex="-1" bind:this={heading}>{reviewing ? 'Send invitation?' : 'Invite staff'}</h3>
+          <button type="button" class="invite-close" aria-label="Close invitation" disabled={submitState === 'loading'} on:click={handleCancel}>×</button>
+        </header>
+        <div class="staff-invite-body">
+          {#if reviewing}
+            <section class="invite-review" aria-label="Invitation review">
+              <div class="invite-avatar" aria-hidden="true">{firstName.trim().slice(0,1)}{lastName.trim().slice(0,1)}</div>
+              <h4>{firstName.trim()} {lastName.trim()}</h4>
+              <p class="invite-email">{email.trim()}</p>
+              <span class="invite-role">{role === 'editor' ? 'Editor' : 'Viewer'}</span>
+              <p class="invite-permission">{role === 'editor' ? 'Manage program · No finances, staff, or activity access' : 'View dashboard · Read only'}</p>
             </section>
-
-            <p class="text-sm text-gray-600">The invitation email will be sent to the address above and will show its expiration date. Existing HuddleWay users accept with their current account.</p>
-
-            {#if reviewing}
-              <section class="rounded-md border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950" aria-label="Invitation review">
-                <h4 class="font-semibold">Review invitation</h4>
-                <p class="mt-1">Recipient: {firstName.trim()} {lastName.trim()} · {email.trim()}</p>
-                <p>Access: {role === 'editor' ? 'Editor — can change program operations' : 'Viewer — read-only'}</p>
-              </section>
-            {/if}
-
-            <div>
-              <label for="role" class="crm-ui-label">Role</label>
-              <select id="role" bind:value={role} class="crm-ui-input-blue">
-                <option value="editor">Editor — manage program operations</option>
-                <option value="viewer">Viewer — read-only access</option>
-              </select>
+          {:else}
+            <div class="invite-name-row">
+              <div>
+                <label for="firstName" class="crm-ui-label">First name *</label>
+                <input type="text" id="firstName" bind:this={firstNameInput} bind:value={firstName} required autocomplete="given-name" class="crm-ui-auth-input">
+              </div>
+              <div>
+                <label for="lastName" class="crm-ui-label">Last name *</label>
+                <input type="text" id="lastName" bind:value={lastName} required autocomplete="family-name" class="crm-ui-auth-input">
+              </div>
             </div>
-
-            {#if errorMessage}
-              <p class="rounded-md bg-red-50 p-3 text-sm text-red-700" role="alert">{errorMessage}</p>
-            {/if}
-
-          </div>
+            <div>
+              <label for="email" class="crm-ui-label">Email *</label>
+              <input type="email" id="email" bind:value={email} required autocomplete="email" class="crm-ui-auth-input" placeholder="coach@example.com">
+            </div>
+            <fieldset class="invite-access">
+              <legend class="crm-ui-label">Access</legend>
+              <div class="invite-role-options">
+                <label class:selected={role === 'viewer'}>
+                  <input type="radio" name="invite-role" value="viewer" bind:group={role} />
+                  <strong>Viewer</strong><span>View dashboard</span>
+                </label>
+                <label class:selected={role === 'editor'}>
+                  <input type="radio" name="invite-role" value="editor" bind:group={role} />
+                  <strong>Editor</strong><span>Manage program</span>
+                </label>
+              </div>
+              {#if role === 'editor'}<p class="invite-permission">No finances, staff, or activity access.</p>{/if}
+            </fieldset>
+          {/if}
+          {#if errorMessage}<p class="invite-error" role="alert">{errorMessage}</p>{/if}
         </div>
-        <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-          <StatusButton
-            type="submit"
-            state={submitState}
+        <div class="staff-invite-footer">
+          <button type="button" disabled={submitState === 'loading'} on:click={() => reviewing ? editInvite() : handleCancel()} class="crm-auth-button-secondary">{reviewing ? 'Back' : 'Cancel'}</button>
+          <StatusButton type="submit" state={submitState}
             disabled={!email.trim() || !firstName.trim() || !lastName.trim() || submitState === 'loading'}
-            idleText={reviewing ? 'Confirm & Send Invite' : 'Review Invite'}
-            loadingText="Sending..."
-            successText="Sent!"
-            errorText="Retry Invite"
-            class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-[var(--crm-brand-control)] text-base font-medium text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--crm-brand-focus)] sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
-          />
-          <button type="button" disabled={submitState === 'loading'} on:click={handleCancel} class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--crm-brand-focus)] disabled:opacity-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
-            Cancel
-          </button>
+            idleText={reviewing ? 'Send invite' : 'Continue'} loadingText="Sending…" successText="Sent" errorText="Try again"
+            class="crm-auth-button-primary" />
         </div>
       </form>
     </div>
   </div>
 </div>
+
+<style>
+  .staff-invite-shell{display:flex;align-items:center;justify-content:center;min-height:100dvh;padding:16px}
+  .staff-invite-card{text-align:left;display:block;width:100%;max-width:480px;margin:0;max-height:calc(100dvh - 32px);overflow-y:auto;border-radius:1.25rem}
+  .staff-invite-header{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.25rem;background:linear-gradient(120deg,#173c62,#08244b);border-bottom:2px solid var(--crm-brand-secondary);color:white}
+  .staff-invite-header h3{font-size:1.25rem;font-weight:750;line-height:1.3;margin:0;outline:none}
+  .invite-close{display:grid;place-items:center;min-width:44px;min-height:44px;font-size:1.6rem;border:0;background:transparent;color:inherit;border-radius:.5rem}
+  .staff-invite-body{display:flex;flex-direction:column;gap:1rem;padding:1.25rem}
+  .invite-name-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+  .invite-name-row>div{min-width:0}
+  .staff-invite-body input:not([type=radio]){min-height:46px;border-radius:.6rem;background:#f4f6f8}
+  .invite-access{margin:0;padding:0;border:0;min-width:0}
+  .invite-access legend{margin-bottom:.4rem}
+  .invite-role-options{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+  .invite-role-options label{position:relative;display:flex;flex-direction:column;gap:.25rem;min-height:82px;padding:.85rem;border:1px solid #dce2e9;border-radius:.75rem;cursor:pointer;color:#17314d}
+  .invite-role-options label.selected{border-color:var(--crm-brand-link);background:var(--crm-brand-surface);box-shadow:inset 0 0 0 1px var(--crm-brand-link)}
+  .invite-role-options input{position:absolute;right:.8rem;top:.85rem;accent-color:var(--crm-brand-link);width:18px;height:18px}
+  .invite-role-options strong{font-size:.875rem;padding-right:1.5rem}
+  .invite-role-options span,.invite-permission{font-size:.8rem;color:#586a7d;line-height:1.45}
+  .invite-access .invite-permission{margin:.6rem 0 0}
+  .invite-review{text-align:center;padding:.5rem 0}
+  .invite-avatar{display:grid;place-items:center;width:56px;height:56px;border-radius:50%;background:var(--crm-brand-surface);color:var(--crm-brand-link);font-size:1.15rem;font-weight:700;text-transform:uppercase;margin:0 auto .8rem}
+  .invite-review h4{font-size:1.1rem;color:#17314d;font-weight:700;margin:0}
+  .invite-email{margin:.35rem 0 .8rem;color:#586a7d;overflow-wrap:anywhere;font-size:.875rem}
+  .invite-role{display:inline-block;border-radius:2rem;padding:.3rem .8rem;background:var(--crm-brand-surface);color:var(--crm-brand-link);font-size:.8rem;font-weight:700}
+  .invite-review .invite-permission{margin:.6rem auto 0;max-width:300px}
+  .invite-error{padding:.75rem;border-radius:.6rem;background:#fef2f2;color:#991b1b;font-size:.875rem}
+  .staff-invite-footer{position:sticky;bottom:0;background:white;display:flex;gap:.75rem;padding:1rem 1.25rem 1.25rem;border-top:1px solid #e2e6ec}
+  .staff-invite-footer :global(button){flex:1;width:auto;margin:0}
+  .invite-role-options label:focus-within,.invite-close:focus-visible{outline:3px solid var(--crm-brand-secondary);outline-offset:3px}
+  @media(max-width:360px){.staff-invite-body,.staff-invite-header,.staff-invite-footer{padding:1rem}.invite-role-options label{padding:.75rem}.invite-role-options span{font-size:.75rem}}
+</style>

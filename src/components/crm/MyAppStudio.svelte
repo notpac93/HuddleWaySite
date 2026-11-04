@@ -1,25 +1,21 @@
 <script lang="ts">
+  import { toast } from './ui/toast';
   import { getContext, onDestroy } from 'svelte';
   import { MY_APP_NAVIGATION, type MyAppNavigation } from '../../lib/crm/myAppNavigation';
   const navigation = getContext<MyAppNavigation | undefined>(MY_APP_NAVIGATION);
   import Icon from './ui/Icon.svelte';
-  import { modalFocus } from '../../lib/ui/modalFocus';
 
   export let active = true;
   export let suspendInactivePreviews = false;
   let showTools = false;
   let toolsMounted = false;
+  let componentsMounted = false;
+  let canvasEditing = false;
+  let canvasEditor: ComponentsStudio | null = null;
+  let editSessionId = '';
+  function editOnCanvas() { navigation?.dismiss(); showTools = false; componentsMounted = true; editSessionId = createIdempotencyKey('canvas'); canvasEditing = true; }
   function openTools() { navigation?.dismiss(); toolsMounted = true; showTools = true; }
-  $: if (!active) showTools = false;
-  function toolsFocus(node: HTMLElement, open: boolean) {
-    let focus: ReturnType<typeof modalFocus> | null = null;
-    const update = (visible: boolean) => {
-      if (visible && !focus) focus = modalFocus(node, { onEscape: () => showTools = false });
-      if (!visible && focus) { focus.destroy(); focus = null; }
-    };
-    update(open);
-    return { update, destroy: () => focus?.destroy() };
-  }
+  $: if (!active) { showTools = false; canvasEditing = false; }
   import { tenantIdStore, tenantNamesStore } from '../../lib/authStore';
   import {
     publicEnvironment,
@@ -42,10 +38,12 @@
   import AppPublishReview from './app/AppPublishReview.svelte';
   import AppPreviewFrame from './app/AppPreviewFrame.svelte';
   import { resolveAppPreviewEnvironment } from '../../lib/crm/appPreviewProtocol';
+  import type { AppPagePreviewDraft, CanvasAction } from '../../lib/crm/appPreviewProtocol';
   import BrandingPanel from './app-studio/BrandingPanel.svelte';
   import NavigationPanel from './app-studio/NavigationPanel.svelte';
   import VersionHistoryPanel from './app-studio/VersionHistoryPanel.svelte';
   import ComponentsStudio from './app-studio/ComponentsStudio.svelte';
+  import AppStudioTools from './app-studio/AppStudioTools.svelte';
   import GlassAppearanceControls from './app-studio/GlassAppearanceControls.svelte';
   import { normalizeGlassAppearance } from '../../lib/ui/glassAppearance';
   import BrandingControls from './app-studio/BrandingControls.svelte';
@@ -103,6 +101,11 @@
   let brandingUndoSnapshot: Pick<CrmAppConfiguration, 'name' | 'appStyle' | 'glassAppearance' | 'primaryColor' | 'secondaryColor' | 'tertiaryColor'> | null = null;
   let reviewChanges: string[] = [];
   let previewConfiguration: CrmAppConfiguration;
+  let pageDraft: AppPagePreviewDraft | null = null;
+  let layoutPreviewSynced = false;
+  function setPageDraft(draft: AppPagePreviewDraft | null) { pageDraft = draft; }
+  function setPreviewSynced(synced: boolean) { layoutPreviewSynced = synced; }
+  function onCanvasAction(action: CanvasAction) { canvasEditor?.handleCanvasAction(action); }
 
   const previewBaseUrl = resolveCrmAppPreviewUrl(publicEnvironment);
   const previewEnvironment = resolveAppPreviewEnvironment(publicEnvironment);
@@ -236,12 +239,12 @@
     }
   }
 
-  // Active Tab in the left pane
   let activeTab = 'Branding';
   const tabs = ['Branding', 'Pages', 'Components', 'Version history'];
 
   $: if (String($tenantIdStore || '') !== activeTenantId) {
     activeTenantId = String($tenantIdStore || '');
+    canvasEditing = false;
     controller.selectTenant(activeTenantId);
     primaryColor = '';
     secondaryColor = '';
@@ -587,18 +590,20 @@
   />
 {/if}
 
-<div class="my-app-canvas" aria-label="My App canvas" inert={showTools}>
-  {#if !suspendInactivePreviews || (active && !(showTools && activeTab === 'Components'))}
-  <AppPreviewFrame immersive onInteract={() => navigation?.dismiss()} previewOrigin={previewBaseUrl} tenantId={String($tenantIdStore || '')} environment={previewEnvironment} configuration={previewConfiguration} configurationReady={configLoadState === 'ready'} title={`${appName.trim() || 'Program'} mobile app preview`} expectedSourceCommit={publicEnvironment.PUBLIC_APP_PREVIEW_COMMIT || ''} expectedReleaseId={publicEnvironment.PUBLIC_APP_PREVIEW_RELEASE_ID || ''} />
+<div class="my-app-canvas" class:tools-open={showTools} aria-label="My App canvas">
+  {#if !suspendInactivePreviews || active}
+  <AppPreviewFrame immersive {pageDraft} {onCanvasAction} onSyncedChange={setPreviewSynced} onInteract={() => navigation?.dismiss()} previewOrigin={previewBaseUrl} tenantId={String($tenantIdStore || '')} environment={previewEnvironment} configuration={previewConfiguration} configurationReady={configLoadState === 'ready'} title={`${appName.trim() || 'Program'} mobile app preview`} expectedSourceCommit={publicEnvironment.PUBLIC_APP_PREVIEW_COMMIT || ''} expectedReleaseId={publicEnvironment.PUBLIC_APP_PREVIEW_RELEASE_ID || ''} />
   {/if}
   {#if configLoadState === 'error' || configLoadState === 'permission'}
     <div class="canvas-error" role="alert"><p>{configLoadMessage}</p>{#if configLoadState === 'error'}<button type="button" on:click={() => loadTenantConfig(activeTenantId)}>Retry</button>{/if}</div>
   {/if}
-  <div class="canvas-tools"><button type="button" on:click={openTools}><Icon name="myApp" size={18} />Edit app{#if isDirty}<span class="draft-dot" aria-label="Unpublished changes"></span>{/if}</button></div>
+  {#if componentsMounted}<div class="canvas-edit-tools" hidden={!canvasEditing || showTools}>
+    <ComponentsStudio bind:this={canvasEditor} canvasOnly externalCanvas {editSessionId} canvasEditing={canvasEditing && !showTools} previewSynced={layoutPreviewSynced} active={active} previewActive={false} onSettings={openTools} onDone={() => canvasEditing = false} onPageDraftChange={setPageDraft} tenantId={String($tenantIdStore || '')} configuration={previewConfiguration} configurationReady={configLoadState === 'ready'} previewOrigin={previewBaseUrl} {previewEnvironment} expectedSourceCommit={publicEnvironment.PUBLIC_APP_PREVIEW_COMMIT || ''} expectedReleaseId={publicEnvironment.PUBLIC_APP_PREVIEW_RELEASE_ID || ''} />
+  </div>{/if}
+  {#if !showTools && !canvasEditing}<div class="canvas-tools"><button type="button" aria-label="Edit" on:click={editOnCanvas}><Icon name="myApp" size={18} />Edit{#if isDirty}<span class="draft-dot" aria-label="Unpublished changes"></span>{/if}</button></div>{/if}
 </div>
 {#if toolsMounted}
-<div class="app-tools-overlay" hidden={!showTools} style:display={showTools ? 'flex' : 'none'}>
-<div role="dialog" aria-modal="true" aria-label="Edit app" class="app-tools-dialog" tabindex="-1" use:toolsFocus={showTools && !showPublishReview}>
+<AppStudioTools open={showTools} focusEnabled={!showPublishReview}>
 <div class="crm-ui-studio-root">
   <div class="crm-ui-studio-editor">
     <header class="flex flex-wrap items-center justify-between gap-4 border-b border-gray-200 px-5 py-3 sm:px-6">
@@ -606,7 +611,6 @@
         <h2 class="text-xl font-semibold text-gray-950">Edit app</h2>
       </div>
       <button type="button" class="app-tools-done" on:click={() => showTools = false}>Back to app</button>
-      {#if activeTab !== 'Components'}
         <div class="flex items-center gap-3">
           <span class="hidden max-w-64 text-right text-xs text-gray-500 md:block">
             {#if configLoadState !== 'ready'}Loading authoritative configuration…
@@ -616,12 +620,11 @@
           </span>
           <StatusButton type="button" state={submitState} on:click={requestPublishReview} disabled={!canPublish} idleText="Publish App" loadingText="Publishing..." successText="Published" errorText="Retry Publish" class="crm-ui-studio-publish" />
         </div>
-      {/if}
     </header>
 
     <nav aria-label="My App sections" class="flex shrink-0 gap-1 overflow-x-auto border-b border-gray-200 px-4 sm:px-6">
       {#each tabs as tab}
-        <button type="button" disabled={submitState === 'loading'} aria-pressed={activeTab === tab} class="whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors {activeTab !== tab ? 'border-transparent text-gray-500 hover:text-gray-800' : 'border-[var(--crm-brand-border)] text-[var(--crm-brand-link)]'}" on:click={() => activeTab = tab}>{tab}</button>
+        <button type="button" disabled={submitState === 'loading'} aria-pressed={activeTab === tab} class="whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors {activeTab !== tab ? 'border-transparent text-gray-500 hover:text-gray-800' : 'border-[var(--crm-brand-border)] text-[var(--crm-brand-link)]'}" on:click={() => tab === 'Components' ? editOnCanvas() : activeTab = tab}>{tab}</button>
       {/each}
     </nav>
 
@@ -633,8 +636,8 @@
       <p class="crm-ui-studio-warning" role="status">No concurrency token was returned. Publishing remains disabled.</p>
     {/if}
 
-    {#if publishMessage}<div class="mx-5 mt-3 rounded-md border p-3 text-sm {submitState === 'error' ? 'border-red-200 bg-red-50 text-red-800' : 'border-green-200 bg-green-50 text-green-800'}" role={submitState === 'error' ? 'alert' : 'status'}>{publishMessage}</div>{/if}
-    {#if draftNotice}<div class="mx-5 mt-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900" role="status">{draftNotice}</div>{/if}
+    {#if publishMessage}<div use:toast={{dismiss: () => publishMessage = ''}} class="mx-5 mt-3 rounded-md border p-3 text-sm {submitState === 'error' ? 'border-red-200 bg-red-50 text-red-800' : 'border-green-200 bg-green-50 text-green-800'}" role={submitState === 'error' ? 'alert' : 'status'}>{publishMessage}</div>{/if}
+    {#if draftNotice}<div use:toast={{dismiss: () => draftNotice = ''}} class="mx-5 mt-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900" role="status">{draftNotice}</div>{/if}
     {#if savedDraft}
       <div class="mx-5 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950" role="status">
         <p>Browser draft saved {new Date(savedDraft.savedAt).toLocaleString()}. {savedDraft.versionToken === configVersionToken ? 'It is safe to restore.' : 'It is outdated and cannot be restored.'}</p>
@@ -643,15 +646,11 @@
     {/if}
 
     <div class="min-h-0 flex-1 overflow-y-auto bg-gray-50 lg:overflow-hidden">
-      {#if activeTab === 'Components'}
-        <div class="h-full overflow-y-auto p-4 sm:p-5">
-          <ComponentsStudio active={active} previewActive={!suspendInactivePreviews || (active && showTools)} tenantId={String($tenantIdStore || '')} configuration={previewConfiguration} configurationReady={configLoadState === 'ready'} previewOrigin={previewBaseUrl} {previewEnvironment} expectedSourceCommit={publicEnvironment.PUBLIC_APP_PREVIEW_COMMIT || ''} expectedReleaseId={publicEnvironment.PUBLIC_APP_PREVIEW_RELEASE_ID || ''} />
-        </div>
-      {:else if activeTab === 'Version history'}
+      {#if activeTab === 'Version history'}
         <div class="mx-auto h-full max-w-4xl overflow-y-auto p-5 sm:p-6">
           <VersionHistoryPanel versions={versionHistory} state={versionHistoryState} currentVersion={configVersion} truncated={versionHistoryTruncated} disabled={submitState === 'loading'} onRetry={() => activeTenantId && loadVersionHistory(activeTenantId)} onUseVersion={useVersionAsRollbackDraft} />
         </div>
-      {:else}
+      {:else if activeTab !== 'Components'}
         <div class="min-h-full lg:h-full">
           <aside aria-label={`${activeTab} settings`} class="min-w-0 overflow-y-auto border-r border-gray-200 bg-white p-5 sm:p-6 lg:h-full">
             {#if activeTab === 'Branding'}
@@ -681,16 +680,18 @@
   </div>
 </div>
 
-</div></div>{/if}
+</AppStudioTools>{/if}
 <style>
-  .my-app-canvas { position: relative; display: flex; flex: 1; min-height: 0; width: min(100%, 480px); height: 100%; padding-top: max(64px, calc(env(safe-area-inset-top) + 56px)); margin: 0 auto; overflow: hidden; background: #fafafa; }
+  .my-app-canvas { position: relative; display: flex; flex: 1; min-height: 0; width: min(100%, 480px); max-width: 480px; height: 100%; padding-top: max(80px, calc(env(safe-area-inset-top) + 80px)); margin: 0 auto; overflow: hidden; background: #fafafa; }
   .canvas-tools { position: absolute; bottom: max(100px, calc(env(safe-area-inset-bottom) + 92px)); left: 50%; transform: translateX(-50%); z-index: 10; padding: 4px; background: white; border: 1px solid #dce2eb; border-radius: 18px; box-shadow: 0 5px 20px #0002; }
+  .canvas-edit-tools { position: absolute; top: max(4px, env(safe-area-inset-top)); left: 4px; right: 4px; z-index: 20; }
   .canvas-tools button { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 16px; white-space: nowrap; border-radius: 13px; background: var(--crm-brand-control); color: var(--crm-on-primary); font-size: 14px; font-weight: 600; }
   .draft-dot { width: 7px; height: 7px; background: currentColor; border-radius: 50%; }
   .canvas-error { position: absolute; inset: 80px 20px auto; z-index: 12; padding: 20px; border-radius: 14px; background: white; color: #991b1b; }
   .canvas-error button { margin-top: 12px; text-decoration: underline; }
-  .app-tools-overlay { position: fixed; inset: 0; z-index: 40; align-items: center; justify-content: center; padding: 12px; background: #0f172a66; }
-  .app-tools-dialog { width: min(100%, 1000px); height: 100%; max-height: 920px; min-height: 0; overflow: hidden; border-radius: 20px; background: white; }
+  .my-app-canvas.tools-open { flex: none; width: min(480px, calc(100% - min(440px, 45vw))); margin-right: min(440px, 45vw); }
   .app-tools-done { min-height: 44px; padding: 8px 12px; border-radius: 12px; font-size: 14px; font-weight: 600; background: var(--crm-brand-surface); color: var(--crm-brand-link); }
-  @media(max-width: 767px) { .app-tools-overlay { padding: 0; } .app-tools-dialog { border-radius: 0; max-height: none; } }
+  @media(max-width: 767px) {
+    .my-app-canvas.tools-open { width: min(100%, 480px); margin: 0 auto; }
+  }
 </style>

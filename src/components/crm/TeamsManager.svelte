@@ -1,4 +1,5 @@
 <script lang="ts">
+  import BrandedWorkspace from './ui/BrandedWorkspace.svelte';
   import { onDestroy, tick } from 'svelte';
   import { tenantIdStore } from '../../lib/authStore';
   import { backendClient } from '../../lib/api/backendClient';
@@ -22,7 +23,6 @@
   import EmptyState from './ui/EmptyState.svelte';
   import Icon from './ui/Icon.svelte';
   import LoadingState from './ui/LoadingState.svelte';
-  import PageHeader from './ui/PageHeader.svelte';
   import StatusNotice from './ui/StatusNotice.svelte';
   import ChangeReceipt from './ui/ChangeReceipt.svelte';
 
@@ -146,7 +146,7 @@
   }
 
   function teamStatus(team: any) {
-    const status = String(team?.status || team?.lifecycleStatus || 'active').trim().toLowerCase();
+    const status = String(team?.isActive === false ? 'inactive' : team?.status || team?.lifecycleStatus || 'active').trim().toLowerCase();
     return status ? `${status.charAt(0).toUpperCase()}${status.slice(1)}` : 'Active';
   }
 
@@ -270,7 +270,7 @@
 </script>
 
 {#if isTeamFormOpen}
-  <CreateTeamForm team={editingTeam} on:cancel={closeTeamForm} on:success={handleTeamSuccess} />
+  <CreateTeamForm team={editingTeam} on:cancel={closeTeamForm} on:success={handleTeamSuccess} on:delete={(event) => { const team = event.detail; closeTeamForm(); requestDelete(team); }} />
 {/if}
 
 {#if pendingDeleteTeam}
@@ -300,10 +300,17 @@
   </div>
 {/if}
 
-<div class="h-full overflow-y-auto bg-white p-4 sm:p-8">
-  <div class="mx-auto max-w-5xl">
+<BrandedWorkspace title={activeTeam?.name || 'Teams'} eyebrow="Program teams" support={activeTeam?.description || ''}>
+  <svelte:fragment slot="actions">
+    {#if activeTeam}
+      <button type="button" class="crm-auth-button-secondary" on:click={() => openEditForm(activeTeam)}><Icon name="pencil" size={16} /> Edit team</button>
+      <button type="button" class="crm-ui-button-danger-outline bg-white inline-flex items-center gap-2" on:click={() => requestDelete(activeTeam)}><Icon name="trash" size={16} /> Delete team</button>
+    {:else}
+      <button type="button" on:click={openCreateForm} class="crm-auth-button-secondary"><Icon name="plus" size={16} /> Create team</button>
+    {/if}
+  </svelte:fragment>
     {#if teamReceipt}
-      <div class="mb-6">
+      <div style="display: contents">
         <ChangeReceipt
           status="success"
           title={teamReceipt.title}
@@ -314,12 +321,6 @@
       </div>
     {/if}
     {#if activeTeam}
-      <PageHeader title={activeTeam.name || 'Team overview'} support={activeTeam.description || ''}>
-        <div slot="actions" class="flex flex-wrap gap-2">
-          <button type="button" class="crm-ui-button-secondary inline-flex items-center gap-2" on:click={() => openEditForm(activeTeam)}><Icon name="pencil" size={16} /> Edit team</button>
-          <button type="button" class="crm-ui-button-danger-outline inline-flex items-center gap-2" on:click={() => requestDelete(activeTeam)}><Icon name="trash" size={16} /> Delete team</button>
-        </div>
-      </PageHeader>
       <section class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Team overview">
         <div class="rounded-lg border bg-white p-4"><p class="text-xs font-semibold uppercase text-gray-500">Status</p><p class="mt-1 text-lg font-semibold">{teamStatus(activeTeam)}</p></div>
         <button type="button" class="rounded-lg border bg-white p-4 text-left hover:border-[var(--crm-brand-focus)]" on:click={() => onNavigateTab('Roster')}><span class="text-xs font-semibold uppercase text-gray-500">Roster</span><span class="mt-1 block text-lg font-semibold">{teamRosterCount(activeTeam)} people</span></button>
@@ -339,9 +340,6 @@
         </div>
       </section>
     {:else}
-      <PageHeader title="Teams">
-        <button slot="actions" type="button" on:click={openCreateForm} class="crm-ui-button-primary inline-flex items-center gap-2"><Icon name="plus" size={16} /> Create team</button>
-      </PageHeader>
       <div class="mt-6">
         {#if $teamsProjectionScope.loading}
           <LoadingState label="Loading teams…" />
@@ -350,20 +348,34 @@
         {:else if $teamsStore.length === 0}
           <EmptyState icon="teams" title="No teams yet" />
         {:else}
-          <div class="space-y-4">
+          <div class="team-list" aria-label="Teams">
             {#each $teamsStore as team (team.id)}
-              <article data-record-id={team.id} class="flex items-start gap-4 rounded-lg border border-gray-200 bg-white p-5 {activeResultId === String(team.id) ? 'ring-2 ring-[var(--crm-brand-focus)]' : ''}">
-                <button type="button" class="min-w-0 flex-1 text-left" on:click={() => setActiveTeam(team)}>
-                  <span class="flex items-center justify-between gap-4"><span class="text-lg font-semibold text-[var(--crm-brand-link)]">{team.name}</span><span class="whitespace-nowrap text-sm font-semibold text-[var(--crm-brand-link)]">Open team</span></span>
-                  <span class="mt-2 block text-sm text-gray-600">{team.description || 'No description provided.'}</span>
-                  <span class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500"><span>{teamStatus(team)}</span><span>{teamRosterCount(team)} people</span><span>{seasonSummaryState || activeSeasonName(team, $seasonsStore, teamReferences)}</span></span>
+              <article data-record-id={team.id} class="team-row" class:team-row-target={activeResultId === String(team.id)}>
+                <button type="button" class="team-summary" aria-label={`${team.name} — Open team, ${teamRosterCount(team)} people`} on:click={() => setActiveTeam(team)}>
+                  <span class="team-heading"><strong>{team.name}</strong><span class="team-status">{teamStatus(team)}</span></span>
+                  {#if team.description?.trim()}<span class="team-description">{team.description}</span>{/if}
+                  <span class="team-meta"><span>{teamRosterCount(team)} people</span><span aria-hidden="true">·</span><span>{seasonSummaryState || activeSeasonName(team, $seasonsStore, teamReferences)}</span></span>
                 </button>
-                <button type="button" class="crm-ui-button-secondary inline-flex items-center gap-2" aria-label={`Edit ${team.name}`} on:click={() => openEditForm(team)}><Icon name="pencil" size={16} /> Edit</button>
+                <button type="button" class="team-edit" aria-label={`Edit ${team.name}`} on:click={() => openEditForm(team)}><Icon name="pencil" size={16} /> Edit</button>
               </article>
             {/each}
           </div>
         {/if}
       </div>
     {/if}
-  </div>
-</div>
+</BrandedWorkspace>
+
+<style>
+  .team-list{display:flex;flex-direction:column;min-width:0}
+  .team-row{display:flex;align-items:center;gap:16px;padding:18px 0;min-width:0;border-bottom:1px solid #dce2e9}
+  .team-row:first-child{padding-top:0}.team-row:last-child{padding-bottom:0;border-bottom:0}
+  .team-row-target{outline:2px solid var(--crm-brand-focus);outline-offset:6px;border-radius:6px}
+  .team-summary{flex:1;min-width:0;text-align:left;padding:4px 0;min-height:44px}
+  .team-heading{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .team-heading strong{font-size:1rem;font-weight:600;color:var(--crm-brand-link);overflow-wrap:anywhere;min-width:0}
+  .team-status{font-size:.75rem;font-weight:500;color:#526176;background:#eef1f5;border-radius:5px;padding:2px 6px}
+  .team-meta{display:flex;flex-wrap:wrap;gap:4px 8px;margin-top:7px;color:#607087;font-size:.875rem;line-height:1.5}
+  .team-description{display:block;margin-top:6px;font-size:.875rem;color:#526176;overflow-wrap:anywhere}
+  .team-edit{display:inline-flex;align-items:center;justify-content:center;gap:6px;flex-shrink:0;min-height:44px;padding:8px 4px;color:var(--crm-brand-link);font-size:.875rem;font-weight:600;border:0;background:none}
+  .team-edit:hover,.team-summary:hover strong{text-decoration:underline;text-underline-offset:3px}
+</style>

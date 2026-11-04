@@ -12,7 +12,7 @@ function mount(configurationReady = true, extra = {}) {
   return render(AppPreviewFrame, { previewOrigin: origin, tenantId: 'stem-it-up-sports', environment: 'stage',
     configuration, configurationReady, title: 'Consumer fixture preview', expectedSourceCommit: sourceCommit, expectedReleaseId: releaseId, ...extra });
 }
-function message(frame: HTMLIFrameElement, type: 'ready' | 'applied' | 'rejected' | 'interaction', extra = {}, originOverride = origin) {
+function message(frame: HTMLIFrameElement, type: 'ready' | 'applied' | 'rejected' | 'interaction' | 'canvas-action', extra = {}, originOverride = origin) {
   const query = new URL(frame.src).searchParams;
   window.dispatchEvent(new MessageEvent('message', { origin: originOverride, source: frame.contentWindow,
     data: JSON.stringify({ type: `huddleway.crm.preview.${type}`, protocolVersion: 1,
@@ -21,6 +21,56 @@ function message(frame: HTMLIFrameElement, type: 'ready' | 'applied' | 'rejected
 }
 
 describe('live consumer preview handshake', () => {
+  it('only accepts current edit-session commands and rejects replayed, forged, or view-mode actions', async () => {
+    const onCanvasAction = vi.fn();
+    const pageDraft = { id: 'home', route: '/', title: 'Home', components: [], editMode: true, editSessionId: 'edit-1' };
+    const view = mount(true, { pageDraft, onCanvasAction });
+    const frame = screen.getByTitle('Consumer fixture preview') as HTMLIFrameElement;
+    message(frame, 'ready', { capabilities: ['page-layout-v1', 'canvas-edit-v1'] }); await tick();
+    const action = { action: 'remove', pageId: 'home', componentId: 'section', editSessionId: 'edit-1' };
+    message(frame, 'canvas-action', { sequence: 1, action, nonce: 'forged' });
+    message(frame, 'canvas-action', { sequence: 1, action: { ...action, editSessionId: 'old' } });
+    expect(onCanvasAction).not.toHaveBeenCalled();
+    message(frame, 'canvas-action', { sequence: 1, action });
+    message(frame, 'canvas-action', { sequence: 1, action });
+    expect(onCanvasAction).toHaveBeenCalledOnce();
+    await view.rerender({ pageDraft: { ...pageDraft, editMode: false } });
+    message(frame, 'canvas-action', { sequence: 2, action });
+    expect(onCanvasAction).toHaveBeenCalledOnce();
+  });
+  it('fails closed when an older consumer cannot render page drafts', async () => {
+    mount(true, { pageDraft: { id: 'home', route: '/', title: 'Home', components: [] } });
+    const frame = screen.getByTitle('Consumer fixture preview') as HTMLIFrameElement;
+    const send = vi.spyOn(frame.contentWindow!, 'postMessage');
+    message(frame, 'ready');
+    await tick();
+    expect(screen.getByRole('alert')).toHaveTextContent('cannot show page layout drafts');
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('streams layout changes into the same capable iframe and waits for the exact receipt', async () => {
+    const pageDraft = { id: 'home', route: '/', title: 'Home', components: [] };
+    const view = mount(true, { pageDraft });
+    const frame = screen.getByTitle('Consumer fixture preview') as HTMLIFrameElement;
+    const source = frame.src;
+    const send = vi.spyOn(frame.contentWindow!, 'postMessage');
+    message(frame, 'ready', { capabilities: ['page-layout-v1'] });
+    await tick();
+    const first = JSON.parse(send.mock.calls.at(-1)![0] as string);
+    expect(first.pageDraft).toEqual(pageDraft);
+    message(frame, 'applied', { revision: first.revision });
+    await view.rerender({ pageDraft: { ...pageDraft, title: 'Changed Home' } });
+    await tick();
+    expect(screen.getByTitle('Consumer fixture preview')).toBe(frame);
+    expect(frame.src).toBe(source);
+    const second = JSON.parse(send.mock.calls.at(-1)![0] as string);
+    message(frame, 'applied', { revision: first.revision });
+    await tick();
+    expect(screen.getByRole('status')).toBeInTheDocument();
+    message(frame, 'applied', { revision: second.revision });
+    await tick();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
   it('only forwards interactions from the attested active consumer frame', async () => {
     const onInteract = vi.fn();
     const view = mount();

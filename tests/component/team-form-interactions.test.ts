@@ -42,13 +42,9 @@ function deferred<T>() {
 
 async function fillCreateForm({
   name = '  Falcons  ',
-  description = '  12U travel team  ',
 } = {}) {
   await fireEvent.input(screen.getByLabelText('Team Name *'), {
     target: { value: name },
-  });
-  await fireEvent.input(screen.getByLabelText('Description'), {
-    target: { value: description },
   });
 }
 
@@ -81,7 +77,7 @@ describe('CreateTeamForm guarded mutation states', () => {
       'tenant-a',
       {
         name: 'Falcons',
-        description: '12U travel team',
+        description: '',
         parentTeamId: 'boys',
       },
       'Sub-team created under Boys.',
@@ -93,7 +89,7 @@ describe('CreateTeamForm guarded mutation states', () => {
       screen.getByRole('button', { name: 'Cancel team form' }),
     ).toBeDisabled();
     expect(screen.getByLabelText('Team Name *')).toBeDisabled();
-    expect(screen.getByLabelText('Description')).toBeDisabled();
+    expect(screen.queryByLabelText('Description')).toBeNull();
     expect(screen.getByText(/created under/i)).toHaveTextContent('Boys');
 
     pending.resolve();
@@ -144,8 +140,8 @@ describe('CreateTeamForm guarded mutation states', () => {
     expect(backendMocks.createTeam.mock.calls[1][3])
       .toBe(backendMocks.createTeam.mock.calls[0][3]);
 
-    await fireEvent.input(screen.getByLabelText('Description'), {
-      target: { value: 'Corrected age group' },
+    await fireEvent.input(screen.getByLabelText('Team Name *'), {
+      target: { value: 'Falcons 12U' },
     });
     await waitFor(() => {
       expect(screen.getByRole('button', {
@@ -172,8 +168,8 @@ describe('CreateTeamForm guarded mutation states', () => {
         description: 'Original description',
       },
     });
-    await fireEvent.input(screen.getByLabelText('Description'), {
-      target: { value: ' Updated description ' },
+    await fireEvent.input(screen.getByLabelText('Team Name *'), {
+      target: { value: ' Falcons updated ' },
     });
     await fireEvent.click(
       screen.getByRole('button', { name: 'Save Team' }),
@@ -183,8 +179,8 @@ describe('CreateTeamForm guarded mutation states', () => {
       'tenant-a',
       'team-1',
       {
-        name: 'Falcons',
-        description: 'Updated description',
+        name: 'Falcons updated',
+        description: 'Original description',
         parentTeamId: null,
       },
       'Team details updated from Teams & Divisions.',
@@ -232,4 +228,32 @@ describe('CreateTeamForm guarded mutation states', () => {
     ).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Created!' })).toBeNull();
   });
+  it('confirms deactivation, keeps canceled changes active, and saves the confirmed state', async () => {
+    backendMocks.updateTeam.mockResolvedValue(undefined);
+    render(TestedCreateTeamForm, { team: { id: 'team-1', name: 'Falcons', status: 'active' } });
+    const toggle = screen.getByRole('switch', { name: 'Team active' });
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+    await fireEvent.click(toggle);
+    expect(screen.getByRole('alertdialog')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Save Team' })).toBeDisabled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Keep active' }));
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+    expect(backendMocks.updateTeam).not.toHaveBeenCalled();
+    await fireEvent.click(toggle);
+    await fireEvent.click(screen.getByRole('button', { name: /^Deactivate$/ }));
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByText('Hidden from the app')).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Save Team' }));
+    expect(backendMocks.updateTeam).toHaveBeenCalledWith('tenant-a', 'team-1', expect.objectContaining({ status: 'inactive' }), expect.any(String), expect.any(String));
+  });
+
+  it('reactivates an inactive team without a deactivation confirmation', async () => {
+    backendMocks.updateTeam.mockResolvedValue(undefined);
+    render(TestedCreateTeamForm, { team: { id: 'team-1', name: 'Falcons', status: 'inactive', isActive: false } });
+    await fireEvent.click(screen.getByRole('switch', { name: 'Team active' }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Save Team' }));
+    expect(backendMocks.updateTeam).toHaveBeenCalledWith('tenant-a', 'team-1', expect.objectContaining({ status: 'active' }), expect.any(String), expect.any(String));
+  });
+
 });

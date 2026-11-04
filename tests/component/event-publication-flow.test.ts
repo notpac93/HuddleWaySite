@@ -87,12 +87,10 @@ describe('event publication flow', () => {
     backendMocks.updateEvent.mockReset().mockResolvedValue({ updatedCount: 1 });
     eventRecords.set(Array.from({ length: 9 }, (_, index) => ({ ...baseline[0], id: `date-${index}`, occurrenceCount: 9, isMultiDateSeries: true, date: `2030-08-${String(index + 10).padStart(2, '0')}T16:00:00.000Z` })));
     render(TestedEventScheduler);
+    await fireEvent.click(screen.getByRole('button', { name: /^Drafts/ }));
     expect(screen.getAllByRole('article')).toHaveLength(1);
-    await fireEvent.click(screen.getByRole('checkbox', { name: 'Select to publish' }));
-    expect(screen.getByText('1 draft event selected')).toBeVisible();
-    await fireEvent.click(screen.getByRole('button', { name: 'Review publication' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Review & publish' }));
     expect(screen.getByRole('heading', { name: 'Review 1 event before publication' })).toBeVisible();
-    await fireEvent.click(screen.getByRole('checkbox', { name: /I reviewed the schedule/ }));
     await fireEvent.click(screen.getByRole('button', { name: 'Publish 1 event' }));
     await waitFor(() => expect(backendMocks.updateEvent).toHaveBeenCalledTimes(9));
     expect(await screen.findByText('1 event published.')).toBeVisible();
@@ -110,6 +108,7 @@ describe('event publication flow', () => {
     });
     render(TestedEventScheduler);
 
+    await fireEvent.click(screen.getByRole('button', { name: /^Drafts/ }));
     await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     const editor = screen.getByRole('dialog', { name: 'Edit Event' });
     await fireEvent.change(within(editor).getByLabelText('Status'), {

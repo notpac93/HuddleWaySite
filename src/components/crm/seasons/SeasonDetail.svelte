@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { toast } from '../ui/toast';
   import { createEventDispatcher, onDestroy } from 'svelte';
   import { tenantIdStore } from '../../../lib/authStore';
   import { backendClient } from '../../../lib/api/backendClient';
@@ -515,7 +516,7 @@
   </div>
 
   {#if eventMutationReceipt}
-    <p class="mb-4 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-900" role="status">
+    <p use:toast={{dismiss: () => eventMutationReceipt = ''}} class="mb-4 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-900" role="status">
       {eventMutationReceipt}
     </p>
   {/if}

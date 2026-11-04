@@ -25,6 +25,44 @@ export interface AppComponentPreviewDraft {
   selectedItemId?: string | null;
 }
 
+export interface AppPagePreviewDraft {
+  id: string;
+  route: string;
+  title: string;
+  components: CrmPageComponent[];
+  editMode?: boolean;
+  editSessionId?: string;
+  provisionalId?: string | null;
+  editableFields?: Record<string, Array<{ id: string; label: string; maxLength?: number }>>;
+  availableComponents?: Array<{ id: string; label: string }>;
+}
+
+export type CanvasAction = {
+  action: 'add' | 'remove' | 'move-up' | 'move-down' | 'confirm-add' | 'cancel-add' | 'text-begin' | 'text-change' | 'text-end' | 'text-cancel' | 'navigate';
+  pageId: string;
+  componentId?: string;
+  definitionId?: string;
+  beforeId?: string | null;
+  fieldId?: string;
+  value?: string;
+  editSessionId?: string;
+  route?: string;
+};
+
+export function parseCanvasAction(value: unknown): CanvasAction | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const item = value as Record<string, unknown>;
+  const actions = ['add', 'remove', 'move-up', 'move-down', 'confirm-add', 'cancel-add', 'text-begin', 'text-change', 'text-end', 'text-cancel', 'navigate'];
+  if (!actions.includes(String(item.action)) || typeof item.pageId !== 'string' || !item.pageId || item.pageId.length > 200) return null;
+  for (const key of ['componentId', 'definitionId', 'fieldId', 'editSessionId']) {
+    if (item[key] !== undefined && (typeof item[key] !== 'string' || !(item[key] as string).length || (item[key] as string).length > 200)) return null;
+  }
+  if (item.beforeId !== undefined && item.beforeId !== null && (typeof item.beforeId !== 'string' || item.beforeId.length > 200)) return null;
+  if (item.value !== undefined && (typeof item.value !== 'string' || item.value.length > 20000)) return null;
+  if (item.route !== undefined && (typeof item.route !== 'string' || !item.route.startsWith('/') || item.route.startsWith('//') || item.route.length > 240)) return null;
+  return item as CanvasAction;
+}
+
 export function resolveAppPreviewEnvironment(
   environment: PublicEnvironment,
 ): AppPreviewEnvironment {
@@ -71,6 +109,7 @@ export function buildAppPreviewUpdate(
   revision: number,
   configuration: CrmAppConfiguration,
   componentDraft?: AppComponentPreviewDraft | null,
+  pageDraft?: AppPagePreviewDraft | null,
 ) {
   return JSON.stringify({
     type: 'huddleway.crm.preview.update',
@@ -82,6 +121,7 @@ export function buildAppPreviewUpdate(
     revision,
     configuration,
     ...(componentDraft ? { componentDraft } : {}),
+    ...(pageDraft ? { pageDraft } : {}),
   });
 }
 
@@ -113,6 +153,7 @@ export function parseAppPreviewMessage(
     && payload.type !== 'huddleway.crm.preview.rejected'
     && payload.type !== 'huddleway.crm.preview.field-selected'
     && payload.type !== 'huddleway.crm.preview.interaction'
+    && payload.type !== 'huddleway.crm.preview.canvas-action'
   ) { onInvalid('unsupported-type'); return null; }
   return payload;
 }

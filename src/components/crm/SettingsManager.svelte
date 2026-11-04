@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { toast } from './ui/toast';
+  import BrandedWorkspace from './ui/BrandedWorkspace.svelte';
   import {
     EmailAuthProvider,
     reauthenticateWithCredential,
@@ -207,13 +209,9 @@
   }
 </script>
 
-<div class="h-full bg-white flex flex-col">
-  <div class="px-8 py-6 border-b border-gray-200">
-    <h2 class="crm-ui-page-title">My profile</h2>
-  </div>
-
-  <div class="flex-1 p-8 overflow-y-auto bg-gray-50">
-    <div class="max-w-3xl bg-white shadow rounded-lg p-6">
+<BrandedWorkspace title="My profile" eyebrow="Your account" panel={false}>
+  <div class="flex flex-col gap-6">
+    <div class="crm-branded-panel">
       <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Personal information</h3>
       <form class="space-y-6" on:submit|preventDefault={saveProfile}>
         <div>
@@ -277,7 +275,7 @@
           </div>
         {/if}
 
-        <div class="flex items-center justify-between gap-4">
+        <div class="flex flex-wrap items-center justify-between gap-4">
           <p class="text-sm text-gray-500">Organization access and invitations are managed from Staff.</p>
           <StatusButton
             type="submit"
@@ -291,13 +289,13 @@
             idleText="Save changes"
             loadingText="Saving..."
             successText="Saved"
-            class="bg-[var(--crm-brand-control)] border border-transparent rounded-md shadow-sm py-2 px-4 inline-flex justify-center text-sm font-medium text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)] disabled:opacity-50"
+            class="crm-ui-button-primary shrink-0"
           />
         </div>
       </form>
     </div>
 
-    <div class="max-w-3xl mt-6 bg-white shadow rounded-lg p-6">
+    <div class="crm-branded-panel">
       <h3 class="text-lg leading-6 font-medium text-gray-900">Change Password</h3>
       <p class="mt-1 text-sm text-gray-500">
         Verify your current password, choose a new one, and you will be signed out after it is saved.
@@ -352,12 +350,12 @@
         {/if}
 
         {#if passwordSubmitState === 'success'}
-          <div class="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700" role="status">
+          <div use:toast class="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700" role="status">
             Password changed successfully. You have been signed out.
           </div>
         {/if}
 
-        <div class="flex justify-end">
+        <div class="flex flex-wrap justify-end gap-4">
           <p class="mr-auto max-w-lg text-sm text-gray-500">Changing this password signs out this browser. Other existing sessions are not guaranteed to be revoked. After sign-in, the portal restores your last authorized location.</p>
           <StatusButton
             type="submit"
@@ -366,10 +364,10 @@
             idleText="Change Password"
             loadingText="Changing..."
             successText="Changed"
-            class="bg-[var(--crm-brand-control)] border border-transparent rounded-md shadow-sm py-2 px-4 inline-flex justify-center text-sm font-medium text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)] disabled:opacity-50"
+            class="crm-ui-button-primary shrink-0"
           />
         </div>
       </form>
     </div>
   </div>
-</div>
+</BrandedWorkspace>

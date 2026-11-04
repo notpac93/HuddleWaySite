@@ -1,4 +1,5 @@
 <script lang="ts">
+  import BrandedWorkspace from './ui/BrandedWorkspace.svelte';
   import { visibleFinancialTotal } from '../../lib/services/financialAmounts';
   import RecordToolbar from './ui/RecordToolbar.svelte';
   import RecordItem from './ui/RecordItem.svelte';
@@ -146,14 +147,7 @@
   mountRefresh(() => registerLiveRefresh(() => loadOperations()));
 </script>
 
-<div class="flex h-full min-h-0 flex-col bg-gray-50">
-  <header class="border-b border-gray-200 bg-white px-4 py-4 sm:px-6">
-    <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-      <div>
-        <h1 class="crm-ui-page-title">Financials</h1>
-      </div>
-
-    </div>
+<BrandedWorkspace title="Financials" eyebrow="Program finances" headingLevel={1}>
     <RecordToolbar activeCount={[search.trim(), status].filter(Boolean).length} searchable={ownerAuthorized && activeView !== 'payment_setup' && (rows.length > 0 || Boolean(search || status))}>
       <select slot="view" aria-label="Financial operation view" value={activeView} on:change={(event) => setView(event.currentTarget.value as WorkspaceView)}>
         {#each views as view}<option value={view.id}>{view.label}</option>{/each}
@@ -165,9 +159,8 @@
         {#if rows.length > 0}<button type="button" class="justify-self-start crm-ui-button-secondary bg-white" disabled={!operations?.complete || filteredRows.length === 0} on:click={exportVisibleRows}>Export</button>{/if}
       </div>
     </RecordToolbar>
-  </header>
 
-  <main class="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+  <div class="min-w-0">
     {#if !ownerAuthorized}
       <section class="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950" role="alert">
         <h2 class="font-semibold">Owner permission required</h2>
@@ -207,5 +200,5 @@
         {#if filteredRows.length === 0}<p class="p-6 text-center text-sm text-gray-600">{rows.length === 0 ? `No ${activeView} yet.` : 'No records match the current filters.'}</p>{/if}
       </section>
     {/if}
-  </main>
-</div>
+  </div>
+</BrandedWorkspace>

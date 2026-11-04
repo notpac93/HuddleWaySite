@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { toast } from '../ui/toast';
+  import BrandedWorkspace from '../ui/BrandedWorkspace.svelte';
   import { onDestroy } from 'svelte';
   import { programTermsStore } from '../../../lib/crm/programVocabulary';
   import { tenantIdStore } from '../../../lib/authStore';
@@ -138,13 +140,8 @@
   />
 {/if}
 
-<div class="h-full flex flex-col p-6 space-y-6 overflow-y-auto bg-white">
-  <div class="flex justify-between items-center">
-    <div>
-      <h2 class="crm-ui-page-title">{$programTermsStore.people}</h2>
-    </div>
-  </div>
-  {#if entrySuccess}<p class="rounded border border-green-200 bg-green-50 p-3 text-sm text-green-800" role="status">{entrySuccess}</p>{/if}
+<BrandedWorkspace title={$programTermsStore.people} eyebrow="Program roster">
+  {#if entrySuccess}<p use:toast={{dismiss: () => entrySuccess = ''}} class="rounded border border-green-200 bg-green-50 p-3 text-sm text-green-800" role="status">{entrySuccess}</p>{/if}
 
   {#if activeTab === 'Players'}
     <PlayerTable
@@ -177,4 +174,4 @@
     <select aria-label="Roster view" bind:value={activeTab}><option value="Players">{$programTermsStore.people}</option><option value="Teams">{$programTermsStore.groups}</option><option value="Import">Bulk updates</option></select>
     <ImportCsv {activeTeam} teams={$teamsStore} />
   {/if}
-</div>
+</BrandedWorkspace>

@@ -1,4 +1,7 @@
 <script lang="ts">
+  import BrandedWorkspace from './ui/BrandedWorkspace.svelte';
+  import SuccessToast from './ui/SuccessToast.svelte';
+  import { toast } from './ui/toast';
   import { registerLiveRefresh } from '../../lib/crm/liveRefresh';
   import { onMount as mountRefresh } from 'svelte';
   import type { Component } from 'svelte';
@@ -12,6 +15,7 @@
   let CreateEventFormComponent: Component<any> | null = null;
   let InviteStaffModalComponent: Component<any> | null = null;
   let quickActionLoadError = '';
+  let actionReceipt = '';
   let dashboardSummary = {
     loading: false,
     counts: { registrations: 0, teams: 0, events: 0 },
@@ -22,6 +26,7 @@
   let dashboardSummaryGeneration = 0;
 
   async function openCreateEvent() {
+    if (!canManageTenant) return;
     quickActionLoadError = '';
     showCreateEventModal = true;
     try {
@@ -36,6 +41,7 @@
   }
 
   async function openStaffInvite() {
+    if (!isOwner) return;
     quickActionLoadError = '';
     showAddStaffModal = true;
     try {
@@ -101,6 +107,7 @@
 
   $: if ($tenantIdStore !== loadedDashboardTenant) {
     loadedDashboardTenant = $tenantIdStore || '';
+    showCreateEventModal = false; showAddStaffModal = false; actionReceipt = ''; quickActionLoadError = '';
     if (loadedDashboardTenant) {
       void loadDashboardSummary(loadedDashboardTenant);
       void loadPaymentSummary(loadedDashboardTenant);
@@ -194,11 +201,8 @@
   mountRefresh(() => registerLiveRefresh(() => loadedDashboardTenant ? Promise.all([loadDashboardSummary(loadedDashboardTenant, true), loadPaymentSummary(loadedDashboardTenant, true)]).then(() => undefined) : undefined));
 </script>
 
-<div class="dashboard h-full flex flex-col p-4 sm:p-6 space-y-5 overflow-y-auto bg-gray-50">
-  <div class="flex items-center justify-between gap-3">
-    <h2 class="text-2xl font-bold text-gray-950">Dashboard</h2>
-
-  </div>
+<BrandedWorkspace title="Dashboard" panel={false}>
+  {#if actionReceipt}<SuccessToast title={actionReceipt} onDismiss={() => actionReceipt = ''} />{/if}
   {#if operationalLoading}
     <p class="rounded-md border border-gray-200 bg-white p-3 text-sm text-gray-600" role="status">
       Loading organization metrics…
@@ -318,9 +322,41 @@
     </section>
   {/if}
 
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <div class="dashboard-sections grid grid-cols-1 lg:grid-cols-2 gap-5">
+    <!-- Quick Actions -->
+    {#if canManageTenant}
+    <div class="dashboard-panel crm-branded-panel crm-branded-panel--flush">
+      <div class="px-4 py-5 border-b border-gray-200 sm:px-6">
+        <h3 class="crm-ui-modal-title">Quick Actions</h3>
+      </div>
+      <div class="p-4 sm:p-6">
+        <div class="dashboard-actions grid grid-cols-2 gap-3">
+          <button type="button" on:click={openCreateEvent} class="crm-auth-button-primary dashboard-action">
+            <svg class="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            <span class="text-sm font-semibold">Add to schedule</span>
+          </button>
+
+          <button type="button" on:click={openStaffInvite} disabled={!isOwner} title={!isOwner ? 'Only organization owners can invite staff.' : undefined} class="crm-auth-button-secondary dashboard-action">
+            <svg class="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+            </svg>
+            <span class="text-sm font-semibold">Add staff</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    {:else}
+      <div class="rounded-lg border border-gray-200 bg-white p-6 shadow">
+        <h3 class="crm-ui-subtitle">Read-only access</h3>
+        <p class="mt-2 text-sm text-gray-600">
+          Ask an organization owner or editor to create events or perform other administrative changes.
+        </p>
+      </div>
+    {/if}
     <!-- Recent Registrations -->
-    <div class="bg-white shadow rounded-lg">
+    <div class="dashboard-panel crm-branded-panel crm-branded-panel--flush">
       <div class="px-4 py-5 border-b border-gray-200 sm:px-6">
         <h3 class="crm-ui-modal-title">
           Recent Registrations
@@ -361,51 +397,22 @@
       </div>
     </div>
 
-    <!-- Quick Actions -->
-    {#if canManageTenant}
-    <div class="bg-white shadow rounded-lg">
-      <div class="px-4 py-5 border-b border-gray-200 sm:px-6">
-        <h3 class="crm-ui-modal-title">Quick Actions</h3>
-      </div>
-      <div class="p-6">
-        <div class="grid grid-cols-2 gap-3">
-          <button type="button" on:click={openCreateEvent} class="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-2xl border border-gray-200 hover:border-[var(--crm-brand-border)] hover:bg-[var(--crm-brand-surface)] transition-colors">
-            <svg class="h-8 w-8 text-[var(--crm-brand-link)] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-            <span class="text-sm font-medium text-gray-900">Create Event</span>
-          </button>
 
-          <button type="button" on:click={openStaffInvite} disabled={!isOwner} title={!isOwner ? 'Only organization owners can invite staff.' : undefined} class="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-2xl border border-gray-200 hover:border-[var(--crm-brand-border)] hover:bg-[var(--crm-brand-surface)] transition-colors disabled:cursor-not-allowed disabled:opacity-50">
-            <svg class="h-8 w-8 text-[var(--crm-brand-link)] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-            </svg>
-            <span class="text-sm font-medium text-gray-900">Add Staff</span>
-          </button>
-        </div>
-      </div>
-    </div>
-    {:else}
-      <div class="rounded-lg border border-gray-200 bg-white p-6 shadow">
-        <h3 class="crm-ui-subtitle">Read-only access</h3>
-        <p class="mt-2 text-sm text-gray-600">
-          Ask an organization owner or editor to create events or perform other administrative changes.
-        </p>
-      </div>
-    {/if}
   </div>
 
   {#if quickActionLoadError}
-    <p class="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">
+    <p use:toast={{dismiss: () => quickActionLoadError = ''}} class="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">
       {quickActionLoadError}
     </p>
   {/if}
+
+</BrandedWorkspace>
 
   {#if showCreateEventModal && CreateEventFormComponent}
     <svelte:component
       this={CreateEventFormComponent}
       on:cancel={() => showCreateEventModal = false}
-      on:success={() => showCreateEventModal = false}
+      on:success={() => { showCreateEventModal = false; actionReceipt = 'Event added to schedule'; if (loadedDashboardTenant) void loadDashboardSummary(loadedDashboardTenant, true); }}
     />
   {:else if showCreateEventModal}
     <p class="text-sm text-gray-600" role="status">Loading event creation…</p>
@@ -415,14 +422,17 @@
     <svelte:component
       this={InviteStaffModalComponent}
       on:close={() => showAddStaffModal = false}
-      on:success={() => showAddStaffModal = false}
+      on:success={() => { showAddStaffModal = false; actionReceipt = 'Staff invitation sent'; }}
     />
   {:else if showAddStaffModal}
     <p class="text-sm text-gray-600" role="status">Loading staff invitation…</p>
   {/if}
-</div>
 
 <style>
+  .dashboard-actions .dashboard-action{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6rem;min-height:100px;margin:0;padding:1rem;text-align:center;line-height:1.35}
+  .dashboard-panel :is(h3){font-size:1rem;font-weight:700;color:var(--crm-brand-link)}
+  .dashboard-metrics > button{background:rgba(255,255,255,.97)}
+
   .dashboard-metrics > button { border: 1px solid #e5e7eb; border-radius: 20px; box-shadow: none; }
   .dashboard-metrics > button > div { padding: 18px; }
   .dashboard-metrics .crm-ui-center { align-items: flex-start; flex-direction: column; gap: 14px; }

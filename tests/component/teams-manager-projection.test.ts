@@ -253,7 +253,7 @@ describe('TeamsManager complete projection states', () => {
       { id: 'other', teamId: 'different-team', startAt: '2099-10-21T19:00:00Z', status: 'published' },
     ]);
     render(TestedTeamsManager, { activeTeam: team });
-    expect(screen.getByRole('button', { name: 'Upcoming events 2' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Upcoming activities 2' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Active season Esports League' })).toBeVisible();
     // Event registration is not an explicit roster membership.
     expect(screen.getByRole('button', { name: 'Roster 0 people' })).toBeVisible();
@@ -261,7 +261,7 @@ describe('TeamsManager complete projection states', () => {
       id: 'refreshed-event', metadata: { teamId: 'esports' },
       startAt: '2099-11-01T19:00:00Z', status: 'published',
     }]);
-    expect(await screen.findByRole('button', { name: 'Upcoming events 3' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Upcoming activities 3' })).toBeVisible();
     await fireEvent.click(screen.getByRole('button', { name: 'Edit team' }));
     expect(screen.getByRole('dialog', { name: 'Edit Team' })).toBeVisible();
   });
@@ -272,18 +272,18 @@ describe('TeamsManager complete projection states', () => {
     eventScope.set({ ...healthyScope, loading: true });
     seasonScope.set({ ...healthyScope, loading: true });
     render(TestedTeamsManager, { activeTeam: team });
-    expect(screen.getByRole('button', { name: 'Upcoming events Loading…' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Upcoming activities Loading…' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Active season Loading…' })).toBeVisible();
     eventScope.set({ ...healthyScope, error: 'Events unavailable' });
     seasonScope.set({ ...healthyScope, truncated: true });
-    expect(await screen.findByRole('button', { name: 'Upcoming events Unavailable' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Upcoming activities Unavailable' })).toBeVisible();
     expect(await screen.findByRole('button', { name: 'Active season Unavailable' })).toBeVisible();
     eventScope.set({ ...healthyScope });
     seasonScope.set({ ...healthyScope });
     scope.set({ ...healthyScope, loading: true });
-    expect(await screen.findByRole('button', { name: 'Upcoming events Loading…' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Upcoming activities Loading…' })).toBeVisible();
     scope.set({ ...healthyScope });
-    expect(await screen.findByRole('button', { name: 'Upcoming events 0' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Upcoming activities 0' })).toBeVisible();
     expect(await screen.findByRole('button', { name: 'Active season No season connected' })).toBeVisible();
   });
 
@@ -293,7 +293,7 @@ describe('TeamsManager complete projection states', () => {
     seasons.set([{ id: 'season-1', teamId: 'shared', name: 'Ambiguous season', status: 'active' }]);
     events.set([{ id: 'event-1', teamId: 'shared', startAt: '2099-10-21T19:00:00Z', status: 'published' }]);
     render(TestedTeamsManager, { activeTeam: team });
-    expect(screen.getByRole('button', { name: 'Upcoming events 0' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Upcoming activities 0' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Active season No season connected' })).toBeVisible();
   });
 

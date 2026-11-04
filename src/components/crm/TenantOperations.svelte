@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SectionEyebrow from './ui/SectionEyebrow.svelte';
   import { onMount } from 'svelte';
   import {
     BackendApiError,
@@ -122,6 +123,7 @@
               Read only
             </span>
           </div>
+          <SectionEyebrow />
           <h2 class="text-2xl font-bold text-slate-950 sm:text-3xl">
             Tenant Operations
           </h2>

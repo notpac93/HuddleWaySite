@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SectionEyebrow from '../../src/components/crm/ui/SectionEyebrow.svelte';
   import CrmShell from '../../src/components/crm/CrmShell.svelte';
 
   let activeTab = 'Activity';
@@ -13,6 +14,7 @@
 </script>
 
 <CrmShell bind:activeTab bind:activeResultId {tabs}>
+  <SectionEyebrow label="Program section" />
   <output aria-label="current tab">{activeTab}</output>
   <output aria-label="current result id">{activeResultId || ''}</output>
 </CrmShell>

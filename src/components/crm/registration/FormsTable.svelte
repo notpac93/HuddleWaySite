@@ -1,111 +1,14 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { DataStore, transactionsStore, invoicesStore, refundsStore, eventsStore } from '../../../lib/services/DataStore';
-  import DataTable from '../DataTable.svelte';
-
+  import RegistrationFormList from './RegistrationFormList.svelte';
   export let forms: any[] = [];
   export let isLoadingForms = true;
   export let activeTab = 'Active';
   export let error = '';
-
   const dispatch = createEventDispatcher();
-
-  function openFormDetails(form: any) {
-    dispatch('select', form);
-  }
-
-  $: financialProjection = [
-    $transactionsStore,
-    $invoicesStore,
-    $refundsStore,
-    $eventsStore,
-  ];
-
-  function getFinancials(formId: string) {
-    return DataStore.getRegistrationFormFinancials(formId);
-  }
-
-  function formatMoney(minorUnits: unknown, currency: string) {
-    const amount = Number(minorUnits);
-    if (!Number.isSafeInteger(amount)) return 'Invalid amount';
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount / 100);
-  }
-
-  function formatScopedMoney(row: any, key: 'totalCollected' | 'totalBalance') {
-    if (row.financialScopeReason === 'Financial projection is loading.') return 'Loading…';
-    if (!row.financialTotalsAvailable) return 'Unavailable';
-    if (row.financialRecordCount === 0) return 'No financial activity';
-    if (!row.financialCurrency) return 'Unavailable';
-    return formatMoney(row[key], row.financialCurrency);
-  }
-
-  let filteredForms: any[] = [];
-  $: {
-    financialProjection;
-    filteredForms = forms.filter((form: any) => {
-      const lifecycleStatus = String(form.rawStatus || form.status || '')
-        .trim()
-        .toLowerCase();
-      if (activeTab === 'Active') {
-        return lifecycleStatus === 'active' || lifecycleStatus === 'open';
-      }
-      if (activeTab === 'Retired') {
-        return lifecycleStatus === 'archived' || lifecycleStatus === 'closed';
-      }
-      return !['active', 'open', 'archived', 'closed'].includes(lifecycleStatus);
-    }).map((form: any) => {
-      const fin = getFinancials(form.id);
-      return {
-        ...form,
-        totalCollected: fin.totalCollected,
-        totalBalance: fin.totalBalance,
-        financialTotalsAvailable: fin.totalsAvailable,
-        financialCurrency: fin.currency,
-        financialRecordCount: fin.financialRecordCount,
-        financialScopeReason: fin.scopeReason,
-      };
-    });
-  }
+  $: filteredForms = forms.filter(form => {
+    const status = String(form.rawStatus || form.status || '').trim().toLowerCase();
+    return activeTab === 'Active' ? ['active','open'].includes(status) : activeTab === 'Retired' ? ['archived','closed'].includes(status) : !['active','open','archived','closed'].includes(status);
+  });
 </script>
-
-<div class="mt-4">
-    <DataTable
-      data={filteredForms}
-      columns={[
-        { key: 'name', label: 'Name' },
-        { key: 'status', label: 'Status' },
-        { key: 'dateCreated', label: 'Date Created' },
-        { key: 'program', label: 'Program' },
-        { key: 'totalCollected', label: 'Collected', align: 'right' },
-        { key: 'totalBalance', label: 'Balance', align: 'right' }
-      ]}
-      exportFilename="registration_forms"
-      searchPlaceholder="Search forms..."
-      loading={isLoadingForms}
-      {error}
-      emptyMessage="No registration forms are available in this view."
-      searchable={false}
-      exportable={false}
-    >
-      <svelte:fragment slot="cell" let:row let:column>
-        {#if column.key === 'name'}
-          <button type="button" class="text-sm font-medium text-[var(--crm-brand-link)] hover:underline" on:click={() => openFormDetails(row)}>
-            {row.name}
-          </button>
-        {:else if column.key === 'status'}
-          <div class="flex items-center text-sm text-gray-700">
-            <span class="w-2 h-2 rounded-full mr-2 {row.status === 'Open' || row.status === 'active' ? 'bg-[#73b62f]' : 'bg-gray-400'}"></span>
-            {row.status}
-          </div>
-        {:else if column.key === 'dateCreated'}
-          {row.dateCreated instanceof Date ? row.dateCreated.toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}) : 'Unavailable'}
-        {:else if column.key === 'totalCollected'}
-          <span title={row.financialScopeReason}>{formatScopedMoney(row, 'totalCollected')}</span>
-        {:else if column.key === 'totalBalance'}
-          <span title={row.financialScopeReason}>{formatScopedMoney(row, 'totalBalance')}</span>
-        {:else}
-          {row[column.key] ?? 'Unavailable'}
-        {/if}
-      </svelte:fragment>
-    </DataTable>
-  </div>
+<RegistrationFormList forms={filteredForms} loading={isLoadingForms} {error} on:select={event => dispatch('select',event.detail)} />

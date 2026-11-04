@@ -26,11 +26,12 @@ describe('exhaustive CRM table and projection audit', () => {
     }
     for (const file of [
       'events/EventRegistrantsModal.svelte',
-      'registration/FormsTable.svelte',
       'roster/PlayerTable.svelte',
     ]) {
       expect(source(file)).toContain('<DataTable');
     }
+    expect(source('registration/FormsTable.svelte')).toContain('<RegistrationFormList');
+    expect(source('registration/RegistrationFormList.svelte')).toContain('<ul class="form-list" aria-label="Registration forms"');
   });
 
   it('keeps shared table identity, state, pagination, selection, and export scope fail closed', () => {

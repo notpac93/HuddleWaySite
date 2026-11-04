@@ -91,8 +91,8 @@
   text-decoration-color: var(--crm-brand-border);
 }
 
-.crm-auth-button-primary,
-.crm-auth-button-secondary {
+:is(.crm-auth-button-primary, .crm-ui-button-primary),
+:is(.crm-auth-button-secondary, .crm-ui-button-secondary, .crm-ui-registration-export, .crm-ui-registration-retry) {
   display: flex;
   width: 100%;
   min-height: 2.75rem;
@@ -106,27 +106,27 @@
   transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease, color 150ms ease, transform 150ms ease;
 }
 
-.crm-auth-button-primary {
+:is(.crm-auth-button-primary, .crm-ui-button-primary) {
   border: 1px solid var(--crm-brand-border);
   background: linear-gradient(135deg, var(--crm-brand-control) 0%, var(--crm-brand-primary-hover) 100%);
   color: var(--crm-on-primary);
   box-shadow: 0 8px 18px color-mix(in srgb, var(--crm-brand-primary) 28%, transparent), inset 0 1px rgba(255, 255, 255, 0.18);
 }
 
-.crm-auth-button-primary:hover:not(:disabled) {
+:is(.crm-auth-button-primary, .crm-ui-button-primary):hover:not(:disabled) {
   background: var(--crm-brand-primary-hover);
   box-shadow: 0 10px 22px color-mix(in srgb, var(--crm-brand-primary-hover) 34%, transparent), inset 0 1px rgba(255, 255, 255, 0.2);
   transform: translateY(-1px);
 }
 
-.crm-auth-button-secondary {
+:is(.crm-auth-button-secondary, .crm-ui-button-secondary, .crm-ui-registration-export, .crm-ui-registration-retry) {
   border: 1.5px solid var(--crm-brand-border);
   background: #fff;
   color: var(--crm-brand-link);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--crm-brand-primary) 10%, transparent);
 }
 
-.crm-auth-button-secondary:hover:not(:disabled) {
+:is(.crm-auth-button-secondary, .crm-ui-button-secondary, .crm-ui-registration-export, .crm-ui-registration-retry):hover:not(:disabled) {
   border-color: var(--crm-brand-border);
   background: var(--crm-brand-surface);
   color: var(--crm-brand-link);
@@ -134,8 +134,8 @@
   transform: translateY(-1px);
 }
 
-.crm-auth-button-primary:focus-visible,
-.crm-auth-button-secondary:focus-visible,
+:is(.crm-auth-button-primary, .crm-ui-button-primary):focus-visible,
+:is(.crm-auth-button-secondary, .crm-ui-button-secondary, .crm-ui-registration-export, .crm-ui-registration-retry):focus-visible,
 .crm-auth-link:focus-visible {
   outline: 3px solid var(--crm-brand-focus);
   outline-offset: 3px;
@@ -228,8 +228,8 @@
   outline-offset: 2px;
 }
 
-.crm-auth-button-primary:disabled,
-.crm-auth-button-secondary:disabled {
+:is(.crm-auth-button-primary, .crm-ui-button-primary):disabled,
+:is(.crm-auth-button-secondary, .crm-ui-button-secondary, .crm-ui-registration-export, .crm-ui-registration-retry):disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
@@ -488,4 +488,29 @@
 @media (max-width: 639px) {
   .crm-ui-event-card-summary { padding: 1rem; }
   .crm-ui-event-thumbnail { display: none; }
+}
+
+/* Shared actions use the same treatment as administrator sign-in. */
+.crm-ui-button-primary,
+.crm-ui-button-secondary,
+.crm-ui-registration-export,
+.crm-ui-registration-retry { width: auto; gap: .375rem; font-family: inherit; }
+.crm-ui-auth-input,
+.crm-ui-auth-select,
+.crm-ui-input,
+.crm-ui-input-primary,
+.crm-registration-search {
+  min-height: 2.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: .6rem;
+  background: #fff;
+  padding: .65rem .75rem;
+  color: #182235;
+  font-family: inherit;
+  font-size: 1rem;
+  box-shadow: 0 1px 2px rgb(0 0 0 / .05);
+}
+.crm-registration-search { width: 100%; padding-left: 2.25rem; }
+@media (prefers-reduced-motion: reduce) {
+  :is(.crm-auth-button-primary, .crm-ui-button-primary, .crm-auth-button-secondary, .crm-ui-button-secondary, .crm-ui-registration-export, .crm-ui-registration-retry) { transition: none; transform: none; }
 }

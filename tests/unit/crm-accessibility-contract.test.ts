@@ -23,9 +23,9 @@ describe('CRM accessibility and responsive contract', () => {
       const source = readFileSync(file, 'utf8');
       const focusActions = source.match(/use:modalFocus/g)?.length ?? 0;
       if (focusActions === 0) return [];
-      const dialogs = source.match(/role="dialog"/g)?.length ?? 0;
+      const dialogs = source.match(/role="(?:dialog|alertdialog)"/g)?.length ?? 0;
       const modalFlags = source.match(/aria-modal="true"/g)?.length ?? 0;
-      const labelledDialogs = source.match(/aria-labelledby=/g)?.length ?? 0;
+      const labelledDialogs = source.match(/aria-label(?:ledby)?=/g)?.length ?? 0;
       return dialogs === focusActions
         && modalFlags === focusActions
         && labelledDialogs >= focusActions

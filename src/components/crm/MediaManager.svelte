@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { toast } from './ui/toast';
   import FilterDisclosure from './ui/FilterDisclosure.svelte';
   import { registerLiveRefresh } from '../../lib/crm/liveRefresh';
   import { onMount as mountRefresh } from 'svelte';
@@ -25,6 +26,7 @@
   let mediaLoadState: 'idle' | 'loading' | 'ready' | 'error' = 'idle';
   let mediaLoadMessage = '';
   let operationMessage = '';
+  let notificationError = false;
   let mediaTruncated = false;
   let loadGeneration = 0;
   let selected: MediaFile | null = null;
@@ -146,7 +148,7 @@
   async function uploadMedia() {
     const tenantId = $tenantIdStore;
     if (!tenantId || !uploadFile || uploadState === 'saving') return;
-    uploadState = 'saving'; operationMessage = '';
+    uploadState = 'saving'; notificationError = false; operationMessage = '';
     try {
       if (mediaFiles.some((media) => media.name?.toLowerCase() === uploadFile?.name.toLowerCase())) {
         throw new Error('An active asset already uses this filename. Rename the file or replace the existing asset deliberately.');
@@ -173,13 +175,13 @@
         'Add a reviewed image to the reusable program media library.',
         `${uploadKey}:publish`,
       );
-      operationMessage = `Uploaded ${uploadFile.name} to the reusable program library.`;
+      notificationError = false; operationMessage = `Uploaded ${uploadFile.name} to the reusable program library.`;
       await loadMedia(tenantId);
       uploadState = 'idle';
       closeUpload();
     } catch (error) {
       uploadState = 'error';
-      operationMessage = error instanceof BackendApiError
+      notificationError = true; operationMessage = error instanceof BackendApiError
         ? 'The image could not be added to the library. Review the file and try again.'
         : error instanceof Error ? error.message : 'Image upload failed. Please try again.';
     }
@@ -190,7 +192,7 @@
   }
   async function applyBulkCategory() {
     if (!canManage || selectedIds.length === 0) return;
-    operationMessage = '';
+    notificationError = false; operationMessage = '';
     try {
       const requestedIds = [...selectedIds];
       const results = await Promise.allSettled(requestedIds.map((id) => {
@@ -211,12 +213,12 @@
       }));
       const failedIds = requestedIds.filter((_, index) => results[index].status === 'rejected');
       const succeeded = requestedIds.length - failedIds.length;
-      operationMessage = failedIds.length
+      notificationError = failedIds.length > 0; operationMessage = failedIds.length
         ? `Categorized ${succeeded} asset${succeeded === 1 ? '' : 's'}; ${failedIds.length} could not be updated and remain selected for retry.`
         : `Categorized ${succeeded} asset${succeeded === 1 ? '' : 's'} as ${bulkCategory}.`;
       selectedIds = failedIds;
       await loadMedia(String($tenantIdStore || ''));
-    } catch { operationMessage = 'Selected assets could not be categorized.'; }
+    } catch { notificationError = true; operationMessage = 'Selected assets could not be categorized.'; }
   }
   async function saveMetadata() {
     if (!selected || !canManage) return;
@@ -233,18 +235,18 @@
         'Correct reusable media metadata.',
         createIdempotencyKey('program-media-update'),
       );
-      operationMessage = 'Asset metadata updated.';
+      notificationError = false; operationMessage = 'Asset metadata updated.';
       await loadMedia(String($tenantIdStore || ''));
-    } catch { operationMessage = 'Asset metadata could not be updated.'; }
+    } catch { notificationError = true; operationMessage = 'Asset metadata could not be updated.'; }
   }
   async function copyUrl() {
     if (!selected || !safeMediaUrl(selected.url)) return;
-    try { await navigator.clipboard.writeText(selected.url); operationMessage = 'Asset URL copied.'; } catch { operationMessage = 'The browser could not copy the asset URL.'; }
+    try { await navigator.clipboard.writeText(selected.url); notificationError = false; operationMessage = 'Asset URL copied.'; } catch { notificationError = true; operationMessage = 'The browser could not copy the asset URL.'; }
   }
   async function removeAsset() {
     if (!selected || !canManage || deleteReason.trim().length < 8 || deleteState === 'saving') return;
     if ((usageByUrl.get(selected.url) || []).length > 0) return;
-    deleteState = 'saving'; operationMessage = '';
+    deleteState = 'saving'; notificationError = false; operationMessage = '';
     try {
       await backendClient.deleteMedia(
         String($tenantIdStore || ''),
@@ -252,10 +254,10 @@
         deleteReason.trim(),
         createIdempotencyKey('program-media-delete'),
       );
-      operationMessage = 'Asset archived and removed from the active library.';
+      notificationError = false; operationMessage = 'Asset archived and removed from the active library.';
       selected = null; deleteState = 'idle'; deleteReason = '';
       await loadMedia(String($tenantIdStore || ''));
-    } catch { deleteState = 'error'; operationMessage = 'Asset removal failed. Retry after checking your access.'; }
+    } catch { deleteState = 'error'; notificationError = true; operationMessage = 'Asset removal failed. Retry after checking your access.'; }
   }
 
   mountRefresh(() => registerLiveRefresh(() => $tenantIdStore && mediaLoadState !== 'loading' && !uploadOpen && !selected ? loadMedia($tenantIdStore, true) : undefined));
@@ -307,7 +309,7 @@
 
 <div class="flex h-full flex-col space-y-6 overflow-y-auto bg-gray-50 p-4 sm:p-6">
   <PageHeader title="Media Library"><svelte:fragment slot="actions"><button type="button" class="crm-ui-primary-button" disabled={!canManage} title={!canManage ? 'Viewer access is read-only.' : undefined} on:click={() => uploadOpen = true}>Upload image</button></svelte:fragment></PageHeader>
-  {#if operationMessage}<p class="rounded-md border bg-white p-3 text-sm" role="status">{operationMessage}</p>{/if}
+  {#if operationMessage}<p use:toast={{persistent: notificationError, dismiss: () => operationMessage = ''}} class="rounded-md border bg-white p-3 text-sm" role={notificationError ? 'alert' : 'status'}>{operationMessage}</p>{/if}
   <div class="grid gap-4">
     <main class="rounded-lg border bg-white p-5">
       <FilterDisclosure activeCount={[Boolean(searchQuery.trim()), activeCategory !== 'All'].filter(Boolean).length}>

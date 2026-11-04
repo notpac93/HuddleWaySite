@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SectionEyebrow from './SectionEyebrow.svelte';
   export let title: string;
   export let support = '';
   export let eyebrow = '';
@@ -7,9 +8,7 @@
 
 <header class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-4">
   <div class="min-w-0">
-    {#if eyebrow}
-      <p class="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--crm-brand-link)]">{eyebrow}</p>
-    {/if}
+    <SectionEyebrow label={eyebrow} />
     <h2 class="text-2xl font-bold leading-8 text-gray-950">{title}</h2>
     {#if support}
       <p class="mt-1 max-w-3xl text-sm leading-5 text-gray-600">{support}</p>

@@ -870,7 +870,21 @@ export interface RosterParticipantPreviewResult {
   requestId: string;
 }
 
+export interface RosterPlayerProfile {
+  name: string; ageGroup: string; grade: string; shirtSize: string; shortsSize: string;
+  guardianName: string; email: string; phone: string;
+}
+export interface RosterPlayerDetails {
+  tenantId: string; registrationId: string; version: string; profile: RosterPlayerProfile;
+  teamIds: string[]; seasonMemberships: Array<{ id: string; seasonId: string; teamId: string | null }>;
+  billing: { totalCents: number | null; paidCents: number | null; remainingCents: number | null; currency: string };
+  requestId: string;
+}
+export interface RosterPlayerAssignment {
+  action: 'team' | 'move' | 'add'; teamId: string | null; seasonId?: string; sourceMembershipId?: string;
+}
 export interface RosterPlayerRecord {
+  profile?: RosterPlayerProfile;
   id: string;
   participantId: string | null;
   name: string;
@@ -1870,7 +1884,7 @@ export class BackendApi {
 
   createTeam(
     tenantId: string,
-    data: { name: string; description: string; parentTeamId: string | null },
+    data: { name: string; description: string; parentTeamId: string | null; status?: 'active' | 'inactive' },
     auditReason: string,
     idempotencyKey: string,
   ) {
@@ -1884,7 +1898,7 @@ export class BackendApi {
   updateTeam(
     tenantId: string,
     teamId: string,
-    data: { name: string; description: string; parentTeamId: string | null },
+    data: { name: string; description: string; parentTeamId: string | null; status?: 'active' | 'inactive' },
     auditReason: string,
     idempotencyKey: string,
   ) {
@@ -1927,6 +1941,7 @@ export class BackendApi {
       seasonId: string | null;
       seasonCoverage?: boolean;
       registrationFormId: string | null;
+      registrationMethod?: "form" | "easy";
       publishMode: "immediate" | "draft";
       priceCents?: number;
       paymentTerms?: Record<string, unknown>;
@@ -1990,6 +2005,8 @@ export class BackendApi {
     tenantId: string,
     eventId: string,
     data: {
+      registrationMethod?: "form" | "easy";
+      registrationFormId?: string | null;
       title?: string;
       location?: string;
       teamId?: string;
@@ -3267,6 +3284,18 @@ export class BackendApi {
       invalidBackendResponse(payload as unknown as Record<string, unknown>);
     }
     return payload;
+  }
+
+  rosterPlayerDetails(tenantId: string, registrationId: string) {
+    return this.send<RosterPlayerDetails>(`/admin/roster/players/${encodeURIComponent(registrationId)}`, { query: { tenantId } });
+  }
+
+  editRosterPlayer(tenantId: string, registrationId: string, changes: {
+    version: string; profile?: RosterPlayerProfile; assignment?: RosterPlayerAssignment;
+  }, idempotencyKey: string) {
+    return this.send<{ success: boolean; tenantId: string; registrationId: string; requestId: string }>(`/admin/roster/players/${encodeURIComponent(registrationId)}/edit`, {
+      method: 'POST', body: { tenantId, ...changes }, idempotencyKey,
+    });
   }
 
   async previewRosterTransfer(

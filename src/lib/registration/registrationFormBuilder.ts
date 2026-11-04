@@ -14,6 +14,8 @@ export type RegistrationFormField = {
   placeholder: string | null;
   options: string[] | null;
   isActive: true;
+  semanticKey?: string | null;
+  visibility?: 'adminOperational' | 'tenantPrivate' | 'restricted';
 };
 
 export type RegistrationFormSection = {
@@ -137,6 +139,8 @@ export function registrationSectionsFromForm(form: any): RegistrationFormSection
           ? rawField.options.map((option: unknown) => String(option || '').trim()).filter(Boolean)
           : null,
         isActive: true as const,
+        ...(typeof rawField?.semanticKey === 'string' ? { semanticKey: rawField.semanticKey } : {}),
+        ...(['adminOperational', 'tenantPrivate', 'restricted'].includes(rawField?.visibility) ? { visibility: rawField.visibility } : {}),
       }),
     ),
   }));
@@ -177,6 +181,8 @@ export function validateRegistrationSections(sections: RegistrationFormSection[]
   if (allFields.some((entry) => entry.type === 'dropdown' && (entry.options || []).length < 2)) {
     return 'Dropdown questions need at least two options.';
   }
+  if (allFields.some(entry => entry.label.trim().length > 120 || entry.id.length > 64)) return 'Question names are limited to 120 characters.';
+  if (allFields.some(entry => entry.type === 'dropdown' && ((entry.options || []).length > 50 || (entry.options || []).some(v => !v.trim()) || new Set((entry.options || []).map(v => v.trim().toLowerCase())).size !== (entry.options || []).length))) return 'Use 2–50 different, non-empty choices.';
   return '';
 }
 

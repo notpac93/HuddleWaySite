@@ -92,7 +92,7 @@
     {#if adding}
       <button type="button" class="crm-ui-button-primary" disabled={busy || issues.length > 0} on:click={onConfirmAdd}>Add to page</button>
     {:else}
-      <button type="button" class="crm-ui-button-secondary" disabled={busy} on:click={onToggleVisibility}>{component.isVisible && component.enabled ? 'Hide from family app' : 'Show in family app'}</button>
+      <button type="button" class="crm-ui-button-secondary" disabled={busy || component.type === 'hero_section'} on:click={onToggleVisibility}>{component.isVisible && component.enabled ? 'Hide from family app' : 'Show in family app'}</button>
       <button type="button" class="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-800 disabled:opacity-50" disabled={busy || component.type === 'hero_section'} on:click={onRemove}>Remove from page</button>
       {#if component.type === 'hero_section'}<p class="basis-full text-xs text-gray-500">The page hero is required and cannot be removed.</p>{/if}
     {/if}

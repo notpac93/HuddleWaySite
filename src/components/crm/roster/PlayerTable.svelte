@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CompactRoster from './CompactRoster.svelte';
   import DataTable from '../DataTable.svelte';
   import { programTermsStore } from '../../../lib/crm/programVocabulary';
   import { tenantIdStore } from '../../../lib/authStore';
@@ -24,6 +25,7 @@
   export let onAddPlayer: () => void = () => {};
   export let onImportPlayers: () => void = () => {};
 
+  let viewportWidth = 1024;
   let roleFilter = '';
   let statusFilter = '';
   let showAdvancedFilters = false;
@@ -297,6 +299,10 @@
     .sort((left, right) => left.localeCompare(right));
 </script>
 
+<svelte:window bind:innerWidth={viewportWidth} />
+{#if viewportWidth < 768}
+<CompactRoster players={playerRows} teams={allTeams} seasons={allSeasons} {loading} {error} {truncated} {activeResultId} {onTargetConsumed} {onAddPlayer} {onImportPlayers} on:changed={() => dispatch('changed')} />
+{:else}
 {#if omittedPlayerCount > 0}
   <p class="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status">
     {omittedPlayerCount} roster {omittedPlayerCount === 1 ? 'record was' : 'records were'} omitted because no stable registration ID was provided.
@@ -506,4 +512,6 @@
 
 {#if detailPlayer}
   <ParticipantDetailPanel player={detailPlayer} onClose={() => detailPlayer = null} onChanged={() => dispatch('changed')} />
+{/if}
+
 {/if}

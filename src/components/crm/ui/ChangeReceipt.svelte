@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { toast } from './toast';
   import Icon from './Icon.svelte';
 
   export let status: 'success' | 'partial' | 'error' = 'success';
@@ -14,7 +15,7 @@
   $: icon = status === 'success' ? 'check' : status === 'partial' ? 'warning' : 'error';
 </script>
 
-<section class="rounded-lg border p-4 {tone === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-950' : tone === 'warning' ? 'border-amber-200 bg-amber-50 text-amber-950' : 'border-red-200 bg-red-50 text-red-950'}" role={status === 'error' ? 'alert' : 'status'}>
+<section use:toast={{persistent: status !== 'success', dismiss: onDismiss}} class="rounded-lg border p-4 {tone === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-950' : tone === 'warning' ? 'border-amber-200 bg-amber-50 text-amber-950' : 'border-red-200 bg-red-50 text-red-950'}" role={status === 'error' ? 'alert' : 'status'}>
   <div class="flex items-start gap-3">
     <Icon name={icon} size={20} className="mt-0.5 shrink-0" />
     <div class="min-w-0 flex-1">

@@ -1,3 +1,4 @@
+import { registerRegistrationFormRefresh } from '../registration/registrationFormChanges';
 import { registerLiveRefresh } from '../crm/liveRefresh';
 import { backendClient } from '../api/backendClient';
 import { registrationDisplayRecord } from '../ui/registrationDisplay';
@@ -15,6 +16,10 @@ function timestampDateOrNull(value: unknown): Date | null {
   if (value && typeof (value as { toDate?: unknown }).toDate === 'function') {
     const date = (value as { toDate: () => Date }).toDate();
     return date instanceof Date && !Number.isNaN(date.getTime()) ? date : null;
+  }
+  if (value && typeof value === 'object' && 'seconds' in value) {
+    const date = new Date(Number((value as {seconds: unknown}).seconds) * 1000);
+    return Number.isNaN(date.getTime()) ? null : date;
   }
   return null;
 }
@@ -86,8 +91,10 @@ export class RegistrationService {
 
     let cancelled = false;
     let inFlight = false;
+    let queuedRefresh = false;
     const load = async () => {
-      if (inFlight) return;
+      if (cancelled) return;
+      if (inFlight) { queuedRefresh = true; return; }
       inFlight = true;
       await loadAllOperationalRecords(tenantId, 'registration_forms')
       .then((records) => {
@@ -104,13 +111,15 @@ export class RegistrationService {
         if (cancelled) return;
         console.error('Registration forms could not be loaded.');
         onError(error);
-      }).finally(() => { inFlight = false; });
+      }).finally(() => { inFlight = false; if (queuedRefresh && !cancelled) { queuedRefresh = false; void load(); } });
     };
     void load();
     const stopRefresh = registerLiveRefresh(load);
+    const stopSavedRefresh = registerRegistrationFormRefresh(tenantId, () => { void load(); });
     return () => {
       cancelled = true;
       stopRefresh();
+      stopSavedRefresh();
     };
   }
 
@@ -132,7 +141,7 @@ export class RegistrationService {
     }
     const events = await loadAllOperationalRecords(tenantId, 'events');
     return {
-      records: events.filter((event) => event.registrationFormId === formId),
+      records: events.filter((event) => event.registrationMethod !== 'easy' && event.registrationFormId === formId),
       truncated: false,
       limit: null,
     };
@@ -166,10 +175,9 @@ export class RegistrationService {
           && typeof registration.formSubmission === 'object'
           ? registration.formSubmission as Record<string, unknown>
           : null;
-        return registration.formId === formId
-          || formSubmission?.formId === formId
-          || (typeof registration.eventId === 'string'
-            && eventIds.has(registration.eventId));
+        const savedFormId = String(formSubmission?.formId || registration.formId || '').trim();
+        if (savedFormId) return savedFormId === formId;
+        return typeof registration.eventId === 'string' && eventIds.has(registration.eventId);
       })
       .map((registration) => registrationDisplayRecord(
         registration.id,

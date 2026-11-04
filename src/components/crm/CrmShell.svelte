@@ -4,7 +4,8 @@
   import { pullToRefresh } from '../../lib/ui/pullToRefresh';
   import { programProfileStore, programTermsStore, programTabLabel, type ProgramProfile } from '../../lib/crm/programVocabulary';
   import { onDestroy, onMount, setContext, tick } from 'svelte';
-  import { get } from 'svelte/store';
+  import { get, writable } from 'svelte/store';
+  import { SECTION_NAVIGATION, type SectionNavigation } from '../../lib/crm/sectionNavigation';
   import { auth } from '../../lib/firebase';
   import { signOut } from 'firebase/auth';
   import { backendClient } from '../../lib/api/backendClient';
@@ -50,6 +51,9 @@
   let mobileMenuOpener: HTMLButtonElement | null = null;
   let isMobileViewport = false;
   const quickAccessNames = new Set(['Dashboard', 'Events', 'Messages', 'My App']);
+  const sectionNavigationAvailable = writable(false);
+  setContext<SectionNavigation>(SECTION_NAVIGATION, { available: sectionNavigationAvailable, openMore });
+  $: sectionNavigationAvailable.set(!quickAccessNames.has(activeTab));
   $: moreTabs = tabs.filter((tab) => !quickAccessNames.has(tab.name));
   let mobileMenuTrigger: HTMLButtonElement | null = null;
   let globalSearchTrigger: HTMLButtonElement | null = null;
@@ -655,9 +659,6 @@
         />
       {/if}
       <div hidden={showMore} style:display={showMore ? 'none' : 'flex'} class="min-h-0 flex-1 flex-col">
-        {#if isMobileViewport && !quickAccessNames.has(activeTab)}
-          <div class="px-4 pt-3"><button type="button" class="min-h-11 rounded-lg px-2 text-sm font-semibold text-[var(--crm-brand-link)]" on:click={openMore}>← More</button></div>
-        {/if}
         <slot />
       </div>
     </div>

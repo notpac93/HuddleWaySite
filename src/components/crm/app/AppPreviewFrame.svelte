@@ -6,7 +6,10 @@
     buildAppPreviewUrl,
     createAppPreviewSession,
     parseAppPreviewMessage,
+    parseCanvasAction,
+    type CanvasAction,
     type AppComponentPreviewDraft,
+    type AppPagePreviewDraft,
     type AppPreviewEnvironment,
     type AppPreviewSession,
   } from '../../../lib/crm/appPreviewProtocol';
@@ -20,11 +23,14 @@
   export let expectedSourceCommit = '';
   export let expectedReleaseId = '';
   export let componentDraft: AppComponentPreviewDraft | null = null;
+  export let pageDraft: AppPagePreviewDraft | null = null;
   export let onFieldSelected: (fieldId: string) => void = () => {};
   export let compact = false;
   export let deferUntilVisible = false;
   export let immersive = false;
   export let onInteract: () => void = () => {};
+  export let onSyncedChange: (synced: boolean) => void = () => {};
+  export let onCanvasAction: (action: CanvasAction) => void = () => {};
 
   let frame: HTMLIFrameElement | null = null;
   let session: AppPreviewSession | null = null;
@@ -37,11 +43,15 @@
   let pendingPayload = '';
   let handshakeTimer: number | null = null;
   let attested = false;
+  let pageLayoutCapable = false;
+  let canvasCapable = false;
+  let lastActionSequence = 0;
+  $: onSyncedChange(state === 'synced');
   let lastFrameMessage = 'none';
 
   $: sessionKey = `${previewOrigin || ''}|${tenantId}|${environment}|${expectedSourceCommit}|${expectedReleaseId}`;
   $: if (sessionKey) resetSession(sessionKey);
-  $: serializedConfiguration = JSON.stringify({ configuration, componentDraft });
+  $: serializedConfiguration = JSON.stringify({ configuration, componentDraft, pageDraft });
   $: if (
     session
     && configurationReady
@@ -54,6 +64,7 @@
       revision,
       configuration,
       componentDraft,
+      pageDraft,
     );
     if (state === 'awaiting' || state === 'synced') queueMicrotask(postDraft);
   }
@@ -64,6 +75,9 @@
     lastConfiguration = '';
     pendingPayload = '';
     attested = false;
+    pageLayoutCapable = false;
+    canvasCapable = false;
+    lastActionSequence = 0;
     lastFrameMessage = 'none';
     errorMessage = '';
     if (!previewOrigin || !tenantId) {
@@ -134,6 +148,18 @@
       || !attested
       || state === 'error'
     ) return;
+    if (pageDraft && !pageLayoutCapable) {
+      state = 'error';
+      errorMessage = 'This preview version cannot show page layout drafts. Update the preview app before arranging components.';
+      clearHandshakeTimer();
+      return;
+    }
+    if (pageDraft?.editMode && !canvasCapable) {
+      state = 'error';
+      errorMessage = 'This preview version cannot edit directly on the app. Update the consumer preview before editing.';
+      clearHandshakeTimer();
+      return;
+    }
     state = 'awaiting';
     startHandshakeTimer(8000);
     frame.contentWindow.postMessage(pendingPayload, previewOrigin);
@@ -153,6 +179,15 @@
     const payload = parseAppPreviewMessage(event.data, session, (reason) => { lastFrameMessage = reason; });
     if (!payload) return;
     lastFrameMessage = String(payload.type).replace('huddleway.crm.preview.', '');
+    if (payload.type === 'huddleway.crm.preview.canvas-action') {
+      if (!attested || !canvasCapable || !pageDraft?.editMode ||
+          !Number.isSafeInteger(payload.sequence) || Number(payload.sequence) <= lastActionSequence) return;
+      const action = parseCanvasAction(payload.action);
+      if (!action || action.pageId !== pageDraft.id || !pageDraft.editSessionId || action.editSessionId !== pageDraft.editSessionId) return;
+      lastActionSequence = Number(payload.sequence);
+      onCanvasAction(action);
+      return;
+    }
     if (payload.type === 'huddleway.crm.preview.interaction') {
       if (attested && state === 'synced') onInteract();
       return;
@@ -195,6 +230,9 @@
         return;
       }
       attested = true;
+      pageLayoutCapable = Array.isArray(payload.capabilities)
+        && payload.capabilities.includes('page-layout-v1');
+      canvasCapable = Array.isArray(payload.capabilities) && payload.capabilities.includes('canvas-edit-v1');
       state = 'awaiting';
       postDraft();
       return;

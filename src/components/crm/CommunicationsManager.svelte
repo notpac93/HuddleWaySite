@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { toast } from './ui/toast';
   import { registerLiveRefresh } from '../../lib/crm/liveRefresh';
   import { onMount as mountRefresh } from 'svelte';
   import { onDestroy, onMount } from 'svelte';
@@ -1348,7 +1349,7 @@
         <button type="button" class="crm-ui-button-secondary" on:click={() => { senderSettingsOpen = false; if (composerKind === 'email') isAdding = true; }}>Close</button>
       </div>
       {#if mailboxConnectionResult === 'connected'}
-        <p class="crm-ui-message-success" role="status">Email connected for messages to 100 or fewer recipients.</p>
+        <p use:toast class="crm-ui-message-success" role="status">Email connected for messages to 100 or fewer recipients.</p>
       {:else if mailboxConnectionResult === 'error'}
         <p class="crm-ui-notice-card mt-4" role="alert">Email was not connected. Try again.</p>
       {/if}
@@ -1378,7 +1379,7 @@
   {/if}
 
   {#if operationMessage && !(isAdding && (composerKind === 'direct' || composerKind === 'email'))}
-    <div
+    <div use:toast={{dismiss: () => operationMessage = ''}}
       class="crm-message-feedback crm-ui-message-operation {submitState === 'error' ? 'crm-ui-message-operation-error' : 'crm-ui-message-operation-ok'}"
       role={submitState === 'error' ? 'alert' : 'status'}
     >

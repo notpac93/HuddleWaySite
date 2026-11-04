@@ -23,6 +23,7 @@
   import { modalFocus } from '../../../lib/ui/modalFocus';
   import { buildTeamReferenceIndex, teamReferenceMatches } from '../../../lib/ui/teamReferences';
   import EventCreationPreview from './EventCreationPreview.svelte';
+  import RegistrationMethodPicker from './RegistrationMethodPicker.svelte';
   import EventPaymentTermsEditor from '../billing/EventPaymentTermsEditor.svelte';
 
   const dispatch = createEventDispatcher();
@@ -51,6 +52,16 @@
 
   let registrationForms: any[] = [];
   let selectedFormId = '';
+  let registrationMethod: 'form' | 'easy' = 'form';
+  let locallyCreatedForms: any[] = [];
+  const activeForm = (form: any) => ['active', 'open'].includes(String(form.rawStatus || form.status || '').toLowerCase());
+  function updateRegistrationForms(forms: any[]) {
+    const received = new Set(forms.map(form => form.id));
+    locallyCreatedForms = locallyCreatedForms.filter(form => !received.has(form.id));
+    registrationForms = [...forms, ...locallyCreatedForms].filter(activeForm);
+    if (selectedFormId && selectedFormId !== 'CREATE_NEW' && !registrationForms.some(form => form.id === selectedFormId)) selectedFormId = '';
+    registrationFormsError = '';
+  }
   let showCreateForm = false;
   let registrationFormsError = '';
   let loadedRegistrationTenant = '';
@@ -61,6 +72,7 @@
     unsubscribeRegistrationForms();
     unsubscribeRegistrationForms = () => {};
     registrationForms = [];
+    locallyCreatedForms = [];
     registrationFormsError = '';
     selectedFormId = '';
     if (loadedRegistrationTenant) {
@@ -69,7 +81,7 @@
         subscribedTenant,
         (forms) => {
           if (loadedRegistrationTenant !== subscribedTenant) return;
-          registrationForms = forms;
+          updateRegistrationForms(forms);
         },
         () => {
           if (loadedRegistrationTenant !== subscribedTenant) return;
@@ -91,7 +103,8 @@
 
   function handleRegistrationCreated(e: CustomEvent) {
     if (e.detail && e.detail.id) {
-      registrationForms = [...registrationForms, e.detail];
+      locallyCreatedForms = [...locallyCreatedForms.filter(form => form.id !== e.detail.id), e.detail];
+      registrationForms = [...registrationForms.filter(form => form.id !== e.detail.id), e.detail].filter(activeForm);
       selectedFormId = e.detail.id;
     }
     showCreateForm = false;
@@ -170,6 +183,7 @@
       : null,
     seasonId,
     selectedFormId,
+    registrationMethod,
     price,
     paymentChoice,
     installmentCount,
@@ -230,10 +244,11 @@
     if (currentStep === 2 && (!selectedDateKeys.length || !hasValidTimeSlots() || !hasUniqueTimeSlots() || hasOverlappingTimeSlots() || selectedDateKeys.length * timeSlots.length > 200)) { errorMessage = 'Choose dates and valid, non-overlapping times for up to 200 sessions.'; return; }
     if (currentStep === 3 && (!title.trim() || !selectedTeamId)) { errorMessage = 'Add a name and choose a group.'; return; }
     if (currentStep === 4) {
+      if (registrationMethod === 'form' && selectedFormId && (!seasonId || extraForm) && !registrationForms.some(form => form.id === selectedFormId && activeForm(form))) { errorMessage = 'Choose an open registration form.'; return; }
       imageValidationMessage = validateImageFile(imageFile);
       if (imageValidationMessage) return;
       if (!seasonId && (!/^\d+(\.\d{1,2})?$/.test(price.trim()) || Number(price) < 0)) { errorMessage = 'Enter a price of $0 or more.'; return; }
-      if (!seasonId && Number(price) > 0 && !selectedFormId) { errorMessage = 'Choose a registration form for this paid event.'; return; }
+      if (!seasonId && Number(price) > 0 && registrationMethod !== 'easy' && !selectedFormId) { errorMessage = 'Choose a registration form for this paid event.'; return; }
     }
     currentStep++;
   }
@@ -333,7 +348,7 @@
       return;
     }
     const priceCents = Math.round(Number(normalizedPrice) * 100);
-    if (priceCents > 0 && !selectedFormId) {
+    if (priceCents > 0 && registrationMethod !== 'easy' && !selectedFormId) {
       errorMessage = 'Select a registration form before charging for this event.';
       return;
     }
@@ -380,8 +395,9 @@
           imageReservationId: uploadedImage?.reservationId || null,
           seasonId: seasonId || null,
           seasonCoverage: Boolean(seasonId),
-          registrationFormId: seasonId && !extraForm ? null : selectedFormId || null,
-                publishMode,
+          registrationFormId: registrationMethod === 'easy' || (seasonId && !extraForm) ? null : selectedFormId || null,
+          registrationMethod,
+          publishMode,
           priceCents,
           paymentTerms: {
             mode: priceCents > 0 ? paymentChoice : 'pay_in_full',
@@ -458,13 +474,14 @@
           <label class="crm-ui-label block">Attach to a season <span class="font-normal text-gray-500">Optional</span><select bind:value={seasonId} class="crm-ui-input mt-2"><option value={null}>No season</option>{#each eligibleSeasons as season}<option value={String(season.id)}>{season.name || season.title || 'Season name unavailable'}</option>{/each}</select></label>
           {#if seasonId}<div class="rounded-xl bg-[var(--crm-brand-surface)] p-4 text-sm text-[var(--crm-on-brand-surface)]"><strong>Included with the season</strong><p class="mt-2">Only covered season participants can register. No additional event charge.</p></div><label class="flex items-center gap-2 text-sm"><input type="checkbox" bind:checked={extraForm} />Collect an additional form</label>
           {:else}<EventPaymentTermsEditor currency="USD" bind:price bind:choice={paymentChoice} bind:installmentCount bind:cadence={installmentCadence} />{/if}
-          {#if !seasonId || extraForm}<label class="crm-ui-label block">Registration form<select bind:value={selectedFormId} on:change={handleFormSelectionChange} class="crm-ui-input mt-2"><option value="" disabled={!seasonId && Number(price) > 0}>{!seasonId && Number(price) > 0 ? 'Choose a registration form' : 'No new form needed'}</option>{#each registrationForms as form}<option value={form.id}>{form.title}</option>{/each}<option value="CREATE_NEW">+ Create a new form</option></select></label>{/if}
+          {#if !seasonId || extraForm}<RegistrationMethodPicker bind:value={registrationMethod} />{/if}
+          {#if registrationMethod === 'form' && (!seasonId || extraForm)}<label class="crm-ui-label block">Registration form<select bind:value={selectedFormId} on:change={handleFormSelectionChange} class="crm-ui-input mt-2"><option value="" disabled={!seasonId && Number(price) > 0}>{!seasonId && Number(price) > 0 ? 'Choose a registration form' : 'No new form needed'}</option>{#each registrationForms as form}<option value={form.id}>{form.title}</option>{/each}<option value="CREATE_NEW">+ Create a new form</option></select></label>{/if}
           {#if registrationFormsError}<p class="text-sm text-red-700" role="alert">{registrationFormsError}</p>{/if}
           <ImageFilePicker inputId="event-create-image" label="Cover image (Optional)" currentUrl={coverPreviewUrl} photo bind:selectedFile={imageFile} bind:validationMessage={imageValidationMessage} disabled={submitState === 'loading'} />
           <label class="crm-ui-label block">Notes <span class="font-normal text-gray-500">Optional</span><textarea bind:value={notes} maxlength="5000" rows="2" class="crm-ui-input mt-2"></textarea></label>
         {:else}
           <ScheduleOccurrenceEditor dates={selectedDateKeys} slots={timeSlots} {title} {location} bind:overrides={occurrenceOverrides} />
-          <details class="schedule-extra"><summary>App preview</summary><EventCreationPreview {title} type={eventType} team={teams.find((team) => team.id === selectedTeamId)?.name || ''} dates={selectedDateKeys} slots={timeSlots} {location} {notes} imageUrl={coverPreviewUrl} seasonName={eligibleSeasons.find((season) => String(season.id) === seasonId)?.name || eligibleSeasons.find((season) => String(season.id) === seasonId)?.title || ''} price={Number(price)} installments={paymentChoice === 'installments' ? installmentCount : 1} cadence={installmentCadence} registration={Boolean(selectedFormId && (!seasonId || extraForm))} /></details>
+          <details class="schedule-extra"><summary>App preview</summary><EventCreationPreview {title} type={eventType} team={teams.find((team) => team.id === selectedTeamId)?.name || ''} dates={selectedDateKeys} slots={timeSlots} {location} {notes} imageUrl={coverPreviewUrl} seasonName={eligibleSeasons.find((season) => String(season.id) === seasonId)?.name || eligibleSeasons.find((season) => String(season.id) === seasonId)?.title || ''} price={Number(price)} installments={paymentChoice === 'installments' ? installmentCount : 1} cadence={installmentCadence} {registrationMethod} registration={registrationMethod === 'easy' || Boolean(selectedFormId && (!seasonId || extraForm))} /></details>
         {/if}
 
       </div>

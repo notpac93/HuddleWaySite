@@ -12,11 +12,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const backendMocks = vi.hoisted(() => ({
   createEventSeries: vi.fn(),
+  createRegistrationForm: vi.fn(),
+  updateRegistrationForm: vi.fn(),
   duplicateEvent: vi.fn(),
   updateEvent: vi.fn(),
   uploadImageAsset: vi.fn(),
   publishImageAsset: vi.fn(),
 }));
+
+const formMocks = vi.hoisted(() => ({ records: [] as any[] }));
 
 const registrationOutreachMocks = vi.hoisted(() => ({
   createShareableLink: vi.fn(),
@@ -82,7 +86,7 @@ vi.mock('../../src/lib/services/RegistrationService', () => ({
         onForms: (forms: unknown[]) => void,
         _onError: (error: unknown) => void,
       ) => {
-        onForms([]);
+        onForms(formMocks.records);
         return () => {};
       }),
   },
@@ -152,6 +156,7 @@ function calendarLabel(date: Date) {
 }
 
 async function openEventDetails() {
+  if (!screen.queryByRole('button', { name: 'Expand Opening practice' })) await fireEvent.click(screen.getByRole('button', { name: /^Drafts/ }));
   await fireEvent.click(
     screen.getByRole('button', { name: 'Expand Opening practice' }),
   );
@@ -175,6 +180,8 @@ async function completeEventDetails() {
 describe('event mutation family', () => {
   beforeEach(() => {
     tenants.set('tenant-a');
+    formMocks.records = [];
+    backendMocks.createRegistrationForm.mockReset();
     eventRecords.set([openingPractice]);
     eventScope.set(healthyScope);
     registrationRecords.set([]);
@@ -185,10 +192,27 @@ describe('event mutation family', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
+  it('separates drafts from upcoming and reviews publication without writing immediately', async () => {
+    eventRecords.set([openingPractice, { ...openingPractice, id: 'live-1', eventSeriesId: 'live-series', title: 'Live practice', lifecycleStatus: 'published' }]);
+    render(TestedEventScheduler);
+    expect(screen.getByRole('heading', { name: 'Live practice' })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Opening practice' })).not.toBeInTheDocument();
+    await fireEvent.click(screen.getByRole('button', { name: /^Drafts/ }));
+    expect(screen.getByRole('heading', { name: 'Opening practice' })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Live practice' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Select to publish')).not.toBeInTheDocument();
+    await fireEvent.click(screen.getByRole('button', { name: 'Review & publish' }));
+    expect(screen.getByRole('heading', { name: 'Review 1 event before publication' })).toBeVisible();
+    expect(backendMocks.updateEvent).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Publish 1 event' })).toBeEnabled();
+    expect(screen.queryByText('I reviewed the schedule, team audiences, registration, and cover photos.')).not.toBeInTheDocument();
+  });
+
   it('keeps semantic event references visible under the database team scope and filter', async () => {
     teamRecords.set([{ id: 'tenant-a_esports', referenceId: 'esports', name: 'Esports' }]);
     eventRecords.set([{ ...openingPractice, teamId: 'esports' }]);
     render(TestedEventScheduler, { activeTeam: 'tenant-a_esports' });
+    await fireEvent.click(screen.getByRole('button', { name: /^Drafts/ }));
     expect(screen.getByRole('heading', { name: 'Opening practice' })).toBeVisible();
     await fireEvent.click(screen.getByRole('button', { name: 'Search and filters' }));
     expect(screen.getByLabelText('Team')).toHaveValue('tenant-a_esports');
@@ -199,6 +223,7 @@ describe('event mutation family', () => {
   it('renders current nested-only pricing and keeps conflicting or absent amounts unavailable', async () => {
     eventRecords.set([{ ...openingPractice, priceCents: 1700, paymentTerms: { currency: 'usd' } }]);
     render(TestedEventScheduler);
+    if (screen.queryByRole('button', { name: /^Drafts [1-9]/ })) await fireEvent.click(screen.getByRole('button', { name: /^Drafts/ }));
     await openEventDetails();
     expect(screen.getByText('$17.00')).toBeVisible();
     eventRecords.set([{ ...openingPractice, priceCents: 1700, currency: 'CAD', paymentTerms: { currency: 'usd' } }]);
@@ -253,6 +278,7 @@ describe('event mutation family', () => {
     }]);
     backendMocks.updateEvent.mockResolvedValue({ eventIds: ['event-1'], updatedCount: 1 });
     render(TestedEventScheduler);
+    if (screen.queryByRole('button', { name: /^Drafts [1-9]/ })) await fireEvent.click(screen.getByRole('button', { name: /^Drafts/ }));
     await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
 
     expect(screen.getByLabelText('Assigned Team')).toHaveValue('tenant-a_esports');
@@ -301,6 +327,7 @@ describe('event mutation family', () => {
     registrationRecords.set([{ id: 'registration-a', eventId: 'event-1', teamId: 'esports',
       participantName: 'Owned Participant', status: 'confirmed' }]);
     render(TestedEventScheduler);
+    if (screen.queryByRole('button', { name: /^Drafts [1-9]/ })) await fireEvent.click(screen.getByRole('button', { name: /^Drafts/ }));
     await fireEvent.click(screen.getByRole('button', { name: 'Search and filters' }));
     await fireEvent.change(screen.getByLabelText('Team'), { target: { value: 'tenant-a_esports' } });
     expect(screen.getByRole('heading', { name: 'Opening practice' })).toBeVisible();
@@ -326,6 +353,23 @@ describe('event mutation family', () => {
     await waitFor(() => expect(backendMocks.createEventSeries).toHaveBeenCalledTimes(1));
     expect(backendMocks.createEventSeries.mock.calls[0][1]).toMatchObject({ seasonId: 'fall', seasonCoverage: true, priceCents: 0, registrationFormId: null, paymentTerms: { mode: 'pay_in_full', installmentCount: 1 } });
     (seasonsStore as Writable<any[]>).set([]);
+  });
+
+  it('creates an easy-registration event without a saved form and preserves the choice when editing', async () => {
+    backendMocks.createEventSeries.mockResolvedValue({ id: 'easy-series', eventIds: ['easy-event'] });
+    const created = render(TestedCreateEventForm);
+    await completeRequiredEventSchedule(); await completeEventDetails();
+    await fireEvent.click(screen.getByRole('radio', { name: 'Easy registration' }));
+    expect(screen.queryByRole('combobox', { name: 'Registration form' })).toBeNull();
+    await fireEvent.input(screen.getByLabelText('Event registration price'), { target: { value: '35' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Review schedule' }));
+    expect(screen.getByRole('article', { name: 'Published event preview' })).toHaveTextContent('Easy registration');
+    await fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
+    await waitFor(() => expect(backendMocks.createEventSeries).toHaveBeenCalledTimes(1));
+    expect(backendMocks.createEventSeries.mock.calls[0][1]).toMatchObject({ registrationMethod: 'easy', registrationFormId: null, priceCents: 3500 });
+    created.unmount();
+    render(TestedEditEventModal, { event: { ...openingPractice, registrationMethod: 'easy', priceCents: 0 } });
+    expect(screen.getByRole('radio', { name: 'Easy registration' })).toBeChecked();
   });
 
   it('creates drafts with the exact backend contract and no rejected publishAt field', async () => {
@@ -393,8 +437,11 @@ describe('event mutation family', () => {
       eventIds: ['event-import-1'],
     });
     render(TestedEventScheduler);
+    if (screen.queryByRole('button', { name: /^Drafts [1-9]/ })) await fireEvent.click(screen.getByRole('button', { name: /^Drafts/ }));
 
-    await fireEvent.click(screen.getByText('Import CSV', { selector: 'summary' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Schedule tools' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Import CSV' }));
+    expect(screen.getByRole('heading', { name: 'CSV requirements' })).toBeVisible();
     const input = screen.getByLabelText('Choose CSV');
     expect(input).toHaveAttribute('accept', '.csv,text/csv');
     const file = new File([
@@ -412,7 +459,7 @@ describe('event mutation family', () => {
 
     expect(backendMocks.createEventSeries).not.toHaveBeenCalled();
     expect(await screen.findByText('1 valid · 0 rejected · 0 created')).toBeVisible();
-    await fireEvent.click(screen.getByRole('button', { name: 'Apply import · 1 draft' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Import 1 draft' }));
 
     await waitFor(() => {
       expect(backendMocks.createEventSeries).toHaveBeenCalledTimes(1);
@@ -434,7 +481,7 @@ describe('event mutation family', () => {
       'Import event draft from CSV line 2.',
       expect.stringMatching(/^crm-event-csv-import:.*:2$/),
     );
-    expect(await screen.findByText('1 draft created.')).toBeVisible();
+    expect(await screen.findByText('1 event draft imported')).toBeVisible();
   });
 
   it('creates a shareable registration link only for a live published registration', async () => {
@@ -449,6 +496,7 @@ describe('event mutation family', () => {
       expiresAt: '2030-08-10T18:00:00.000Z',
     });
     render(TestedEventScheduler);
+    if (screen.queryByRole('button', { name: /^Drafts [1-9]/ })) await fireEvent.click(screen.getByRole('button', { name: /^Drafts/ }));
 
     await openEventDetails();
     await fireEvent.click(screen.getByRole('button', {
@@ -469,6 +517,7 @@ describe('event mutation family', () => {
 
   it('does not offer a shareable link before registration is published and live', async () => {
     render(TestedEventScheduler);
+    if (screen.queryByRole('button', { name: /^Drafts [1-9]/ })) await fireEvent.click(screen.getByRole('button', { name: /^Drafts/ }));
 
     await openEventDetails();
 
@@ -687,6 +736,7 @@ describe('event mutation family', () => {
     const pending = deferred<void>();
     backendMocks.updateEvent.mockReturnValue(pending.promise);
     render(TestedEventScheduler);
+    if (screen.queryByRole('button', { name: /^Drafts [1-9]/ })) await fireEvent.click(screen.getByRole('button', { name: /^Drafts/ }));
     await openEventDetails();
 
     expect(screen.getByText('Review this event without changing it. Use Edit to make updates.'))
@@ -721,6 +771,7 @@ describe('event mutation family', () => {
       openingPractice,
     ]);
     render(TestedEventScheduler, { activeTeam: {} });
+    await fireEvent.click(screen.getByRole('button', { name: /^Drafts/ }));
     expect(screen.getByText(
       '1 malformed event record was omitted because no stable identifier was available.',
     )).toBeVisible();
@@ -733,6 +784,7 @@ describe('event mutation family', () => {
     ]);
     eventScope.set({ ...healthyScope, truncated: true });
     render(TestedEventScheduler);
+    if (screen.queryByRole('button', { name: /^Drafts [1-9]/ })) await fireEvent.click(screen.getByRole('button', { name: /^Drafts/ }));
     await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     await fireEvent.click(
       screen.getByRole('checkbox', {
@@ -751,6 +803,7 @@ describe('event mutation family', () => {
   it('marks the registrant modal incomplete instead of claiming an exact count', async () => {
     registrationScope.set({ ...healthyScope, truncated: true });
     render(TestedEventScheduler);
+    if (screen.queryByRole('button', { name: /^Drafts [1-9]/ })) await fireEvent.click(screen.getByRole('button', { name: /^Drafts/ }));
     await fireEvent.click(
       screen.getByRole('button', {
         name: 'View loaded registrants for Opening practice; participant list is limited',
@@ -763,7 +816,32 @@ describe('event mutation family', () => {
       'The registration projection is truncated. This loaded list is not a complete event roster.',
     )).toBeVisible();
     expect(screen.getByText('Opening practice • Count unavailable')).toBeVisible();
-  });  it('starts with three neutral patterns and leaves recurrence days unselected', async () => {
+  });
+
+  it('offers only open registration forms in event creation', async () => {
+    formMocks.records = [{ id: 'open-form', title: 'Open form', rawStatus: 'active' }, { id: 'closed-form', title: 'Closed form', rawStatus: 'archived' }];
+    render(TestedCreateEventForm);await completeRequiredEventSchedule();await completeEventDetails();
+    expect(screen.getByRole('option', { name: 'Open form' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Closed form' })).toBeNull();
+  });
+  it('creates a reusable form inside an event, selects it and includes its id in the event draft', async () => {
+    backendMocks.createRegistrationForm.mockResolvedValue({ id: 'inline-form' });
+    backendMocks.createEventSeries.mockResolvedValue({ id: 'new-series', eventIds: ['new-event'] });
+    render(TestedCreateEventForm);await completeRequiredEventSchedule();await completeEventDetails();
+    await fireEvent.change(screen.getByRole('combobox', { name: 'Registration form' }), { target: { value: 'CREATE_NEW' } });
+    await fireEvent.input(screen.getByLabelText('Form name'), { target: { value: 'Reusable summer form' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Customize' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Next: Contacts' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Preview' }));
+    expect(screen.getByRole('heading', { name: 'Summer practice' })).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Save form' }));
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Registration form' })).toHaveValue('inline-form'));
+    expect(screen.getAllByRole('option', { name: 'Reusable summer form' })).toHaveLength(1);
+    await fireEvent.click(screen.getByRole('button', { name: 'Review schedule' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
+    expect(backendMocks.createEventSeries.mock.calls[0][1].registrationFormId).toBe('inline-form');
+  });
+  it('starts with three neutral patterns and leaves recurrence days unselected', async () => {
     render(TestedCreateEventForm);
     expect(screen.getByRole('heading', { name: 'How often?' })).toBeVisible();
     expect(screen.queryByLabelText('Activity name')).not.toBeInTheDocument();

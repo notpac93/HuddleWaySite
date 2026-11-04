@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { toast } from './ui/toast';
   import { registerLiveRefresh } from '../../lib/crm/liveRefresh';
   import { onMount as mountRefresh } from 'svelte';
   import { createEventDispatcher, onMount } from 'svelte';
@@ -335,7 +336,7 @@
               <p class="crm-ui-hint">{replyMessage.length}/{MESSAGE_LIMIT} characters</p>
             </div>
             {#if replyStatus}
-              <div class="rounded-md border px-3 py-2 text-sm {replyState === 'error' ? 'border-red-200 bg-red-50 text-red-800' : 'border-green-200 bg-green-50 text-green-800'}" role={replyState === 'error' ? 'alert' : 'status'}>
+              <div use:toast={{dismiss: () => replyStatus = ''}} class="rounded-md border px-3 py-2 text-sm {replyState === 'error' ? 'border-red-200 bg-red-50 text-red-800' : 'border-green-200 bg-green-50 text-green-800'}" role={replyState === 'error' ? 'alert' : 'status'}>
                 {replyStatus}
               </div>
             {/if}

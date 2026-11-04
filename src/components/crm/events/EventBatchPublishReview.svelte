@@ -7,7 +7,6 @@
   export let busy = false;
   export let onCancel: () => void = () => {};
   export let onConfirm: () => void = () => {};
-  let confirmed = false;
 </script>
 
 <div class="crm-ui-modal-root" role="dialog" aria-modal="true" aria-labelledby="batch-publish-title">
@@ -30,14 +29,11 @@
           </div>
         </article>
       {/each}
-      <label class="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-        <input type="checkbox" bind:checked={confirmed} disabled={busy} class="mt-0.5 h-4 w-4 rounded border-gray-300" />
-        <span>I reviewed the schedule, team audiences, registration, and cover photos.</span>
-      </label>
+
     </div>
     <footer class="flex flex-col-reverse gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4 sm:flex-row sm:justify-end">
       <button type="button" class="crm-ui-button-secondary" disabled={busy} on:click={onCancel}>Back to events</button>
-      <button type="button" class="crm-ui-button-primary inline-flex items-center gap-2" disabled={busy || !confirmed} on:click={onConfirm}><Icon name="check" size={16} /> {busy ? 'Publishing…' : `Publish ${events.length} event${events.length === 1 ? '' : 's'}`}</button>
+      <button type="button" class="crm-ui-button-primary inline-flex items-center gap-2" disabled={busy} on:click={onConfirm}><Icon name="check" size={16} /> {busy ? 'Publishing…' : `Publish ${events.length} event${events.length === 1 ? '' : 's'}`}</button>
     </footer>
   </div>
 </div>

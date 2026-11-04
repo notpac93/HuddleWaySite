@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { toast } from './ui/toast';
+  import BrandedWorkspace from './ui/BrandedWorkspace.svelte';
   import RecordToolbar from './ui/RecordToolbar.svelte';
   import RecordItem from './ui/RecordItem.svelte';
   import { registerLiveRefresh } from '../../lib/crm/liveRefresh';
@@ -14,7 +16,6 @@
   import { modalFocus } from '../../lib/ui/modalFocus';
   import { eventsStore } from '../../lib/services/DataStore';
   import DocumentEditor from './documents/DocumentEditor.svelte';
-  import PageHeader from './ui/PageHeader.svelte';
   import EmptyState from './ui/EmptyState.svelte';
 
   const DOCUMENT_LIMIT = 100;
@@ -28,6 +29,7 @@
   let truncated = false;
   let accessDocumentId = '';
   let operationMessage = '';
+  let notificationError = false;
   let operationRequestId = '';
   let blockedAccessUrl = '';
   let deleteTarget: CrmDocumentRecord | null = null;
@@ -49,7 +51,7 @@
       requestId = '';
       truncated = false;
       accessDocumentId = '';
-      operationMessage = '';
+      notificationError = false; operationMessage = '';
       operationRequestId = '';
       blockedAccessUrl = '';
       closeDeleteDialog(true);
@@ -96,7 +98,7 @@
     const tenantId = $tenantIdStore;
     if (!tenantId) return;
     accessDocumentId = documentRecord.id;
-    operationMessage = '';
+    notificationError = false; operationMessage = '';
     operationRequestId = '';
     blockedAccessUrl = '';
     try {
@@ -115,7 +117,7 @@
         operationMessage = `Secure access opened in a new tab. The link expires in ${access.expiresInSeconds} seconds.`;
       }
     } catch (error) {
-      operationMessage = 'Secure document access could not be created.';
+      notificationError = true; operationMessage = 'Secure document access could not be created.';
       operationRequestId = supportRequest(error);
     } finally {
       accessDocumentId = '';
@@ -147,7 +149,7 @@
     if (!tenantId || !deleteIdempotencyKey) return;
 
     deleteState = 'loading';
-    operationMessage = '';
+    notificationError = false; operationMessage = '';
     operationRequestId = '';
     try {
       const result = await backendClient.deleteDocument(
@@ -157,7 +159,7 @@
         deleteIdempotencyKey,
       );
       if (tenantId !== $tenantIdStore) return;
-      operationMessage = result.storageDeleted === false
+      notificationError = result.storageDeleted === false; operationMessage = result.storageDeleted === false
         ? 'Document metadata was deleted, but the server did not confirm stored-object deletion. Contact support.'
         : 'Document and its stored object were deleted.';
       closeDeleteDialog(true);
@@ -165,7 +167,7 @@
     } catch (error) {
       if (tenantId !== $tenantIdStore) return;
       deleteState = 'error';
-      operationMessage = 'The document could not be deleted. Retry uses the same operation key.';
+      notificationError = true; operationMessage = 'The document could not be deleted. Retry uses the same operation key.';
       operationRequestId = supportRequest(error);
     }
   }
@@ -249,15 +251,14 @@
   </div>
 {/if}
 
-<div class="flex h-full flex-col space-y-6 overflow-y-auto p-4 sm:p-6">
-  <PageHeader title="Documents & Resources">
+<BrandedWorkspace title="Documents & Resources" eyebrow="Program resources" panel={false}>
     <svelte:fragment slot="actions">
-      <button type="button" class="crm-ui-primary-button" disabled={!canManageTenant} title={!canManageTenant ? 'Viewer access is read-only.' : undefined} on:click={() => editorRecord = null}>Upload document</button>
+      <button type="button" class="crm-auth-button-secondary" disabled={!canManageTenant} title={!canManageTenant ? 'Viewer access is read-only.' : undefined} on:click={() => editorRecord = null}>Upload document</button>
     </svelte:fragment>
-  </PageHeader>
+
 
   {#if operationMessage}
-    <div class="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700" role={deleteState === 'error' ? 'alert' : 'status'}>
+    <div use:toast={{persistent: notificationError, dismiss: () => operationMessage = ''}} class="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700" role={notificationError ? 'alert' : 'status'}>
       <p>{operationMessage}</p>
       {#if blockedAccessUrl}
         <a
@@ -270,7 +271,7 @@
     </div>
   {/if}
 
-  <section class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" aria-labelledby="document-list-title">
+  <section class="crm-branded-panel crm-branded-panel--flush" aria-labelledby="document-list-title">
     <div class="border-b border-gray-200 p-4">
       <h3 id="document-list-title" class="sr-only">Documents</h3>
       <p class="crm-ui-hint">{documents.length} available</p>
@@ -342,4 +343,4 @@
       </ul>
     {/if}
   </section>
-</div>
+</BrandedWorkspace>

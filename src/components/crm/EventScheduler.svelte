@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { toast } from './ui/toast';
   import { groupEventSeries } from '../../lib/ui/eventSeries';
   import { eventPriceCents, eventPriceLabel } from '../../lib/ui/eventMoney';
   import { programTermsStore } from '../../lib/crm/programVocabulary';
@@ -22,9 +23,11 @@
   import EditEventModal from './events/EditEventModal.svelte';
   import DuplicateEventModal from './events/DuplicateEventModal.svelte';
   import EventRegistrantsModal from './events/EventRegistrantsModal.svelte';
+  import SavedFormLibrary from './registration/SavedFormLibrary.svelte';
   import EventCsvImport from './events/EventCsvImport.svelte';
   import EventBatchPublishReview from './events/EventBatchPublishReview.svelte';
   import ChangeReceipt from './ui/ChangeReceipt.svelte';
+  import SuccessToast from './ui/SuccessToast.svelte';
   import EventFilters from './events/EventFilters.svelte';
   import { buildTeamReferenceIndex, teamNameForReference, teamReferenceMatches } from '../../lib/ui/teamReferences';
 
@@ -38,6 +41,8 @@
 
   let events: any[] = [];
   let isCreateFormOpen = false;
+  let showImport = false;
+  let showSavedForms = false;
   let isDuplicateModalOpen = false;
   let showRegistrantsForEvent = null;
   let eventToDuplicate: any = null;
@@ -48,7 +53,7 @@
   let publishingSelectedDrafts = false;
   let showBatchPublishReview = false;
   let batchPublishReceipt: { published: number; failed: number; reference: string } | null = null;
-  let eventChangeReceipt: { title: string; message: string } | null = null;
+  let eventChangeReceipt: { title: string } | null = null;
   let creatingShareableLinkForEventId = '';
   let shareableRegistrationLinks: Record<string, { url: string; expiresAt: string }> = {};
   let shareableLinkErrors: Record<string, { message: string; requestId: string }> = {};
@@ -57,7 +62,8 @@
   let shareDialogEvent: any = null;
   const shareableLinkOperationKeys = new Map<string, string>();
 
-  let activeTab = 'Upcoming'; // 'Upcoming' or 'Past'
+  let activeTab = 'Upcoming';
+  let showEventTools = false;
   let eventSearch = '';
   let eventTeamFilter = '';
   let eventStatusFilter = '';
@@ -163,6 +169,8 @@
             notes: data.notes || '',
             seasonId: data.seasonId || null,
             registrationFormId: data.registrationFormId || null,
+            registrationMethod: data.registrationMethod === 'easy' ? 'easy' : 'form',
+            registrationFormConfig: data.registrationFormConfig || null,
             isRegistrationEnabled: data.isRegistrationEnabled === true,
             isVisible: data.isVisible === true,
           };
@@ -192,6 +200,7 @@
   $: now = new Date();
   $: if ($tenantIdStore !== shareableLinkTenantId) {
     shareableLinkTenantId = $tenantIdStore || '';
+    eventChangeReceipt = null;
     shareableRegistrationLinks = {};
     shareableLinkErrors = {};
     shareableLinkCopyMessage = '';
@@ -201,12 +210,12 @@
 
   // Sort past events descending (newest past event first)
   $: pastEvents = events
-    .filter(e => e.dateObj && e.dateObj < now)
+    .filter(e => e.lifecycleStatus !== 'draft' && e.lifecycleStatus !== 'archived' && e.dateObj && e.dateObj < now)
     .sort((a, b) => b.dateObj - a.dateObj);
 
   // Sort upcoming events ascending (soonest event first)
   $: upcomingEvents = events
-    .filter(e => !e.dateObj || e.dateObj >= now)
+    .filter(e => e.lifecycleStatus !== 'draft' && e.lifecycleStatus !== 'archived' && (!e.dateObj || e.dateObj >= now))
     .sort((a, b) => {
       if (!a.dateObj) return 1;
       if (!b.dateObj) return -1;
@@ -218,7 +227,9 @@
     previousSelectedTeamId = selectedTeamId;
     eventTeamFilter = selectedTeamId;
   }
-  $: presetEvents = activeTab === 'Upcoming' ? upcomingEvents : pastEvents;
+  $: draftEvents = events.filter(event => event.lifecycleStatus === 'draft');
+  $: archivedEvents = events.filter(event => event.lifecycleStatus === 'archived');
+  $: presetEvents = activeTab === 'Drafts' ? draftEvents : activeTab === 'Archived' ? archivedEvents : activeTab === 'Upcoming' ? upcomingEvents : pastEvents;
   $: filteredEventOccurrences = presetEvents.filter((event) =>
     (!eventSearchQuery || [event.title, event.location, event.type].some((value) => String(value || '').toLocaleLowerCase().includes(eventSearchQuery)))
     && teamReferenceMatches(teamReferenceIndex, event.teamId, eventTeamFilter)
@@ -243,7 +254,7 @@
     if (targetEvent) {
       const targetId = activeResultId;
       consumedTargetId = targetId;
-      activeTab = targetEvent.dateObj && targetEvent.dateObj < now ? 'Past' : 'Upcoming';
+      activeTab = targetEvent.lifecycleStatus === 'draft' ? 'Drafts' : targetEvent.lifecycleStatus === 'archived' ? 'Archived' : targetEvent.dateObj && targetEvent.dateObj < now ? 'Past' : 'Upcoming';
       void focusEventResult(targetId);
     }
   }
@@ -257,30 +268,19 @@
   }
   $: if (!activeResultId) consumedTargetId = '';
 
-  const defaultFallbackImage = '/crm-event-placeholder.svg';
-
-  function handleImgError(event: Event) {
-    const img = event.currentTarget as HTMLImageElement;
-    if (img && img.dataset.fallbackApplied !== 'true') {
-      img.dataset.fallbackApplied = 'true';
-      img.src = defaultFallbackImage;
-    }
-  }
-
   function handleCreateEventSuccess() {
     refreshOperationalCollections('events');
     eventChangeReceipt = {
       title: 'Schedule draft saved',
-      message: 'The event was created and the event list is refreshing.',
     };
     isCreateFormOpen = false;
+    activeTab = 'Drafts';
   }
 
   function handleEditEventSuccess() {
     refreshOperationalCollections('events');
     eventChangeReceipt = {
       title: 'Event updated',
-      message: 'The reviewed event changes were saved and the event list is refreshing.',
     };
     editingEvent = null;
   }
@@ -289,13 +289,9 @@
     editingEvent = { ...event, lifecycleStatus: event.occurrences?.find((entry: any) => entry.id === event.id)?.lifecycleStatus || event.lifecycleStatus };
   }
 
-  function toggleDraftSelection(eventId: string) {
-    const source = events.find((event) => event.id === eventId);
-    const members = events.filter((event) => event.lifecycleStatus === 'draft' && (source?.eventSeriesId ? event.eventSeriesId === source.eventSeriesId : event.id === eventId));
-    const next = new Set(selectedDraftEventIds);
-    const removing = members.every((event) => next.has(event.id));
-    for (const event of members) { if (removing) next.delete(event.id); else next.add(event.id); }
-    selectedDraftEventIds = next;
+  function reviewDraftPublication(event: any) {
+    selectedDraftEventIds = new Set(event.occurrences.filter((entry: any) => entry.lifecycleStatus === 'draft').map((entry: any) => entry.id));
+    showBatchPublishReview = true;
   }
 
   async function publishSelectedDrafts() {
@@ -493,7 +489,7 @@
     events={selectedDraftEvents}
     teamNames={teams}
     busy={publishingSelectedDrafts}
-    onCancel={() => { if (!publishingSelectedDrafts) showBatchPublishReview = false; }}
+    onCancel={() => { if (!publishingSelectedDrafts) { showBatchPublishReview = false; selectedDraftEventIds = new Set(); } }}
     onConfirm={publishSelectedDrafts}
   />
 {/if}
@@ -505,16 +501,23 @@
 />
 
 <div class="p-4 sm:p-6 md:p-8 space-y-5">
-  <header class="flex items-center justify-between gap-3">
+  <header class="events-header">
     <h2 class="crm-ui-page-title">{$programTermsStore.title}</h2>
-    <button type="button" class="crm-ui-event-top-primary" on:click={() => isCreateFormOpen = true}>{$programTermsStore.add}</button>
+    <div class="events-heading-actions">
+      <button type="button" class="crm-ui-event-top-primary" on:click={() => isCreateFormOpen = true}>{$programTermsStore.add}</button>
+      <div class="events-tools">
+        <button type="button" class="events-tools-trigger" aria-label="Schedule tools" aria-expanded={showEventTools} on:click={() => showEventTools = !showEventTools} on:keydown={(event) => { if (event.key === 'Escape') showEventTools = false; }}>•••</button>
+        {#if showEventTools}
+          <div class="events-tools-menu">
+            <button type="button" on:click={() => { showEventTools = false; showSavedForms = true; }}>Saved forms</button>
+            <button type="button" on:click={() => { showEventTools = false; showImport = true; }}>Import CSV</button>
+          </div>
+        {/if}
+      </div>
+    </div>
   </header>
 
 
-
-  {#if selectedDraftEvents.length > 0}
-    <div class="crm-ui-notice-card flex items-center justify-between gap-3"><span>{selectedDraftEvents.length} draft {selectedDraftEvents.length === 1 ? 'event' : 'events'} selected</span><button type="button" class="crm-ui-event-top-primary" disabled={publishingSelectedDrafts} on:click={() => showBatchPublishReview = true}>Review publication</button></div>
-  {/if}
 
   {#if batchPublishReceipt}
     <ChangeReceipt
@@ -526,12 +529,9 @@
     />
   {/if}
   {#if eventChangeReceipt}
-    <ChangeReceipt
-      status="success"
-      title={eventChangeReceipt.title}
-      message={eventChangeReceipt.message}
-      onDismiss={() => eventChangeReceipt = null}
-    />
+    {#key eventChangeReceipt}
+      <SuccessToast title={eventChangeReceipt.title} onDismiss={() => eventChangeReceipt = null} />
+    {/key}
   {/if}
 
   {#if $eventsProjectionScope.truncated || $teamsProjectionScope.truncated}
@@ -560,7 +560,11 @@
     teams={$teamsStore.map((team) => ({ id: String(team.id || ''), name: String(team.name || 'Team name unavailable') }))}
     seasons={$seasonsStore.map((season) => ({ id: String(season.id || ''), name: String(season.name || season.title || 'Season name unavailable') }))}
   >
-    <select slot="view" aria-label={`${$programTermsStore.title} view`} bind:value={activeTab}><option>Upcoming</option><option>Past</option></select>
+    <nav slot="view" class="event-view-tabs" aria-label="Schedule views">
+      {#each ['Upcoming', 'Drafts', 'Past', ...(archivedEvents.length ? ['Archived'] : [])] as view}
+        <button type="button" aria-current={activeTab === view ? 'page' : undefined} on:click={() => { activeTab = view; eventStatusFilter = ''; expandedEventId = null; }}>{view}{#if view === 'Drafts' && draftEvents.length}<span class="draft-count">{draftEvents.length}</span>{/if}</button>
+      {/each}
+    </nav>
   </EventFilters>
 
   {/if}
@@ -572,25 +576,13 @@
       {$eventsProjectionScope.error || $teamsProjectionScope.error}
     </div>
   {:else}
-  <div class="grid gap-6">
+  <div class="event-list">
     {#each visibleEvents as event (event.id)}
       <article class="crm-ui-event-card {activeResultId === String(event.id) ? 'ring-2 focus:ring-[var(--crm-brand-focus)]' : ''}">
         <!-- Collapsed Summary Card -->
         <div class="crm-ui-event-card-summary">
-          <div class="crm-ui-event-thumbnail">
-            <img
-              src={event.imageUrl || defaultFallbackImage}
-              alt={event.title}
-              width="128"
-              height="96"
-              loading="lazy"
-              decoding="async"
-              class="crm-ui-cover"
-              on:error={handleImgError}
-            />
-          </div>
           <div class="min-w-0 flex-1">
-            <div class="flex flex-wrap items-center gap-2">
+            <div class="event-card-heading">
               <h3 class="crm-ui-title">{event.title}</h3>
               {#if event.dateObj && event.dateObj < now}
                 <span class="crm-ui-event-badge crm-ui-event-badge-expired">
@@ -608,79 +600,48 @@
                 <span class="crm-ui-event-badge crm-ui-event-badge-unavailable">{event.lifecycleStatus === 'mixed' ? 'Mixed status' : 'Status unavailable'}</span>
               {/if}
             </div>
-            <div class="crm-ui-event-meta">
-              <span class="flex items-center text-[var(--crm-brand-link)] font-semibold">
-                <svg class="mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                {eventTeamLabel(event)}
-              </span>
-              <span class="crm-ui-center">
-                <svg class="mr-1.5 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                {event.occurrences.length > 1 ? `${event.occurrences.length} sessions · ${event.date}` : event.date}
-              </span>
-              <span class="crm-ui-center">
-                <svg class="mr-1.5 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                {event.location || 'Location unavailable'}
-              </span>
-            </div>
           </div>
-
-          <div class="flex items-center gap-4">
-
-            {#if event.hasDrafts}
-              <label class="flex items-center gap-2 text-xs font-semibold text-gray-700">
-                <input type="checkbox" checked={event.occurrences.some((occurrence) => selectedDraftEventIds.has(occurrence.id))} disabled={publishingSelectedDrafts} on:change={() => toggleDraftSelection(event.id)} />
-                Select to publish
-              </label>
-            {/if}
-
-
-            <div class="flex gap-3 border-l border-gray-200 pl-4">
-              <button
-                type="button"
-                class="text-center pr-2 hover:bg-gray-50 p-1 rounded transition-colors"
-                aria-label={$registrationsProjectionScope.truncated
-                  ? `View loaded registrants for ${event.title}; participant list is limited`
-                  : `View ${registrationCount(event)} registrants for ${event.title}`}
-                disabled={$registrationsProjectionScope.loading || Boolean($registrationsProjectionScope.error)}
-                on:click={() => showRegistrantsForEvent = event}
-              >
-                <div class="text-lg font-bold text-green-600">
-                  {$registrationsProjectionScope.truncated
-                    ? '—'
-                    : registrationCount(event)}
-                </div>
-                <div class="text-[10px] text-gray-500 uppercase font-semibold">Registered</div>
-              </button>
+          <div class="event-facts">
+            <div class="event-fact">
+              <strong>{event.dateObj ? event.dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Date unavailable'}</strong>
+              <span>{event.dateObj ? event.dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : 'Time unavailable'}{event.endDateObj ? ` – ${event.endDateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}` : ''}</span>
+              {#if event.occurrences.length > 1}<span>{event.occurrences.length} sessions</span>{/if}
             </div>
-
+            <div class="event-fact">
+              <strong>{eventTeamLabel(event)}</strong>
+              <span>{event.location || 'Location unavailable'}</span>
+            </div>
             <button
               type="button"
-              class="crm-ui-button-secondary py-1.5 text-xs"
+              class="event-fact event-registrants"
+              aria-label={$registrationsProjectionScope.truncated
+                ? `View loaded registrants for ${event.title}; participant list is limited`
+                : `View ${registrationCount(event)} registrants for ${event.title}`}
+              disabled={$registrationsProjectionScope.loading || Boolean($registrationsProjectionScope.error)}
+              on:click={() => showRegistrantsForEvent = event}
+            >
+              <strong>{$registrationsProjectionScope.truncated ? '—' : registrationCount(event)}</strong>
+              <span>Registered</span>
+            </button>
+          </div>
+          <div class="event-summary-actions">
+            <button type="button" data-event-record-id={event.id} class="event-details-button"
+              aria-label={`${expandedEventId === event.id ? 'Collapse' : 'Expand'} ${event.title}`}
+              aria-expanded={expandedEventId === event.id} on:click={() => toggleExpand(event)}>
+              {expandedEventId === event.id ? 'Hide details' : 'View details'}
+            </button>
+            <button
+              type="button"
+              class="event-edit-button"
               on:click={() => openEditor(event)}
             >
               Edit
             </button>
+            {#if event.hasDrafts}
+              <button type="button" class="crm-ui-event-top-primary event-publish-button" disabled={publishingSelectedDrafts} on:click={() => reviewDraftPublication(event)}>Review & publish</button>
+            {/if}
 
-            <!-- Expand Chevron Icon -->
-            <button
-              type="button"
-              data-event-record-id={event.id}
-              class="crm-ui-event-icon-button"
-              aria-label={`${expandedEventId === event.id ? 'Collapse' : 'Expand'} ${event.title}`}
-              aria-expanded={expandedEventId === event.id}
-              on:click={() => toggleExpand(event)}
-            >
-              <svg class="crm-ui-event-chevron {expandedEventId === event.id ? 'rotate-180 text-[var(--crm-brand-link)]' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
+
           </div>
         </div>
 
@@ -728,7 +689,7 @@
               </div>
               <div>
                 <dt class="crm-ui-label-caps-sm">Registration form</dt>
-                <dd class="mt-1 text-sm text-gray-900">{event.registrationFormId ? 'Attached' : 'Not attached'}</dd>
+                <dd class="mt-1 text-sm text-gray-900">{event.registrationMethod === 'easy' ? 'Easy registration' : event.registrationFormId ? 'Attached' : 'Not attached'}</dd>
               </div>
               <div>
                 <dt class="crm-ui-label-caps-sm">Registered</dt>
@@ -797,7 +758,7 @@
                 </div>
               {/if}
               {#if shareableLinkCopyMessage && shareableRegistrationLinks[event.id]}
-                <p class="mt-2 text-sm text-green-700" role="status">{shareableLinkCopyMessage}</p>
+                <p use:toast={{dismiss: () => shareableLinkCopyMessage = ''}} class="mt-2 text-sm text-green-700" role="status">{shareableLinkCopyMessage}</p>
               {/if}
             </section>
 
@@ -825,7 +786,7 @@
         <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
-        <h3 class="mt-2 text-sm font-medium text-gray-900">{activeTab === 'Upcoming' ? 'Nothing scheduled yet' : 'No past activities'}</h3>
+        <h3 class="mt-2 text-sm font-medium text-gray-900">{activeTab === 'Drafts' ? 'No drafts' : activeTab === 'Upcoming' ? 'Nothing scheduled yet' : `No ${activeTab.toLowerCase()} activities`}</h3>
         {#if events.length === 0}<p class="mt-3 text-xs text-gray-500">Once · Repeating · Your dates</p>{/if}
       </div>
     {/each}
@@ -833,9 +794,8 @@
   {/if}
 </div>
 
-  <details class="rounded-xl border border-gray-200 bg-white">
-    <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-700">Import CSV</summary>
-    <EventCsvImport
+  {#if showImport}
+    <EventCsvImport onClose={() => showImport = false} on:success={event => { activeTab = 'Drafts'; showImport = false; refreshOperationalCollections('events'); eventChangeReceipt = { title: `${event.detail.created} event draft${event.detail.created === 1 ? '' : 's'} imported` }; }}
       teams={$teamsStore.map((team) => ({ id: String(team.id || ''), name: String(team.name || '') }))}
       existingEvents={events.map((event) => ({
         id: event.id,
@@ -845,7 +805,8 @@
         startTime: event.dateObj ? `${String(event.dateObj.getHours()).padStart(2, '0')}:${String(event.dateObj.getMinutes()).padStart(2, '0')}` : '',
       }))}
     />
-  </details>
+  {/if}
+  {#if showSavedForms}<SavedFormLibrary onClose={() => showSavedForms = false} />{/if}
 
 {#if showRegistrantsForEvent}
   <EventRegistrantsModal
@@ -859,3 +820,35 @@
     onClose={() => showRegistrantsForEvent = null}
   />
 {/if}
+
+<style>
+  .events-header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .events-heading-actions { display:flex; align-items:center; gap:8px; }
+  .events-tools { position:relative; }
+  .events-tools-trigger { min-width:40px; min-height:40px; color:var(--crm-brand-link); border:1px solid #dce3ed; border-radius:8px; }
+  .events-tools-menu { position:absolute; top:calc(100% + 6px); right:0; min-width:160px; padding:6px; background:var(--crm-surface,#fff); border:1px solid #dce3ed; border-radius:10px; box-shadow:0 6px 18px #0002; z-index:20; }
+  .events-tools-menu button { display:block; width:100%; min-height:44px; padding:10px 12px; text-align:left; font-size:14px; color:var(--crm-brand-link); }
+  .event-view-tabs { display:flex; gap:16px; flex-wrap:wrap; }
+  .event-view-tabs button { display:flex; align-items:center; gap:5px; min-height:44px; font-size:14px; color:var(--crm-muted,#64748b); border-bottom:2px solid transparent; }
+  .event-view-tabs button[aria-current] { color:var(--crm-brand-link); border-bottom-color:var(--crm-brand-link); font-weight:600; }
+  .draft-count { font-size:12px; border-radius:10px; background:var(--crm-brand-surface,#e9f2fc); padding:0 6px; }
+  .crm-ui-event-card { box-shadow:none; }
+  .crm-ui-event-card-summary { padding:16px; gap:12px; flex-direction:column; align-items:stretch; }
+  .crm-ui-event-card-summary .crm-ui-title { font-size:16px; line-height:24px; font-weight:600; }
+  .crm-ui-event-badge { font-size:12px; font-weight:500; }
+  .event-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr)); gap:16px; }
+  .event-card-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin:-16px -16px 0; padding:14px 16px; background:color-mix(in srgb,var(--crm-brand-link,#0b2d50) 5%,var(--crm-surface,#fff)); border-bottom:1px solid #e2e8f0; }
+  .event-card-heading .crm-ui-title { min-width:0; overflow-wrap:anywhere; }
+  .crm-ui-event-badge { flex-shrink:0; }
+  .event-facts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); padding:10px 0; }
+  .event-fact { display:flex; flex-direction:column; align-items:center; text-align:center; gap:5px; padding:0 8px; min-width:0; font-size:14px; line-height:21px; overflow-wrap:anywhere; }
+  .event-fact + .event-fact { border-left:1px solid #e2e8f0; }
+  .event-fact strong { font-weight:600; color:var(--crm-text,inherit); }
+  .event-fact span { color:var(--crm-muted,#64748b); }
+  .event-registrants { justify-content:flex-start; background:transparent; cursor:pointer; }
+  .event-summary-actions { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; border-top:1px solid #e2e8f0; padding-top:10px; font-size:14px; }
+
+  .event-details-button { min-height:40px; color:var(--crm-brand-link); }
+  .event-edit-button { margin-left:auto; min-height:40px; padding:0 8px; font-size:14px; color:var(--crm-brand-link); }
+  .event-publish-button { font-size:14px; }
+</style>

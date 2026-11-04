@@ -1,14 +1,16 @@
 <script lang="ts">
   import type { CrmComponentDefinition, CrmComponentStudioPage } from '../../../lib/api/BackendApi';
-  import { definitionAvailable } from './componentStudioDraft';
+  import { definitionAvailable, isHeroDefinition } from './componentStudioDraft';
 
   export let definitions: CrmComponentDefinition[] = [];
   export let page: CrmComponentStudioPage;
+  export let pagePreview = false;
   export let onChoose: (definition: CrmComponentDefinition) => void;
   export let onClose: () => void;
   let query = '';
 
-  $: filtered = definitions.filter((definition) => {
+  $: addableDefinitions = definitions.filter((definition) => !isHeroDefinition(definition));
+  $: filtered = addableDefinitions.filter((definition) => {
     const search = `${definition.label} ${definition.category} ${definition.previewSpec.description}`.toLowerCase();
     return search.includes(query.trim().toLowerCase());
   });
@@ -18,13 +20,13 @@
   <div class="flex items-start justify-between gap-4">
     <div>
       <h3 id="component-library-title" class="text-lg font-semibold text-gray-950">Add to {page.title}</h3>
-      <p class="mt-1 text-sm text-gray-600">Choose one component to inspect in the real family-app renderer before adding it.</p>
+      <p class="mt-1 text-sm text-gray-600">{pagePreview ? 'Choose a component to preview at its position on the page before adding it.' : 'Choose one component to inspect in the real family-app renderer before adding it.'}</p>
     </div>
     <button type="button" class="rounded-md border px-3 py-2 text-sm" on:click={onClose}>Close</button>
   </div>
-  {#if definitions.length > 6}
+  {#if addableDefinitions.length > 6}
     <label class="mt-4 block text-sm font-medium text-gray-700">Search components
-      <input type="search" bind:value={query} class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" placeholder="Hero, schedule, staff…" />
+      <input type="search" bind:value={query} class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" placeholder="Schedule, staff, about…" />
     </label>
   {/if}
   <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -34,7 +36,7 @@
           <div>
             <p class="crm-theme-link text-xs font-semibold uppercase tracking-wide">{definition.category}</p>
             <p class="mt-2 font-semibold text-gray-950">{definition.previewSpec.title || definition.label}</p>
-            <p class="mt-1 text-xs text-gray-500">Select for live isolated preview</p>
+            <p class="mt-1 text-xs text-gray-500">{pagePreview ? 'Select to preview on this page' : 'Select for live isolated preview'}</p>
           </div>
         </div>
         <div class="flex flex-1 flex-col p-4">
@@ -46,13 +48,13 @@
             disabled={!definitionAvailable(definition, page)}
             on:click={() => onChoose(definition)}
           >
-            {definitionAvailable(definition, page) ? 'Preview and add' : 'Already on this page'}
+            {definitionAvailable(definition, page) ? 'Preview and add' : page.components.length >= 40 ? 'Page limit reached' : 'Already on this page'}
           </button>
         </div>
       </article>
     {/each}
   </div>
-  {#if definitions.length === 0}
+  {#if addableDefinitions.length === 0}
     <p class="mt-5 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950" role="status">
       The versioned component library is not available yet. Existing components remain visible for review, but editing and adding are disabled so their contracts cannot be guessed.
     </p>

@@ -1,5 +1,7 @@
 <script lang="ts">
-  import FilterDisclosure from '../ui/FilterDisclosure.svelte';
+  import SectionEyebrow from '../ui/SectionEyebrow.svelte';
+  import './registration.css';
+  import SuccessToast from '../ui/SuccessToast.svelte';
   import { onMount } from 'svelte';
   import { tenantIdStore } from '../../../lib/authStore';
   import { RegistrationService } from '../../../lib/services/RegistrationService';
@@ -222,7 +224,7 @@
         : ['active', 'open'].includes(rawStatus)
           ? 'Open'
           : 'Status unavailable',
-      dateCreated: previous?.dateCreated || new Date(),
+      dateCreated: previous?.dateCreated || null,
       program: saved?.teamId || previous?.program || 'Program-wide',
     };
   }
@@ -310,56 +312,60 @@
   />
 {/if}
 
-<div class="h-full min-w-0 w-full flex flex-col p-4 sm:p-8 space-y-6 overflow-y-auto bg-white">
+<div class="crm-registration-workspace crm-auth-shell">
+  <div class="crm-auth-watermark" aria-hidden="true"></div>
   {#if formChangeReceipt}
-    <div class="flex items-start justify-between gap-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900" role="status">
-      <span>{formChangeReceipt}</span>
-      <button type="button" class="font-semibold underline" aria-label="Dismiss registration form receipt" on:click={() => formChangeReceipt = ''}>Dismiss</button>
-    </div>
+    {#key formChangeReceipt}
+      <SuccessToast title={formChangeReceipt} onDismiss={() => formChangeReceipt = ''} />
+    {/key}
   {/if}
   {#if !selectedFormId}
     <!-- Overview Dashboard -->
-    <header class="mb-2 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <header class="crm-registration-header">
       <div>
-        <h2 class="crm-ui-page-title">Registration forms</h2>
+        <SectionEyebrow label="Program registration" />
+        <h2>Registration forms</h2>
       </div>
-      <button on:click={openNewRegistrationForm} class="flex shrink-0 items-center rounded bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-semibold text-[var(--crm-on-primary)] shadow-sm hover:bg-[var(--crm-brand-primary-hover)]">
+      <button on:click={openNewRegistrationForm} class="crm-auth-button-secondary">
         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-        Create New Registration Form
+        New form
       </button>
     </header>
 
     <!-- Tabs -->
-    <div class="border-b border-gray-200">
-      <nav class="-mb-px flex space-x-8">
+    <div class="crm-registration-tabs">
+      <nav class="-mb-px flex flex-wrap gap-x-5 gap-y-1">
         <button
-          aria-label="Active"
-          class="crm-ui-registration-tab {activeTab === 'Active' ? 'crm-ui-registration-tab-active' : 'crm-ui-registration-tab-idle'}"
+          aria-label="Open"
+          class="crm-registration-tab {activeTab === 'Active' ? 'crm-ui-registration-tab-active' : 'crm-ui-registration-tab-idle'}"
           on:click={() => activeTab = 'Active'}
         >
-          Active ({lifecycleCounts.Active})
+          Open ({lifecycleCounts.Active})
         </button>
         <button
-          aria-label="Retired"
-          class="crm-ui-registration-tab {activeTab === 'Retired' ? 'crm-ui-registration-tab-active' : 'crm-ui-registration-tab-idle'}"
+          aria-label="Archived"
+          class="crm-registration-tab {activeTab === 'Retired' ? 'crm-ui-registration-tab-active' : 'crm-ui-registration-tab-idle'}"
           on:click={() => activeTab = 'Retired'}
         >
-          Retired ({lifecycleCounts.Retired})
+          Archived ({lifecycleCounts.Retired})
         </button>
+        {#if lifecycleCounts['Needs Review'] > 0 || activeTab === 'Needs Review'}
         <button
           aria-label="Needs Review"
-          class="crm-ui-registration-tab {activeTab === 'Needs Review' ? 'crm-ui-registration-tab-active' : 'crm-ui-registration-tab-idle'}"
+          class="crm-registration-tab {activeTab === 'Needs Review' ? 'crm-ui-registration-tab-active' : 'crm-ui-registration-tab-idle'}"
           on:click={() => activeTab = 'Needs Review'}
         >
           Needs Review ({lifecycleCounts['Needs Review']})
         </button>
+        {/if}
       </nav>
       {#if activeTab === 'Needs Review'}<p class="py-3 text-sm text-amber-800">These records must be checked before editing or publishing.</p>{/if}
     </div>
 
+    <section class="crm-registration-panel" aria-label="Registration forms workspace">
     <!-- Toolbar -->
-    <FilterDisclosure label="Search & export" activeCount={searchQuery.trim() ? 1 : 0}>
-    <section class="mt-4 flex flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3 sm:flex-row" aria-label="Registration form list tools">
+
+    <section class="flex flex-col gap-3 sm:flex-row" aria-label="Registration form list tools">
       <div class="relative flex-1">
         <div class="crm-ui-search-icon">
           <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
@@ -369,7 +375,7 @@
           <input
           type="search"
           bind:value={searchQuery}
-          class="block w-full pl-9 pr-3 py-2 border border-gray-300 rounded text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[var(--crm-brand-border)]"
+          class="crm-registration-search"
           placeholder="Search forms by name or program"
           />
         </label>
@@ -385,7 +391,7 @@
         Export
       </button>
     </section>
-    </FilterDisclosure>
+
 
     <FormsTable
       forms={filteredForms}
@@ -407,7 +413,9 @@
       </div>
     {/if}
 
+    </section>
   {:else}
+    <section class="crm-registration-panel crm-registration-detail" aria-label="Registration form details">
     <RegistrationDetail
       {selectedForm}
       {participants}
@@ -424,5 +432,6 @@
       on:lifecycle={handleLifecycleChange}
       on:retry={retryFormDetail}
     />
+    </section>
   {/if}
 </div>

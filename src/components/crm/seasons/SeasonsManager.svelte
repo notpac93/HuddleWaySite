@@ -1,4 +1,5 @@
 <script lang="ts">
+  import BrandedWorkspace from '../ui/BrandedWorkspace.svelte';
   import FilterDisclosure from '../ui/FilterDisclosure.svelte';
   import { onMount } from 'svelte';
   import { tenantIdStore } from '../../../lib/authStore';
@@ -208,9 +209,14 @@
   });
 </script>
 
-<div class="h-full min-w-0 w-full overflow-y-auto bg-gray-50/50 p-4 sm:p-6 md:p-8">
+<BrandedWorkspace title="Seasons & Leagues" eyebrow="Program seasons">
+  <svelte:fragment slot="actions">
+    {#if !selectedSeason}
+      <button type="button" disabled={$seasonsProjectionScope.loading || Boolean($seasonsProjectionScope.error)} on:click={() => showCreateModal = true} class="crm-auth-button-secondary">Create Season</button>
+    {/if}
+  </svelte:fragment>
   {#if seasonReceipt}
-    <div class="mb-6">
+    <div style="display: contents">
       <ChangeReceipt status="success" title={seasonReceipt.title} message={seasonReceipt.message} onDismiss={() => seasonReceipt = null} />
     </div>
   {/if}
@@ -228,19 +234,6 @@
       }}
     />
   {:else}
-    <header class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-      <div>
-        <h2 class="text-xl font-bold text-gray-900">Seasons & Leagues</h2>
-      </div>
-      <button
-          type="button"
-          disabled={$seasonsProjectionScope.loading || Boolean($seasonsProjectionScope.error)}
-          on:click={() => showCreateModal = true}
-          class="rounded-lg bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-semibold text-[var(--crm-on-primary)] disabled:opacity-50"
-        >
-          Create Season
-      </button>
-    </header>
 
     <FilterDisclosure activeCount={[Boolean(searchQuery.trim()), statusFilter !== 'all', dateFilter !== 'all'].filter(Boolean).length}>
     <section class="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-3" aria-label="Season list controls">
@@ -297,8 +290,8 @@
                 <p class="mt-1 text-xs text-gray-500">{season.statusLabel} · {season.registrations} registrations · {season.revenue}</p>
               </div>
               <div class="flex gap-2">
-                <button type="button" on:click={() => openSeason(season)} class="rounded-md bg-[var(--crm-brand-control)] px-3 py-2 text-xs font-semibold text-[var(--crm-on-primary)]">View Details</button>
-                <button type="button" on:click={() => editingSeason = season} class="rounded-md border border-gray-300 px-3 py-2 text-xs font-semibold text-[var(--crm-brand-link)]">Edit</button>
+                <button type="button" on:click={() => openSeason(season)} class="crm-ui-button-primary">View Details</button>
+                <button type="button" on:click={() => editingSeason = season} class="crm-ui-button-secondary">Edit</button>
               </div>
             </div>
           </article>
@@ -329,7 +322,7 @@
       </div>
     {/if}
   {/if}
-</div>
+</BrandedWorkspace>
 
 {#if showCreateModal}
   <CreateSeasonModal {activeTeam} on:success={handleSeasonCreated} on:close={() => showCreateModal = false} />

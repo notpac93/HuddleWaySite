@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import type { Component } from 'svelte';
 import {
   afterEach,
@@ -71,6 +71,7 @@ const stores = vi.hoisted(() => {
 const backendMocks = vi.hoisted(() => ({
   crmDashboardSummary: vi.fn(),
   dashboardPayments: vi.fn(),
+  createAdminInvite: vi.fn(),
 }));
 
 vi.mock('../../src/lib/services/DataStore', () => stores);
@@ -176,7 +177,7 @@ describe('GlobalDashboard bounded operational summary', () => {
     const registrationsCard =
       screen.getByText('Registrations').closest('dl');
     const teamsCard = screen.getByText('Teams').closest('dl');
-    const eventsCard = screen.getByText('Events').closest('dl');
+    const eventsCard = screen.getByText('Schedule').closest('dl');
     expect(registrationsCard).toHaveTextContent('501');
     expect(teamsCard).toHaveTextContent('42');
     expect(eventsCard).toHaveTextContent('13');
@@ -259,13 +260,33 @@ describe('GlobalDashboard bounded operational summary', () => {
     expect(screen.queryByText(/identity repair/i)).not.toBeInTheDocument();
   });
 
+
+  it('uses the shared staff invitation workflow from the dashboard', async () => {
+    backendMocks.createAdminInvite.mockResolvedValue({ id: 'invite-test', status: 'pending' });
+    render(TestedGlobalDashboard);
+    await fireEvent.click(screen.getByRole('button', { name: 'Add staff' }));
+    await screen.findByRole('dialog', { name: 'Invite staff' });
+    await fireEvent.input(screen.getByLabelText('First name *'), { target: { value: 'Jordan' } });
+    await fireEvent.input(screen.getByLabelText('Last name *'), { target: { value: 'Coach' } });
+    await fireEvent.input(screen.getByLabelText('Email *'), { target: { value: 'coach@example.test' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getByRole('region', { name: 'Invitation review' })).toHaveTextContent('Viewer');
+    expect(backendMocks.createAdminInvite).not.toHaveBeenCalled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Send invite' }));
+    await waitFor(() => expect(backendMocks.createAdminInvite).toHaveBeenCalledWith(expect.objectContaining({
+      tenantId: 'fixture-tenant', email: 'coach@example.test', firstName: 'Jordan', lastName: 'Coach', role: 'viewer',
+    })));
+    expect(await screen.findByText('Staff invitation sent')).toBeVisible();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   it('shows owner/editor quick-action boundaries and a read-only viewer state', () => {
     const { unmount } = render(TestedGlobalDashboard);
     expect(
-      screen.getByRole('button', { name: 'Create Event' }),
+      screen.getByRole('button', { name: 'Add to schedule' }),
     ).toBeEnabled();
     expect(
-      screen.getByRole('button', { name: 'Add Staff' }),
+      screen.getByRole('button', { name: 'Add staff' }),
     ).toBeEnabled();
     unmount();
 
@@ -275,7 +296,7 @@ describe('GlobalDashboard bounded operational summary', () => {
       screen.getByRole('heading', { name: 'Read-only access' }),
     ).toBeVisible();
     expect(
-      screen.queryByRole('button', { name: 'Create Event' }),
+      screen.queryByRole('button', { name: 'Add to schedule' }),
     ).not.toBeInTheDocument();
     expect(screen.getByText('Read-only access')).toBeVisible();
   });
@@ -290,7 +311,7 @@ describe('GlobalDashboard bounded operational summary', () => {
     for (const label of [
       'Registrations',
       'Teams',
-      'Events',
+      'Schedule',
     ]) {
       expect(screen.getByText(label).closest('dl')).toHaveTextContent('—');
     }

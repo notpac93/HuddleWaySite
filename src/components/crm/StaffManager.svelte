@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { toast } from './ui/toast';
+  import BrandedWorkspace from './ui/BrandedWorkspace.svelte';
   import RecordToolbar from './ui/RecordToolbar.svelte';
   import RecordItem from './ui/RecordItem.svelte';
   import { registerLiveRefresh } from '../../lib/crm/liveRefresh';
@@ -38,6 +40,7 @@
   let auditReason = '';
   let mutationState: 'idle' | 'loading' | 'error' = 'idle';
   let mutationMessage = '';
+  let notificationError = false;
   let mutationRequestId = '';
   let mutationSignature = '';
   let mutationKey = '';
@@ -156,7 +159,7 @@
     selectedStatus = staff.active ? 'active' : 'inactive';
     auditReason = '';
     mutationState = 'idle';
-    mutationMessage = '';
+    notificationError = false; mutationMessage = '';
     mutationRequestId = '';
   }
 
@@ -165,7 +168,7 @@
     manageTarget = null;
     auditReason = '';
     mutationState = 'idle';
-    mutationMessage = '';
+    notificationError = false; mutationMessage = '';
     mutationRequestId = '';
   }
 
@@ -195,7 +198,7 @@
     const tenantId = activeTenantId;
     const generation = loadGeneration;
     mutationState = 'loading';
-    mutationMessage = '';
+    notificationError = false; mutationMessage = '';
     mutationRequestId = '';
     try {
       if (manageTarget) {
@@ -207,7 +210,7 @@
           auditReason: auditReason.trim(),
           idempotencyKey: mutationKey,
         });
-        mutationMessage = 'Staff membership access updated.';
+        notificationError = false; mutationMessage = 'Staff membership access updated.';
       } else if (revokeTarget) {
         await backendClient.revokeAdminInvite({
           tenantId,
@@ -215,7 +218,7 @@
           auditReason: auditReason.trim(),
           idempotencyKey: mutationKey,
         });
-        mutationMessage = 'Pending invitation revoked.';
+        notificationError = false; mutationMessage = 'Pending invitation revoked.';
       } else {
         return;
       }
@@ -227,7 +230,7 @@
       mutationState = 'error';
       mutationRequestId =
         error instanceof BackendApiError ? error.requestId || '' : '';
-      mutationMessage = error instanceof BackendApiError && error.status === 403
+      notificationError = true; mutationMessage = error instanceof BackendApiError && error.status === 403
         ? 'Only organization owners can change staff access.'
         : 'Staff access could not be changed.';
     }
@@ -236,17 +239,17 @@
   async function resendInvite(invite: AdminStaffDirectory['pendingInvites'][number]) {
     if (!activeTenantId || inviteActionId) return;
     inviteActionId = invite.id;
-    mutationMessage = '';
+    notificationError = false; mutationMessage = '';
     try {
       await backendClient.resendAdminInvite({
         tenantId: activeTenantId,
         inviteId: invite.id,
         idempotencyKey: createIdempotencyKey(`invite-resend-${invite.id}`),
       });
-      mutationMessage = `Invitation resent to ${invite.email}. Its original expiration is unchanged.`;
+      notificationError = false; mutationMessage = `Invitation resent to ${invite.email}. Its original expiration is unchanged.`;
       await loadStaffDirectory(activeTenantId);
     } catch (error) {
-      mutationMessage = error instanceof BackendApiError ? error.message : 'The invitation could not be resent.';
+      notificationError = true; mutationMessage = error instanceof BackendApiError ? error.message : 'The invitation could not be resent.';
     } finally {
       inviteActionId = '';
     }
@@ -255,9 +258,9 @@
   async function copyInviteLink(invite: AdminStaffDirectory['pendingInvites'][number]) {
     try {
       await navigator.clipboard.writeText(new URL(`/invite/${encodeURIComponent(invite.id)}`, window.location.origin).toString());
-      mutationMessage = `Invite link copied for ${invite.email}. It expires ${formatDate(invite.expiresAt)} and only the invited address can accept it.`;
+      notificationError = false; mutationMessage = `Invite link copied for ${invite.email}. It expires ${formatDate(invite.expiresAt)} and only the invited address can accept it.`;
     } catch {
-      mutationMessage = 'The browser could not copy the invitation link.';
+      notificationError = true; mutationMessage = 'The browser could not copy the invitation link.';
     }
   }
 
@@ -268,6 +271,7 @@
   <InviteStaffModal
     on:success={() => {
       showModal = false;
+      notificationError = false; mutationMessage = 'Staff invitation sent';
       if (activeTenantId) void loadStaffDirectory(activeTenantId);
     }}
     on:cancel={() => { showModal = false; }}
@@ -286,7 +290,7 @@
         on:click={() => closeLifecycleDialog()}
       ></button>
       <div
-        class="relative z-10 w-full max-w-lg rounded-xl bg-white p-6 shadow-xl"
+        class="staff-access-dialog crm-auth-card relative z-10 w-full max-w-lg rounded-xl p-6 shadow-xl"
         tabindex="-1"
         use:modalFocus={{ onEscape: () => closeLifecycleDialog(), initialFocusSelector: '[data-staff-cancel]' }}
       >
@@ -357,7 +361,7 @@
             type="button"
             data-staff-cancel
             disabled={mutationState === 'loading'}
-            class="rounded-md border border-gray-300 px-4 py-2 text-sm disabled:opacity-50"
+            class="crm-auth-button-secondary"
             on:click={() => closeLifecycleDialog()}
           >Cancel</button>
           <button
@@ -369,7 +373,7 @@
                 && selectedRole === manageTarget.role
                 && selectedStatus === (manageTarget.active ? 'active' : 'inactive')
               )}
-            class="crm-ui-danger-button"
+            class={manageTarget ? 'crm-auth-button-primary' : 'crm-ui-danger-button'}
             on:click={confirmLifecycleChange}
           >{mutationState === 'loading'
             ? 'Saving…'
@@ -384,21 +388,16 @@
   </div>
 {/if}
 
-<div class="flex h-full flex-col space-y-6 overflow-y-auto bg-white p-4 sm:p-6">
-  <div class="flex flex-wrap items-center justify-between gap-3">
-    <div>
-      <h2 class="crm-ui-page-title">Staff access</h2>
-    </div>
-    <button type="button" on:click={() => showModal = true} class="rounded-md bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-medium text-[var(--crm-on-primary)] shadow-sm hover:bg-[var(--crm-brand-primary-hover)]">
-      Invite staff
-    </button>
-  </div>
+<BrandedWorkspace title="Staff access" eyebrow="Program access" panel={false}>
+  <button slot="actions" type="button" on:click={() => showModal = true} class="crm-auth-button-secondary">Invite staff</button>
   {#if mutationMessage && !manageTarget && !revokeTarget}
-    <p class="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800" role="status">
+    <p use:toast={{dismiss: () => mutationMessage = ''}} class="rounded-md border p-3 text-sm" class:bg-green-50={!notificationError} class:text-green-800={!notificationError} class:bg-red-50={notificationError} class:text-red-800={notificationError} role={notificationError ? 'alert' : 'status'}>
       {mutationMessage}
     </p>
   {/if}
 
+  <section class="crm-branded-panel crm-branded-panel--flush staff-directory-panel">
+  <div class="p-4 sm:p-6">
   <RecordToolbar activeCount={[searchQuery.trim(), roleFilter, statusFilter, verificationFilter].filter(Boolean).length}>
     <select slot="view" aria-label="Staff view" bind:value={activeTab}>
       <option value="Directory">Staff directory</option><option value="Invites">Pending invites</option>
@@ -424,6 +423,7 @@
     </label>
   </div>
   </RecordToolbar>
+  </div>
 
   {#if activeListTruncated}
     <p class="crm-ui-notice-card" role="status">
@@ -431,7 +431,7 @@
     </p>
   {/if}
 
-  <div class="rounded-xl border border-gray-200 bg-white text-gray-900" aria-label={activeTab === 'Directory' ? 'Staff directory' : 'Pending invitations'}>
+  <div class="border-t border-gray-200 text-gray-900" aria-label={activeTab === 'Directory' ? 'Staff directory' : 'Pending invitations'}>
     {#if isLoading}
       <p class="p-6 text-center" role="status">Loading staff access…</p>
     {:else if loadError}
@@ -459,4 +459,12 @@
       {/each}
     {/if}
   </div>
-</div>
+  </section>
+</BrandedWorkspace>
+
+<style>
+  .staff-access-dialog{border-top:3px solid var(--crm-brand-secondary)}
+  .staff-access-dialog h3{color:var(--crm-brand-link);font-weight:750;font-size:1.25rem}
+  .staff-access-dialog :is(input,select,textarea){border-radius:.6rem;background:#f4f6f8;min-height:44px}
+  .staff-access-dialog button{width:auto}
+</style>

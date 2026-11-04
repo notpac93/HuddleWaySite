@@ -46,7 +46,7 @@ export function reviewEventCsv(
 
   const teamCandidates = new Map<string, EventCsvTeam[]>();
   for (const team of teams) {
-    for (const key of [team.id.toLocaleLowerCase(), team.name.trim().toLocaleLowerCase()]) {
+    for (const key of new Set([team.id.trim().toLocaleLowerCase(), team.name.trim().toLocaleLowerCase()])) {
       teamCandidates.set(key, [...(teamCandidates.get(key) || []), team]);
     }
   }

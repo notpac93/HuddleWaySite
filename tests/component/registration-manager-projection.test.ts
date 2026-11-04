@@ -53,6 +53,7 @@ vi.mock('../../src/lib/services/DataStore', async () => {
     invoicesStore: writable([]),
     refundsStore: writable([]),
     eventsStore: writable([]),
+    teamsStore: writable([]),
   };
 });
 
@@ -209,7 +210,7 @@ describe('RegistrationManager projection and detail lifecycle', () => {
       'registration-forms-Active',
     );
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Retired' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Archived' }));
     expect(screen.getAllByText('Spring Registration').length)
       .toBeGreaterThan(0);
     expect(screen.queryByText('Fall Registration')).toBeNull();
@@ -232,11 +233,11 @@ describe('RegistrationManager projection and detail lifecycle', () => {
 
     await fireEvent.click(
       screen.getByRole('button', {
-        name: 'Create New Registration Form',
+        name: 'New form',
       }),
     );
     expect(
-      screen.getByRole('dialog', { name: 'Create New Registration Form' }),
+      screen.getByRole('dialog', { name: 'Create registration form' }),
     ).toBeVisible();
     await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   });
@@ -278,7 +279,7 @@ describe('RegistrationManager projection and detail lifecycle', () => {
     });
 
     expect(
-      screen.getByText('No registration forms are available in this view.'),
+      screen.getByText('No registration forms in this view.'),
     ).toBeVisible();
     expect(screen.queryByRole('alert')).toBeNull();
     expect(
@@ -294,23 +295,25 @@ describe('RegistrationManager projection and detail lifecycle', () => {
     });
 
     await fireEvent.click(screen.getByRole('button', {
-      name: 'Create New Registration Form',
+      name: 'New form',
     }));
-    await fireEvent.input(screen.getByLabelText('Registration Title *'), {
+    await fireEvent.input(screen.getByLabelText('Form name'), {
       target: { value: 'Immediate Registration' },
     });
-    await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    await fireEvent.click(screen.getByRole('button', { name: 'Save Form' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Customize' }));
+    while (screen.queryByRole('button', { name: /Next:/ })) await fireEvent.click(screen.getByRole('button', { name: /Next:/ }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Preview' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Save form' }));
 
     expect(await screen.findByRole('status')).toHaveTextContent(
       'Registration form “Immediate Registration” created.',
     );
-    expect(screen.getByRole('button', { name: 'Active' })).toHaveTextContent('Active (1)');
+    expect(screen.getByRole('button', { name: 'Open' })).toHaveTextContent('Open (1)');
     expect(screen.getAllByText('Immediate Registration').length).toBeGreaterThan(0);
     expect(serviceMocks.createRegistrationForm).toHaveBeenCalledTimes(1);
 
     await fireEvent.click(screen.getByRole('button', {
-      name: 'Dismiss registration form receipt',
+      name: 'Dismiss success notification',
     }));
     expect(screen.queryByText(
       'Registration form “Immediate Registration” created.',
@@ -326,7 +329,7 @@ describe('RegistrationManager projection and detail lifecycle', () => {
       subscriptions[0].next([activeForm]);
     });
 
-    await fireEvent.click(screen.getAllByRole('button', { name: 'Fall Registration' })[0]);
+    await fireEvent.click(screen.getAllByRole('button', { name: /^Fall Registration/ })[0]);
     expect(
       await screen.findByText(
         'You do not have permission to view this registration detail.',
@@ -346,9 +349,9 @@ describe('RegistrationManager projection and detail lifecycle', () => {
       name: 'Edit Registration Form',
     }));
     expect(screen.getByRole('dialog', {
-      name: 'Edit Registration Form',
+      name: 'Edit registration form',
     })).toBeVisible();
-    expect(screen.getByLabelText('Registration Title *')).toHaveValue('Fall Registration');
+    expect(screen.getByLabelText('Form name')).toHaveValue('Fall Registration');
     expect(screen.queryByText('Reason for change')).toBeNull();
     await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
@@ -367,7 +370,7 @@ describe('RegistrationManager projection and detail lifecycle', () => {
     });
     expect(
       screen.getByRole('button', {
-        name: 'Create New Registration Form',
+        name: 'New form',
       }),
     ).toBeVisible();
     expect(screen.queryByText('Jordan Player')).toBeNull();
@@ -380,7 +383,7 @@ describe('RegistrationManager projection and detail lifecycle', () => {
     await act(async () => {
       subscriptions[0].next([activeForm]);
     });
-    await fireEvent.click(screen.getAllByRole('button', { name: 'Fall Registration' })[0]);
+    await fireEvent.click(screen.getAllByRole('button', { name: /^Fall Registration/ })[0]);
 
     await act(async () => {
       tenants.set('tenant-b');
@@ -398,7 +401,7 @@ describe('RegistrationManager projection and detail lifecycle', () => {
     expect(screen.queryByText('Stale Participant')).toBeNull();
     expect(
       screen.getByRole('button', {
-        name: 'Create New Registration Form',
+        name: 'New form',
       }),
     ).toBeVisible();
   });

@@ -1,13 +1,31 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { activeTenantRole, tenantIdStore } from '../../../lib/authStore';
   import { backendClient } from '../../../lib/api/backendClient';
+  import RosterPlayerEditor from './RosterPlayerEditor.svelte';
+  import { teamsStore, seasonsStore } from '../../../lib/services/DataStore';
+  import type { RosterPlayerDetails } from '../../../lib/api/BackendApi';
   import { billingOperationsApi } from '../../../lib/api/BillingOperationsApi';
   import { BackendApiError, createIdempotencyKey, type ParticipantInstallmentAgreement, type ParticipantRelationships, type RosterPlayerRecord } from '../../../lib/api/BackendApi';
 
   export let player: RosterPlayerRecord;
   export let onClose: () => void = () => {};
   export let onChanged: () => void = () => {};
+
+  let editorDetails: RosterPlayerDetails | null = null;
+  let editorLoading = false;
+  let alive = true;
+  onDestroy(() => { alive = false; });
+  async function openEditor() {
+    const tenantId = $tenantIdStore;
+    if (!tenantId || editorLoading) return;
+    editorLoading = true;
+    try {
+      const result = await backendClient.rosterPlayerDetails(tenantId, player.id);
+      if (alive && tenantId === $tenantIdStore && result.tenantId === tenantId && result.registrationId === player.id) editorDetails = result;
+    } catch { if (alive && tenantId === $tenantIdStore) errorMessage = 'Player editor could not be loaded.'; }
+    finally { if (alive) editorLoading = false; }
+  }
 
   let relationships: ParticipantRelationships | null = null;
   let agreements: ParticipantInstallmentAgreement[] = [];
@@ -151,7 +169,7 @@
   <div class="h-full w-full max-w-xl overflow-y-auto bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="participant-title">
     <header class="sticky top-0 z-10 flex items-start justify-between border-b border-gray-200 bg-white px-5 py-4">
       <div><h2 id="participant-title" class="text-xl font-bold text-gray-950">{player.name}</h2><p class="text-sm text-gray-600">Participant details</p></div>
-      <button type="button" class="rounded-md px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100" on:click={onClose}>Close</button>
+      <div class="flex gap-2"><button type="button" class="crm-ui-button-secondary" disabled={editorLoading} on:click={openEditor}>{editorLoading ? 'Loading…' : 'Edit'}</button><button type="button" class="rounded-md px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100" on:click={onClose}>Close</button></div>
     </header>
     <div class="space-y-5 p-5">
       {#if !player.participantId}
@@ -203,3 +221,5 @@
     </div>
   </div>
 </div>
+
+{#if editorDetails}<RosterPlayerEditor details={editorDetails} teams={$teamsStore} seasons={$seasonsStore} onClose={() => editorDetails = null} onSaved={() => { editorDetails = null; onChanged(); void loadDetails(); }} />{/if}

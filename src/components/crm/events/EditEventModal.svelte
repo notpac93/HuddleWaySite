@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { RegistrationService } from '../../../lib/services/RegistrationService';
+  import RegistrationMethodPicker from './RegistrationMethodPicker.svelte';
   import { eventCurrency, eventPriceCents } from '../../../lib/ui/eventMoney';
   import { programTermsStore } from '../../../lib/crm/programVocabulary';
   import { createEventDispatcher, onDestroy } from 'svelte';
@@ -35,6 +37,19 @@
   let seasonCoverage = originalSeasonCoverage;
   $: seasonChanged = seasonId !== originalSeasonId || seasonCoverage !== originalSeasonCoverage;
   $: availableSeasons = $seasonsStore.filter((season) => ['active', 'upcoming'].includes(String(season.status || '')) && (!season.teamId || ['all', 'program', 'general'].includes(String(season.teamId)) || teamReferenceMatches(teamReferences, season.teamId, teamId)));
+  let registrationMethod: 'form' | 'easy' = event?.registrationMethod === 'easy' ? 'easy' : 'form';
+  let selectedFormId = String(event?.registrationFormId || '');
+  let forms: any[] = [];
+  let formsTenant = '';
+  let unsubscribeForms = () => {};
+  let formsError = '';
+  $: if (formsTenant !== ($tenantIdStore || '')) {
+    formsTenant = $tenantIdStore || ''; unsubscribeForms(); forms = []; formsError = '';
+    const tenant = formsTenant;
+    unsubscribeForms = tenant ? RegistrationService.subscribeToForms(tenant, rows => {
+      if (formsTenant === tenant) forms = rows.filter(row => ['active', 'open'].includes(String(row.rawStatus || row.status || '').toLowerCase()));
+    }, () => { if (formsTenant === tenant) formsError = 'Registration forms could not be loaded.'; }) : () => {};
+  }
   let lifecycleStatus = event ? event.lifecycleStatus || 'draft' : 'draft';
   let imageUrl = event ? event.imageUrl || '' : '';
   let imageFile: File | null = null;
@@ -94,6 +109,8 @@
     location: location.trim(),
     teamId,
     lifecycleStatus,
+    registrationMethod,
+    selectedFormId,
     imageUrl: imageUrl.trim(),
     imageFile: imageFile
       ? { name: imageFile.name, type: imageFile.type, size: imageFile.size }
@@ -133,6 +150,7 @@
 
   onDestroy(() => {
     operationGeneration += 1;
+    unsubscribeForms();
   });
 
   function handleClose() {
@@ -143,6 +161,7 @@
 
   async function handleSave() {
     if (submitState === 'loading' || !event?.id) return;
+    if (registrationMethod === 'form' && event?.registrationMethod === 'easy' && !selectedFormId && !event?.registrationFormConfig?.sections?.length) { errorMessage = 'Choose a registration form.'; return; }
     const tenantId = $tenantIdStore;
     if (!tenantId) {
       errorMessage = 'Select an organization and sign in before editing events.';
@@ -218,6 +237,8 @@
         title: title.trim(),
         applyToSeries: applyToSeries && Boolean(event.eventSeriesId),
       };
+      if (registrationMethod !== (event.registrationMethod || 'form')) update.registrationMethod = registrationMethod;
+      if (registrationMethod === 'form' && selectedFormId !== String(event.registrationFormId || '')) update.registrationFormId = selectedFormId || null;
       if (seasonChanged) { update.seasonId = seasonId || null; update.seasonCoverage = seasonCoverage; }
       if (location !== originalLocation) update.location = location.trim();
       if (teamId !== originalSelectedTeamId) update.teamId = teamId;
@@ -400,6 +421,11 @@
           />
         </div>
 
+        <RegistrationMethodPicker bind:value={registrationMethod} />
+        {#if registrationMethod === 'form' && event?.registrationMethod === 'easy'}
+          <label class="crm-ui-label block">Registration form<select class="crm-ui-input mt-2" bind:value={selectedFormId}><option value="">Choose a form</option>{#each forms as form}<option value={form.id}>{form.title}</option>{/each}</select></label>
+          {#if formsError}<p role="alert">{formsError}</p>{/if}
+        {/if}
         <!-- Team Assignment & Status -->
         <div class="grid grid-cols-2 gap-3">
           <div>

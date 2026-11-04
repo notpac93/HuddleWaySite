@@ -57,18 +57,16 @@ function inviteRecord() {
 }
 
 async function fillInvite(email = 'coach@example.test') {
-  await fireEvent.input(screen.getByLabelText('First Name *'), {
+  await fireEvent.input(screen.getByLabelText('First name *'), {
     target: { value: 'Jordan' },
   });
-  await fireEvent.input(screen.getByLabelText('Last Name *'), {
+  await fireEvent.input(screen.getByLabelText('Last name *'), {
     target: { value: 'Coach' },
   });
-  await fireEvent.input(screen.getByLabelText('Email Address *'), {
+  await fireEvent.input(screen.getByLabelText('Email *'), {
     target: { value: email },
   });
-  await fireEvent.change(screen.getByLabelText('Role'), {
-    target: { value: 'viewer' },
-  });
+  await fireEvent.click(screen.getByRole('radio', { name: /Viewer/ }));
 }
 
 describe('InviteStaffModal command states', () => {
@@ -92,10 +90,10 @@ describe('InviteStaffModal command states', () => {
     );
     render(TestedInviteStaffModal);
 
-    expect(screen.getByRole('button', { name: 'Review Invite' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
     await fillInvite(' COACH@Example.Test ');
-    await fireEvent.click(screen.getByRole('button', { name: 'Review Invite' }));
-    const submit = screen.getByRole('button', { name: 'Confirm & Send Invite' });
+    await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    const submit = screen.getByRole('button', { name: 'Send invite' });
     await fireEvent.click(submit);
     await fireEvent.click(submit);
 
@@ -108,16 +106,31 @@ describe('InviteStaffModal command states', () => {
       role: 'viewer',
       idempotencyKey: expect.stringMatching(/^staff-invite:/),
     });
-    expect(screen.getByRole('button', { name: 'Sending...' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Sending…' })).toBeDisabled();
     expect(
       screen.getByRole('button', { name: 'Cancel staff invitation' }),
     ).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Back' })).toBeDisabled();
 
     resolveInvite?.(inviteRecord());
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Sent!' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Sent' })).toBeDisabled();
     });
+  });
+
+  it('shows only the recipient and selected access in review, and keeps values when returning', async () => {
+    render(TestedInviteStaffModal);
+    await fillInvite();
+    await fireEvent.click(screen.getByRole('radio', { name: /Editor/ }));
+    expect(screen.getByText('No finances, staff, or activity access.')).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getByRole('region', { name: 'Invitation review' })).toHaveTextContent('Jordan Coach');
+    expect(screen.queryByLabelText('Email *')).toBeNull();
+    expect(screen.getByText('Editor')).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByLabelText('Email *')).toHaveValue('coach@example.test');
+    expect(screen.getByRole('radio', { name: /Editor/ })).toBeChecked();
+    expect(backendClient.createAdminInvite).not.toHaveBeenCalled();
   });
 
   it('shows a support-safe error and preserves the key for an unchanged retry', async () => {
@@ -136,15 +149,15 @@ describe('InviteStaffModal command states', () => {
     render(TestedInviteStaffModal);
     await fillInvite();
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Review Invite' }));
-    await fireEvent.click(screen.getByRole('button', { name: 'Confirm & Send Invite' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Send invite' }));
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('The staff invitation could not be sent.');
     expect(alert).not.toHaveTextContent('invite-request-safe');
     expect(alert).not.toHaveTextContent('provider token');
     const firstKey = inviteMock.mock.calls[0][0].idempotencyKey;
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Retry Invite' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(inviteMock).toHaveBeenCalledTimes(2);
     expect(inviteMock.mock.calls[1][0].idempotencyKey).toBe(firstKey);
   });
@@ -156,17 +169,18 @@ describe('InviteStaffModal command states', () => {
     render(TestedInviteStaffModal);
     await fillInvite();
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Review Invite' }));
-    await fireEvent.click(screen.getByRole('button', { name: 'Confirm & Send Invite' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Send invite' }));
     await screen.findByRole('alert');
     const firstKey = inviteMock.mock.calls[0][0].idempotencyKey;
 
-    await fireEvent.input(screen.getByLabelText('Email Address *'), {
+    await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    await fireEvent.input(screen.getByLabelText('Email *'), {
       target: { value: 'assistant@example.test' },
     });
-    expect(screen.getByRole('button', { name: 'Review Invite' })).toBeEnabled();
-    await fireEvent.click(screen.getByRole('button', { name: 'Review Invite' }));
-    await fireEvent.click(screen.getByRole('button', { name: 'Confirm & Send Invite' }));
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Send invite' }));
     await waitFor(() => expect(inviteMock).toHaveBeenCalledTimes(2));
     expect(inviteMock.mock.calls[1][0].idempotencyKey).not.toBe(firstKey);
   });

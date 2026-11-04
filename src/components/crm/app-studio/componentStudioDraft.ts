@@ -105,6 +105,11 @@ export function validatePages(
   const issues: ComponentIssue[] = [];
   const instanceIds = new Set<string>();
   for (const page of pages) {
+    const heroes = page.components.filter((component) => component.type === 'hero_section');
+    if (heroes.length && (heroes.length > 1 || page.components[0]?.type !== 'hero_section' ||
+        !heroes[0].enabled || !heroes[0].isVisible)) {
+      issues.push({ fieldId: '', message: `${page.title}: keep one visible hero pinned first.` });
+    }
     let heroCount = 0;
     for (const component of page.components) {
       if (instanceIds.has(component.id)) {
@@ -137,10 +142,16 @@ export function validatePages(
   return issues;
 }
 
+export function isHeroDefinition(definition: Pick<CrmComponentDefinition, 'type'>) {
+  return ['hero', 'home_hero', 'hero_section'].includes(definition.type.trim().toLowerCase());
+}
+
 export function definitionAvailable(
   definition: CrmComponentDefinition,
   page: CrmComponentStudioPage,
 ) {
+  if (page.components.length >= 40) return false;
+  if (isHeroDefinition(definition)) return false;
   if (definition.repeatable) return true;
   return !page.components.some(
     (component) => component.definitionId === definition.id,

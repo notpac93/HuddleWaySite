@@ -81,8 +81,9 @@ describe('CRM performance source boundaries', () => {
     );
 
     expect(layout).toContain('href="/crm-favicon.png"');
+    // Compact event cards deliberately omit imagery.
+    expect(eventScheduler).not.toContain('<img');
     for (const component of [
-      eventScheduler,
       mediaManager,
       playerTable,
       seasonsManager,

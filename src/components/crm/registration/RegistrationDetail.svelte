@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { toast } from '../ui/toast';
   import { eventPriceLabel } from '../../../lib/ui/eventMoney';
   import { createEventDispatcher } from 'svelte';
   import { DataStore, transactionsStore, invoicesStore, refundsStore, eventsStore } from '../../../lib/services/DataStore';
@@ -239,7 +240,7 @@
     <h2 class="min-w-0 break-words text-2xl sm:text-[28px] font-extrabold text-[var(--crm-brand-link)] leading-none tracking-tight">{selectedForm.name}</h2>
   </div>
   <div class="flex flex-wrap gap-2 sm:justify-end">
-    <button type="button" on:click={() => dispatch('edit')} class="bg-[var(--crm-brand-surface)] text-[var(--crm-brand-link)] border border-[var(--crm-brand-border)] px-4 py-1.5 rounded text-sm font-semibold hover:bg-[var(--crm-brand-surface-strong)] flex items-center transition-colors">Edit Registration Form</button>
+    <button type="button" on:click={() => dispatch('edit')} class="crm-ui-button-primary">Edit Registration Form</button>
     {#if isRetired}
       <button type="button" class="crm-ui-button-primary" disabled={Boolean(reactivationError)} title={reactivationError ? `Cannot reactivate: ${reactivationError}` : undefined} on:click={() => lifecycleTarget = 'active'}>Reactivate form</button>
     {:else}
@@ -248,7 +249,7 @@
   </div>
 </div>
 
-{#if lifecycleReceipt}<p class="mb-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800" role="status">{lifecycleReceipt}</p>{/if}
+{#if lifecycleReceipt}<p use:toast={{dismiss: () => lifecycleReceipt = ''}} class="mb-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800" role="status">{lifecycleReceipt}</p>{/if}
 
 {#if error}
   <div class="mb-4 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">

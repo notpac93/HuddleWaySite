@@ -55,6 +55,22 @@ describe('CRM interaction hardening source evidence', () => {
 
     const failures = modalComponents.filter((component) => {
       const componentSource = source(component);
+      if (component === 'events/CreateEventForm.svelte') {
+        expect(componentSource).toContain('use:fullscreenMessage');
+        expect(componentSource).toContain('schedule-create-screen');
+        expect(source('events/schedule-creation.css')).toMatch(/\.schedule-create-screen[^}]*position:fixed[^}]*z-index:200/);
+        return false;
+      }
+      if (component === 'teams/CreateTeamForm.svelte') {
+        expect(componentSource).toMatch(/\.team-editor-backdrop[^}]*position:fixed/);
+        expect(componentSource).toMatch(/\.team-editor\{[^}]*position:relative[^}]*z-index:10/);
+        return false;
+      }
+      if (component === 'InviteStaffModal.svelte') {
+        expect(componentSource).toContain('class="crm-ui-backdrop"');
+        expect(componentSource).toContain('staff-invite-card crm-auth-card relative z-10');
+        return false;
+      }
       const hasBackdrop = componentSource.match(
         /<button[^>]*class="(?:crm-ui-backdrop|fixed inset-0 z-0 [^"]*bg-gray-500)/,
       );

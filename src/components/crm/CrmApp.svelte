@@ -166,10 +166,8 @@
     { name: 'Messages', icon: 'messages' },
     { name: 'Documents', icon: 'documents' },
     { name: 'Staff', icon: 'staff' },
-    { name: 'Media', icon: 'media' },
     { name: 'My App', icon: 'myApp' },
     { name: 'Settings', label: 'My profile', icon: 'profile' },
-    { name: 'Activity', icon: 'activity' },
   ];
   if (
     import.meta.env.DEV

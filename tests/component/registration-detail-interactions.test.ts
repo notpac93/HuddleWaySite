@@ -115,11 +115,12 @@ describe('RegistrationDetail table interactions', () => {
     // Use the actual rendered detail and the manager's actual layout classes.
     // JSDOM does not compute flex geometry, so measure in an offline browser.
     const managerSource = await readFile('src/components/crm/registration/RegistrationManager.svelte', 'utf8');
-    const managerClass = managerSource.match(/<div class="(h-full[^"\n]+)"/)![1];
-    const html = `<div class="layout-root"><main class="layout-main"><header class="layout-header">Program</header><div class="layout-content"><div class="layout-slot"><div class="layout-back">More</div><div class="${managerClass}" data-manager>${rendered.container.innerHTML}</div></div></div></main><nav class="layout-footer">Admin navigation</nav></div>`;
+    const managerClass = managerSource.match(/<div class="(crm-registration-workspace[^"\n]+)"/)![1];
+    const registrationCss = await readFile('src/components/crm/registration/registration.css', 'utf8');
+    const html = `<div class="layout-root"><main class="layout-main"><header class="layout-header">Program</header><div class="layout-content"><div class="layout-slot"><div class="layout-back">More</div><div class="${managerClass}" data-manager><section class="crm-registration-panel crm-registration-detail">${rendered.container.innerHTML}</section></div></div></div></main><nav class="layout-footer">Admin navigation</nav></div>`;
     const compiler = await compile('@import "tailwindcss";', { base: process.cwd(), onDependency() {} });
     const candidates = [...html.matchAll(/class="([^"]+)"/g)].flatMap(match => match[1].split(/\s+/));
-    const css = compiler.build(candidates) + `
+    const css = compiler.build(candidates) + registrationCss + `
       .layout-root{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
       .layout-main{display:flex;flex:1;min-height:0;flex-direction:column;overflow-y:auto}
       .layout-header{position:sticky;top:0;z-index:40;flex-shrink:0;min-height:68px}
