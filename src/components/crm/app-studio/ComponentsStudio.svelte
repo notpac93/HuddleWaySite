@@ -133,6 +133,13 @@
         }
       }
     }
+    // A shared edit made on another page must stay shared after this page is reset.
+    for (const source of sources) {
+      const baseline = snapshot.sources?.find((item) => item.kind === source.kind && item.id === source.id);
+      for (const [key, value] of Object.entries(source.values)) {
+        if (baseline && value !== baseline.values[key]) changeSharedSource(source, key, value, false);
+      }
+    }
     addingComponent = null; addingDefinition = null; lastRemoval = null;
     selectedComponentId = pages.find((page) => page.id === selectedPageId)?.components[0]?.id || '';
     lastHistoryField = '';
