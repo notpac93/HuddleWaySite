@@ -9,6 +9,7 @@
   export let adding = false;
   export let busy = false;
   export let sectionMode = false;
+  export let textOnly = false;
   export let onChange: (fieldId: string, value: unknown) => void;
   export let onFieldFocus: (fieldId: string) => void;
   export let onToggleVisibility: () => void;
@@ -19,6 +20,7 @@
   $: issues = validateComponent(component, definition);
   $: fields = (definition?.fields || []).filter((field) => !sectionMode ||
     !['registrationEventId', 'eventIds', 'dataBindingSource', 'dataBindingMode', 'dataBindingFallback', 'dataBindingSort', 'teamBindingMode', 'teamFilter'].includes(field.id))
+    .filter((field) => !textOnly || ['text', 'multiline_text', 'string_list', 'items', 'profiles', 'highlights'].includes(field.type))
     .map((field) => sectionMode && ['text', 'multiline_text'].includes(field.type)
     ? { ...field, label: wordingLabel(component, field), maxLength: wordingLimit(component, field) } : field);
   const removedText = new Map<string, string>();
@@ -47,7 +49,7 @@
   }
 </script>
 
-<section aria-labelledby="component-editor-title" class="min-w-0 rounded-xl border border-gray-200 bg-white p-5">
+<section class:text-only={textOnly} aria-labelledby="component-editor-title" class="min-w-0 rounded-xl border border-gray-200 bg-white p-5">
   <div class="flex flex-wrap items-start justify-between gap-3">
     <div>
       <p class="crm-theme-link text-xs font-semibold uppercase tracking-wide">{adding ? 'Preview before adding' : 'Editing component'}</p>
@@ -65,11 +67,11 @@
   {/if}
 
   {#if definition}
-    <div class="mt-5 space-y-4">
+    <div class="field-list mt-5 space-y-4">
       {#each fields as field (field.id)}
         <div>
           {#if sectionMode && textRemovalAllowed(field)}
-            <div class="flex justify-end"><button type="button" class="text-sm underline" disabled={busy} on:click={() => inputValue(field.id) ? removeText(field.id) : restoreText(field.id)}>{inputValue(field.id) ? 'Remove text' : 'Restore text'}</button></div>
+            <div class="float-right ml-3"><button type="button" class="text-sm underline" disabled={busy} on:click={() => inputValue(field.id) ? removeText(field.id) : restoreText(field.id)}>{inputValue(field.id) ? 'Remove text' : 'Restore text'}</button></div>
           {/if}
           {#if field.type === 'bool'}
             <label class="flex items-center gap-3 text-sm font-medium text-gray-800">
@@ -100,8 +102,8 @@
             <label for={`component-field-${component.id}-${field.id}`} class="block text-sm font-medium text-gray-800">{field.label || fieldLabel(field.id)}</label>
             <input id={`component-field-${component.id}-${field.id}`} type={field.type === 'number' ? 'number' : field.type === 'url' ? 'url' : 'text'} class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" value={inputValue(field.id)} maxlength={field.maxLength} required={field.required} disabled={busy} on:focus={() => onFieldFocus(field.id)} on:input={(event) => onChange(field.id, field.type === 'number' ? Number(event.currentTarget.value) : event.currentTarget.value)} />
           {/if}
-          {#if sectionMode && ['text', 'multiline_text'].includes(field.type) && !field.options?.length}
-            <p class="mt-1 text-xs text-gray-600">{inputValue(field.id).length} / {field.maxLength} characters · including spaces</p>
+          {#if sectionMode && ['text', 'multiline_text'].includes(field.type) && !field.options?.length && field.maxLength && inputValue(field.id).length >= Math.ceil(field.maxLength * 0.8)}
+            <p aria-live="polite" class="mt-1 text-xs text-gray-600">{inputValue(field.id).length >= field.maxLength ? 'Character limit reached' : `${field.maxLength - inputValue(field.id).length} characters left`}</p>
           {/if}
         </div>
       {/each}
@@ -117,3 +119,10 @@
     {/if}
   </div>
 </section>
+
+<style>
+  .text-only { border: 0; border-radius: 0; padding: 16px 20px; }
+  .text-only > div:first-child { display: none; }
+  .text-only .field-list { margin-top: 0; }
+  .text-only :global(textarea) { min-height: 72px; }
+</style>

@@ -9,10 +9,10 @@
 </script>
 
 {#each sources as source (`${source.kind}:${source.id}`)}
-  <details class="shared-source">
+  <details class="shared-source" open={sources.length === 1}>
     <summary>Edit {source.kind === 'team' ? 'team & coach information' : 'event information'} · {source.label}</summary>
     <div class="source-fields">
-      <p class="impact" role="note">{source.recurring ? 'This is a recurring event. Changes update the whole recurring event and all connected schedules and pages.' : 'This is shared information. Changes update the owner’s records and every connected appearance automatically.'}</p>
+      {#if source.kind === 'event' && source.recurring}<p class="impact" role="note"><strong>This is a recurring event.</strong> Updates appear on its event pages, family schedules, and owner records automatically.</p>{/if}
       {#each Object.entries(source.values).filter(([key]) => source.kind === 'event' || (componentType === 'hero_section' ? key === 'name' : ['coachName', 'coachRole'].includes(key))) as [key, value] (key)}
         <div class="source-field"><label for={`source-${source.kind}-${source.id}-${key}`}>{labels[key] || key}</label>
           {#if key === 'description'}
@@ -20,7 +20,7 @@
           {:else}
             <input id={`source-${source.kind}-${source.id}-${key}`} type="text" {value} maxlength={limits[key]} required={key === 'name' || key === 'title'} disabled={busy} on:input={(event) => onChange(source, key, event.currentTarget.value)} />
           {/if}
-          <span>{value.length} / {limits[key]} characters</span>
+          {#if limits[key] && value.length >= Math.ceil(limits[key] * 0.8)}<span aria-live="polite">{value.length >= limits[key] ? 'Character limit reached' : `${limits[key] - value.length} characters left`}</span>{/if}
         </div>
       {/each}
     </div>

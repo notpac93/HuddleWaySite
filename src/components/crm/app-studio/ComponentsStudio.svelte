@@ -24,7 +24,7 @@
   import CanvasEditingToolbar from './CanvasEditingToolbar.svelte';
   import { createCanvasEditingSession } from './canvasEditingSession';
   import { canvasPageDraft } from './canvasPageDraft';
-  import { restorePage, pageHasEdits, connectedContentNotice } from './sectionEditing';
+  import { restorePage, pageHasEdits } from './sectionEditing';
   import SharedSectionEditor from './SharedSectionEditor.svelte';
   import { sectionSourcePreview } from './sectionSourcePreview';
   import { insertComponent, moveComponentTo, locationLabel, type LayoutLocation } from './componentLayoutCommands';
@@ -64,6 +64,8 @@
   let addingDefinition: CrmComponentDefinition | null = null;
   let libraryOpen = false;
   let editorOpen = false;
+  let selectedSourceId = '';
+  $: selectedSource = selectedSources.find((source) => `${source.kind}:${source.id}` === selectedSourceId);
   let selectedFieldId = '';
   let state: 'idle' | 'loading' | 'ready' | 'error' | 'publishing' = 'idle';
   let message = '';
@@ -282,7 +284,8 @@
   function selectPage(pageId: string) {
     canvasAction.reset();
     lastHistoryField = '';
-    editorOpen = canvasOnly;
+    editorOpen = false;
+    selectedSourceId = '';
     selectedPageId = pageId; message = canvasOnly && !pages.find((page) => page.id === pageId)?.components.length ? 'This page has no editable wording yet. You can still use its tabs.' : '';
     selectedComponentId = pages.find((page) => page.id === pageId)?.components[0]?.id || '';
     addingComponent = null;
@@ -291,6 +294,7 @@
   }
 
   function selectComponent(component: CrmPageComponent) {
+    selectedSourceId = '';
     lastHistoryField = '';
     editorOpen = true;
     selectedComponentId = component.id;
@@ -337,6 +341,7 @@
   }
 
   function closeEditor() {
+    selectedSourceId = '';
     editorOpen = false;
     selectedComponentId = '';
     addingComponent = null;
@@ -490,7 +495,8 @@
 {#if canvasOnly}
   <CanvasEditingToolbar {pages} pageId={selectedPageId} busy={state === 'publishing'} {dirty} canUndoPage={currentPageDirty || Object.values(sourceOrigins).includes(selectedPageId)} onUndoPage={undoPageEdits} canUndo={undoStack.length > 0 && !canvasTextActive} canRedo={redoStack.length > 0 && !canvasTextActive && sourceEdits.length === 0} canPublish={dirty && issues.length === 0 && state === 'ready' && previewSynced && !addingComponent && !canvasTextActive} retryable={state === 'error'} onRetry={() => resetAndLoad(tenantId)} message={state === 'loading' ? 'Loading editing guides…' : message} canManage={!canvasTextActive && state === 'ready'} onDiscard={discardChanges} onHistory={() => historyOpen = true} onPage={selectPage} onUndo={() => undo()} onRedo={() => undo(true)} onReview={() => showPublishReview = true} {onDone} {onSettings} />
   {#if snapshot && selectedPage && canvasEditing}
-    <section class="section-edit-page" aria-label={`${selectedPage.title} section editor`}>
+    <section class:sheet-open={editorOpen || libraryOpen} class="section-edit-page" aria-label={`${selectedPage.title} section editor`}>
+      {#if editorOpen || libraryOpen}<header class="sheet-heading"><strong>{selectedSource ? selectedSource.label : selectedComponent?.label || 'Edit section'}</strong><button type="button" on:click={() => { closeEditor(); libraryOpen = false; }}>Done</button></header>{/if}
       <nav class="section-choices" aria-label="Sections on this page">
         {#each selectedPage.components as component (component.id)}
           <button type="button" aria-pressed={selectedComponentId === component.id} disabled={state !== 'ready'} on:click={() => selectComponent(component)}>{component.label}{!component.isVisible || !component.enabled ? ' · Hidden' : ''}</button>
@@ -500,9 +506,15 @@
       {#if libraryOpen}
         <ComponentLibrary definitions={snapshot.definitions} page={selectedPage} onChoose={chooseDefinition} onClose={() => libraryOpen = false} />
       {:else if selectedComponent}
-        {#if connectedContentNotice(selectedComponent)}<p class="connected-notice" role="note">{connectedContentNotice(selectedComponent)}</p>{/if}
-        <ComponentEditor sectionMode component={selectedComponent} definition={selectedDefinition} adding={Boolean(addingComponent)} busy={state !== 'ready'} onChange={changeField} onFieldFocus={focusPreviewField} onToggleVisibility={toggleVisibility} onRemove={() => removeSelected()} onConfirmAdd={confirmAdd} onCancel={closeEditor} />
-        <SharedSectionEditor sources={selectedSources.filter((source) => source.kind === 'event' || selectedComponent?.type !== 'schedule_section')} componentType={selectedComponent.type} busy={state !== 'ready'} onChange={changeSharedSource} />
+        {#if selectedSource}
+          <button type="button" class="source-back" on:click={() => selectedSourceId = ''}>Back to section</button>
+          <SharedSectionEditor sources={[selectedSource]} componentType={selectedComponent.type} busy={state !== 'ready'} onChange={changeSharedSource} />
+        {:else}
+        <ComponentEditor sectionMode textOnly component={selectedComponent} definition={selectedDefinition} adding={Boolean(addingComponent)} busy={state !== 'ready'} onChange={changeField} onFieldFocus={focusPreviewField} onToggleVisibility={toggleVisibility} onRemove={() => removeSelected()} onConfirmAdd={confirmAdd} onCancel={closeEditor} />
+        {#each selectedSources.filter((source) => source.kind === 'event' || selectedComponent?.type !== 'schedule_section') as source (`${source.kind}:${source.id}`)}
+          <button type="button" class="source-choice" on:click={() => selectedSourceId = `${source.kind}:${source.id}`}>Edit {source.kind === 'event' ? 'event information' : 'team & coach information'} · {source.label}</button>
+        {/each}
+        {/if}
       {:else}<p class="p-4 text-sm">Choose a section above, or select one in your app.</p>{/if}
     </section>
   {/if}
@@ -598,7 +610,17 @@
   .section-choices { display: flex; gap: 6px; flex-wrap: wrap; padding: 12px; border-bottom: 1px solid #dce2eb; }
   .section-choices button { min-height: 40px; padding: 6px 10px; border-radius: 8px; font-size: 13px; }
   .section-choices button[aria-pressed='true'] { background: var(--crm-brand-surface); color: var(--crm-brand-link); font-weight: 600; }
-  .connected-notice { margin: 12px; padding: 12px; border-radius: 10px; background: var(--crm-brand-surface); font-size: 13px; }
+  .sheet-heading { display: none; }
+  .source-choice { display: block; width: calc(100% - 40px); margin: 0 20px 14px; text-align: left; padding: 12px; border: 1px solid var(--crm-border, #dce2eb); border-radius: 10px; font-size: 14px; }
+  .source-back { margin: 12px 20px 0; min-height: 44px; color: var(--crm-brand-link); font-size: 14px; }
+  @media (max-width: 767px) {
+    .section-edit-page { display: none; }
+    .section-edit-page.sheet-open { display: block; position: absolute; bottom: 0; left: 0; right: 0; max-height: min(78%, calc(100% - 74px)); margin: 0; border-radius: 22px 22px 0 0; box-shadow: 0 -12px 40px #0003; padding-bottom: env(safe-area-inset-bottom); }
+    .sheet-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px 0; }
+    .sheet-heading strong { min-width: 0; overflow-wrap: anywhere; }
+    .sheet-heading button { min-height: 44px; padding: 8px; color: var(--crm-brand-link); }
+    .section-choices { display: none; }
+  }
   .layout-toolbar { gap: 8px; }
   .layout-toolbar label { display: flex; align-items: center; gap: 8px; }
   .layout-toolbar select { min-width: 0; width: 110px; margin-top: 0; }
