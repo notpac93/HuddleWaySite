@@ -33,8 +33,8 @@ export function connectedContentNotice(component: CrmPageComponent) {
   return '';
 }
 
-export function textRemovalAllowed(field: { id: string; type: string; required: boolean }) {
-  return ['text', 'multiline_text'].includes(field.type) && !field.required;
+export function textRemovalAllowed(field: { id: string; type: string; required: boolean; options?: string[] }) {
+  return ['text', 'multiline_text'].includes(field.type) && !field.required && !field.options?.length;
 }
 
 export function sectionTextFields(component: CrmPageComponent, definition?: CrmComponentDefinition) {

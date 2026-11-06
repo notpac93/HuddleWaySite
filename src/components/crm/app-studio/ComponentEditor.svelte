@@ -100,7 +100,7 @@
             <label for={`component-field-${component.id}-${field.id}`} class="block text-sm font-medium text-gray-800">{field.label || fieldLabel(field.id)}</label>
             <input id={`component-field-${component.id}-${field.id}`} type={field.type === 'number' ? 'number' : field.type === 'url' ? 'url' : 'text'} class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" value={inputValue(field.id)} maxlength={field.maxLength} required={field.required} disabled={busy} on:focus={() => onFieldFocus(field.id)} on:input={(event) => onChange(field.id, field.type === 'number' ? Number(event.currentTarget.value) : event.currentTarget.value)} />
           {/if}
-          {#if sectionMode && ['text', 'multiline_text'].includes(field.type)}
+          {#if sectionMode && ['text', 'multiline_text'].includes(field.type) && !field.options?.length}
             <p class="mt-1 text-xs text-gray-600">{inputValue(field.id).length} / {field.maxLength} characters · including spaces</p>
           {/if}
         </div>
