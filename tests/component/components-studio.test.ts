@@ -121,6 +121,39 @@ function layoutSnapshot() {
 }
 
 describe("ComponentsStudio", () => {
+  it('opens a section directly, retains drafts across pages, undoes only the current page, and publishes shared edits with one click after review', async () => {
+    const data = layoutSnapshot();
+    data.definitions.push({ ...data.definitions[1], id: 'schedule', type: 'schedule_section', label: 'Practice', fields: [{ id: 'title', type: 'text', label: 'Section title', required: false, maxLength: 60 }] });
+    data.pages.push({ ...data.pages[0], id: 'team', route: '/team-falcons', title: 'Falcons', components: [{ ...data.pages[0].components[1], id: 'practice', definitionId: 'schedule', type: 'schedule_section', label: 'Practice', content: { title: 'Next practice' } }] });
+    data.sources = [{ kind: 'event', id: 'training', label: 'Weekly training', expectedVersion: 'a'.repeat(64), recurring: true, values: { title: 'Weekly training', location: 'North field', description: '' }, bindings: [{ pageId: 'team', componentId: 'practice' }] }];
+    api.componentStudio.mockResolvedValue(data);
+    const onPageDraftChange = vi.fn();
+    const view = render(TestedComponentsStudio, { tenantId: 'tenant-a', configuration, configurationReady: true, previewOrigin: null, previewEnvironment: 'dev', canvasOnly: true, canvasEditing: true, externalCanvas: true, previewSynced: true, onPageDraftChange });
+    await screen.findByLabelText('Main title');
+    await fireEvent.input(screen.getByLabelText('Main title'), { target: { value: 'Home change kept' } });
+    const bridge = view.component as unknown as { handleCanvasAction(action: unknown): void };
+    await act(() => bridge.handleCanvasAction({ action: 'select', pageId: 'home_page', componentId: 'about_1' }));
+    await fireEvent.input(screen.getByLabelText('title'), { target: { value: 'Our new story' } });
+    await fireEvent.change(screen.getByRole('combobox', { name: 'Page' }), { target: { value: 'team' } });
+    await fireEvent.input(screen.getByLabelText('Section title'), { target: { value: 'Training together' } });
+    await fireEvent.click(screen.getByText('Edit event information · Weekly training'));
+    expect(screen.getByText(/This is a recurring event/)).toBeVisible();
+    await fireEvent.input(screen.getByLabelText('Event location'), { target: { value: 'East field' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Undo Page Edits' }));
+    expect(screen.getByLabelText('Section title')).toHaveValue('Next practice');
+    expect(screen.getByLabelText('Event location')).toHaveValue('North field');
+    await fireEvent.input(screen.getByLabelText('Event location'), { target: { value: 'East field' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    expect(screen.getByText(/includes the recurring event/)).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Publish all changes' }));
+    await waitFor(() => expect(api.publishPageLayout).toHaveBeenCalledOnce());
+    const payload = api.publishPageLayout.mock.calls[0][1];
+    expect(payload.pages[0].components[0].content.headline).toBe('Home change kept');
+    expect(payload.pages[0].components[1].content.title).toBe('Our new story');
+    expect(payload.pages[1].components[0].content.title).toBe('Next practice');
+    expect(payload.sourceEdits).toEqual([{ kind: 'event', id: 'training', expectedVersion: 'a'.repeat(64), values: { location: 'East field' } }]);
+  });
   it('follows preview tab navigation and preserves wording when returning Home', async () => {
     const data = layoutSnapshot();
     data.pages.push({ ...data.pages[0], id: 'schedule', title: 'Schedule', route: '/schedule', components: [] });
@@ -159,7 +192,7 @@ describe("ComponentsStudio", () => {
     expect(screen.getByRole('button', { name: 'Review' })).toBeEnabled();
     await act(() => editor.handleCanvasAction({ pageId: 'home_page', componentId: 'about_1', action: 'remove' }));
     expect(onPageDraftChange.mock.calls.at(-1)![0].components).toHaveLength(1);
-    await fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Undo Page Edits' }));
     expect(onPageDraftChange.mock.calls.at(-1)![0].components).toHaveLength(2);
     expect(api.publishPageLayout).not.toHaveBeenCalled();
   });
@@ -234,8 +267,7 @@ describe("ComponentsStudio", () => {
     expect(screen.getByRole('button', { name: 'Move About Program up' })).toBeDisabled();
     await fireEvent.change(screen.getByRole('combobox', { name: 'Move Staff to' }), { target: { value: 'about_1' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Publish components' }));
-    await fireEvent.click(screen.getByRole('checkbox'));
-    await fireEvent.click(screen.getByRole('button', { name: 'Confirm and publish' }));
+        await fireEvent.click(screen.getByRole('button', { name: 'Publish all changes' }));
     await waitFor(() => expect(api.publishPageLayout).toHaveBeenCalled());
     expect(api.publishPageLayout.mock.calls[0][1].pages[0].components.map((item: { id: string }) => item.id))
       .toEqual(['home_hero_1', 'staff_1', 'about_1']);
@@ -249,8 +281,7 @@ describe("ComponentsStudio", () => {
     await screen.findByLabelText('Headline');
     await fireEvent.input(screen.getByLabelText('Headline'), { target: { value: 'Keep my draft' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Publish components' }));
-    await fireEvent.click(screen.getByRole('checkbox'));
-    await fireEvent.click(screen.getByRole('button', { name: 'Confirm and publish' }));
+        await fireEvent.click(screen.getByRole('button', { name: 'Publish all changes' }));
     await screen.findByText(/Your draft is retained/);
     expect(screen.getByLabelText('Headline')).toHaveValue('Keep my draft');
     expect(api.publishPageLayout).not.toHaveBeenCalled();
@@ -351,8 +382,7 @@ describe("ComponentsStudio", () => {
     await fireEvent.click(
       screen.getByRole("button", { name: "Publish components" }),
     );
-    await fireEvent.click(screen.getByRole("checkbox"));
-    await fireEvent.click(screen.getByRole("button", { name: "Confirm and publish" }));
+        await fireEvent.click(screen.getByRole("button", { name: "Publish all changes" }));
     await waitFor(() =>
       expect(api.publishPageLayout).toHaveBeenCalledWith(
         "tenant-a",

@@ -2,11 +2,13 @@
   import type { CrmComponentDefinition, CrmPageComponent } from '../../../lib/api/BackendApi';
   import { fieldLabel, validateComponent } from './componentStudioDraft';
   import StructuredCollectionEditor from './StructuredCollectionEditor.svelte';
+  import { wordingLabel, wordingLimit, textRemovalAllowed } from './sectionEditing';
 
   export let component: CrmPageComponent;
   export let definition: CrmComponentDefinition | undefined;
   export let adding = false;
   export let busy = false;
+  export let sectionMode = false;
   export let onChange: (fieldId: string, value: unknown) => void;
   export let onFieldFocus: (fieldId: string) => void;
   export let onToggleVisibility: () => void;
@@ -15,6 +17,18 @@
   export let onCancel: () => void;
 
   $: issues = validateComponent(component, definition);
+  $: fields = (definition?.fields || []).filter((field) => !sectionMode ||
+    !['registrationEventId', 'eventIds', 'dataBindingSource', 'dataBindingMode', 'dataBindingFallback', 'dataBindingSort', 'teamBindingMode', 'teamFilter'].includes(field.id))
+    .map((field) => sectionMode && ['text', 'multiline_text'].includes(field.type)
+    ? { ...field, label: wordingLabel(component, field), maxLength: wordingLimit(component, field) } : field);
+  const removedText = new Map<string, string>();
+  function removeText(fieldId: string) {
+    removedText.set(`${component.id}:${fieldId}`, inputValue(fieldId));
+    onChange(fieldId, '');
+  }
+  function restoreText(fieldId: string) {
+    onChange(fieldId, removedText.get(`${component.id}:${fieldId}`) || '');
+  }
 
   export function focusField(fieldId: string) {
     const input = document.getElementById(`component-field-${component.id}-${fieldId}`);
@@ -38,9 +52,9 @@
     <div>
       <p class="crm-theme-link text-xs font-semibold uppercase tracking-wide">{adding ? 'Preview before adding' : 'Editing component'}</p>
       <h3 id="component-editor-title" class="mt-1 text-lg font-semibold text-gray-950">{component.label}</h3>
-      <p class="mt-1 text-sm text-gray-600">{definition?.previewSpec.description || 'This legacy component is preserved until a supported migration is available.'}</p>
+      {#if !sectionMode}<p class="mt-1 text-sm text-gray-600">{definition?.previewSpec.description || 'This legacy component is preserved until a supported migration is available.'}</p>{/if}
     </div>
-    <button type="button" class="rounded-md border px-3 py-2 text-sm" on:click={onCancel}>{adding ? 'Back' : 'Close'}</button>
+    {#if !sectionMode || adding}<button type="button" class="rounded-md border px-3 py-2 text-sm" on:click={onCancel}>{adding ? 'Back' : 'Close'}</button>{/if}
   </div>
 
   {#if issues.length > 0}
@@ -52,8 +66,11 @@
 
   {#if definition}
     <div class="mt-5 space-y-4">
-      {#each definition.fields as field (field.id)}
+      {#each fields as field (field.id)}
         <div>
+          {#if sectionMode && textRemovalAllowed(field)}
+            <div class="flex justify-end"><button type="button" class="text-sm underline" disabled={busy} on:click={() => inputValue(field.id) ? removeText(field.id) : restoreText(field.id)}>{inputValue(field.id) ? 'Remove text' : 'Restore text'}</button></div>
+          {/if}
           {#if field.type === 'bool'}
             <label class="flex items-center gap-3 text-sm font-medium text-gray-800">
               <input id={`component-field-${component.id}-${field.id}`} type="checkbox" checked={component.content[field.id] === true} disabled={busy} on:focus={() => onFieldFocus(field.id)} on:change={(event) => onChange(field.id, event.currentTarget.checked)} />
@@ -83,6 +100,9 @@
             <label for={`component-field-${component.id}-${field.id}`} class="block text-sm font-medium text-gray-800">{field.label || fieldLabel(field.id)}</label>
             <input id={`component-field-${component.id}-${field.id}`} type={field.type === 'number' ? 'number' : field.type === 'url' ? 'url' : 'text'} class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" value={inputValue(field.id)} maxlength={field.maxLength} required={field.required} disabled={busy} on:focus={() => onFieldFocus(field.id)} on:input={(event) => onChange(field.id, field.type === 'number' ? Number(event.currentTarget.value) : event.currentTarget.value)} />
           {/if}
+          {#if sectionMode && ['text', 'multiline_text'].includes(field.type)}
+            <p class="mt-1 text-xs text-gray-600">{inputValue(field.id).length} / {field.maxLength} characters · including spaces</p>
+          {/if}
         </div>
       {/each}
     </div>
@@ -92,9 +112,8 @@
     {#if adding}
       <button type="button" class="crm-ui-button-primary" disabled={busy || issues.length > 0} on:click={onConfirmAdd}>Add to page</button>
     {:else}
-      <button type="button" class="crm-ui-button-secondary" disabled={busy || component.type === 'hero_section'} on:click={onToggleVisibility}>{component.isVisible && component.enabled ? 'Hide from family app' : 'Show in family app'}</button>
-      <button type="button" class="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-800 disabled:opacity-50" disabled={busy || component.type === 'hero_section'} on:click={onRemove}>Remove from page</button>
-      {#if component.type === 'hero_section'}<p class="basis-full text-xs text-gray-500">The page hero is required and cannot be removed.</p>{/if}
+      <button type="button" class="crm-ui-button-secondary" disabled={busy} on:click={onToggleVisibility}>{component.content.hideSection === true || !component.isVisible || !component.enabled ? 'Restore section' : 'Hide from family app'}</button>
+      {#if component.type !== 'hero_section' || component.content.hideSection !== true}<button type="button" class="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-800 disabled:opacity-50" disabled={busy} on:click={onRemove}>Remove from page</button>{/if}
     {/if}
   </div>
 </section>

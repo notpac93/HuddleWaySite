@@ -4,7 +4,7 @@ import { definitionAvailable } from './componentStudioDraft';
 
 export function canvasPageDraft(page: CrmComponentStudioPage, components: CrmPageComponent[], definitions: CrmComponentDefinition[], editMode: boolean, provisionalId: string | null, editSessionId: string): AppPagePreviewDraft {
   return {
-    id: page.id, route: page.route, title: page.title, components, editMode, provisionalId, editSessionId,
+    id: page.id, route: page.route, title: page.title, components, editMode, provisionalId, editSessionId, sectionEditor: true,
     editableFields: Object.fromEntries(components.map((item) => [item.id,
       (definitions.find((definition) => definition.id === item.definitionId && definition.definitionVersion === item.definitionVersion)?.fields || [])
         .filter((field) => ['text', 'multiline_text'].includes(field.type))

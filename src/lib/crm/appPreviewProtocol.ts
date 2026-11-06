@@ -33,12 +33,13 @@ export interface AppPagePreviewDraft {
   editMode?: boolean;
   editSessionId?: string;
   provisionalId?: string | null;
+  sectionEditor?: boolean;
   editableFields?: Record<string, Array<{ id: string; label: string; maxLength?: number }>>;
   availableComponents?: Array<{ id: string; label: string }>;
 }
 
 export type CanvasAction = {
-  action: 'add' | 'remove' | 'move-up' | 'move-down' | 'confirm-add' | 'cancel-add' | 'text-begin' | 'text-change' | 'text-end' | 'text-cancel' | 'navigate';
+  action: 'select' | 'add' | 'remove' | 'move-up' | 'move-down' | 'confirm-add' | 'cancel-add' | 'text-begin' | 'text-change' | 'text-end' | 'text-cancel' | 'navigate';
   pageId: string;
   componentId?: string;
   definitionId?: string;
@@ -52,7 +53,7 @@ export type CanvasAction = {
 export function parseCanvasAction(value: unknown): CanvasAction | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const item = value as Record<string, unknown>;
-  const actions = ['add', 'remove', 'move-up', 'move-down', 'confirm-add', 'cancel-add', 'text-begin', 'text-change', 'text-end', 'text-cancel', 'navigate'];
+  const actions = ['select', 'add', 'remove', 'move-up', 'move-down', 'confirm-add', 'cancel-add', 'text-begin', 'text-change', 'text-end', 'text-cancel', 'navigate'];
   if (!actions.includes(String(item.action)) || typeof item.pageId !== 'string' || !item.pageId || item.pageId.length > 200) return null;
   for (const key of ['componentId', 'definitionId', 'fieldId', 'editSessionId']) {
     if (item[key] !== undefined && (typeof item[key] !== 'string' || !(item[key] as string).length || (item[key] as string).length > 200)) return null;

@@ -8,6 +8,7 @@
     CrmComponentStudioPage,
     CrmComponentStudioSnapshot,
     CrmPageComponent,
+    CrmSectionSource,
   } from '../../../lib/api/BackendApi';
   import { backendClient } from '../../../lib/api/backendClient';
   import { createIdempotencyKey } from '../../../lib/api/BackendApi';
@@ -23,6 +24,9 @@
   import CanvasEditingToolbar from './CanvasEditingToolbar.svelte';
   import { createCanvasEditingSession } from './canvasEditingSession';
   import { canvasPageDraft } from './canvasPageDraft';
+  import { restorePage, pageHasEdits, connectedContentNotice } from './sectionEditing';
+  import SharedSectionEditor from './SharedSectionEditor.svelte';
+  import { sectionSourcePreview } from './sectionSourcePreview';
   import { insertComponent, moveComponentTo, locationLabel, type LayoutLocation } from './componentLayoutCommands';
   import {
     clonePages,
@@ -52,6 +56,8 @@
   let snapshot: CrmComponentStudioSnapshot | null = null;
   let conflictSnapshot: CrmComponentStudioSnapshot | null = null;
   let pages: CrmComponentStudioPage[] = [];
+  let sources: CrmSectionSource[] = [];
+  let sourceOrigins: Record<string, string> = {};
   let selectedPageId = '';
   let selectedComponentId = '';
   let addingComponent: CrmPageComponent | null = null;
@@ -76,7 +82,7 @@
   $: provisionalComponents = selectedPage && addingComponent
     ? insertComponent(selectedPage, addingComponent, insertion) : null;
   $: onPageDraftChange(selectedPage && snapshot?.tenantId === tenantId
-    ? canvasPageDraft(selectedPage, provisionalComponents || selectedPage.components, snapshot.definitions, canvasEditing && state === 'ready', addingComponent?.id || null, editSessionId) : null);
+    ? sectionSourcePreview(canvasPageDraft(selectedPage, provisionalComponents || selectedPage.components, snapshot.definitions, canvasEditing && state === 'ready', addingComponent?.id || null, editSessionId), sources) : null);
   function beginCanvasText() {
     const before = clonePages(pages), provisional = structuredClone(addingComponent), undo = undoStack, redo = redoStack;
     lastHistoryField = ''; canvasTextActive = true;
@@ -85,6 +91,7 @@
   const canvasAction = createCanvasEditingSession({
     enabled: () => canvasEditing && state === 'ready', page: () => selectedPage, definitions: () => snapshot?.definitions || [],
     provisional: () => addingComponent, select: (id) => selectedComponentId = id, beginText: beginCanvasText,
+    open: (id) => { const component = selectedPage?.components.find((item) => item.id === id); if (component) selectComponent(component); },
     endText: () => { lastHistoryField = ''; canvasTextActive = false; }, change: (id, field, value) => changeField(field, value, addingComponent?.id === id ? addingComponent : selectedPage?.components.find((item) => item.id === id)),
     add: (beforeId, definition) => { openLibrary(beforeId); chooseDefinition(definition); libraryOpen = false; },
     confirm: confirmAdd, cancel: closeEditor, remove: removeSelected, moveTo: (id, beforeId) => moveTo(id, { beforeId }), notice: (text) => message = text,
@@ -112,6 +119,58 @@
     message = redo ? 'Change redone in your draft.' : 'Change undone in your draft.';
   }
 
+  function undoPageEdits() {
+    if (!snapshot || !selectedPage || state !== 'ready') return;
+    canvasAction.reset(); checkpoint();
+    pages = restorePage(pages, snapshot.pages, selectedPage.id);
+    for (const source of sources) {
+      const baseline = snapshot.sources?.find((item) => item.kind === source.kind && item.id === source.id);
+      for (const key of Object.keys(source.values)) {
+        const identity = `${source.kind}:${source.id}:${key}`;
+        if (baseline && sourceOrigins[identity] === selectedPage.id) {
+          changeSharedSource(source, key, baseline.values[key], false);
+          delete sourceOrigins[identity];
+        }
+      }
+    }
+    addingComponent = null; addingDefinition = null; lastRemoval = null;
+    selectedComponentId = pages.find((page) => page.id === selectedPageId)?.components[0]?.id || '';
+    lastHistoryField = '';
+    message = 'Page edits undone. Your edits on other pages are kept.';
+  }
+
+  function changeSharedSource(source: CrmSectionSource, key: string, value: string, recordOrigin = true) {
+    if (state !== 'ready' || !selectedPage) return;
+    source.values = { ...source.values, [key]: value };
+    if (recordOrigin) {
+      const identity = `${source.kind}:${source.id}:${key}`;
+      const baseline = snapshot?.sources?.find((item) => item.kind === source.kind && item.id === source.id);
+      if (baseline?.values[key] === value) delete sourceOrigins[identity];
+      else sourceOrigins[identity] = selectedPage.id;
+    }
+    sources = [...sources];
+    // Generated team heroes repeat these canonical fields. Stable bindings,
+    // never string matching, keep all affected previews and blocks consistent.
+    const field = ({ name: 'badgeText', heroTitle: 'headline', heroSubtitle: 'subheadline', coachSectionTitle: 'title', scheduleSectionTitle: 'title' } as Record<string, string>)[key];
+    const componentType = key === 'coachSectionTitle' ? 'coach_grid' : key === 'scheduleSectionTitle' ? 'schedule_section' : 'hero_section';
+    if (source.kind === 'team' && field) {
+      pages = pages.map((page) => ({ ...page, components: page.components.map((component) => {
+        if (component.type !== componentType || !source.bindings.some((binding) => binding.pageId === page.id && binding.componentId === component.id)) return component;
+        const content = { ...component.content, [field]: key === 'name' ? value.toUpperCase() : value };
+        const baseline = snapshot?.pages.find((item) => item.id === page.id)?.components.find((item) => item.id === component.id);
+        return { ...component, content, status: baseline && JSON.stringify(content) === JSON.stringify(baseline.content) ? baseline.status : 'draft' };
+      }) }));
+    }
+  }
+
+  $: sourceEdits = sources.flatMap((source) => {
+    const prior = snapshot?.sources?.find((item) => item.kind === source.kind && item.id === source.id);
+    const values = Object.fromEntries(Object.entries(source.values).filter(([key, value]) => value !== prior?.values[key]));
+    return Object.keys(values).length ? [{ kind: source.kind, id: source.id, expectedVersion: source.expectedVersion, values }] : [];
+  });
+  $: sourceIssues = sourceEdits.flatMap((edit) => ['name', 'title'].filter((key) => key in edit.values && !edit.values[key].trim()).map(() => 'A shared name or title is required.'));
+  $: selectedSources = sources.filter((source) => source.bindings.some((binding) => binding.pageId === selectedPage?.id && binding.componentId === selectedComponent?.id));
+
   $: selectedPage = pages.find((page) => page.id === selectedPageId) || pages[0];
   $: selectedComponent = addingComponent || selectedPage?.components.find(
     (component) => component.id === selectedComponentId,
@@ -119,10 +178,15 @@
   $: selectedDefinition = addingDefinition || snapshot?.definitions.find(
     (definition) => definition.id === selectedComponent?.definitionId,
   );
-  $: currentSignature = pagesSignature(pages);
+  $: currentSignature = pagesSignature(pages) + JSON.stringify(sources);
   $: dirty = state !== 'loading' && Boolean(snapshot) && currentSignature !== loadedSignature;
-  $: issues = snapshot ? validatePages(pages, snapshot.definitions) : [];
-  $: publishChanges = snapshot ? componentChangeSummary(snapshot.pages, pages) : [];
+  $: issues = snapshot ? [...validatePages(pages, snapshot.definitions, snapshot.pages), ...sourceIssues.map((message) => ({ fieldId: '', message }))] : [];
+  $: publishChanges = snapshot ? [...componentChangeSummary(snapshot.pages, pages), ...sourceEdits.map((edit) => {
+    const source = sources.find((item) => item.kind === edit.kind && item.id === edit.id)!;
+    const labels: Record<string, string> = { name: 'Team name', heroTitle: 'Main title', heroSubtitle: 'Bottom line', coachName: 'Coach name', coachRole: 'Coach role', coachSectionTitle: 'Coaches title', scheduleSectionTitle: 'Schedule title', title: 'Event title', description: 'Description', location: 'Location' };
+    return `${source.label}: ${Object.entries(edit.values).map(([key, value]) => `${labels[key] || key}: ${value || 'Removed'}`).join('; ')} · updates everywhere${source.recurring ? ' · includes the recurring event' : ''}.`;
+  })] : [];
+  $: currentPageDirty = Boolean(snapshot && selectedPage && pageHasEdits(pages, snapshot.pages, selectedPage.id));
   $: if (tenantId !== activeTenantId) {
     activeTenantId = tenantId;
     resetAndLoad(tenantId);
@@ -146,6 +210,7 @@
     snapshot = null;
     conflictSnapshot = null;
     pages = [];
+    sources = []; sourceOrigins = {};
     selectedPageId = '';
     selectedComponentId = '';
     addingComponent = null;
@@ -168,7 +233,8 @@
       snapshot = result;
       conflictSnapshot = null;
       pages = clonePages(result.pages);
-      loadedSignature = pagesSignature(pages);
+      sources = structuredClone(result.sources || []); sourceOrigins = {};
+      loadedSignature = pagesSignature(pages) + JSON.stringify(sources);
       lastRemoval = null;
       undoStack = []; redoStack = []; lastHistoryField = '';
       selectedPageId = pages.find((page) => page.route === '/')?.id || pages[0]?.id || '';
@@ -187,7 +253,8 @@
     if (conflictSnapshot) { snapshot = conflictSnapshot; conflictSnapshot = null; }
     const previouslySelectedComponentId = selectedComponentId;
     pages = clonePages(snapshot.pages);
-    loadedSignature = pagesSignature(snapshot.pages);
+    sources = structuredClone(snapshot.sources || []); sourceOrigins = {};
+    loadedSignature = pagesSignature(snapshot.pages) + JSON.stringify(sources);
     const restoredPage = pages.find((page) => page.id === selectedPageId) || pages[0];
     selectedPageId = restoredPage?.id || '';
     selectedComponentId = restoredPage?.components.some(
@@ -208,7 +275,7 @@
   function selectPage(pageId: string) {
     canvasAction.reset();
     lastHistoryField = '';
-    editorOpen = false;
+    editorOpen = canvasOnly;
     selectedPageId = pageId; message = canvasOnly && !pages.find((page) => page.id === pageId)?.components.length ? 'This page has no editable wording yet. You can still use its tabs.' : '';
     selectedComponentId = pages.find((page) => page.id === pageId)?.components[0]?.id || '';
     addingComponent = null;
@@ -240,7 +307,14 @@
   function changeField(fieldId: string, value: unknown, component = selectedComponent) {
     if (!component || state !== 'ready') return;
     if (!addingComponent) checkpoint(`${component.id}:${fieldId}`);
+    const sharedKey = component.type === 'hero_section' ? ({ headline: 'heroTitle', subheadline: 'heroSubtitle' } as Record<string, string>)[fieldId]
+      : fieldId === 'title' ? ({ coach_grid: 'coachSectionTitle', schedule_section: 'scheduleSectionTitle' } as Record<string, string>)[component.type] : undefined;
+    const boundTeam = sources.find((source) => source.kind === 'team' && source.bindings.some((binding) => binding.pageId === selectedPage?.id && binding.componentId === component.id));
+    if (!addingComponent && boundTeam && sharedKey && typeof value === 'string') { changeSharedSource(boundTeam, sharedKey, value); return; }
     component.content = { ...component.content, [fieldId]: value };
+    if (component.type === 'hero_section' && fieldId === 'ctaLabel' && typeof value === 'string') {
+      component.content = { ...component.content, showCtaButton: Boolean(value.trim()) };
+    }
     component.status = 'draft';
     if (addingComponent) addingComponent = { ...component };
     else pages = [...pages];
@@ -281,8 +355,12 @@
   }
 
   function toggleVisibility() {
-    if (!selectedComponent || selectedComponent.type === 'hero_section' || state !== 'ready') return;
+    if (!selectedComponent || state !== 'ready') return;
     checkpoint();
+    if (selectedComponent.type === 'hero_section') {
+      selectedComponent.content = { ...selectedComponent.content, hideSection: !selectedComponent.content.hideSection };
+      selectedComponent.status = 'draft'; pages = [...pages]; return;
+    }
     const visible = selectedComponent.enabled && selectedComponent.isVisible;
     selectedComponent.enabled = !visible;
     selectedComponent.isVisible = !visible;
@@ -292,7 +370,8 @@
 
   function removeSelected(id = selectedComponent?.id) {
     const component = selectedPage?.components.find((item) => item.id === id);
-    if (!selectedPage || !component || component.type === 'hero_section' || state !== 'ready') return;
+    if (!selectedPage || !component || state !== 'ready') return;
+    if (component.type === 'hero_section') { toggleVisibility(); return; }
     checkpoint();
     lastRemoval = {
       pageId: selectedPage.id,
@@ -374,7 +453,7 @@
       }
       await backendClient.publishPageLayout(
         publishingTenant,
-        publishPayload(snapshot, pages),
+        { ...publishPayload(snapshot, pages), sourceEdits },
         'Publish reviewed component layout from Operations Portal My App.',
         createIdempotencyKey('component-layout-publish'),
       );
@@ -402,7 +481,24 @@
 {/if}
 
 {#if canvasOnly}
-  <CanvasEditingToolbar {pages} pageId={selectedPageId} busy={state === 'publishing'} {dirty} canUndo={undoStack.length > 0 && !canvasTextActive} canRedo={redoStack.length > 0 && !canvasTextActive} canPublish={dirty && issues.length === 0 && state === 'ready' && previewSynced && !addingComponent && !canvasTextActive} retryable={state === 'error'} onRetry={() => resetAndLoad(tenantId)} message={state === 'loading' ? 'Loading editing guides…' : message} canManage={!canvasTextActive && state === 'ready'} onDiscard={discardChanges} onHistory={() => historyOpen = true} onPage={selectPage} onUndo={() => undo()} onRedo={() => undo(true)} onReview={() => showPublishReview = true} {onDone} {onSettings} />
+  <CanvasEditingToolbar {pages} pageId={selectedPageId} busy={state === 'publishing'} {dirty} canUndoPage={currentPageDirty || Object.values(sourceOrigins).includes(selectedPageId)} onUndoPage={undoPageEdits} canUndo={undoStack.length > 0 && !canvasTextActive} canRedo={redoStack.length > 0 && !canvasTextActive && sourceEdits.length === 0} canPublish={dirty && issues.length === 0 && state === 'ready' && previewSynced && !addingComponent && !canvasTextActive} retryable={state === 'error'} onRetry={() => resetAndLoad(tenantId)} message={state === 'loading' ? 'Loading editing guides…' : message} canManage={!canvasTextActive && state === 'ready'} onDiscard={discardChanges} onHistory={() => historyOpen = true} onPage={selectPage} onUndo={() => undo()} onRedo={() => undo(true)} onReview={() => showPublishReview = true} {onDone} {onSettings} />
+  {#if snapshot && selectedPage && canvasEditing}
+    <section class="section-edit-page" aria-label={`${selectedPage.title} section editor`}>
+      <nav class="section-choices" aria-label="Sections on this page">
+        {#each selectedPage.components as component (component.id)}
+          <button type="button" aria-pressed={selectedComponentId === component.id} disabled={state !== 'ready'} on:click={() => selectComponent(component)}>{component.label}{!component.isVisible || !component.enabled ? ' · Hidden' : ''}</button>
+        {/each}
+        <button type="button" disabled={state !== 'ready'} on:click={() => openLibrary()}>+ Add section</button>
+      </nav>
+      {#if libraryOpen}
+        <ComponentLibrary definitions={snapshot.definitions} page={selectedPage} onChoose={chooseDefinition} onClose={() => libraryOpen = false} />
+      {:else if selectedComponent}
+        {#if connectedContentNotice(selectedComponent)}<p class="connected-notice" role="note">{connectedContentNotice(selectedComponent)}</p>{/if}
+        <ComponentEditor sectionMode component={selectedComponent} definition={selectedDefinition} adding={Boolean(addingComponent)} busy={state !== 'ready'} onChange={changeField} onFieldFocus={focusPreviewField} onToggleVisibility={toggleVisibility} onRemove={() => removeSelected()} onConfirmAdd={confirmAdd} onCancel={closeEditor} />
+        <SharedSectionEditor sources={selectedSources.filter((source) => source.kind === 'event' || selectedComponent?.type !== 'schedule_section')} componentType={selectedComponent.type} busy={state !== 'ready'} onChange={changeSharedSource} />
+      {:else}<p class="p-4 text-sm">Choose a section above, or select one in your app.</p>{/if}
+    </section>
+  {/if}
 {:else}
 <div class="flex h-full min-h-0 flex-col gap-3">
   <div class:layout-toolbar={externalCanvas} class="flex flex-wrap items-end justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3">
@@ -491,6 +587,11 @@
 {/if}
 
 <style>
+  .section-edit-page { margin-top: 10px; min-height: 0; overflow-y: auto; background: var(--crm-surface, white); border-radius: 14px; border: 1px solid var(--crm-border, #dce2eb); }
+  .section-choices { display: flex; gap: 6px; flex-wrap: wrap; padding: 12px; border-bottom: 1px solid #dce2eb; }
+  .section-choices button { min-height: 40px; padding: 6px 10px; border-radius: 8px; font-size: 13px; }
+  .section-choices button[aria-pressed='true'] { background: var(--crm-brand-surface); color: var(--crm-brand-link); font-weight: 600; }
+  .connected-notice { margin: 12px; padding: 12px; border-radius: 10px; background: var(--crm-brand-surface); font-size: 13px; }
   .layout-toolbar { gap: 8px; }
   .layout-toolbar label { display: flex; align-items: center; gap: 8px; }
   .layout-toolbar select { min-width: 0; width: 110px; margin-top: 0; }

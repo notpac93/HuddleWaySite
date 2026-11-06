@@ -482,6 +482,13 @@ export type CrmComponentStudioSnapshot = {
   versions?: CrmComponentLayoutVersion[];
   historyTruncated?: boolean;
   requestId: string;
+  sources?: CrmSectionSource[];
+};
+
+export type CrmSectionSource = {
+  kind: 'team' | 'event'; id: string; label: string; expectedVersion: string;
+  values: Record<string, string>; bindings: Array<{ pageId: string; componentId: string }>; recurring: boolean;
+  preview?: Record<string, unknown>;
 };
 
 export type CrmComponentLayoutVersion = {
@@ -2597,6 +2604,7 @@ export class BackendApi {
       pages: CrmComponentStudioPage[];
       stalePageIds: string[];
       staleComponentIds: string[];
+      sourceEdits?: Array<Pick<CrmSectionSource, 'kind' | 'id' | 'expectedVersion' | 'values'>>;
     },
     auditReason: string,
     idempotencyKey: string,
