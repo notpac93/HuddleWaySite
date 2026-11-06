@@ -61,6 +61,11 @@ describe('CRM interaction hardening source evidence', () => {
         expect(source('events/schedule-creation.css')).toMatch(/\.schedule-create-screen[^}]*position:fixed[^}]*z-index:200/);
         return false;
       }
+      if (component === 'events/EditEventModal.svelte') {
+        expect(componentSource).toContain('class="crm-ui-backdrop"');
+        expect(componentSource).toMatch(/\.event-edit-panel\{[^}]*position:relative[^}]*z-index:1/);
+        return false;
+      }
       if (component === 'teams/CreateTeamForm.svelte') {
         expect(componentSource).toMatch(/\.team-editor-backdrop[^}]*position:fixed/);
         expect(componentSource).toMatch(/\.team-editor\{[^}]*position:relative[^}]*z-index:10/);

@@ -13,6 +13,7 @@
   import { validateImageFile } from '../../../lib/media/imageUpload';
   import { modalFocus } from '../../../lib/ui/modalFocus';
   import { teamReferenceMatches, type TeamReferenceIndex } from '../../../lib/ui/teamReferences';
+  import EventEditDetail from './EventEditDetail.svelte';
   import EventPaymentTermsEditor from '../billing/EventPaymentTermsEditor.svelte';
 
   export let event: any = null;
@@ -24,6 +25,21 @@
 
   const dispatch = createEventDispatcher();
 
+  function displayTime(value: string) {
+    return new Date(`2000-01-01T${value}:00`).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+
+  $: seasonName = $seasonsStore.find((season) => String(season.id) === seasonId)?.name
+    || $seasonsStore.find((season) => String(season.id) === seasonId)?.title
+    || (seasonId ? 'Current season unavailable' : 'No season');
+  $: scheduleSummary = rawDate && rawTime && rawEndTime
+    ? `${new Date(`${rawDate}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}\n${displayTime(rawTime)}–${displayTime(rawEndTime)}`
+    : 'Date or time not set';
+  $: priceSummary = seasonCoverage ? 'Included in season enrollment'
+    : !currency ? 'Currency unavailable' : price === '' || !Number.isFinite(Number(price)) || Number(price) < 0 ? 'Price unavailable'
+    : Number(price) === 0 ? 'Free · ' + new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(0)
+    : new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(price));
+
   let title = event ? event.title || '' : '';
   let location = event ? event.location || '' : '';
   const originalTeamId = String(event?.teamId || '');
@@ -34,7 +50,7 @@
   const originalSeasonId = String(event?.seasonId || '');
   const originalSeasonCoverage = event?.seasonCoverage === true;
   let seasonId = originalSeasonId;
-  let seasonCoverage = originalSeasonCoverage;
+  $: seasonCoverage = Boolean(seasonId);
   $: seasonChanged = seasonId !== originalSeasonId || seasonCoverage !== originalSeasonCoverage;
   $: availableSeasons = $seasonsStore.filter((season) => ['active', 'upcoming'].includes(String(season.status || '')) && (!season.teamId || ['all', 'program', 'general'].includes(String(season.teamId)) || teamReferenceMatches(teamReferences, season.teamId, teamId)));
   let registrationMethod: 'form' | 'easy' = event?.registrationMethod === 'easy' ? 'easy' : 'form';
@@ -336,33 +352,22 @@
 </script>
 
 <div class="crm-ui-modal-root" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-  <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+  <div class="event-edit-stage">
     <button type="button" disabled={submitState === 'loading'} class="crm-ui-backdrop" aria-label="Cancel event editing" tabindex="-1" on:click={handleClose}></button>
-    <span class="crm-ui-modal-spacer" aria-hidden="true">&#8203;</span>
-
-    <div class="crm-ui-event-edit-panel" tabindex="-1" use:modalFocus={{ onEscape: handleClose }}>
+    <div class="event-edit-panel" tabindex="-1" use:modalFocus={{ onEscape: handleClose }}>
       <fieldset disabled={submitState === 'loading'} class="m-0 min-w-0 border-0 p-0">
-      <div class="flex justify-between items-center pb-3 border-b border-gray-200">
-        <h3 class="crm-ui-title" id="modal-title">Edit {$programTermsStore.singular}</h3>
-        <button type="button" aria-label="Close event editor" disabled={submitState === 'loading'} on:click={handleClose} class="text-gray-400 hover:text-gray-600 p-1 rounded-md disabled:opacity-50">
-          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-
-      <div class="mt-4 space-y-4">
-        <ImageFilePicker
-          inputId="event-edit-image"
-          label="Cover image"
-          photo
-          currentUrl={imageUrl}
-          previewAlt="Event image"
-          bind:selectedFile={imageFile}
-          bind:validationMessage={imageValidationMessage}
-          disabled={submitState === 'loading'}
-        />
-
+        <header class="event-edit-header">
+          <div class="event-edit-title-row">
+            <button type="button" on:click={handleClose} aria-label="Back to Schedule" class="event-edit-back"><span aria-hidden="true">←</span> Schedule</button>
+            <h3 id="modal-title">Edit {$programTermsStore.singular}</h3>
+          </div>
+          <p>{title || 'Untitled event'}</p>
+        </header>
+        <div class="event-edit-body">
+          <ImageFilePicker inputId="event-edit-image" label="Cover image" photo compact currentUrl={imageUrl} previewAlt="Event image" bind:selectedFile={imageFile} bind:validationMessage={imageValidationMessage} disabled={submitState === 'loading'} />
+          <section class="event-edit-section" aria-label="Event details">
+            <h4>Event details</h4>
+            <EventEditDetail id="event-edit-title-fields" label="Event title" value={title}>
         <!-- Title -->
         <div>
           <label for="title" class="crm-ui-label-caps">Event Title *</label>
@@ -376,12 +381,10 @@
           />
         </div>
 
-        <label class="crm-ui-label block">Attach to a season <span class="font-normal text-gray-500">Optional</span><select class="crm-ui-input mt-2" bind:value={seasonId} on:change={() => { seasonCoverage = Boolean(seasonId); }}><option value="">No season</option>{#if originalSeasonId && !availableSeasons.some((season) => String(season.id) === originalSeasonId)}<option value={originalSeasonId} disabled>Current season unavailable</option>{/if}{#each availableSeasons as season}<option value={String(season.id)}>{season.name || season.title}</option>{/each}</select></label>
-        {#if seasonId && !originalSeasonCoverage && seasonId === originalSeasonId}<label class="flex items-center gap-2 text-sm"><input type="checkbox" bind:checked={seasonCoverage} />Include this event in season enrollment</label>{/if}
-        {#if seasonCoverage}<div class="rounded-lg bg-[var(--crm-brand-surface)] p-4 text-sm text-[var(--crm-on-brand-surface)]">Only covered season participants can register. No additional event charge.</div>{:else}<EventPaymentTermsEditor {currency} bind:price bind:choice={paymentChoice} bind:installmentCount bind:cadence={installmentCadence} />{/if}
-
+            </EventEditDetail>
+            <EventEditDetail id="event-edit-schedule-fields" label="Date & time" kind="calendar" value={scheduleSummary}>
         <!-- Date & Time -->
-        <div class="grid grid-cols-3 gap-3">
+        <div class="event-schedule-fields">
           <div>
             <label for="event-date" class="crm-ui-label-caps">Date *</label>
             <input
@@ -408,6 +411,8 @@
           </div>
         </div>
 
+            </EventEditDetail>
+            <EventEditDetail id="event-edit-location-fields" label="Location" value={location}>
         <!-- Location -->
         <div>
           <label for="location" class="crm-ui-label-caps">Location / Venue</label>
@@ -421,11 +426,8 @@
           />
         </div>
 
-        <RegistrationMethodPicker bind:value={registrationMethod} />
-        {#if registrationMethod === 'form' && event?.registrationMethod === 'easy'}
-          <label class="crm-ui-label block">Registration form<select class="crm-ui-input mt-2" bind:value={selectedFormId}><option value="">Choose a form</option>{#each forms as form}<option value={form.id}>{form.title}</option>{/each}</select></label>
-          {#if formsError}<p role="alert">{formsError}</p>{/if}
-        {/if}
+            </EventEditDetail>
+            <EventEditDetail id="event-edit-settings-fields" label="Team & status" kind="layers" value={`${teams[teamId] || 'Team unavailable'} · ${lifecycleStatus}`}>
         <!-- Team Assignment & Status -->
         <div class="grid grid-cols-2 gap-3">
           <div>
@@ -459,6 +461,25 @@
           </div>
         </div>
 
+            </EventEditDetail>
+          </section>
+          <section class="event-edit-section" aria-label="Registration">
+            <h4>Registration</h4>
+            <EventEditDetail id="event-edit-price-fields" label="Registration cost" kind="ticket" value={priceSummary}>
+        {#if seasonCoverage}<div class="rounded-lg bg-[var(--crm-brand-surface)] p-4 text-sm text-[var(--crm-on-brand-surface)]">Only covered season participants can register. No additional event charge.</div>{:else}<EventPaymentTermsEditor {currency} bind:price bind:choice={paymentChoice} bind:installmentCount bind:cadence={installmentCadence} />{/if}
+
+            </EventEditDetail>
+            <EventEditDetail id="event-edit-season-fields" label="Season" kind="layers" value={seasonName}>
+        <label class="crm-ui-label block">Attach to a season <span class="font-normal text-gray-500">Optional</span><select class="crm-ui-input mt-2" bind:value={seasonId}><option value="">No season</option>{#if originalSeasonId && !availableSeasons.some((season) => String(season.id) === originalSeasonId)}<option value={originalSeasonId} disabled>Current season unavailable</option>{/if}{#each availableSeasons as season}<option value={String(season.id)}>{season.name || season.title}</option>{/each}</select></label>
+            </EventEditDetail>
+            <EventEditDetail id="event-edit-method-fields" label="Registration method" kind="ticket" value={registrationMethod === 'easy' ? 'Easy registration' : 'Registration form'}>
+        <RegistrationMethodPicker bind:value={registrationMethod} />
+        {#if registrationMethod === 'form' && event?.registrationMethod === 'easy'}
+          <label class="crm-ui-label block">Registration form<select class="crm-ui-input mt-2" bind:value={selectedFormId}><option value="">Choose a form</option>{#each forms as form}<option value={form.id}>{form.title}</option>{/each}</select></label>
+          {#if formsError}<p role="alert">{formsError}</p>{/if}
+        {/if}
+            </EventEditDetail>
+          </section>
         {#if publishConfirmationRequired}
           <div class="rounded-md border border-amber-300 bg-amber-50 p-3">
             <p class="text-sm font-semibold text-amber-950">
@@ -505,9 +526,8 @@
             {errorMessage}
           </div>
         {/if}
-      </div>
-
-      <div class="mt-6 flex justify-end space-x-3 pt-3 border-t border-gray-100">
+        </div>
+      <div class="event-edit-actions">
         <button type="button" disabled={submitState === 'loading'} on:click={handleClose} class="crm-ui-event-action-secondary">
           Cancel
         </button>
@@ -533,3 +553,15 @@
     </div>
   </div>
 </div>
+
+<style>
+  .event-edit-stage{min-height:100dvh;display:flex;align-items:flex-start;justify-content:center;padding:24px 16px 90px}
+  .event-edit-panel{position:relative;z-index:1;width:100%;max-width:520px;overflow:hidden;border:1px solid var(--crm-brand-border);border-radius:20px;background:#f3f6fa;color:#17263b;box-shadow:0 24px 64px #07172b40;text-align:left}
+  .event-edit-header{padding:8px 18px 13px;background:linear-gradient(130deg,var(--crm-brand-sidebar),var(--crm-brand-primary));color:var(--crm-on-sidebar,#fff);border-bottom:1px solid var(--crm-brand-border)}
+  .event-edit-title-row{display:flex;align-items:center;justify-content:space-between;gap:14px}.event-edit-title-row h3{font-size:20px;font-weight:700;text-align:right}.event-edit-back{display:flex;align-items:center;gap:8px;min-height:44px;font-size:14px}.event-edit-header p{font-size:13px;opacity:.85;overflow-wrap:anywhere}
+  .event-edit-body{display:grid;gap:16px;padding:18px 16px}.event-edit-section{background:#fff;border:1px solid #dce3ec;border-radius:16px;overflow:hidden}.event-edit-section h4{padding:13px 15px;background:#edf3f9;font-size:16px;font-weight:600;color:var(--crm-brand-link)}
+  .event-schedule-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}.event-schedule-fields>div:first-child{grid-column:1/-1}.event-schedule-fields :global(input){min-width:0;width:100%;box-sizing:border-box}
+  .event-edit-actions{display:flex;gap:10px;padding:14px 16px;background:#fff;border-top:1px solid #dce3ec}.event-edit-actions :global(button){min-height:44px}.event-edit-actions :global(button:first-child){flex:1}.event-edit-actions :global(button:last-child){flex:1.6}
+  .event-edit-back:focus-visible{outline:2px solid var(--crm-brand-border);outline-offset:2px}
+  @media(max-width:380px){.event-edit-stage{padding:12px 8px 90px}.event-edit-body{padding:15px 12px}.event-edit-title-row h3{font-size:18px}}
+</style>

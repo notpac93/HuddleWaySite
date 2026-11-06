@@ -54,10 +54,11 @@ const reviewedControlCounts: Record<string, number> = {
   "documents/DocumentEditor.svelte": 11,
   "events/CreateEventForm.svelte": 18,
   "events/DuplicateEventModal.svelte": 9,
-  "events/EditEventModal.svelte": 15,
+  "events/EditEventModal.svelte": 14,
   "events/EventBatchPublishReview.svelte": 3,
   "events/EventCreationPreview.svelte": 1,
   "events/EventCsvImport.svelte": 7,
+  "events/EventEditDetail.svelte": 2,
   "events/EventFilters.svelte": 7,
   "events/EventRecurrenceEditor.svelte": 5,
   "events/EventRegistrantsModal.svelte": 2,
@@ -179,7 +180,7 @@ describe('exhaustive CRM control inventory', () => {
     );
 
     expect(actual).toEqual(reviewedControlCounts);
-    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(754);
+    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(755);
   });
 
   it('keeps every inventoried CRM component reachable from a production entry point', () => {
