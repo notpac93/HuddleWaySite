@@ -378,7 +378,7 @@
   function removeSelected(id = selectedComponent?.id) {
     const component = selectedPage?.components.find((item) => item.id === id);
     if (!selectedPage || !component || state !== 'ready') return;
-    if (component.type === 'hero_section') { toggleVisibility(); return; }
+    if (component.type === 'hero_section') { checkpoint(); component.content = { ...component.content, hideSection: true }; component.status = 'draft'; pages = [...pages]; return; }
     checkpoint();
     lastRemoval = {
       pageId: selectedPage.id,

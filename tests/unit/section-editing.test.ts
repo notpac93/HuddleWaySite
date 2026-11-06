@@ -3,7 +3,7 @@ import { restorePage, wordingLimit, pageHasEdits, connectedContentNotice } from 
 import { sectionSourcePreview } from '../../src/components/crm/app-studio/sectionSourcePreview';
 import type { CrmComponentStudioPage, CrmPageComponent, CrmSectionSource } from '../../src/lib/api/BackendApi';
 
-const hero = { id: 'hero', definitionId: 'home_hero', definitionVersion: 3, type: 'hero_section', label: 'Welcome', enabled: true, isVisible: true, status: 'published', content: { headline: 'Welcome' }, presetId: null } as CrmPageComponent;
+const hero = { id: 'hero', definitionId: 'home_hero', definitionVersion: 3, type: 'hero_section', label: 'Welcome', enabled: true, isVisible: true, status: 'published', content: { headline: 'Welcome' }, presetId: null, starterContentReviewKey: null } as CrmPageComponent;
 const page = (id: string): CrmComponentStudioPage => ({ id, route: id === 'home' ? '/' : '/team-falcons', title: id, headline: '', subheader: '', status: 'published', isVisible: true, components: [{ ...hero, id: `${id}_hero` }] });
 
 describe('continuous section editing', () => {
