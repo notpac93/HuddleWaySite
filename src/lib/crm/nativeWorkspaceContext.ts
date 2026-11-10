@@ -1,3 +1,10 @@
+import { publicEnvironment } from '../config/publicEnvironment';
+
+// Each build trusts exactly its own environment's native workspace host.
+export const nativeWorkspaceOrigin = publicEnvironment.PUBLIC_FIREBASE_PROJECT_ID === 'sports-team-apps'
+  ? 'https://huddleway-app-preview-prod.web.app'
+  : 'https://huddleway-dev-admin.web.app';
+
 declare global {
   interface Window {
     HuddleWayNative?: { postMessage(message: string): void };
@@ -23,7 +30,7 @@ declare global {
 export function isTrustedNativeWorkspaceContext() {
   return (
     typeof window !== "undefined" &&
-    window.location.origin === "https://huddleway-dev-admin.web.app" &&
+    window.location.origin === nativeWorkspaceOrigin &&
     window.location.pathname.startsWith("/admin/") &&
     new URLSearchParams(window.location.search).get("nativeWorkspace") === "1"
   );
