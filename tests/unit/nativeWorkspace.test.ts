@@ -178,3 +178,15 @@ test('authorization diagnostics bind the current load and omit arbitrary SDK/ide
   expect(context.notifyNativeAuthorization({state:'resolved'})).toBe(false);
   expect(messages).toHaveLength(2);
 });
+
+test("does not end the native session while the portal auth observer catches up", async () => {
+  const { returnToAppSignIn } = await import("../../src/lib/crm/adminEntryContext");
+  const { setNativeWorkspaceNonce } = await import("../../src/lib/crm/nativeWorkspaceContext");
+  setNativeWorkspaceNonce(nonce);
+
+  returnToAppSignIn(true);
+  expect(messages).toEqual([]);
+
+  returnToAppSignIn(false);
+  expect(messages).toEqual([{ type: "signedOut", nonce }]);
+});

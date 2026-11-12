@@ -9,7 +9,10 @@ export function authorizedEntryProgram(authorized: string[], requested: string |
   return requested && authorized.includes(requested) ? requested : current;
 }
 export const usesAppEntry = import.meta.env.PUBLIC_ADMIN_APP_ENTRY === 'true';
-export function returnToAppSignIn() {
+export function returnToAppSignIn(hasFirebaseSession: boolean) {
+  // Native custom-token sign-in can finish before the portal's auth observer
+  // publishes the new user. An empty portal store alone is not a sign-out.
+  if (hasFirebaseSession) return;
   if (isNativeWorkspace) { notifyNativeWorkspace('signedOut'); return; }
   if (typeof window !== 'undefined' && usesAppEntry) {
     window.location.replace('/#/admin/login?quick=1&initialProgramSelection=1');

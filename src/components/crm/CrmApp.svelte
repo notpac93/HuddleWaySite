@@ -24,7 +24,9 @@
   import type { PortalIconName } from '../../lib/ui/portalIcons';
   import Login from './Login.svelte';
   import { usesAppEntry, returnToAppSignIn } from '../../lib/crm/adminEntryContext';
-  $: if (usesAppEntry && !$nativeWorkspacePending && !$isAuthLoading && !$userStore) returnToAppSignIn();
+  $: if (usesAppEntry && !$nativeWorkspacePending && !$isAuthLoading && !$userStore) {
+    returnToAppSignIn(Boolean(auth.currentUser));
+  }
   import { isNativeWorkspace, nativeWorkspacePending } from '../../lib/crm/nativeWorkspace';
   import CrmShell from './CrmShell.svelte';
 
