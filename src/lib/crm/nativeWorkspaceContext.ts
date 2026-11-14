@@ -56,6 +56,25 @@ export function setNativeWorkspaceNonce(value: string) {
   nativeNonce = value;
 }
 
+export function canOpenNativeEditor() {
+  return nativeBridgeAvailable() &&
+    window.top === window &&
+    new URLSearchParams(window.location.search).get("nativeEditor") === "1" &&
+    validNativeWorkspaceNonce(nativeNonce);
+}
+
+export function openNativeEditor(tenantId: string) {
+  if (!canOpenNativeEditor() || !/^[a-z0-9-]{1,80}$/.test(tenantId)) return false;
+  try {
+    window.HuddleWayNative!.postMessage(
+      JSON.stringify({ type: "openNativeEditor", nonce: nativeNonce, tenantId }),
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function notifyNativeWorkspace(
   type: "ready" | "signedIn" | "failed" | "signedOut",
 ) {
