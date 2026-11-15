@@ -297,9 +297,6 @@
     ...(activeTab === 'Messages'
       ? { registrationEmailDraft, mailboxConnectionResult }
       : {}),
-    ...(activeTab === 'Financials'
-      ? { activeTeam }
-      : {}),
   };
   $: if (
     canViewCrm
