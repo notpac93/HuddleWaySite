@@ -33,21 +33,6 @@ afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
-test("opens the selected program only from a capable native main frame", async () => {
-  const context = await import("../../src/lib/crm/nativeWorkspaceContext");
-  Object.assign(window, { top: window });
-  context.setNativeWorkspaceNonce(nonce);
-  expect(context.openNativeEditor("another-program")).toBe(false);
-  window.location.search = "?nativeWorkspace=1&nativeEditor=1";
-  Object.assign(window, { top: {} });
-  expect(context.openNativeEditor("another-program")).toBe(false);
-  Object.assign(window, { top: window });
-  expect(context.openNativeEditor("invalid/program")).toBe(false);
-  expect(context.openNativeEditor("another-program")).toBe(true);
-  expect(messages).toEqual([
-    { type: "openNativeEditor", nonce, tenantId: "another-program" },
-  ]);
-});
 test("waits for matching native identity before showing workspace", async () => {
   const state = await import("../../src/lib/crm/nativeWorkspace");
   expect(get(state.nativeWorkspacePending)).toBe(true);

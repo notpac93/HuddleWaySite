@@ -1,3 +1,4 @@
+// @vitest-environment-options {"url":"https://huddleway-dev-admin.web.app/admin/"}
 import type { GlassAppearance } from '../../src/lib/ui/glassAppearance';
 import {
   act,
@@ -12,7 +13,8 @@ import type { Writable } from 'svelte/store';
 import { get } from 'svelte/store';
 import { portalDraftStore } from '../../src/lib/ui/portalDraftGuard';
 import { refreshActiveData } from '../../src/lib/crm/liveRefresh';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { nativeBridgeAvailable, setNativeWorkspaceNonce } from '../../src/lib/crm/nativeWorkspaceContext';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 type SnapshotSubscription = {
   collectionName: string;
@@ -271,6 +273,12 @@ async function openAppearanceSettings() {
 }
 
 describe('MyAppStudio tenant preview isolation', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    window.history.replaceState(null, '', '/admin/');
+    setNativeWorkspaceNonce('');
+  });
+
   beforeEach(() => {
     snapshotSubscriptions.length = 0;
     configNames.clear();
@@ -314,7 +322,14 @@ describe('MyAppStudio tenant preview isolation', () => {
     });
   });
 
-  it('retains the same interactive canvas when opening components and returning to the app', async () => {
+  it.each(['browser', 'native workspace'])('edits on the same interactive canvas in the %s', async (surface) => {
+    const postMessage = vi.fn();
+    if (surface === 'native workspace') {
+      window.history.replaceState(null, '', '/admin/?nativeWorkspace=1&nativeEditor=1');
+      vi.stubGlobal('HuddleWayNative', { postMessage });
+      setNativeWorkspaceNonce('n'.repeat(32));
+      expect(nativeBridgeAvailable()).toBe(true);
+    }
     appMocks.componentStudio.mockResolvedValue({
       tenantId: 'tenant-a', templateId: 'base', templateVersion: 1, versionToken: 'layout-v1',
       definitions: [], requestId: 'fixture',
@@ -327,6 +342,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     expect(screen.queryByRole('button', { name: 'App settings' })).toBeNull();
     expect(screen.getAllByRole('button', { name: /^Edit$/ })).toHaveLength(1);
     await fireEvent.click(screen.getByRole('button', { name: /^Edit$/ }));
+    expect(postMessage).not.toHaveBeenCalled();
     await screen.findByLabelText('App edit mode');
     expect(screen.queryByRole('region', { name: 'Edit app' })).toBeNull();
     expect(view.container.querySelectorAll('iframe')).toHaveLength(1);

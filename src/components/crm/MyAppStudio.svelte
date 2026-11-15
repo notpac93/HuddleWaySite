@@ -4,7 +4,6 @@
   import { MY_APP_NAVIGATION, type MyAppNavigation } from '../../lib/crm/myAppNavigation';
   const navigation = getContext<MyAppNavigation | undefined>(MY_APP_NAVIGATION);
   import Icon from './ui/Icon.svelte';
-  import { openNativeEditor } from '../../lib/crm/nativeWorkspaceContext';
 
   export let active = true;
   export let suspendInactivePreviews = false;
@@ -14,11 +13,6 @@
   let canvasEditing = false;
   let canvasEditor: ComponentsStudio | null = null;
   let editSessionId = '';
-  function editApp() {
-    if (!active) return;
-    navigation?.dismiss();
-    if (!openNativeEditor(String($tenantIdStore || ''))) editOnCanvas();
-  }
   function editOnCanvas() { navigation?.dismiss(); showTools = false; componentsMounted = true; editSessionId = createIdempotencyKey('canvas'); canvasEditing = true; }
   function openTools() { navigation?.dismiss(); toolsMounted = true; showTools = true; }
   $: if (!active) { showTools = false; canvasEditing = false; }
@@ -606,7 +600,7 @@
   {#if componentsMounted}<div class="canvas-edit-tools" hidden={!canvasEditing || showTools}>
     <ComponentsStudio bind:this={canvasEditor} canvasOnly externalCanvas {editSessionId} canvasEditing={canvasEditing && !showTools} previewSynced={layoutPreviewSynced} active={active} previewActive={false} onSettings={openTools} onDone={() => canvasEditing = false} onPageDraftChange={setPageDraft} tenantId={String($tenantIdStore || '')} configuration={previewConfiguration} configurationReady={configLoadState === 'ready'} previewOrigin={previewBaseUrl} {previewEnvironment} expectedSourceCommit={publicEnvironment.PUBLIC_APP_PREVIEW_COMMIT || ''} expectedReleaseId={publicEnvironment.PUBLIC_APP_PREVIEW_RELEASE_ID || ''} />
   </div>{/if}
-  {#if active && !showTools && !canvasEditing}<div class="canvas-tools"><button type="button" aria-label="Edit" on:click={editApp}><Icon name="myApp" size={18} />Edit{#if isDirty}<span class="draft-dot" aria-label="Unpublished changes"></span>{/if}</button></div>{/if}
+  {#if active && !showTools && !canvasEditing}<div class="canvas-tools"><button type="button" aria-label="Edit" on:click={editOnCanvas}><Icon name="myApp" size={18} />Edit{#if isDirty}<span class="draft-dot" aria-label="Unpublished changes"></span>{/if}</button></div>{/if}
 </div>
 {#if toolsMounted}
 <AppStudioTools open={showTools} focusEnabled={!showPublishReview}>
