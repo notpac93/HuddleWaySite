@@ -245,7 +245,7 @@ function previewResponse(
 
 function dispatchPreviewResponse(
   preview: HTMLIFrameElement,
-  payload: ReturnType<typeof previewResponse>,
+  payload: Record<string, unknown>,
 ) {
   window.dispatchEvent(new MessageEvent('message', {
     origin: previewOrigin,
@@ -332,13 +332,25 @@ describe('MyAppStudio tenant preview isolation', () => {
     }
     appMocks.componentStudio.mockResolvedValue({
       tenantId: 'tenant-a', templateId: 'base', templateVersion: 1, versionToken: 'layout-v1',
-      definitions: [], requestId: 'fixture',
+      definitions: [{
+        id: 'about', type: 'about_section', label: 'About', category: 'Content',
+        definitionVersion: 1, repeatable: false, fields: [{ id: 'title', type: 'text' }],
+        defaultContent: {}, presets: [],
+        previewSpec: { title: 'About', description: 'Program introduction', highlights: [] },
+      }],
+      requestId: 'fixture',
       pages: [{ id: 'home', title: 'Home', route: '/', headline: '', subheader: '',
-        status: 'published', isVisible: true, components: [] }],
+        status: 'published', isVisible: true, components: [{
+          id: 'about-1', definitionId: 'about', definitionVersion: 1, type: 'about_section',
+          label: 'About', enabled: true, isVisible: true, status: 'published',
+          content: { title: 'About us' },
+        }] }],
     });
     const view = render(TestedMyAppStudio, { suspendInactivePreviews: true });
-    const canvas = await screen.findByTitle('Alpha League mobile app preview');
+    const canvas = await screen.findByTitle('Alpha League mobile app preview') as HTMLIFrameElement;
     const source = canvas.getAttribute('src');
+    const postToPreview = vi.spyOn(canvas.contentWindow!, 'postMessage');
+    dispatchPreviewResponse(canvas, previewResponse(canvas, 'huddleway.crm.preview.ready'));
     expect(screen.queryByRole('button', { name: 'App settings' })).toBeNull();
     expect(screen.getAllByRole('button', { name: /^Edit$/ })).toHaveLength(1);
     await fireEvent.click(screen.getByRole('button', { name: /^Edit$/ }));
@@ -348,7 +360,26 @@ describe('MyAppStudio tenant preview isolation', () => {
     expect(view.container.querySelectorAll('iframe')).toHaveLength(1);
     expect(screen.getByTitle('Alpha League mobile app preview')).toBe(canvas);
     expect(view.container.querySelector('[aria-label="My App canvas"]')).not.toHaveAttribute('inert');
-    await fireEvent.click(screen.getByRole('button', { name: /^Done$/ }));
+
+    await waitFor(() => expect(postToPreview).toHaveBeenCalledWith(
+      expect.stringContaining('"editMode":true'),
+      previewOrigin,
+    ));
+    const editDraft = JSON.parse(String(postToPreview.mock.calls.at(-1)?.[0])).pageDraft;
+    expect(editDraft.sectionEditor).toBe(true);
+    dispatchPreviewResponse(canvas, {
+      ...previewResponse(canvas, 'huddleway.crm.preview.ready'),
+      type: 'huddleway.crm.preview.canvas-action',
+      sequence: 1,
+      action: { action: 'select', pageId: editDraft.id, editSessionId: editDraft.editSessionId, componentId: 'about-1' },
+    });
+    const field = await screen.findByDisplayValue('About us');
+    await fireEvent.input(field, { target: { value: 'About our program' } });
+    await waitFor(() => expect(postToPreview).toHaveBeenCalledWith(
+      expect.stringContaining('"title":"About our program"'),
+      previewOrigin,
+    ));
+    await fireEvent.click(within(screen.getByLabelText('App edit mode')).getByRole('button', { name: /^Done$/ }));
     expect(screen.getByTitle('Alpha League mobile app preview')).toBe(canvas);
     expect(canvas.getAttribute('src')).toBe(source);
   });
