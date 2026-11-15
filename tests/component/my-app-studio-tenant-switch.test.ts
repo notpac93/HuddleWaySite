@@ -366,15 +366,23 @@ describe('MyAppStudio tenant preview isolation', () => {
       previewOrigin,
     ));
     const editDraft = JSON.parse(String(postToPreview.mock.calls.at(-1)?.[0])).pageDraft;
-    expect(editDraft.sectionEditor).toBe(true);
-    dispatchPreviewResponse(canvas, {
-      ...previewResponse(canvas, 'huddleway.crm.preview.ready'),
-      type: 'huddleway.crm.preview.canvas-action',
-      sequence: 1,
-      action: { action: 'select', pageId: editDraft.id, editSessionId: editDraft.editSessionId, componentId: 'about-1' },
-    });
-    const field = await screen.findByDisplayValue('About us');
-    await fireEvent.input(field, { target: { value: 'About our program' } });
+    expect(editDraft.sectionEditor).toBeUndefined();
+    expect(editDraft.editableFields['about-1']).toContainEqual(expect.objectContaining({ id: 'title' }));
+    const field = { pageId: editDraft.id, editSessionId: editDraft.editSessionId, componentId: 'about-1', fieldId: 'title' };
+    const actions = [
+      { ...field, action: 'text-begin' },
+      { ...field, action: 'text-change', value: 'About our program' },
+      { ...field, action: 'text-end' },
+    ];
+    for (const [index, action] of actions.entries()) {
+      dispatchPreviewResponse(canvas, {
+        ...previewResponse(canvas, 'huddleway.crm.preview.ready'),
+        type: 'huddleway.crm.preview.canvas-action',
+        sequence: index + 1,
+        action,
+      });
+    }
+    expect(view.container.querySelector('.sheet-open')).toBeNull();
     await waitFor(() => expect(postToPreview).toHaveBeenCalledWith(
       expect.stringContaining('"title":"About our program"'),
       previewOrigin,

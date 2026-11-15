@@ -697,7 +697,7 @@
   .app-tools-done { min-height: 44px; padding: 8px 12px; border-radius: 12px; font-size: 14px; font-weight: 600; background: var(--crm-brand-surface); color: var(--crm-brand-link); }
   @media(max-width: 767px) {
     .my-app-canvas.section-editing { padding-left: 0; padding-top: 0; padding-bottom: 0; }
-    .section-editing .canvas-edit-tools { top: 4px; bottom: 0; left: 0; right: 0; width: auto; pointer-events: none; }
+    .section-editing .canvas-edit-tools { top: calc(max(12px, env(safe-area-inset-top)) + 50px); bottom: 0; left: 0; right: 0; width: auto; pointer-events: none; }
     .section-editing .canvas-edit-tools :global(.canvas-toolbar), .section-editing .canvas-edit-tools :global(.section-edit-page) { pointer-events: auto; }
     .my-app-canvas.tools-open { width: min(100%, 480px); margin: 0 auto; }
   }
