@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { programTermsStore } from '../../../lib/crm/programVocabulary';
   import RecordToolbar from '../ui/RecordToolbar.svelte';
   import CreateTeamForm from '../teams/CreateTeamForm.svelte';
 
@@ -12,13 +13,17 @@
   let editingTeam: any = null;
   let searchTerm = '';
 
+  $: group = $programTermsStore.group;
+  $: groupLower = group.toLowerCase();
+  $: groups = $programTermsStore.groups;
+  $: groupsLower = groups.toLowerCase();
   $: sourceTeams = Array.isArray(teams) ? teams : [];
   $: truthfulTeams = sourceTeams
     .filter((team) => String(team?.id || '').trim())
     .map((team) => ({
       ...team,
       id: String(team.id).trim(),
-      name: String(team.name || '').trim() || 'Unnamed team',
+      name: String(team.name || '').trim() || `Unnamed ${groupLower}`,
       description: String(team.description || '').trim(),
       status: String(team.status || 'active').trim(),
       memberCount: Number.isSafeInteger(Number(team.memberCount))
@@ -64,12 +69,12 @@
   <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
     <div>
       <h3 id="teams-divisions-heading" class="text-lg font-semibold text-gray-950">
-        {parentTeamName ? `${parentTeamName} teams` : 'Teams & Divisions'}
+        {parentTeamName ? `${parentTeamName} ${groupsLower}` : groups}
       </h3>
       <p class="mt-1 text-sm text-gray-500">
         {parentTeamName
-          ? `Create and manage teams within ${parentTeamName}.`
-          : 'Create and manage organization teams.'}
+          ? `Create and manage ${groupsLower} within ${parentTeamName}.`
+          : `Create and manage organization ${groupsLower}.`}
       </p>
     </div>
     <button
@@ -77,31 +82,31 @@
       class="inline-flex items-center justify-center rounded-md bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-medium text-[var(--crm-on-primary)] shadow-sm hover:bg-[var(--crm-brand-primary-hover)]"
       on:click={openCreate}
     >
-      + Create Team
+      + Create {group}
     </button>
   </div>
 
   <RecordToolbar activeCount={searchTerm.trim() ? 1 : 0}>
     <svelte:fragment slot="view"><slot name="view" /></svelte:fragment>
   <label class="block max-w-sm">
-    <span class="sr-only">Search teams</span>
+    <span class="sr-only">Search {groupsLower}</span>
     <input
       type="search"
       bind:value={searchTerm}
       class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[var(--crm-brand-border)] focus:outline-none focus:ring-1 focus:ring-[var(--crm-brand-focus)]"
-      placeholder="Search teams..."
+      placeholder={`Search ${groupsLower}...`}
     />
   </label>
   </RecordToolbar>
 
   {#if omittedTeamCount > 0}
     <p class="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status">
-      {omittedTeamCount} team {omittedTeamCount === 1 ? 'record was' : 'records were'} omitted because no stable team ID was provided.
+      {omittedTeamCount} {groupLower} {omittedTeamCount === 1 ? 'record was' : 'records were'} omitted because no stable {groupLower} ID was provided.
     </p>
   {/if}
 
   {#if loading}
-    <div class="rounded-lg border border-gray-200 p-12 text-center text-sm text-gray-600" role="status">Loading teams…</div>
+    <div class="rounded-lg border border-gray-200 p-12 text-center text-sm text-gray-600" role="status">Loading {groupsLower}…</div>
   {:else if error}
     <div class="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-800" role="alert">{error}</div>
   {:else if visibleTeams.length > 0}
@@ -122,17 +127,17 @@
           </p>
           <dl class="mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 pt-4">
             <div>
-              <dt class="text-xs text-gray-500">Players</dt>
+              <dt class="text-xs text-gray-500">{$programTermsStore.people}</dt>
               <dd class="mt-1 text-sm font-semibold text-gray-900">{team.memberCount}</dd>
             </div>
             <div>
-              <dt class="text-xs text-gray-500">Division</dt>
+              <dt class="text-xs text-gray-500">Parent {groupLower}</dt>
               <dd class="mt-1 truncate text-sm font-semibold text-gray-900">{parentTeamName || 'Program-wide'}</dd>
             </div>
           </dl>
           <div class="mt-5 flex items-center justify-between gap-3">
             <button type="button" class="text-sm font-medium text-gray-600 hover:text-[var(--crm-brand-link)]" on:click={() => openEdit(team)}>Edit</button>
-            <button type="button" class="rounded-md bg-[var(--crm-brand-surface)] px-3 py-2 text-sm font-semibold text-[var(--crm-brand-link)] hover:bg-[var(--crm-brand-surface-strong)]" on:click={() => setActiveTeam(team)}>Open team</button>
+            <button type="button" class="rounded-md bg-[var(--crm-brand-surface)] px-3 py-2 text-sm font-semibold text-[var(--crm-brand-link)] hover:bg-[var(--crm-brand-surface-strong)]" on:click={() => setActiveTeam(team)}>Open {groupLower}</button>
           </div>
         </article>
       {/each}
@@ -140,17 +145,17 @@
   {:else}
     <div class="rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-6 py-14 text-center">
       <h4 class="text-sm font-semibold text-gray-900">
-        {normalizedSearch ? 'No matching teams' : 'No teams yet'}
+        {normalizedSearch ? `No matching ${groupsLower}` : `No ${groupsLower} yet`}
       </h4>
       <p class="mt-1 text-sm text-gray-500">
         {normalizedSearch
           ? 'Try a different search.'
           : parentTeamName
-            ? `Create the first team within ${parentTeamName}.`
-            : 'Create the first team for this organization.'}
+            ? `Create the first ${groupLower} within ${parentTeamName}.`
+            : `Create the first ${groupLower} for this organization.`}
       </p>
       {#if !normalizedSearch}
-        <button type="button" class="mt-5 rounded-md bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-semibold text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)]" on:click={openCreate}>Create Team</button>
+        <button type="button" class="mt-5 rounded-md bg-[var(--crm-brand-control)] px-4 py-2 text-sm font-semibold text-[var(--crm-on-primary)] hover:bg-[var(--crm-brand-primary-hover)]" on:click={openCreate}>Create {group}</button>
       {/if}
     </div>
   {/if}

@@ -16,5 +16,5 @@ export function programTerms(profile?: ProgramProfile | null) {
 export const programProfileStore = writable<{ tenantId: string; profile: ProgramProfile | null }>({ tenantId: '', profile: null });
 export const programTermsStore = derived([tenantIdStore, programProfileStore], ([tenantId, snapshot]) => programTerms(tenantId === snapshot.tenantId ? snapshot.profile : null));
 export function programTabLabel(name: string, fallback: string, terms: ReturnType<typeof programTerms>) {
-  return ({ Events: terms.title, Teams: terms.group === 'Class' ? 'Class groups' : terms.groups, Roster: terms.people } as Record<string, string>)[name] || fallback;
+  return ({ Events: terms.title, Teams: terms.groups, Roster: terms.people } as Record<string, string>)[name] || fallback;
 }

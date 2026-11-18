@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { programTermsStore } from '../../../lib/crm/programVocabulary';
   import { createEventDispatcher, onDestroy } from 'svelte';
   import { tenantIdStore } from '../../../lib/authStore';
   import { backendClient } from '../../../lib/api/backendClient';
@@ -7,6 +8,9 @@
   import Icon from '../ui/Icon.svelte';
   import { modalFocus } from '../../../lib/ui/modalFocus';
   import { refreshOperationalCollections } from '../../../lib/services/DataStore';
+
+  $: group = $programTermsStore.group;
+  $: groupLower = group.toLowerCase();
 
   const dispatch = createEventDispatcher();
 
@@ -69,7 +73,7 @@
         operationGeneration += 1;
         submitState = 'error';
         errorMessage =
-          'The organization or team details changed while saving. Review the form and try again.';
+          `The organization or ${groupLower} details changed while saving. Review the form and try again.`;
       } else if (submitState === 'error') {
         submitState = 'idle';
         errorMessage = '';
@@ -91,7 +95,7 @@
     ) return;
     const tenantId = $tenantIdStore;
     if (!tenantId) {
-      errorMessage = 'Select an organization before saving a team.';
+      errorMessage = `Select an organization before saving a ${groupLower}.`;
       return;
     }
     const generation = ++operationGeneration;
@@ -157,7 +161,7 @@
         'Team save failed.',
         supportId ? { requestId: supportId } : {},
       );
-      errorMessage = 'The team could not be saved.';
+      errorMessage = `The ${groupLower} could not be saved.`;
       submitState = 'error';
     }
   }
@@ -172,7 +176,7 @@
 <div class="crm-ui-modal-root" aria-labelledby="modal-title" role="dialog" aria-modal="true">
   <div class="crm-ui-modal-shell">
     <!-- Background overlay -->
-    <button type="button" class="team-editor-backdrop" aria-label="Cancel team form" tabindex="-1" disabled={submitState === 'loading'} on:click={handleCancel}></button>
+    <button type="button" class="team-editor-backdrop" aria-label={`Cancel ${groupLower} form`} tabindex="-1" disabled={submitState === 'loading'} on:click={handleCancel}></button>
 
     <!-- Center modal trick -->
     <span class="crm-ui-modal-spacer" aria-hidden="true">&#8203;</span>
@@ -180,31 +184,31 @@
     <div class="team-editor" tabindex="-1" use:modalFocus={{ onEscape: handleCancel }}>
       <form on:submit|preventDefault={handleSubmit}>
         <header class="team-editor-header">
-          <div class="team-editor-heading"><span class="team-editor-mark"><Icon name="teams" size={22} /></span><h3 id="modal-title">{team ? 'Edit Team' : 'Create New Team'}</h3></div>
-          <button type="button" class="team-editor-close" aria-label="Close team form" disabled={submitState === 'loading'} on:click={handleCancel}><Icon name="close" size={20} /></button>
+          <div class="team-editor-heading"><span class="team-editor-mark"><Icon name="teams" size={22} /></span><h3 id="modal-title">{team ? `Edit ${group}` : `Create New ${group}`}</h3></div>
+          <button type="button" class="team-editor-close" aria-label={`Close ${groupLower} form`} disabled={submitState === 'loading'} on:click={handleCancel}><Icon name="close" size={20} /></button>
         </header>
         <div class="team-editor-body">
           {#if !team && parentTeamName}
             <p class="mb-4 text-sm text-gray-600">
-              This team will be created under <strong>{parentTeamName}</strong>.
+              This {groupLower} will be created under <strong>{parentTeamName}</strong>.
             </p>
           {/if}
 
           <div class="space-y-4">
             <div>
-              <label for="team-name" class="crm-ui-label">Team Name *</label>
-              <input type="text" id="team-name" bind:value={name} required disabled={submitState === 'loading'} class="crm-ui-auth-input team-editor-input" placeholder="e.g. Varsity Basketball">
+              <label for="team-name" class="crm-ui-label">{group} Name *</label>
+              <input type="text" id="team-name" bind:value={name} required disabled={submitState === 'loading'} class="crm-ui-auth-input team-editor-input" placeholder={`Enter ${groupLower} name`}>
             </div>
 
 
             <div class="team-activity">
               <div><strong>{isActive ? 'Active' : 'Inactive'}</strong><span>{isActive ? 'Visible in the app' : 'Hidden from the app'}</span></div>
-              <button type="button" role="switch" aria-label="Team active" aria-checked={isActive} class="team-activity-switch" class:on={isActive} disabled={submitState === 'loading' || submitState === 'success'} on:click={() => { if (isActive) confirmDeactivation = true; else isActive = true; }}><span></span></button>
+              <button type="button" role="switch" aria-label={`${group} active`} aria-checked={isActive} class="team-activity-switch" class:on={isActive} disabled={submitState === 'loading' || submitState === 'success'} on:click={() => { if (isActive) confirmDeactivation = true; else isActive = true; }}><span></span></button>
             </div>
             {#if confirmDeactivation}
               <div class="team-deactivate-review" role="alertdialog" aria-modal="true" aria-labelledby="team-deactivate-title" tabindex="-1" use:modalFocus={{ onEscape: () => confirmDeactivation = false }}>
-                <h4 id="team-deactivate-title">Deactivate {name.trim() || 'team'}?</h4>
-                <p>The team will be hidden from the app when you save.</p>
+                <h4 id="team-deactivate-title">Deactivate {name.trim() || groupLower}?</h4>
+                <p>The {groupLower} will be hidden from the app when you save.</p>
                 <div><button type="button" class="crm-ui-button-secondary" on:click={() => confirmDeactivation = false}>Keep active</button><button type="button" class="crm-ui-button-primary" on:click={() => { isActive = false; confirmDeactivation = false; }}>Deactivate</button></div>
               </div>
             {/if}
@@ -218,7 +222,7 @@
             type="submit"
             state={submitState}
             disabled={!name.trim() || confirmDeactivation}
-            idleText={team ? 'Save Team' : 'Create Team'}
+            idleText={team ? `Save ${group}` : `Create ${group}`}
             loadingText={team ? 'Saving...' : 'Creating...'}
             successText={team ? 'Saved!' : 'Created!'}
             errorText={team ? 'Retry Save' : 'Retry Create'}
@@ -229,7 +233,7 @@
           </button>
         </div>
         {#if team?.id}
-          <div class="team-editor-delete"><button type="button" disabled={submitState === 'loading' || submitState === 'success' || confirmDeactivation} on:click={() => dispatch('delete', team)}><Icon name="trash" size={16} /> Delete team</button></div>
+          <div class="team-editor-delete"><button type="button" disabled={submitState === 'loading' || submitState === 'success' || confirmDeactivation} on:click={() => dispatch('delete', team)}><Icon name="trash" size={16} /> Delete {groupLower}</button></div>
         {/if}
       </form>
     </div>

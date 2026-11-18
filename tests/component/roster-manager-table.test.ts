@@ -48,6 +48,7 @@ vi.mock('../../src/lib/api/backendClient', () => ({
 }));
 
 import { tenantIdStore } from '../../src/lib/authStore';
+import { programProfileStore } from '../../src/lib/crm/programVocabulary';
 import {
   teamsProjectionScope,
   teamsStore,
@@ -83,6 +84,7 @@ describe('RosterManager projection and navigation controls', () => {
   beforeEach(() => {
     subscriptions = [];
     tenants.set('tenant-a');
+    programProfileStore.set({ tenantId: 'tenant-a', profile: null });
     projectedTeams.set([]);
     teamScope.set({ loading: false, error: '', truncated: false });
     rosterMocks.subscribeToPlayers.mockReset();
@@ -98,6 +100,19 @@ describe('RosterManager projection and navigation controls', () => {
         return unsubscribe;
       },
     );
+  });
+
+  it('uses configured group terms in the roster list and shared editor', async () => {
+    programProfileStore.set({ tenantId: 'tenant-a', profile: {
+      catalogVersion: 1, profileId: 'yoga', group: 'Class', groups: 'Classes', people: 'Students',
+    } });
+    render(TestedTeamTable, { teams: [] });
+    expect(screen.getByRole('heading', { name: 'Classes' })).toBeVisible();
+    expect(screen.getByText('No classes yet')).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Search and filters' }));
+    expect(screen.getByRole('searchbox', { name: 'Search classes' })).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: '+ Create Class' }));
+    expect(screen.getByRole('dialog', { name: 'Create New Class' })).toBeVisible();
   });
 
   it('keeps one current subscription and ignores a late prior-tenant result', async () => {

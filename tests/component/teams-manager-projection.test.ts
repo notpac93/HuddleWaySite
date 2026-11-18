@@ -80,6 +80,8 @@ import {
 } from '../../src/lib/services/DataStore';
 import TeamsManager from '../../src/components/crm/TeamsManager.svelte';
 import { backendClient } from '../../src/lib/api/backendClient';
+import { tenantIdStore } from '../../src/lib/authStore';
+import { programProfileStore } from '../../src/lib/crm/programVocabulary';
 
 const TestedTeamsManager = TeamsManager as unknown as Component;
 const teams = teamsStore as Writable<Array<Record<string, unknown>>>;
@@ -106,6 +108,8 @@ const healthyScope = {
 describe('TeamsManager complete projection states', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    tenantIdStore.set('tenant-a');
+    programProfileStore.set({ tenantId: 'tenant-a', profile: null });
     teams.set([]);
     events.set([]);
     seasons.set([]);
@@ -143,6 +147,46 @@ describe('TeamsManager complete projection states', () => {
         screen.queryByRole('dialog', { name: 'Create New Team' }),
       ).toBeNull();
     });
+  });
+
+  it('carries configured class terms through the list, editor, and tenant switch', async () => {
+    programProfileStore.set({ tenantId: 'tenant-a', profile: {
+      catalogVersion: 1, profileId: 'yoga', group: 'Class', groups: 'Classes', people: 'Students',
+    } });
+    render(TestedTeamsManager);
+    expect(screen.getByRole('heading', { name: 'Classes' })).toBeVisible();
+    expect(screen.getByText('No classes yet')).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Create class' }));
+    expect(screen.getByRole('dialog', { name: 'Create New Class' })).toBeVisible();
+    expect(screen.getByLabelText('Class Name *')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Create Class' })).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    programProfileStore.set({ tenantId: 'tenant-a', profile: {
+      catalogVersion: 1, profileId: 'yoga', overrides: { group: 'Cohort', groups: 'Cohorts' },
+    } });
+    expect(await screen.findByRole('heading', { name: 'Cohorts' })).toBeVisible();
+    expect(screen.getByText('No cohorts yet')).toBeVisible();
+    tenantIdStore.set('tenant-b');
+    expect(await screen.findByRole('heading', { name: 'Teams' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Create team' })).toBeVisible();
+  });
+
+  it('uses class terms for authored records and edit and deletion actions', async () => {
+    programProfileStore.set({ tenantId: 'tenant-a', profile: {
+      catalogVersion: 1, profileId: 'yoga', group: 'Class', groups: 'Classes', people: 'Students',
+    } });
+    const team = { id: 'class-1', name: 'Morning Flow' };
+    teams.set([team]);
+    render(TestedTeamsManager, { activeTeam: team });
+    expect(screen.getByRole('heading', { name: 'Morning Flow' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Students 0 people' })).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit class' }));
+    expect(screen.getByRole('dialog', { name: 'Edit Class' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Save Class' })).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Delete class' }));
+    expect(screen.getByRole('dialog', { name: 'Delete Morning Flow?' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Permanently delete class' })).toBeDisabled();
   });
 
   it('opens stable-ID rows and consumes a search target exactly once', async () => {

@@ -1,8 +1,9 @@
 @import "tailwindcss" source(none);
 @config "../../tailwind.config.mjs";
 
-.crm-theme-default-host,
-.crm-auth-shell,
+/* Standalone entry screens need defaults; tenant pages and dialogs inherit the shell palette. */
+.crm-theme-default-host:not(.crm-ui-shell-root *),
+.crm-auth-shell:not(.crm-ui-shell-root *),
 .crm-ui-shell-root {
   --crm-brand-primary: #003366;
   --crm-brand-secondary: #C6A95B;

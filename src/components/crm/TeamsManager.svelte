@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { programTermsStore } from '../../lib/crm/programVocabulary';
   import BrandedWorkspace from './ui/BrandedWorkspace.svelte';
   import { onDestroy, tick } from 'svelte';
   import { tenantIdStore } from '../../lib/authStore';
@@ -33,11 +34,16 @@
   export let onNavigateTab: (tab: string) => void = () => {};
 
   type Workspace = { tab: string; icon: PortalIconName; label: string; detail: string };
-  const teamWorkspaces: Workspace[] = [
-    { tab: 'Roster', icon: 'roster', label: 'Manage roster', detail: 'Add, import, and review participants.' },
-    { tab: 'Seasons', icon: 'seasons', label: 'Manage seasons', detail: 'Review the team’s season relationships.' },
-    { tab: 'Events', icon: 'events', label: 'Open schedule', detail: 'Schedule and publish team events.' },
-    { tab: 'Financials', icon: 'financials', label: 'Review financials', detail: 'Inspect team-related financial activity.' },
+  $: group = $programTermsStore.group;
+  $: groupLower = group.toLowerCase();
+  $: groups = $programTermsStore.groups;
+  $: groupsLower = groups.toLowerCase();
+  let teamWorkspaces: Workspace[];
+  $: teamWorkspaces = [
+    { tab: 'Roster', icon: 'roster', label: `Manage ${$programTermsStore.people.toLowerCase()}`, detail: 'Add, import, and review participants.' },
+    { tab: 'Seasons', icon: 'seasons', label: 'Manage seasons', detail: `Review the ${groupLower}’s season relationships.` },
+    { tab: 'Events', icon: 'events', label: 'Open schedule', detail: `Schedule and publish ${groupLower} events.` },
+    { tab: 'Financials', icon: 'financials', label: 'Review financials', detail: `Inspect financial activity for this ${groupLower}.` },
   ];
 
   let isTeamFormOpen = false;
@@ -184,10 +190,10 @@
 
   function handleTeamSuccess(event: CustomEvent<{ action: string; name: string }>) {
     const action = event.detail?.action === 'updated' ? 'updated' : 'created';
-    const name = event.detail?.name || 'Team';
+    const name = event.detail?.name || group;
     teamReceipt = {
-      title: action === 'updated' ? 'Team updated' : 'Team created',
-      message: `${name} was ${action} and the team list was refreshed.`,
+      title: `${group} ${action}`,
+      message: `${name} was ${action} and the ${groupLower} list was refreshed.`,
     };
     closeTeamForm();
   }
@@ -215,10 +221,10 @@
     if (!pendingDeleteTeam || deleteState === 'loading') return;
     const tenantId = $tenantIdStore;
     const teamId = String(pendingDeleteTeam.id || '').trim();
-    const teamName = String(pendingDeleteTeam.name || 'team').trim();
+    const teamName = String(pendingDeleteTeam.name || groupLower).trim();
     if (!tenantId) {
       deleteState = 'error';
-      deleteError = 'Select an organization before deleting a team.';
+      deleteError = `Select an organization before deleting a ${groupLower}.`;
       return;
     }
     if (!teamId || deleteConfirmation.trim() !== teamName || !deleteReason.trim()) return;
@@ -234,7 +240,7 @@
       if (String(activeTeam?.id || '') === teamId) setActiveTeam(null);
       refreshOperationalCollections('teams', 'events', 'seasons');
       teamReceipt = {
-        title: 'Team deleted',
+        title: `${group} deleted`,
         message: `${teamName} was deleted and linked portal lists are refreshing.`,
         reference: deleteOperationKey,
       };
@@ -245,8 +251,8 @@
       console.error('Team deletion failed.', supportId ? { requestId: supportId } : {});
       deleteState = 'error';
       deleteError = supportId
-        ? `The team could not be deleted. Support reference: ${supportId}`
-        : 'The team could not be deleted. Review the details and try again.';
+        ? `The ${groupLower} could not be deleted. Support reference: ${supportId}`
+        : `The ${groupLower} could not be deleted. Review the details and try again.`;
     }
   }
 
@@ -275,38 +281,38 @@
 
 {#if pendingDeleteTeam}
   <div class="crm-ui-modal-root" role="dialog" aria-modal="true" aria-labelledby="delete-team-title">
-    <button type="button" class="crm-ui-backdrop" aria-label="Cancel team deletion" tabindex="-1" disabled={deleteState === 'loading'} on:click={cancelDelete}></button>
+    <button type="button" class="crm-ui-backdrop" aria-label={`Cancel ${groupLower} deletion`} tabindex="-1" disabled={deleteState === 'loading'} on:click={cancelDelete}></button>
     <span class="crm-ui-modal-spacer" aria-hidden="true">&#8203;</span>
     <div class="relative z-10 inline-block w-full max-w-md overflow-hidden rounded-lg bg-white text-left align-bottom shadow-xl sm:my-8 sm:align-middle" tabindex="-1" use:modalFocus={{ onEscape: cancelDelete }}>
       <div class="px-6 pb-4 pt-5">
         <h3 id="delete-team-title" class="text-lg font-semibold text-gray-900">Delete {pendingDeleteTeam.name}?</h3>
-        <p class="mt-2 text-sm text-gray-600">Permanent deletion is intended for teams created in error. The team page will be removed, linked events and messages will be archived, and seasons will be detached while their history remains.</p>
+        <p class="mt-2 text-sm text-gray-600">Permanent deletion is intended for {groupsLower} created in error. The {groupLower} page will be removed, linked events and messages will be archived, and seasons will be detached while their history remains.</p>
         <div class="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
-          <strong>Loaded impact:</strong> {teamRosterCount(pendingDeleteTeam)} roster record{teamRosterCount(pendingDeleteTeam) === 1 ? '' : 's'}, {teamSeasons(pendingDeleteTeam, $seasonsStore, teamReferences).length} season{teamSeasons(pendingDeleteTeam, $seasonsStore, teamReferences).length === 1 ? '' : 's'}, and {$eventsStore.filter((event) => referencesTeam(event, String(pendingDeleteTeam.id || ''), teamReferences)).length} event{ $eventsStore.filter((event) => referencesTeam(event, String(pendingDeleteTeam.id || ''), teamReferences)).length === 1 ? '' : 's'} reference this team. The server rechecks all tenant records at deletion time.
+          <strong>Loaded impact:</strong> {teamRosterCount(pendingDeleteTeam)} roster record{teamRosterCount(pendingDeleteTeam) === 1 ? '' : 's'}, {teamSeasons(pendingDeleteTeam, $seasonsStore, teamReferences).length} season{teamSeasons(pendingDeleteTeam, $seasonsStore, teamReferences).length === 1 ? '' : 's'}, and {$eventsStore.filter((event) => referencesTeam(event, String(pendingDeleteTeam.id || ''), teamReferences)).length} event{ $eventsStore.filter((event) => referencesTeam(event, String(pendingDeleteTeam.id || ''), teamReferences)).length === 1 ? '' : 's'} reference this {groupLower}. The server rechecks all tenant records at deletion time.
         </div>
         <label for="team-delete-reason" class="crm-ui-label mt-4">Audit reason</label>
-        <textarea id="team-delete-reason" bind:value={deleteReason} rows="2" disabled={deleteState === 'loading'} class="crm-ui-input mt-1" placeholder="Why is this team being deleted?"></textarea>
+        <textarea id="team-delete-reason" bind:value={deleteReason} rows="2" disabled={deleteState === 'loading'} class="crm-ui-input mt-1" placeholder={`Why is this ${groupLower} being deleted?`}></textarea>
         <label for="team-delete-confirm" class="crm-ui-label mt-4">Type {pendingDeleteTeam.name} to confirm</label>
         <input id="team-delete-confirm" bind:value={deleteConfirmation} disabled={deleteState === 'loading'} class="crm-ui-input mt-1" autocomplete="off" />
         {#if deleteError}<p class="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700" role="alert">{deleteError}</p>{/if}
       </div>
       <div class="flex flex-col-reverse gap-3 bg-gray-50 px-6 py-4 sm:flex-row sm:justify-end">
         <button type="button" class="crm-ui-button-secondary" disabled={deleteState === 'loading'} on:click={cancelDelete}>Cancel</button>
-        <button type="button" class="crm-ui-button-danger-outline bg-red-600 text-white hover:bg-red-700" aria-label="Permanently delete team" disabled={deleteState === 'loading' || !deleteReason.trim() || deleteConfirmation.trim() !== String(pendingDeleteTeam.name || '').trim()} on:click={confirmDelete}>
-          {deleteState === 'loading' ? 'Deleting…' : deleteState === 'error' ? 'Retry delete' : 'Delete team'}
+        <button type="button" class="crm-ui-button-danger-outline bg-red-600 text-white hover:bg-red-700" aria-label={`Permanently delete ${groupLower}`} disabled={deleteState === 'loading' || !deleteReason.trim() || deleteConfirmation.trim() !== String(pendingDeleteTeam.name || '').trim()} on:click={confirmDelete}>
+          {deleteState === 'loading' ? 'Deleting…' : deleteState === 'error' ? 'Retry delete' : `Delete ${groupLower}`}
         </button>
       </div>
     </div>
   </div>
 {/if}
 
-<BrandedWorkspace title={activeTeam?.name || 'Teams'} eyebrow="Program teams" support={activeTeam?.description || ''}>
+<BrandedWorkspace title={activeTeam?.name || groups} eyebrow={`Program ${groupsLower}`} support={activeTeam?.description || ''}>
   <svelte:fragment slot="actions">
     {#if activeTeam}
-      <button type="button" class="crm-auth-button-secondary" on:click={() => openEditForm(activeTeam)}><Icon name="pencil" size={16} /> Edit team</button>
-      <button type="button" class="crm-ui-button-danger-outline bg-white inline-flex items-center gap-2" on:click={() => requestDelete(activeTeam)}><Icon name="trash" size={16} /> Delete team</button>
+      <button type="button" class="crm-auth-button-secondary" on:click={() => openEditForm(activeTeam)}><Icon name="pencil" size={16} /> Edit {groupLower}</button>
+      <button type="button" class="crm-ui-button-danger-outline bg-white inline-flex items-center gap-2" on:click={() => requestDelete(activeTeam)}><Icon name="trash" size={16} /> Delete {groupLower}</button>
     {:else}
-      <button type="button" on:click={openCreateForm} class="crm-auth-button-secondary"><Icon name="plus" size={16} /> Create team</button>
+      <button type="button" on:click={openCreateForm} class="crm-auth-button-secondary"><Icon name="plus" size={16} /> Create {groupLower}</button>
     {/if}
   </svelte:fragment>
     {#if teamReceipt}
@@ -321,15 +327,15 @@
       </div>
     {/if}
     {#if activeTeam}
-      <section class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Team overview">
+      <section class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label={`${group} overview`}>
         <div class="rounded-lg border bg-white p-4"><p class="text-xs font-semibold uppercase text-gray-500">Status</p><p class="mt-1 text-lg font-semibold">{teamStatus(activeTeam)}</p></div>
-        <button type="button" class="rounded-lg border bg-white p-4 text-left hover:border-[var(--crm-brand-focus)]" on:click={() => onNavigateTab('Roster')}><span class="text-xs font-semibold uppercase text-gray-500">Roster</span><span class="mt-1 block text-lg font-semibold">{teamRosterCount(activeTeam)} people</span></button>
+        <button type="button" class="rounded-lg border bg-white p-4 text-left hover:border-[var(--crm-brand-focus)]" on:click={() => onNavigateTab('Roster')}><span class="text-xs font-semibold uppercase text-gray-500">{$programTermsStore.people}</span><span class="mt-1 block text-lg font-semibold">{teamRosterCount(activeTeam)} people</span></button>
         <button type="button" class="rounded-lg border bg-white p-4 text-left hover:border-[var(--crm-brand-focus)]" on:click={() => onNavigateTab('Seasons')}><span class="text-xs font-semibold uppercase text-gray-500">Active season</span><span class="mt-1 block text-lg font-semibold">{seasonSummaryState || activeSeasonName(activeTeam, $seasonsStore, teamReferences)}</span></button>
         <button type="button" class="rounded-lg border bg-white p-4 text-left hover:border-[var(--crm-brand-focus)]" on:click={() => onNavigateTab('Events')}><span class="text-xs font-semibold uppercase text-gray-500">Upcoming activities</span><span class="mt-1 block text-lg font-semibold">{eventSummaryState || upcomingTeamEventCount(activeTeam, $eventsStore, teamReferences)}</span></button>
       </section>
       <section class="mt-6" aria-labelledby="team-workspaces-title">
-        <h3 id="team-workspaces-title" class="text-base font-semibold text-gray-900">Team workspaces</h3>
-        <p class="mt-1 text-sm text-gray-600">Continue with the most common team management tasks.</p>
+        <h3 id="team-workspaces-title" class="text-base font-semibold text-gray-900">{group} workspaces</h3>
+        <p class="mt-1 text-sm text-gray-600">Continue with the most common {groupLower} management tasks.</p>
         <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {#each teamWorkspaces as workspace}
             <button type="button" class="portal-motion-color rounded-lg border border-gray-200 bg-white p-4 text-left hover:border-[var(--crm-brand-focus)] hover:bg-[var(--crm-brand-surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--crm-brand-focus)]" on:click={() => onNavigateTab(workspace.tab)}>
@@ -342,16 +348,16 @@
     {:else}
       <div class="mt-6">
         {#if $teamsProjectionScope.loading}
-          <LoadingState label="Loading teams…" />
+          <LoadingState label={`Loading ${groupsLower}…`} />
         {:else if $teamsProjectionScope.error}
-          <StatusNotice tone="danger" title="Teams could not be loaded" message={$teamsProjectionScope.error} />
+          <StatusNotice tone="danger" title={`${groups} could not be loaded`} message={$teamsProjectionScope.error} />
         {:else if $teamsStore.length === 0}
-          <EmptyState icon="teams" title="No teams yet" />
+          <EmptyState icon="teams" title={`No ${groupsLower} yet`} />
         {:else}
-          <div class="team-list" aria-label="Teams">
+          <div class="team-list" aria-label={groups}>
             {#each $teamsStore as team (team.id)}
               <article data-record-id={team.id} class="team-row" class:team-row-target={activeResultId === String(team.id)}>
-                <button type="button" class="team-summary" aria-label={`${team.name} — Open team, ${teamRosterCount(team)} people`} on:click={() => setActiveTeam(team)}>
+                <button type="button" class="team-summary" aria-label={`${team.name} — Open ${groupLower}, ${teamRosterCount(team)} people`} on:click={() => setActiveTeam(team)}>
                   <span class="team-heading"><strong>{team.name}</strong><span class="team-status">{teamStatus(team)}</span></span>
                   {#if team.description?.trim()}<span class="team-description">{team.description}</span>{/if}
                   <span class="team-meta"><span>{teamRosterCount(team)} people</span><span aria-hidden="true">·</span><span>{seasonSummaryState || activeSeasonName(team, $seasonsStore, teamReferences)}</span></span>

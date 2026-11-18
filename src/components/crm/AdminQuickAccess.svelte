@@ -12,6 +12,7 @@
 
   const primaryNames = ['Dashboard', 'Events', 'Messages', 'My App'];
   $: primaryTabs = primaryNames.flatMap((name) => tabs.filter((tab) => tab.name === name));
+  $: currentLabel = tabs.find((tab) => tab.name === activeTab)?.label || activeTab;
   $: moreActive = moreSelected || tabs.some((tab) => tab.name === activeTab) && !primaryNames.includes(activeTab);
 </script>
 
@@ -29,7 +30,7 @@
   <button
     type="button"
     class:more-active={moreActive}
-    aria-label={moreSelected || !moreActive ? 'More' : `More, current section: ${activeTab}`}
+    aria-label={moreSelected || !moreActive ? 'More' : `More, current section: ${currentLabel}`}
     aria-current={moreActive ? 'page' : undefined}
     on:click={(event) => onMore(event.currentTarget)}
   >
@@ -69,8 +70,8 @@
     cursor: pointer;
   }
   button[aria-current='page'], .more-active {
-    background: #082b50;
-    color: white;
+    background: var(--crm-brand-control);
+    color: var(--crm-on-primary);
   }
   button[aria-current='page']::before, .more-active::before {
     position: absolute;
@@ -78,11 +79,11 @@
     width: 18px;
     height: 3px;
     border-radius: 3px;
-    background: #c6a95b;
+    background: var(--crm-brand-secondary);
     content: '';
   }
   button:focus-visible {
-    outline: 2px solid #003366;
+    outline: 2px solid var(--crm-brand-focus);
     outline-offset: 2px;
   }
 </style>

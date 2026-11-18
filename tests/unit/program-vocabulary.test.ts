@@ -14,6 +14,13 @@ describe('onboarding program terminology', () => {
     expect(terms.add).toBe('Add to Schedule');
     expect(programTabLabel('Events', 'Events', terms)).toBe(title);
   });
+  it.each([
+    [{ catalogVersion: 1, profileId: 'yoga', group: 'Class', groups: 'Classes' }, 'Classes'],
+    [{ catalogVersion: 1, profileId: 'yoga', group: 'Class', groups: 'Classes', overrides: { groups: 'Cohorts' } }, 'Cohorts'],
+    [null, 'Teams'],
+  ])('carries configured group names into navigation', (profile, expected) => {
+    expect(programTabLabel('Teams', 'Teams', programTerms(profile))).toBe(expected);
+  });
   it('preserves wording overrides and never carries another tenant’s profile across a switch', () => {
     programProfileStore.set({ tenantId: 'yoga-owner', profile: { catalogVersion: 1, profileId: 'yoga', groups: 'Classes', overrides: { groups: 'Groups' } } });
     expect(get(programTermsStore).title).toBe('Schedule');
