@@ -8,6 +8,12 @@
   export let error = '';
   export let onClose: () => void;
   export let onSave: (values: Record<string, unknown>) => void;
+  function workspaceOverlay(node: HTMLElement) {
+    // Escape the main pane's stacking context while retaining tenant tokens.
+    const host = node.closest('.crm-ui-shell-root') || document.body;
+    host.appendChild(node);
+    return { destroy: () => node.remove() };
+  }
   let title = board?.title || event?.title || '';
   let names = board?.names.slice() || ['', ''];
   let display = board?.display || 'duel';
@@ -23,7 +29,7 @@
       ...(board ? { action: 'edit', revision: board.revision } : {}) });
   }
 </script>
-<div class="score-modal-backdrop">
+<div class="score-modal-backdrop" use:workspaceOverlay>
   <div class="score-modal" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="score-setup-title" use:modalFocus={{ onEscape: () => { if (!busy) onClose(); }, initialFocusSelector: 'input' }}>
     <form on:submit|preventDefault={submit}>
       <header><h2 id="score-setup-title">{board ? 'Game details' : 'New game'}</h2><button type="button" class="score-icon" aria-label="Close game setup" disabled={busy} on:click={onClose}>×</button></header>

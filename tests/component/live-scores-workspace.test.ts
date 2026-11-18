@@ -22,6 +22,21 @@ function board(values = {}): LiveScoreBoard {
 }
 beforeEach(() => { tenant.set('tenant-a'); role.set('owner'); api.list.mockReset().mockResolvedValue([]); api.save.mockReset(); });
 describe('Live Scores workspace', () => {
+  it('mounts setup above shell navigation and removes it when closed', async () => {
+    const shell = document.createElement('div');
+    shell.className = 'crm-ui-shell-root';
+    const pane = document.createElement('main');
+    shell.appendChild(pane); document.body.appendChild(shell);
+    const view = render(Workspace, { target: pane });
+    await screen.findByRole('heading', { name: 'Start your first game' });
+    await fireEvent.click(screen.getAllByRole('button', { name: /New game/ })[0]);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.parentElement?.parentElement).toBe(shell);
+    expect(pane.contains(dialog)).toBe(false);
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    view.unmount(); shell.remove();
+  });
   it('creates a standalone game, starts it explicitly and scores the selected team', async () => {
     let game = board();
     api.save.mockImplementation(async (_tenant, values) => {
