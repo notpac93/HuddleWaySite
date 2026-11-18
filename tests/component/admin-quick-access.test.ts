@@ -31,11 +31,13 @@ describe('post-login admin quick access', () => {
   it('limits the More page to supplied destinations and delegates account actions', async () => {
     const onNavigate = vi.fn(), onSwitchProgram = vi.fn(), onSignOut = vi.fn();
     render(AdminMoreScreen, {
-      tabs: [{ name: 'Roster', label: 'Members', icon: 'roster' }],
+      tabs: [{ name: 'Live Scores', icon: 'liveScores' }, { name: 'Roster', label: 'Members', icon: 'roster' }],
       programs: [{ id: 'a', name: 'Alpha' }, { id: 'b', name: 'Bravo' }],
       currentProgram: 'a', onNavigate, onSwitchProgram, onSignOut,
     });
     expect(screen.queryByRole('dialog')).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Live Scores' }));
+    expect(onNavigate).toHaveBeenCalledWith('Live Scores');
     expect(screen.queryByRole('button', { name: 'Financials' })).toBeNull();
     await fireEvent.click(screen.getByRole('button', { name: 'Members' }));
     expect(onNavigate).toHaveBeenCalledWith('Roster');

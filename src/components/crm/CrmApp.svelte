@@ -31,6 +31,12 @@
   import CrmShell from './CrmShell.svelte';
 
   let activeTab = 'Dashboard';
+  let scoreLaunch: { token: number; scope: string; event: { id: string; title: string } | null } | null = null;
+  let scoreLaunchSequence = 0;
+  function openLiveScores(event: { id: string; title: string } | null = null) {
+    scoreLaunch = { token: ++scoreLaunchSequence, scope: `${$userStore?.uid}:${$tenantIdStore}`, event };
+    activeTab = 'Live Scores';
+  }
   let activeTeam: any = null;
   let activeResultId: string | null = null;
   let activeComponent: Component<any> | null = null;
@@ -104,6 +110,7 @@
     Registration: () => import('./registration/RegistrationManager.svelte'),
     Roster: () => import('./roster/RosterManager.svelte'),
     Events: () => import('./EventScheduler.svelte'),
+    'Live Scores': () => import('./LiveScoresWorkspace.svelte'),
     Financials: () => import('./FinancialOperationsWorkspace.svelte'),
     Staff: () => import('./StaffManager.svelte'),
     Media: () => import('./MediaManager.svelte'),
@@ -159,6 +166,7 @@
   };
   const globalTabs: PortalTab[] = [
     { name: 'Dashboard', icon: 'dashboard' },
+    { name: 'Live Scores', icon: 'liveScores' },
     { name: 'Teams', icon: 'teams' },
     { name: 'Seasons', icon: 'seasons' },
     { name: 'Roster', icon: 'roster' },
@@ -237,6 +245,7 @@
       window.history.replaceState({}, '', cleanUrl);
     }
     activeResultId = null;
+    scoreLaunch = null;
     restoredContextKey = contextKey;
   }
   $: contextReady = Boolean(contextKey && restoredContextKey === contextKey);
@@ -292,8 +301,9 @@
       ? { activeTeam, setActiveTeam, activeResultId, onTargetConsumed }
       : {}),
     ...(activeTab === 'Events'
-      ? { activeTeam, activeResultId, onTargetConsumed, onStartRegistrationEmail }
+      ? { activeTeam, activeResultId, onTargetConsumed, onStartRegistrationEmail, onStartScoring: openLiveScores }
       : {}),
+    ...(activeTab === 'Live Scores' ? { launch: scoreLaunch } : {}),
     ...(activeTab === 'Messages'
       ? { registrationEmailDraft, mailboxConnectionResult }
       : {}),

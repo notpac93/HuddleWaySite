@@ -67,6 +67,15 @@ const eventRecords = eventsStore as Writable<any[]>;
 const baseline = get(eventRecords);
 describe('event publication flow', () => {
   beforeEach(() => { eventRecords.set(baseline); programProfileStore.set({ tenantId: '', profile: null }); });
+  it('opens scoring from Schedule and carries the selected event', async () => {
+    const onStartScoring = vi.fn();
+    render(TestedEventScheduler, { onStartScoring });
+    await fireEvent.click(screen.getByRole('button', { name: '● Start scoring' }));
+    expect(onStartScoring).toHaveBeenLastCalledWith(null);
+    await fireEvent.click(screen.getByRole('button', { name: /^Drafts/ }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Score Opening practice' }));
+    expect(onStartScoring).toHaveBeenLastCalledWith({ id: 'event-1', title: 'Opening practice' });
+  });
   it('shows a yoga empty state without filters and uses class creation wording', async () => {
     eventRecords.set([]);
     programProfileStore.set({ tenantId: 'fixture-tenant', profile: { catalogVersion: 1, profileId: 'yoga', group: 'Class', groups: 'Classes' } });

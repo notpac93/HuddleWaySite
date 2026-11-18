@@ -31,6 +31,7 @@
   import EventFilters from './events/EventFilters.svelte';
   import { buildTeamReferenceIndex, teamNameForReference, teamReferenceMatches } from '../../lib/ui/teamReferences';
 
+  export let onStartScoring: (event: { id: string; title: string } | null) => void = () => {};
   export let activeTeam: string | { id?: unknown } | null = null;
   export let activeResultId: string | null = null;
   export let onTargetConsumed: (id: string) => void = () => {};
@@ -504,6 +505,7 @@
   <header class="events-header">
     <h2 class="crm-ui-page-title">{$programTermsStore.title}</h2>
     <div class="events-heading-actions">
+      <button type="button" class="crm-ui-button-primary events-start-scoring" on:click={() => onStartScoring(null)}>● Start scoring</button>
       <button type="button" class="crm-ui-event-top-primary" on:click={() => isCreateFormOpen = true}>{$programTermsStore.add}</button>
       <div class="events-tools">
         <button type="button" class="events-tools-trigger" aria-label="Schedule tools" aria-expanded={showEventTools} on:click={() => showEventTools = !showEventTools} on:keydown={(event) => { if (event.key === 'Escape') showEventTools = false; }}>•••</button>
@@ -625,6 +627,7 @@
             </button>
           </div>
           <div class="event-summary-actions">
+            <button type="button" class="crm-ui-button-secondary" aria-label={`Score ${event.title}`} on:click={() => onStartScoring({ id: event.id, title: event.title })}>Score</button>
             <button type="button" data-event-record-id={event.id} class="event-details-button"
               aria-label={`${expandedEventId === event.id ? 'Collapse' : 'Expand'} ${event.title}`}
               aria-expanded={expandedEventId === event.id} on:click={() => toggleExpand(event)}>
@@ -823,7 +826,9 @@
 
 <style>
   .events-header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-  .events-heading-actions { display:flex; align-items:center; gap:8px; }
+  .events-heading-actions { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:8px; }
+  .events-start-scoring { min-height:44px; white-space:nowrap; }
+  @media(max-width:540px) { .events-header { align-items:flex-start; flex-wrap:wrap; } .events-heading-actions { width:100%; justify-content:flex-start; } .events-start-scoring { flex:1; } }
   .events-tools { position:relative; }
   .events-tools-trigger { min-width:40px; min-height:40px; color:var(--crm-brand-link); border:1px solid #dce3ed; border-radius:8px; }
   .events-tools-menu { position:absolute; top:calc(100% + 6px); right:0; min-width:160px; padding:6px; background:var(--crm-surface,#fff); border:1px solid #dce3ed; border-radius:10px; box-shadow:0 6px 18px #0002; z-index:20; }

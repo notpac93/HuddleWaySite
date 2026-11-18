@@ -1,4 +1,5 @@
 export const PORTAL_ICON_PATHS = {
+  liveScores: ['M4 5h16v14H4V5zM12 5v14M7 9h2v2H7V9zm8 0h2v2h-2V9zM7 14h2m6 0h2'],
   activity: [
     'M12 6v6l4 2',
     'M3.75 12a8.25 8.25 0 101.92-5.29L3.75 8.63M3.75 4.5v4.13h4.13',
