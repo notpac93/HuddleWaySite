@@ -31,6 +31,232 @@
   },
   "definitions": [
     {
+      "id": "event_showcase",
+      "type": "showcase_section",
+      "label": "Event Showcase",
+      "category": "Storytelling",
+      "definitionVersion": 2,
+      "repeatable": true,
+      "fields": [
+        {
+          "id": "eyebrow",
+          "label": "Category or short label",
+          "type": "text",
+          "required": false,
+          "maxLength": 40,
+          "previewTarget": "eyebrow"
+        },
+        {
+          "id": "title",
+          "label": "Showcase title",
+          "type": "text",
+          "required": false,
+          "maxLength": 60,
+          "previewTarget": "title"
+        },
+        {
+          "id": "summary",
+          "label": "Short introduction",
+          "type": "multiline_text",
+          "required": true,
+          "maxLength": 280,
+          "previewTarget": "summary"
+        },
+        {
+          "id": "image",
+          "label": "Featured image",
+          "type": "image",
+          "required": false,
+          "previewTarget": "image"
+        },
+        {
+          "id": "imageAlt",
+          "label": "Image description",
+          "type": "text",
+          "required": false,
+          "maxLength": 160,
+          "previewTarget": "imageAlt"
+        },
+        {
+          "id": "cardButtonLabel",
+          "label": "Card button label",
+          "type": "text",
+          "required": false,
+          "maxLength": 40,
+          "previewTarget": "cardButtonLabel"
+        },
+        {
+          "id": "when",
+          "label": "Date and time",
+          "type": "text",
+          "required": false,
+          "maxLength": 160,
+          "previewTarget": "when"
+        },
+        {
+          "id": "location",
+          "label": "Location",
+          "type": "text",
+          "required": false,
+          "maxLength": 200,
+          "previewTarget": "location"
+        },
+        {
+          "id": "audience",
+          "label": "Who it is for",
+          "type": "text",
+          "required": false,
+          "maxLength": 160,
+          "previewTarget": "audience"
+        },
+        {
+          "id": "price",
+          "label": "Cost or admission",
+          "type": "text",
+          "required": false,
+          "maxLength": 120,
+          "previewTarget": "price"
+        },
+        {
+          "id": "overviewTitle",
+          "label": "Experience heading",
+          "type": "text",
+          "required": false,
+          "maxLength": 80,
+          "previewTarget": "overviewTitle"
+        },
+        {
+          "id": "overview",
+          "label": "What to expect",
+          "type": "multiline_text",
+          "required": false,
+          "maxLength": 2400,
+          "previewTarget": "overview"
+        },
+        {
+          "id": "benefitsTitle",
+          "label": "Benefits heading",
+          "type": "text",
+          "required": false,
+          "maxLength": 80,
+          "previewTarget": "benefitsTitle"
+        },
+        {
+          "id": "benefits",
+          "label": "Benefits and takeaways",
+          "type": "multiline_text",
+          "required": false,
+          "maxLength": 1600,
+          "previewTarget": "benefits"
+        },
+        {
+          "id": "rulesTitle",
+          "label": "Rules heading",
+          "type": "text",
+          "required": false,
+          "maxLength": 80,
+          "previewTarget": "rulesTitle"
+        },
+        {
+          "id": "rules",
+          "label": "Rules and what to bring",
+          "type": "multiline_text",
+          "required": false,
+          "maxLength": 2000,
+          "previewTarget": "rules"
+        },
+        {
+          "id": "experienceTitle",
+          "label": "Past highlights heading",
+          "type": "text",
+          "required": false,
+          "maxLength": 80,
+          "previewTarget": "experienceTitle"
+        },
+        {
+          "id": "experience",
+          "label": "Past highlights or family stories",
+          "type": "multiline_text",
+          "required": false,
+          "maxLength": 1600,
+          "previewTarget": "experience"
+        },
+        {
+          "id": "experienceImage",
+          "label": "Past experience image",
+          "type": "image",
+          "required": false,
+          "previewTarget": "image"
+        },
+        {
+          "id": "experienceImageAlt",
+          "label": "Past image description",
+          "type": "text",
+          "required": false,
+          "maxLength": 160,
+          "previewTarget": "experienceImageAlt"
+        },
+        {
+          "id": "linkedEventId",
+          "type": "text",
+          "label": "Registration event",
+          "required": false,
+          "previewTarget": "actionUrl"
+        },
+        {
+          "id": "actionLabel",
+          "label": "Page button label",
+          "type": "text",
+          "required": false,
+          "maxLength": 40,
+          "previewTarget": "actionLabel"
+        },
+        {
+          "id": "actionUrl",
+          "label": "Page button destination",
+          "type": "url",
+          "required": false,
+          "previewTarget": "actionUrl"
+        }
+      ],
+      "defaultContent": {
+        "eyebrow": "",
+        "title": "",
+        "summary": "",
+        "image": "",
+        "imageAlt": "",
+        "cardButtonLabel": "Discover more",
+        "when": "",
+        "location": "",
+        "audience": "",
+        "price": "",
+        "overviewTitle": "",
+        "overview": "",
+        "benefitsTitle": "",
+        "benefits": "",
+        "rulesTitle": "",
+        "rules": "",
+        "experienceTitle": "",
+        "experience": "",
+        "experienceImage": "",
+        "experienceImageAlt": "",
+        "actionLabel": "",
+        "actionUrl": "",
+        "linkedEventId": ""
+      },
+      "presets": [],
+      "previewSpec": {
+        "title": "Event Showcase",
+        "description": "An inviting card that opens its own clean, detailed showcase page.",
+        "highlights": [
+          "Image-aware card layout",
+          "Quick facts",
+          "Experience, benefits and rules",
+          "Optional past highlights and action"
+        ]
+      }
+    },
+    {
       "id": "home_hero",
       "type": "hero_section",
       "label": "Home Hero",
@@ -42,23 +268,25 @@
           "id": "badgeText",
           "type": "text",
           "required": false,
-          "label": "Eyebrow",
-          "maxLength": 24,
+          "label": "Small header",
+          "maxLength": 40,
           "previewTarget": "badgeText"
         },
         {
           "id": "headline",
           "type": "text",
-          "required": true,
-          "label": "Headline",
-          "previewTarget": "headline"
+          "required": false,
+          "label": "Main title",
+          "previewTarget": "headline",
+          "maxLength": 60
         },
         {
           "id": "subheadline",
           "type": "text",
           "required": false,
-          "label": "Supporting text",
-          "previewTarget": "subheadline"
+          "label": "Bottom line",
+          "previewTarget": "subheadline",
+          "maxLength": 120
         },
         {
           "id": "backgroundImage",
@@ -77,9 +305,10 @@
         {
           "id": "ctaLabel",
           "type": "text",
-          "required": true,
-          "label": "Button label",
-          "previewTarget": "ctaLabel"
+          "required": false,
+          "label": "Button text",
+          "previewTarget": "ctaLabel",
+          "maxLength": 30
         },
         {
           "id": "registrationEventId",
@@ -142,9 +371,10 @@
         {
           "id": "title",
           "type": "text",
-          "required": true,
+          "required": false,
           "label": "Event title",
-          "previewTarget": "title"
+          "previewTarget": "title",
+          "maxLength": 60
         },
         {
           "id": "date",
@@ -389,9 +619,9 @@
         {
           "id": "title",
           "type": "text",
-          "required": true,
+          "required": false,
           "label": "Section title",
-          "maxLength": 70,
+          "maxLength": 60,
           "previewTarget": "title"
         },
         {
@@ -584,15 +814,27 @@
       "type": "info_blocks",
       "label": "Info Blocks",
       "category": "Storytelling",
-      "definitionVersion": 1,
+      "definitionVersion": 2,
       "repeatable": true,
       "fields": [
+        {
+          "id": "titleMode",
+          "type": "text",
+          "required": false,
+          "label": "Heading source",
+          "options": [
+            "custom",
+            "program_name"
+          ],
+          "defaultValue": "custom",
+          "previewTarget": "title"
+        },
         {
           "id": "title",
           "type": "text",
           "required": false,
           "label": "Section title",
-          "maxLength": 70,
+          "maxLength": 60,
           "previewTarget": "title"
         },
         {
@@ -675,9 +917,9 @@
         {
           "id": "title",
           "type": "text",
-          "required": true,
+          "required": false,
           "label": "Section title",
-          "maxLength": 70,
+          "maxLength": 60,
           "previewTarget": "title"
         },
         {
@@ -807,9 +1049,10 @@
         {
           "id": "title",
           "type": "text",
-          "required": true,
+          "required": false,
           "label": "Section title",
-          "previewTarget": "title"
+          "previewTarget": "title",
+          "maxLength": 60
         }
       ],
       "defaultContent": {
@@ -839,7 +1082,7 @@
           "type": "text",
           "required": false,
           "label": "Section title",
-          "maxLength": 80,
+          "maxLength": 60,
           "previewTarget": "title"
         },
         {
@@ -940,7 +1183,7 @@
           "type": "text",
           "required": false,
           "label": "Section title",
-          "maxLength": 70,
+          "maxLength": 60,
           "previewTarget": "title"
         },
         {
@@ -1042,7 +1285,7 @@
           "type": "text",
           "required": false,
           "label": "Heading",
-          "maxLength": 120,
+          "maxLength": 60,
           "previewTarget": "title"
         },
         {

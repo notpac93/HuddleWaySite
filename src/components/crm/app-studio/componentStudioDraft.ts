@@ -98,6 +98,7 @@ export function validateComponent(
 export function validatePages(
   pages: CrmComponentStudioPage[],
   definitions: CrmComponentDefinition[],
+  baseline: CrmComponentStudioPage[] = [],
 ) {
   const definitionsById = new Map(
     definitions.map((definition) => [definition.id, definition]),
@@ -125,11 +126,12 @@ export function validatePages(
         component.isVisible
       )
         heroCount += 1;
+      const prior = baseline.flatMap((page) => page.components).find((item) => item.id === component.id);
       issues.push(
         ...validateComponent(
           component,
           definitionsById.get(component.definitionId),
-        ),
+        ).filter((issue) => !prior || !issue.fieldId || JSON.stringify(component.content[issue.fieldId]) !== JSON.stringify(prior.content[issue.fieldId])),
       );
     }
     if (heroCount > 1) {

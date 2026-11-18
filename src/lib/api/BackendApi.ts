@@ -123,6 +123,7 @@ export interface DirectInvoiceRecord {
   amountPaidCents: number;
   amountRefundedCents: number;
   amountDueCents: number;
+  dueDays?: number;
   dueAt: string | null;
   issuedAt: string | null;
   paidAt: string | null;
@@ -482,6 +483,13 @@ export type CrmComponentStudioSnapshot = {
   versions?: CrmComponentLayoutVersion[];
   historyTruncated?: boolean;
   requestId: string;
+  sources?: CrmSectionSource[];
+};
+
+export type CrmSectionSource = {
+  kind: 'team' | 'event'; id: string; label: string; expectedVersion: string;
+  values: Record<string, string>; bindings: Array<{ pageId: string; componentId: string }>; recurring: boolean;
+  preview?: Record<string, unknown>;
 };
 
 export type CrmComponentLayoutVersion = {
@@ -720,12 +728,35 @@ export interface FinancialOperationRow {
   date: string | null;
   dateLabel: string;
   detail: string;
+  teamIds?: string[];
+  participantKey?: string | null;
+  participantId?: string | null;
+  agreementId?: string | null;
+  transactionId?: string | null;
+  paymentId?: string | null;
+  invoiceId?: string | null;
+  directInvoiceId?: string | null;
+  balanceDueCents?: number | null;
+  refundableCents?: number | null;
+  providerLinked?: boolean;
+}
+
+export interface FinancialSummary {
+  teamId: string;
+  allPayments: number;
+  successfulPayments: number;
+  customers: number;
+  grossAvailable?: boolean;
+  grossIncome: Array<{ currency: string; amountCents: number }>;
+  topEvents: Array<{ name: string; count: number }>;
 }
 
 export interface FinancialOperations {
   complete: boolean;
   generatedAt: string;
   timeZone: string;
+  teams?: Array<{ id: string; name: string }>;
+  summaries?: FinancialSummary[];
   reconciliation: {
     complete: boolean;
     unreconciledTransactionCount: number;
@@ -1774,10 +1805,16 @@ export class BackendApi {
 
   async financialOverview(tenantId: string) {
     return loadFinancialOverview(
-      query => this.send<FinancialOverview>("/admin/crm/financial-overview", { query }),
+      query => this.send<FinancialOverview>("/admin/crm/financial-overview", { query: { ...query, ui: "financials" } }),
       tenantId,
       payload => invalidBackendResponse(payload || {}),
     );
+  }
+
+  financialOperation(tenantId: string, path: string, method: "GET" | "POST" | "PATCH" | "DELETE", body?: Record<string, unknown>, idempotencyKey?: string) {
+    return this.send<Record<string, unknown>>(path, method === "GET"
+      ? { query: { ...(body as Record<string, string | number | boolean>), tenantId } }
+      : { method, body: { ...body, tenantId }, idempotencyKey });
   }
 
   async crmAuthorization() {
@@ -2597,6 +2634,7 @@ export class BackendApi {
       pages: CrmComponentStudioPage[];
       stalePageIds: string[];
       staleComponentIds: string[];
+      sourceEdits?: Array<Pick<CrmSectionSource, 'kind' | 'id' | 'expectedVersion' | 'values'>>;
     },
     auditReason: string,
     idempotencyKey: string,

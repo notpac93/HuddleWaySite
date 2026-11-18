@@ -8,6 +8,7 @@ type Context = {
   definitions(): CrmComponentDefinition[];
   provisional(): CrmPageComponent | null;
   select(id: string): void;
+  open?(id: string): void;
   beginText(): () => void;
   endText(): void;
   change(componentId: string, field: string, value: string): void;
@@ -46,6 +47,11 @@ export function createCanvasEditingSession(context: Context) {
     const component = provisional?.id === action.componentId ? provisional
       : page.components.find((item) => item.id === action.componentId);
     if (!component || (provisional && provisional.id !== component.id)) return;
+    if (action.action === 'select') {
+      editing = null; context.endText();
+      (context.open || context.select)(component.id);
+      return;
+    }
     if (action.action.startsWith('text-')) {
       const definition = context.definitions().find((item) => item.id === component.definitionId && item.definitionVersion === component.definitionVersion);
       const field = definition?.fields.find((item) => item.id === action.fieldId && ['text', 'multiline_text'].includes(item.type));

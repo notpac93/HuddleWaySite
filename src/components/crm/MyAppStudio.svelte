@@ -590,7 +590,7 @@
   />
 {/if}
 
-<div class="my-app-canvas" class:tools-open={showTools} aria-label="My App canvas">
+<div class="my-app-canvas" class:section-editing={canvasEditing && !showTools} class:tools-open={showTools} aria-label="My App canvas">
   {#if !suspendInactivePreviews || active}
   <AppPreviewFrame immersive {pageDraft} {onCanvasAction} onSyncedChange={setPreviewSynced} onInteract={() => navigation?.dismiss()} previewOrigin={previewBaseUrl} tenantId={String($tenantIdStore || '')} environment={previewEnvironment} configuration={previewConfiguration} configurationReady={configLoadState === 'ready'} title={`${appName.trim() || 'Program'} mobile app preview`} expectedSourceCommit={publicEnvironment.PUBLIC_APP_PREVIEW_COMMIT || ''} expectedReleaseId={publicEnvironment.PUBLIC_APP_PREVIEW_RELEASE_ID || ''} />
   {/if}
@@ -685,6 +685,10 @@
   .my-app-canvas { position: relative; display: flex; flex: 1; min-height: 0; width: min(100%, 480px); max-width: 480px; height: 100%; padding-top: max(80px, calc(env(safe-area-inset-top) + 80px)); margin: 0 auto; overflow: hidden; background: #fafafa; }
   .canvas-tools { position: absolute; bottom: max(100px, calc(env(safe-area-inset-bottom) + 92px)); left: 50%; transform: translateX(-50%); z-index: 10; padding: 4px; background: white; border: 1px solid #dce2eb; border-radius: 18px; box-shadow: 0 5px 20px #0002; }
   .canvas-edit-tools { position: absolute; top: max(4px, env(safe-area-inset-top)); left: 4px; right: 4px; z-index: 20; }
+  .my-app-canvas.section-editing { width: min(100%, 1100px); max-width: 1100px; padding-left: min(440px, 46%); padding-top: 0; }
+  .section-editing :global(.immersive) { max-width: 480px; margin: 0 auto; }
+  .section-editing .canvas-edit-tools { right: auto; width: min(430px, 44%); bottom: 8px; display: flex; flex-direction: column; min-height: 0; }
+  .section-editing .canvas-edit-tools[hidden] { display: none; }
   .canvas-tools button { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 16px; white-space: nowrap; border-radius: 13px; background: var(--crm-brand-control); color: var(--crm-on-primary); font-size: 14px; font-weight: 600; }
   .draft-dot { width: 7px; height: 7px; background: currentColor; border-radius: 50%; }
   .canvas-error { position: absolute; inset: 80px 20px auto; z-index: 12; padding: 20px; border-radius: 14px; background: white; color: #991b1b; }
@@ -692,6 +696,9 @@
   .my-app-canvas.tools-open { flex: none; width: min(480px, calc(100% - min(440px, 45vw))); margin-right: min(440px, 45vw); }
   .app-tools-done { min-height: 44px; padding: 8px 12px; border-radius: 12px; font-size: 14px; font-weight: 600; background: var(--crm-brand-surface); color: var(--crm-brand-link); }
   @media(max-width: 767px) {
+    .my-app-canvas.section-editing { padding-left: 0; padding-top: 0; padding-bottom: 0; }
+    .section-editing .canvas-edit-tools { top: 4px; bottom: 0; left: 0; right: 0; width: auto; pointer-events: none; }
+    .section-editing .canvas-edit-tools :global(.canvas-toolbar), .section-editing .canvas-edit-tools :global(.section-edit-page) { pointer-events: auto; }
     .my-app-canvas.tools-open { width: min(100%, 480px); margin: 0 auto; }
   }
 </style>

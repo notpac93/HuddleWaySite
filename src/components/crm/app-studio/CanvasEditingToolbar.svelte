@@ -19,13 +19,17 @@
   export let onDiscard: () => void;
   export let onHistory: () => void;
   export let canManage = true;
+  export let canUndoPage = false;
+  export let onUndoPage: () => void = () => {};
 </script>
 
 <div class="canvas-toolbar" aria-label="App edit mode">
   <div class="toolbar-row">
     <label><span class="sr-only">Page</span><select aria-label="Page" disabled={busy} value={pageId} on:change={(event) => onPage(event.currentTarget.value)}>{#each pages as page}<option value={page.id}>{page.title}</option>{/each}</select></label>
-    <button type="button" aria-label="Undo" title="Undo" disabled={!canUndo || busy} on:click={onUndo}>↶</button>
+    <button class="page-undo" type="button" disabled={!canUndoPage || busy} on:click={onUndoPage}>Undo Page Edits</button>
     <details><summary aria-label="More editing actions">⋯</summary><div class="more-actions">
+      <button class="mobile-page-undo" type="button" disabled={!canUndoPage || busy} on:click={onUndoPage}>Undo Page Edits</button>
+      <button type="button" disabled={!canUndo || busy} on:click={onUndo}>Undo last change</button>
       <button type="button" disabled={busy} on:click={onSettings}>Appearance &amp; navigation</button>
       <button type="button" disabled={!canRedo || busy} on:click={onRedo}>Redo</button>
       <button type="button" disabled={!canManage || busy} on:click={onHistory}>Version history</button>
@@ -34,7 +38,7 @@
     {#if retryable}<button type="button" on:click={onRetry}>Retry</button>{:else}<button type="button" class="review" disabled={!canPublish} on:click={onReview}>Review</button>{/if}
     <button type="button" disabled={busy} on:click={onDone}>Done</button>
   </div>
-  <p role="status">{message || (dirty ? 'Unpublished changes · Select an outlined area to edit' : 'Edit mode · Select outlined text or a section')}</p>
+  <p role="status">{message || (dirty ? 'Unpublished changes' : 'No unpublished changes')}</p>
 </div>
 
 <style>
@@ -48,6 +52,8 @@
   .more-actions { position: absolute; right: 0; top: 44px; width: 210px; padding: 6px; border: 1px solid #dce2eb; border-radius: 10px; background: white; box-shadow: 0 3px 16px #0002; }
   .more-actions button { display: block; width: 100%; text-align: left; border: 0; }
   button:disabled { opacity: .45; }
+  .mobile-page-undo { display: none !important; }
+  @media (max-width: 767px) { .page-undo { display: none; } .mobile-page-undo { display: block !important; } button, select, summary { min-height: 44px; } }
   .review { background: #155eef; color: white; border-color: #155eef; }
   p { margin: 4px 2px 0; color: #52657b; font-size: 11px; }
 </style>
