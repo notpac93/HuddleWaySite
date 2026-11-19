@@ -1,26 +1,31 @@
-.live-scores-workspace { flex:1; min-height:0; overflow-y:auto; padding: 24px; width: 100%; min-width: 0; max-width: 1200px; margin: 0 auto; }
+.live-scores-workspace { flex:1; min-height:0; overflow-y:auto; padding:24px; width:100%; min-width:0; background-color:var(--crm-brand-sidebar,#102942); background-image:radial-gradient(ellipse at 100% 0%,color-mix(in srgb,var(--crm-brand-secondary,#c6a95b) 22%,transparent),transparent 55%),linear-gradient(#ffffff07 1px,transparent 1px),linear-gradient(90deg,#ffffff07 1px,transparent 1px),linear-gradient(145deg,transparent,#06132155); background-size:auto,48px 48px,48px 48px,auto; }
 .score-workspace-header,.score-control header,.score-control footer,.score-modal header,.score-modal footer { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-.score-workspace-header { margin-bottom:22px; flex-wrap:wrap; }
-.score-workspace-header button { min-height:46px; }
+.score-workspace-header { margin-bottom:22px; flex-wrap:wrap; padding:8px; border-radius:14px; background:var(--crm-brand-sidebar,#102942); color:var(--crm-on-sidebar,#fff); }
+.score-workspace-header h2 { color:inherit; }
+.score-workspace-header .crm-ui-button-primary:hover:not(:disabled) { background:var(--crm-brand-surface,#edf3fa); color:var(--crm-on-brand-surface,#17365b); }
+.score-workspace-header button { min-height:46px; background:#fff; color:var(--crm-brand-link,#003366); border-color:var(--crm-brand-border,#806d3b); box-shadow:0 6px 20px #0002; }
 .score-game-picker { display:flex; gap:8px; overflow-x:auto; padding:2px 0 18px; }
-.score-game-picker button { white-space:nowrap; display:flex; align-items:center; gap:8px; border:1px solid var(--crm-outline,#dbe2ea); border-radius:14px; padding:11px 16px; font:inherit; font-weight:600; background:var(--crm-surface,#fff); color:var(--crm-text,#172536); }
-.score-game-picker .active { border-color:var(--crm-brand-link,#003366); background:var(--crm-brand-surface,#edf3fa); color:var(--crm-brand-link,#003366); }
-.score-live-dot { width:7px; height:7px; border-radius:50%; background:#168364; }
-.score-controls-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr)); gap:20px; }
-.score-control { background:var(--crm-surface,#fff); color:var(--crm-text,#172536); padding:22px; border:1px solid var(--crm-outline,#dbe2ea); border-radius:24px; box-shadow:0 8px 28px #0b1d3808; min-width:0; }
+.score-game-picker button { white-space:nowrap; display:flex; align-items:center; gap:8px; border:1px solid #ffffff66; border-radius:14px; padding:11px 16px; font:inherit; font-weight:600; background:var(--crm-brand-sidebar,#102942); color:var(--crm-on-sidebar,#fff); }
+.score-game-picker .active { border-color:var(--crm-brand-secondary,#c6a95b); background:var(--crm-brand-secondary,#c6a95b); color:var(--crm-on-secondary,#172536); box-shadow:0 4px 16px #0002; }
+.score-live-dot { width:7px; height:7px; border-radius:50%; background:currentColor; }
+.score-controls-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr)); gap:20px; max-width:1160px; margin:0 auto; }
+.score-control { background:#fff; color:#172536; padding:22px; border:1px solid #ffffff70; border-radius:24px; box-shadow:0 16px 40px #0003,0 1px 0 #ffffff66 inset; min-width:0; overflow:hidden; }
+.score-control header { margin:-22px -22px 0; padding:20px 22px; color:var(--crm-on-sidebar,#fff); background-color:var(--crm-brand-sidebar,#102942); background-image:radial-gradient(circle at 110% -80%,#ffffff18 0 45%,transparent 45.2%),linear-gradient(120deg,transparent,#ffffff09); border-bottom:3px solid var(--crm-brand-secondary,#c6a95b); }
 .score-control h2 { margin:3px 0 0; font-size:1.2rem; line-height:1.3; font-weight:700; }
-.score-status { color:#64748b; font-size:.75rem; font-weight:700; letter-spacing:.04em; }
-.score-is-live { color:#127557; }
-.score-icon { display:grid; place-items:center; width:42px; min-width:42px; height:42px; border:1px solid #dbe2ea; border-radius:13px; background:transparent; color:inherit; font:inherit; font-size:1.35rem; }
+.score-status { display:inline-flex; align-items:center; min-height:26px; padding:3px 9px; margin-bottom:5px; border:1px solid currentColor; border-radius:8px; color:inherit; font-size:.7rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase; }
+.score-is-live { color:inherit; }
+.score-icon { display:grid; place-items:center; width:42px; min-width:42px; height:42px; border:1px solid #cbd5e1; border-radius:13px; background:transparent; color:inherit; font:inherit; font-size:1.35rem; }
+.score-control header .score-icon { border-color:#ffffff66; background:#ffffff0d; }
 .score-teams { display:grid; gap:10px; margin:22px 0; }
-.score-teams button { display:flex; align-items:center; gap:12px; width:100%; min-height:82px; padding:14px; border:1px solid #dbe2ea; border-radius:20px; background:var(--crm-surface,#fff); color:inherit; text-align:left; font:inherit; }
-.score-teams button.selected { border:2px solid var(--crm-brand-link,#003366); padding:13px; background:var(--crm-brand-surface,#edf3fa); }
-.score-badge { display:grid; place-items:center; width:42px; min-width:42px; height:44px; border-radius:13px; background:#17365b0d; font-size:.8rem; font-weight:800; }
+.score-teams button { display:flex; align-items:center; gap:12px; width:100%; min-height:82px; padding:14px; border:1px solid #cbd5e1; border-radius:20px; background:linear-gradient(110deg,#fff,var(--crm-brand-surface,#edf3fa)); color:inherit; text-align:left; font:inherit; }
+.score-teams button.selected { border:2px solid var(--crm-brand-control,#003366); padding:13px; background:var(--crm-brand-control,#003366); color:var(--crm-on-primary,#fff); box-shadow:0 6px 16px color-mix(in srgb,var(--crm-brand-control,#003366) 25%,transparent); }
+.score-badge { display:grid; place-items:center; width:42px; min-width:42px; height:44px; border-radius:13px; background:var(--crm-brand-surface-strong,#e4ecf7); color:var(--crm-on-brand-surface,#17365b); font-size:.8rem; font-weight:800; }
+.score-teams .selected .score-badge { background:var(--crm-brand-secondary,#c6a95b); color:var(--crm-on-secondary,#172536); }
 .score-team-name { flex:1; min-width:0; overflow-wrap:anywhere; font-weight:650; }
 .score-teams strong { font-size:2.25rem; font-variant-numeric:tabular-nums; line-height:1; }
 .score-additions { display:flex; align-items:center; gap:8px; }
 .score-additions button { border-radius:15px; border:1px solid var(--crm-brand-link,#003366); color:var(--crm-brand-link,#003366); background:var(--crm-brand-surface,#edf3fa); font:inherit; font-weight:750; min-width:44px; }
-.score-additions .score-plus-one { flex:1; min-height:64px; background:var(--crm-brand-link,#003366); color:#fff; font-size:1.65rem; }
+.score-additions .score-plus-one { flex:1; min-height:64px; background:var(--crm-brand-secondary,#c6a95b); color:var(--crm-on-secondary,#172536); border-color:var(--crm-brand-border,#806d3b); font-size:1.65rem; box-shadow:0 4px 12px #0b1d3815,inset 0 1px 0 #ffffff55; }
 .score-plus-two { width:62px; height:54px; font-size:1.2rem!important; }
 .score-plus-three { width:48px; height:46px; }
 .score-minus { height:46px; font-size:1.4rem!important; }
@@ -49,6 +54,6 @@
 .score-modal footer { justify-content:flex-end; margin-top:20px; }
 .live-scores-workspace button:disabled,.score-modal button:disabled { opacity:.45; cursor:default; }
 .live-scores-workspace button:focus-visible,.score-modal :is(button,input,select):focus-visible { outline:3px solid var(--crm-brand-focus,#648cc1); outline-offset:3px; }
-@media(max-width:540px) { .live-scores-workspace { padding:18px 16px; } .score-control { padding:18px; } .score-modal-backdrop { padding:12px; align-items:flex-end; } .score-modal { padding:20px; max-height:calc(100dvh - 24px); } }
+@media(max-width:540px) { .live-scores-workspace { padding:18px 16px; } .score-control { padding:18px; } .score-control header { margin:-18px -18px 0; padding:18px; } .score-modal-backdrop { padding:12px; align-items:flex-end; } .score-modal { padding:20px; max-height:calc(100dvh - 24px); } }
 
 @media(max-width:600px) { .score-modal input,.score-modal select { font-size:16px; } }
