@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { tick } from 'svelte';
 import { get } from 'svelte/store';
 const api = vi.hoisted(() => ({ list: vi.fn(), save: vi.fn() }));
 vi.mock('../../src/lib/api/LiveScoresApi', () => ({ liveScoresApi: api }));
@@ -21,7 +22,39 @@ function board(values = {}): LiveScoreBoard {
   return { id: 'game-1', tenantId: 'tenant-a', title: 'U14 basketball', names: ['HuddleWay', 'Westside'], scores: [0, 0], display: 'duel', status: 'draft', revision: 0, started: false, ...values };
 }
 beforeEach(() => { tenant.set('tenant-a'); role.set('owner'); api.list.mockReset().mockResolvedValue([]); api.save.mockReset(); });
+afterEach(() => vi.restoreAllMocks());
 describe('Live Scores workspace', () => {
+  it('keeps the empty state visible during background polls and receives new games', async () => {
+    let poll!: () => void;
+    vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
+    const originalInterval = window.setInterval.bind(window);
+    vi.spyOn(window, 'setInterval').mockImplementation((handler, delay, ...args) => {
+      if (delay === 3000) poll = handler as () => void;
+      return originalInterval(handler, delay, ...args) as unknown as ReturnType<typeof setInterval>;
+    });
+    render(Workspace);
+    const emptyState = await screen.findByRole('heading', { name: 'Start your first game' });
+    let resolveRefresh!: (value: LiveScoreBoard[]) => void;
+    api.list.mockImplementationOnce(() => new Promise(resolve => resolveRefresh = resolve));
+    poll(); await tick();
+    expect(api.list).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText('Loading scores…')).toBeNull();
+    expect(emptyState).toBeVisible();
+    resolveRefresh([board()]);
+    await screen.findByRole('button', { name: '● Start live' });
+    expect(screen.queryByRole('heading', { name: 'Start your first game' })).toBeNull();
+  });
+  it('shows loading again when switching to a different program', async () => {
+    render(Workspace);
+    await screen.findByRole('heading', { name: 'Start your first game' });
+    let resolveNew!: (value: LiveScoreBoard[]) => void;
+    api.list.mockImplementationOnce(() => new Promise(resolve => resolveNew = resolve));
+    tenant.set('tenant-b');
+    await screen.findByText('Loading scores…');
+    expect(screen.queryByRole('heading', { name: 'Start your first game' })).toBeNull();
+    resolveNew([]);
+    await screen.findByRole('heading', { name: 'Start your first game' });
+  });
   it('mounts setup above shell navigation and removes it when closed', async () => {
     const shell = document.createElement('div');
     shell.className = 'crm-ui-shell-root';

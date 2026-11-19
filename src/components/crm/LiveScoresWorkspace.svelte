@@ -14,6 +14,7 @@
   let all = false;
   let busy = false;
   let loading = false;
+  let initialLoadComplete = false;
   let blocked = false;
   let error = '';
   let setup = false;
@@ -38,14 +39,14 @@
     generation++;
     sequence++;
     boards = []; selected = ''; undo = {}; setup = false; linkedEvent = null; editing = null;
-    error = ''; busy = false; loading = false; blocked = false; loadingSequence = 0;
+    error = ''; busy = false; loading = false; initialLoadComplete = false; blocked = false; loadingSequence = 0;
     if (next) void load();
   }
   async function load() {
     if (!loadedScope || busy || loadingSequence) return;
     const gen = generation, request = ++sequence, tenant = $tenantIdStore;
     loadingSequence = request;
-    loading = boards.length === 0;
+    loading = !initialLoadComplete;
     try {
       const result = await liveScoresApi.list(tenant);
       if (gen !== generation || request !== sequence) return;
@@ -57,7 +58,7 @@
       error = e instanceof Error ? e.message : 'Scores could not be loaded.';
       if ([401, 403].includes(Number((e as { status?: number })?.status))) { boards = []; blocked = true; }
     } finally {
-      if (gen === generation && loadingSequence === request) { loading = false; loadingSequence = 0; }
+      if (gen === generation && loadingSequence === request) { loading = false; initialLoadComplete = true; loadingSequence = 0; }
     }
   }
   function consumeLaunch(request: NonNullable<typeof launch>) {
