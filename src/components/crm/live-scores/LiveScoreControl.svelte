@@ -16,7 +16,7 @@
   <header><div><span class:score-is-live={live} class="score-status">{live ? '● Live' : board.status === 'draft' ? 'Ready' : 'Final'}</span><h2>{board.title}</h2></div><button class="score-icon" type="button" aria-label={`Edit ${board.title}`} disabled={busy || !canEdit} on:click={onEdit}>✎</button></header>
   <div class="score-teams" role="group" aria-label="Scoring team">
     {#each board.names as name, i}
-      <button type="button" class:selected={selected === i} aria-pressed={selected === i} aria-label={`Select ${name}`} disabled={busy || !canEdit || board.status === 'final'} on:click={() => selected = i}>
+      <button type="button" class:selected={selected === i && board.status !== 'final'} aria-pressed={board.status === 'final' ? undefined : selected === i} aria-label={board.status === 'final' ? `${name}, ${board.scores[i]} points` : `Select ${name}`} disabled={busy || !canEdit || board.status === 'final'} on:click={() => selected = i}>
         <span class="score-badge" aria-hidden="true">{name.slice(0, 2).toUpperCase()}</span><span class="score-team-name">{name}</span><strong>{board.scores[i]}</strong>
       </button>
     {/each}

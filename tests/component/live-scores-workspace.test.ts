@@ -118,6 +118,28 @@ describe('Live Scores workspace', () => {
     expect(screen.queryByRole('button', { name: /Bars/ })).toBeNull();
     expect(screen.getByLabelText('Team 1')).toHaveValue('HuddleWay');
   });
+  it('opens a linked final result and corrects scores and names without a restart control', async () => {
+    const final = board({ eventId: 'event-1', status: 'final', started: true, scores: [4, 3], revision: 3 });
+    api.list.mockResolvedValue([final]);
+    api.save.mockResolvedValue({ ...final, names: ['HuddleWay U14', 'Westside'], scores: [4, 6], revision: 4 });
+    render(Workspace, { launch: { token: 1, scope: 'user-a:tenant-a', event: { id: 'event-1', title: 'U14 basketball' } } });
+    await screen.findByRole('button', { name: 'Edit U14 basketball' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Start live/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add 1 point' })).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit U14 basketball' }));
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByRole('heading', { name: 'Final score' })).toBeVisible();
+    expect(screen.queryByLabelText('Participants')).toBeNull();
+    expect(dialog.getByLabelText('Final score for team 1')).toHaveValue(4);
+    await fireEvent.input(dialog.getByLabelText('Team 1'), { target: { value: 'HuddleWay U14' } });
+    await fireEvent.input(dialog.getByLabelText('Final score for team 2'), { target: { value: '6' } });
+    await fireEvent.click(dialog.getByRole('button', { name: 'Save final' }));
+    await waitFor(() => expect(api.save).toHaveBeenLastCalledWith('tenant-a', expect.objectContaining({ action: 'edit', revision: 3, names: ['HuddleWay U14', 'Westside'], scores: [4, 6] }), 'game-1'));
+    await screen.findByRole('button', { name: 'Westside, 6 points' });
+    expect(screen.queryByRole('button', { name: /Start live/ })).toBeNull();
+    expect(api.save).toHaveBeenCalledTimes(1);
+  });
   it('drops a late response from a previous program', async () => {
     let resolveOld!: (value: LiveScoreBoard[]) => void;
     api.list.mockImplementation((id: string) => id === 'tenant-a' ? new Promise(resolve => resolveOld = resolve) : Promise.resolve([]));

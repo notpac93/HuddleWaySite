@@ -63,7 +63,7 @@
   }
   function consumeLaunch(request: NonNullable<typeof launch>) {
     consumedLaunch = request.token;
-    const existing = request.event ? boards.find(b => b.eventId === request.event?.id && b.status !== 'final') : null;
+    const existing = request.event ? boards.find(b => b.eventId === request.event?.id && b.status !== 'final') || boards.find(b => b.eventId === request.event?.id) : null;
     all = false;
     if (existing) selected = existing.id;
     else if (request.event) { linkedEvent = request.event; editing = null; setup = true; }

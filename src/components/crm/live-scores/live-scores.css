@@ -53,6 +53,7 @@
 .score-display-options span { font-size:1.5rem; }
 .score-modal footer { justify-content:flex-end; margin-top:20px; }
 .live-scores-workspace button:disabled,.score-modal button:disabled { opacity:.45; cursor:default; }
+.score-control .score-teams button:disabled { opacity:1; }
 .live-scores-workspace button:focus-visible,.score-modal :is(button,input,select):focus-visible { outline:3px solid var(--crm-brand-focus,#648cc1); outline-offset:3px; }
 @media(max-width:540px) { .live-scores-workspace { padding:18px 16px; } .score-control { padding:18px; } .score-control header { margin:-18px -18px 0; padding:18px; } .score-modal-backdrop { padding:12px; align-items:flex-end; } .score-modal { padding:20px; max-height:calc(100dvh - 24px); } }
 
