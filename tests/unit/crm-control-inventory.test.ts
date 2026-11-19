@@ -18,11 +18,12 @@ const reviewedControlCounts: Record<string, number> = {
   "CrmShell.svelte": 20,
   "DataTable.svelte": 13,
   "DocumentsManager.svelte": 14,
-  "EventScheduler.svelte": 19,
-  "FinancialOperationsWorkspace.svelte": 6,
-  "GlobalDashboard.svelte": 8,
+  "EventScheduler.svelte": 21,
+  "FinancialOperationsWorkspace.svelte": 18,
+  "GlobalDashboard.svelte": 9,
   "GlobalSearch.svelte": 5,
   "InviteStaffModal.svelte": 8,
+  "LiveScoresWorkspace.svelte": 5,
   "Login.svelte": 15,
   "MediaManager.svelte": 28,
   "MyAppStudio.svelte": 8,
@@ -52,13 +53,17 @@ const reviewedControlCounts: Record<string, number> = {
   "app/AppPublishReview.svelte": 4,
   "billing/BillingPackagesWorkspace.svelte": 21,
   "billing/EventPaymentTermsEditor.svelte": 5,
+  "billing/FinancialAdministration.svelte": 30,
+  "billing/FinancialInstallmentActions.svelte": 7,
+  "billing/FinancialRecordActions.svelte": 20,
   "documents/DocumentEditor.svelte": 11,
   "events/CreateEventForm.svelte": 18,
   "events/DuplicateEventModal.svelte": 9,
-  "events/EditEventModal.svelte": 15,
+  "events/EditEventModal.svelte": 14,
   "events/EventBatchPublishReview.svelte": 3,
   "events/EventCreationPreview.svelte": 1,
   "events/EventCsvImport.svelte": 7,
+  "events/EventEditDetail.svelte": 2,
   "events/EventFilters.svelte": 7,
   "events/EventRecurrenceEditor.svelte": 5,
   "events/EventRegistrantsModal.svelte": 2,
@@ -66,6 +71,8 @@ const reviewedControlCounts: Record<string, number> = {
   "events/RegistrationMethodPicker.svelte": 2,
   "events/ScheduleDatePicker.svelte": 3,
   "events/ScheduleOccurrenceEditor.svelte": 8,
+  "live-scores/LiveScoreControl.svelte": 11,
+  "live-scores/LiveScoreSetup.svelte": 10,
   "messages/AnnouncementPublishReview.svelte": 4,
   "messages/CompactAnnouncementComposer.svelte": 14,
   "messages/CompactMessageComposer.svelte": 15,
@@ -180,7 +187,7 @@ describe('exhaustive CRM control inventory', () => {
     );
 
     expect(actual).toEqual(reviewedControlCounts);
-    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(763);
+    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(862);
   });
 
   it('keeps every inventoried CRM component reachable from a production entry point', () => {

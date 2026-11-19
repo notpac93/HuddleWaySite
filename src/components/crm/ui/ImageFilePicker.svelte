@@ -55,11 +55,11 @@
 
 <div class:space-y-2={!compact}>
   {#if photo}
-    <div class="flex items-center justify-between"><span class="crm-ui-label">{label}</span>{#if selectedFile}<button type="button" class="text-sm text-[var(--crm-brand-link)]" {disabled} on:click={() => { selectedFile = null; releasePreview(); validationMessage = ''; if (fileInput) fileInput.value = ''; }}>Remove</button>{/if}</div>
+    <div class="flex items-center justify-between"><span class="crm-ui-label" class:sr-only={compact}>{label}</span>{#if selectedFile}<button type="button" class="text-sm text-[var(--crm-brand-link)]" {disabled} on:click={() => { selectedFile = null; releasePreview(); validationMessage = ''; if (fileInput) fileInput.value = ''; }}>Remove</button>{/if}</div>
     <input bind:this={fileInput} id={inputId} type="file" accept={IMAGE_FILE_ACCEPT} {disabled} on:change={handleFileChange} class="sr-only" aria-label={label} />
-    <button type="button" {disabled} class="relative block aspect-video w-full overflow-hidden rounded-xl border border-gray-200 bg-[var(--crm-brand-surface)] text-[var(--crm-brand-link)]" aria-label={previewUrl ? 'Change cover photo' : 'Add cover photo'} on:click={() => fileInput.click()}>
+    <button type="button" {disabled} class="relative block w-full overflow-hidden rounded-xl border border-gray-200 bg-[var(--crm-brand-surface)] text-[var(--crm-brand-link)]" class:aspect-video={!compact} class:compact-photo={compact} aria-label={previewUrl ? 'Change cover photo' : 'Add cover photo'} on:click={() => fileInput.click()}>
       {#if previewUrl}<img src={previewUrl} alt={previewAlt} width="640" height="360" class="h-full w-full object-cover" /><span class="absolute bottom-3 right-3 rounded-lg bg-white px-3 py-2 text-sm text-gray-900">Change photo</span>
-      {:else}<span class="flex flex-col items-center gap-2 p-5"><svg class="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-width="1.5" d="M4 4h16v16H4zM4 16l5-5 4 4 3-3 4 4M16 8h.01" /></svg><span class="font-semibold">Add a cover photo</span><span class="text-xs">Click to upload</span></span>{/if}
+      {:else}<span class="flex items-center gap-2 p-5" class:flex-col={!compact}><svg class="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-width="1.5" d="M4 4h16v16H4zM4 16l5-5 4 4 3-3 4 4M16 8h.01" /></svg><span class="font-semibold">Add a cover photo</span><span class="text-xs">{compact ? '+' : 'Click to upload'}</span></span>{/if}
     </button>
     <p class="text-xs text-gray-500">PNG, JPG, GIF, or WebP · 10 MB maximum.</p>
   {:else if compact}
@@ -136,3 +136,7 @@
     <p class="text-sm text-red-700" role="alert">{validationMessage}</p>
   {/if}
 </div>
+
+<style>
+  .compact-photo{height:80px;text-align:left;border-style:dashed}.compact-photo>span{height:100%;padding:12px;gap:12px}.compact-photo>span>svg{height:28px;width:28px}.compact-photo>span>span:last-child{margin-left:auto}.compact-photo>img{object-position:center}
+</style>

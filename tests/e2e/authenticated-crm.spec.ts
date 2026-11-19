@@ -448,7 +448,7 @@ async function mockAuthenticatedBackend(page: Page, tenantId: string) {
 }
 
 async function openCrmTab(page: Page, tab: string, mobile: boolean) {
-  const visibleLabel = tab === 'Settings' ? 'My profile' : tab;
+  const visibleLabel = tab === 'Settings' ? 'My profile' : tab === 'Events' ? 'Schedule' : tab;
   const appToggle = page.getByRole('button', { name: 'Admin tabs', exact: true });
   if (await appToggle.isVisible()) await appToggle.click();
   const appNavigation = page.locator('#app-admin-navigation.app-navigation-overlay');
@@ -586,6 +586,71 @@ test('verified owner can use the authenticated CRM shell by keyboard and mobile 
   expect(horizontalOverflow).toBeLessThanOrEqual(1);
   expect(pageErrors).toEqual([]);
   expect(backendFailures).toEqual([]);
+});
+
+test('event tap-to-edit stays compact and saves automatic season enrollment', async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
+  const { email } = await seedVerifiedOwner(testInfo.project.name);
+  const tenantId = `e2e-tenant-${testInfo.project.name.replace(/[^a-z0-9]/gi, '-').toLowerCase()}`;
+  await mockAuthenticatedBackend(page, tenantId);
+  await page.route('**/admin/crm/operational-records**', async route => {
+    const collection = new URL(route.request().url()).searchParams.get('collection');
+    if (!['events', 'seasons'].includes(collection || '')) return route.fallback();
+    const records = collection === 'events' ? [{
+      id: 'event-e2e', tenantId, title: 'Winter Basketball Kickoff', lifecycleStatus: 'published',
+      isDeleted: false, isVisible: true, teamId: 'team-e2e',
+      date: '2030-12-04T23:00:00.000Z', endDate: '2030-12-05T00:30:00.000Z',
+      priceCents: 1700, currency: 'USD', registrationMethod: 'easy',
+      paymentTerms: { mode: 'pay_in_full', currency: 'USD' },
+    }] : [{ id: 'winter-e2e', tenantId, name: 'Winter Skills Series', status: 'active', teamId: 'team-e2e' }];
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      schemaVersion: 'crm_operational_page_v1', tenantId, collection, records,
+      hasMore: false, nextCursor: null, limit: 100, requestId: `e2e-${collection}`,
+    }) });
+  });
+  let saved: any = null;
+  await page.route('**/admin/crm/resource-mutations', async route => {
+    saved = route.request().postDataJSON();
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      success: true, tenantId, operationId: 'event-e2e-update', requestId: 'e2e-update',
+      id: 'event-e2e', eventIds: ['event-e2e'], updatedCount: 1, idempotentReplay: false, publicationSyncStatus: 'not_required',
+    }) });
+  });
+  await signIn(page, email);
+  await openCrmTab(page, 'Events', Boolean(testInfo.project.use.isMobile));
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  const editor = page.getByRole('dialog', { name: 'Edit Event' });
+  await expect(editor).toBeVisible();
+  await expect(editor.getByLabel('Event Title *', { exact: true })).toBeHidden();
+  await expect(editor.getByText('Tap Edit to change one detail at a time.')).toHaveCount(0);
+  const header = editor.locator('.event-edit-header');
+  const box = await header.boundingBox();
+  expect(box!.height).toBeLessThan(105);
+  const back = await editor.getByRole('button', { name: 'Back to Schedule' }).boundingBox();
+  const title = await editor.getByRole('heading', { name: 'Edit Event' }).boundingBox();
+  expect(title!.x).toBeGreaterThan(back!.x + back!.width);
+  expect(Math.abs(title!.y - back!.y)).toBeLessThan(20);
+  await page.screenshot({ path: testInfo.outputPath('event-editor-compact.png') });
+  const originalViewport = page.viewportSize()!;
+  await page.setViewportSize({ width: 320, height: originalViewport.height });
+  expect(await header.evaluate(node => node.getBoundingClientRect().height)).toBeLessThan(105);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+  await page.setViewportSize(originalViewport);
+  await editor.getByRole('button', { name: 'Edit event title', exact: true }).click();
+  await expect(editor.getByLabel('Event Title *', { exact: true })).toBeFocused();
+  await editor.getByLabel('Event Title *', { exact: true }).fill('Winter kickoff updated');
+  await editor.getByRole('button', { name: 'Done editing event title' }).click();
+  await expect(editor.getByRole('button', { name: 'Edit event title', exact: true })).toBeFocused();
+  await editor.getByRole('button', { name: 'Edit season', exact: true }).click();
+  await editor.getByLabel(/Attach to a season/).selectOption('winter-e2e');
+  await expect(editor.getByRole('checkbox', { name: /season enrollment/i })).toHaveCount(0);
+  await expect(editor.getByText('Included in season enrollment', { exact: true })).toBeVisible();
+  await editor.getByRole('button', { name: 'Done editing season' }).click();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+  await editor.getByRole('button', { name: 'Save Event Changes' }).click();
+  await expect.poll(() => saved).not.toBeNull();
+  expect(saved.data).toMatchObject({ title: 'Winter kickoff updated', seasonId: 'winter-e2e', seasonCoverage: true, priceCents: 0 });
+  await expect(editor).toBeHidden();
 });
 
 test('admin tabs survive repeated visits, reload, and unsaved My App navigation', async ({ page }, testInfo) => {

@@ -179,6 +179,7 @@ async function completeEventDetails() {
 
 describe('event mutation family', () => {
   beforeEach(() => {
+    (seasonsStore as Writable<any[]>).set([]);
     tenants.set('tenant-a');
     formMocks.records = [];
     backendMocks.createRegistrationForm.mockReset();
@@ -190,6 +191,98 @@ describe('event mutation family', () => {
     for (const mock of Object.values(backendMocks)) mock.mockReset();
     registrationOutreachMocks.createShareableLink.mockReset();
     vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+
+  function renderInlineEditor(overrides: Record<string, unknown> = {}) {
+    return render(TestedEditEventModal, {
+      event: { ...openingPractice, priceCents: 1700, currency: 'USD',
+        dateObj: new Date('2030-08-10T16:00:00Z'), endDateObj: new Date('2030-08-10T18:00:00Z'),
+        paymentTerms: { mode: 'installments', installmentCount: 3, cadence: 'monthly', currency: 'usd' },
+        ...overrides }, teams: { 'team-1': 'Tigers' },
+    });
+  }
+
+  it('starts with compact summaries, opens only the requested fields and keeps edits after Done', async () => {
+    backendMocks.updateEvent.mockResolvedValue({ eventIds: ['event-1'] });
+    renderInlineEditor();
+    expect(screen.queryByText('Tap Edit to change one detail at a time.')).toBeNull();
+    expect(screen.getByLabelText('Event Title *')).not.toBeVisible();
+    expect(screen.getByLabelText('Date *')).not.toBeVisible();
+    expect(screen.getByLabelText('Event registration price')).not.toBeVisible();
+    const edit = screen.getByRole('button', { name: 'Edit event title' });
+    expect(edit).toHaveAttribute('aria-expanded', 'false');
+    await fireEvent.click(edit);
+    expect(edit).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByLabelText('Event Title *')).toBeVisible();
+    expect(screen.getByLabelText('Date *')).not.toBeVisible();
+    await fireEvent.input(screen.getByLabelText('Event Title *'), { target: { value: 'Winter kickoff updated' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Done editing event title' }));
+    expect(screen.getByLabelText('Event Title *')).not.toBeVisible();
+    expect(edit.closest('.detail-row')).toHaveTextContent('Winter kickoff updated');
+    expect(backendMocks.updateEvent).not.toHaveBeenCalled();
+    await fireEvent.click(edit);
+    expect(screen.getByLabelText('Event Title *')).toHaveValue('Winter kickoff updated');
+    await fireEvent.click(screen.getByRole('button', { name: 'Save Event Changes' }));
+    await waitFor(() => expect(backendMocks.updateEvent).toHaveBeenCalledTimes(1));
+    expect(backendMocks.updateEvent.mock.calls[0][2]).toEqual({ title: 'Winter kickoff updated', applyToSeries: false });
+  });
+
+  it.each([false, true])('automatically covers an existing season without an enrollment checkbox (old coverage %s)', async (coverage) => {
+    (seasonsStore as Writable<any[]>).set([{ id: 'winter', name: 'Winter Skills Series', status: 'active', teamId: 'team-1' }]);
+    backendMocks.updateEvent.mockResolvedValue({ eventIds: ['event-1'] });
+    renderInlineEditor({ seasonId: 'winter', seasonCoverage: coverage, priceCents: coverage ? 0 : 1700 });
+    expect(screen.getByText('Included in season enrollment')).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit season' }));
+    expect(screen.queryByRole('checkbox', { name: /season enrollment/i, hidden: true })).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Save Event Changes' }));
+    await waitFor(() => expect(backendMocks.updateEvent).toHaveBeenCalledTimes(1));
+    const update = backendMocks.updateEvent.mock.calls[0][2];
+    if (!coverage) expect(update).toMatchObject({ seasonId: 'winter', seasonCoverage: true, priceCents: 0, paymentTerms: { mode: 'pay_in_full', installmentCount: 1 } });
+    else expect(update).not.toHaveProperty('paymentTerms');
+  });
+
+  it('selects and removes a season while preserving the standalone price and payment plan', async () => {
+    (seasonsStore as Writable<any[]>).set([{ id: 'winter', name: 'Winter Skills Series', status: 'active', teamId: 'team-1' }]);
+    backendMocks.updateEvent.mockResolvedValue({ eventIds: ['event-1'] });
+    renderInlineEditor();
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit season' }));
+    const select = screen.getByLabelText(/Attach to a season/);
+    await fireEvent.change(select, { target: { value: 'winter' } });
+    expect(screen.getByText('Included in season enrollment')).toBeVisible();
+    expect(screen.queryByLabelText('Event registration price')).toBeNull();
+    await fireEvent.change(select, { target: { value: '' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit registration cost' }));
+    expect(screen.getByLabelText('Event registration price')).toHaveValue('17.00');
+    expect(screen.getByRole('radio', { name: 'Allow split payments' })).toBeChecked();
+    await fireEvent.click(screen.getByRole('button', { name: 'Save Event Changes' }));
+    await waitFor(() => expect(backendMocks.updateEvent).toHaveBeenCalledTimes(1));
+    expect(backendMocks.updateEvent.mock.calls[0][2]).not.toHaveProperty('paymentTerms');
+  });
+
+  it('saves a newly selected season as covered with no extra event charge', async () => {
+    (seasonsStore as Writable<any[]>).set([{ id: 'winter', name: 'Winter Skills Series', status: 'active', teamId: 'team-1' }]);
+    backendMocks.updateEvent.mockResolvedValue({ eventIds: ['event-1'] });
+    renderInlineEditor();
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit season' }));
+    await fireEvent.change(screen.getByLabelText(/Attach to a season/), { target: { value: 'winter' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Done editing season' }));
+    expect(screen.getByRole('button', { name: 'Edit season' }).closest('.detail-row')).toHaveTextContent('Winter Skills Series');
+    await fireEvent.click(screen.getByRole('button', { name: 'Save Event Changes' }));
+    await waitFor(() => expect(backendMocks.updateEvent).toHaveBeenCalledTimes(1));
+    expect(backendMocks.updateEvent.mock.calls[0][2]).toMatchObject({ seasonId: 'winter', seasonCoverage: true, priceCents: 0, paymentTerms: { mode: 'pay_in_full', installmentCount: 1, cadence: null } });
+  });
+
+  it('removes existing season coverage and writes standalone payment settings together', async () => {
+    backendMocks.updateEvent.mockResolvedValue({ eventIds: ['event-1'] });
+    renderInlineEditor({ seasonId: 'winter', seasonCoverage: true, priceCents: 0 });
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit season' }));
+    await fireEvent.change(screen.getByLabelText(/Attach to a season/), { target: { value: '' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit registration cost' }));
+    await fireEvent.input(screen.getByLabelText('Event registration price'), { target: { value: '25.00' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Save Event Changes' }));
+    await waitFor(() => expect(backendMocks.updateEvent).toHaveBeenCalledTimes(1));
+    expect(backendMocks.updateEvent.mock.calls[0][2]).toMatchObject({ seasonId: null, seasonCoverage: false, priceCents: 2500 });
   });
 
   it('separates drafts from upcoming and reviews publication without writing immediately', async () => {
@@ -240,6 +333,7 @@ describe('event mutation family', () => {
       paymentTerms: { mode: 'pay_in_full', currency: 'cad' },
       paymentPolicies: { cancellation: { text: 'Cancel policy' }, refund: { text: 'Refund policy' } } },
       teams: { 'team-1': 'Tigers' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit registration cost' }));
     expect(screen.getByText('Price (CAD)')).toBeVisible();
     await fireEvent.input(screen.getByLabelText('Event registration price'), { target: { value: '18.00' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Save Event Changes' }));
@@ -253,6 +347,7 @@ describe('event mutation family', () => {
       currency: 'USD', paymentTerms: { currency: 'CAD' } }, teams: { 'team-1': 'Tigers' } });
     expect(screen.getByLabelText('Event registration price')).toHaveValue('');
     expect(screen.getByLabelText('Event registration price')).toBeDisabled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit registration cost' }));
     expect(screen.getByRole('status')).toHaveTextContent('Currency unavailable or conflicting');
     await fireEvent.input(screen.getByLabelText('Event Title *'), { target: { value: 'Reviewed title' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Save Event Changes' }));
@@ -281,6 +376,8 @@ describe('event mutation family', () => {
     if (screen.queryByRole('button', { name: /^Drafts [1-9]/ })) await fireEvent.click(screen.getByRole('button', { name: /^Drafts/ }));
     await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
 
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit team & status' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit registration cost' }));
     expect(screen.getByLabelText('Assigned Team')).toHaveValue('tenant-a_esports');
     expect(screen.getByRole('radio', { name: 'Allow split payments' })).toBeChecked();
     expect(screen.getByLabelText('Payments')).toHaveValue('4');
@@ -369,6 +466,7 @@ describe('event mutation family', () => {
     expect(backendMocks.createEventSeries.mock.calls[0][1]).toMatchObject({ registrationMethod: 'easy', registrationFormId: null, priceCents: 3500 });
     created.unmount();
     render(TestedEditEventModal, { event: { ...openingPractice, registrationMethod: 'easy', priceCents: 0 } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit registration method' }));
     expect(screen.getByRole('radio', { name: 'Easy registration' })).toBeChecked();
   });
 
