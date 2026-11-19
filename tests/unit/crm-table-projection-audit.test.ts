@@ -8,6 +8,7 @@ const source = (relativePath: string) =>
 
 const nativeTableCounts: Record<string, number> = {
   'DataTable.svelte': 1,
+  'FinancialOperationsWorkspace.svelte': 1,
   'registration/RegistrationDetail.svelte': 2,
   'seasons/SeasonDetail.svelte': 2,
   'seasons/SeasonsManager.svelte': 1,
@@ -19,9 +20,9 @@ describe('exhaustive CRM table and projection audit', () => {
       expect(source(file).match(/<table\b/g)).toHaveLength(count);
     }
     expect(Object.values(nativeTableCounts).reduce((sum, count) => sum + count, 0))
-      .toBe(6);
+      .toBe(7);
 
-    for (const file of ['FinancialOperationsWorkspace.svelte', 'StaffManager.svelte', 'DocumentsManager.svelte']) {
+    for (const file of ['StaffManager.svelte', 'DocumentsManager.svelte']) {
       expect(source(file)).toContain('<RecordItem');
     }
     for (const file of [
@@ -55,7 +56,7 @@ describe('exhaustive CRM table and projection audit', () => {
 
   it('uses stable record IDs for every selectable or actionable direct-table row', () => {
     expect(source('FinancialOperationsWorkspace.svelte')).toContain(
-      '{#each filteredRows as row (rowKey(row))}',
+      '{#each filteredRows as row (row.key)}',
     );
     expect(source('StaffManager.svelte')).toContain(
       '{#each staffRows as staff (staff.membershipId)}',

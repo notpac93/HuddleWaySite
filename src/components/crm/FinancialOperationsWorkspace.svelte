@@ -360,7 +360,9 @@
             {#if activeView === 'invoices'}<FinancialRecordActions tenantId={$tenantIdStore} onSaved={loadOperations} />{/if}
           </div>
           {#if filteredRows.length}
-            <table class="hidden w-full border-collapse text-sm md:table">
+            <!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard users need to scroll the records region.) -->
+            <div class="hidden overflow-x-auto md:block" role="region" tabindex="0" aria-label="Financial records">
+            <table class="w-full border-collapse text-sm">
               <thead class="bg-gray-50"><tr>
                 <th class="px-3 py-2 text-left" scope="col">{activeView === 'deposits' ? 'Deposit account' : 'Participant / record'}</th>
                 <th class="px-3 py-2 text-left" scope="col" aria-sort={teamOrder === 1 ? 'ascending' : teamOrder === -1 ? 'descending' : 'none'}><button type="button" on:click={() => teamOrder = teamOrder === 1 ? -1 : teamOrder === -1 ? 0 : 1}>Team {teamOrder === 1 ? '↑' : teamOrder === -1 ? '↓' : '↕'}</button></th>
@@ -371,6 +373,7 @@
                 <td class="p-3">{teamLabel(row, teamNames)}</td><td class="p-3"><span class="finance-status" data-status={row.status}>{row.statusLabel}</span></td><td class="p-3 text-gray-600">{row.dateLabel}</td><td class="p-3 text-right font-semibold tabular-nums">{money(row.amountCents, row.currency)}</td>
               </tr>{/each}</tbody>
             </table>
+            </div>
             <div class="divide-y border-y border-gray-200 md:hidden">{#each filteredRows as row (row.key)}
               <button type="button" class="flex w-full justify-between gap-3 py-3 text-left" on:click={() => openRecord(row)}>
                 <span class="min-w-0"><strong>{row.label}</strong><span class="block text-sm text-gray-600">{[row.context, teamLabel(row, teamNames), row.dateLabel].filter(Boolean).join(' · ')}</span></span>
