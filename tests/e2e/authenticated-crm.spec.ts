@@ -7,6 +7,7 @@ const firestoreBaseUrl = `http://127.0.0.1:${process.env.PLAYWRIGHT_FIRESTORE_EM
 const password = 'FixturePass123!';
 const crmTabs = [
   'Dashboard',
+  'Live Scores',
   'Teams',
   'Seasons',
   'Roster',
@@ -16,10 +17,8 @@ const crmTabs = [
   'Messages',
   'Documents',
   'Staff',
-  'Media',
   'My App',
   'Settings',
-  'Activity',
 ];
 
 test.beforeEach(async ({ context }) => {
@@ -196,6 +195,7 @@ async function signIn(page: Page, email: string) {
 async function mockAuthenticatedBackend(page: Page, tenantId: string) {
   const operationalResponses: Record<string, Record<string, unknown>> = {
     '/admin/owner-onboarding/vocabulary': { programProfile: null },
+    '/admin/live-scores': { boards: [] },
     '/admin/inbox/threads': { success: true, threads: [], truncated: false },
     '/admin/crm/documents': { documents: [], truncated: false },
     '/admin/staff': { staff: [], pendingInvites: [], truncated: { staff: false, pendingInvites: false } },
@@ -488,7 +488,7 @@ async function openCrmTab(page: Page, tab: string, mobile: boolean) {
 test('verified owner can use the authenticated CRM shell by keyboard and mobile navigation', async ({
   page,
 }, testInfo) => {
-  // Fourteen lazy-loaded modules share this journey's total budget. Individual
+  // Current lazy-loaded modules share this journey's total budget. Individual
   // visibility/loading assertions retain their five-second failure deadline.
   test.setTimeout(90_000);
   const pageErrors: string[] = [];
@@ -653,6 +653,15 @@ test('event tap-to-edit stays compact and saves automatic season enrollment', as
   await expect(editor).toBeHidden();
 });
 
+async function openAppSettings(page: Page) {
+  const toolbar = page.locator('[aria-label="App edit mode"]');
+  if (!await toolbar.isVisible()) await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  const settings = toolbar.getByRole('button', { name: 'Appearance & navigation', exact: true });
+  if (!await settings.isVisible()) await toolbar.getByLabel('More editing actions', { exact: true }).click();
+  await settings.click();
+  await expect(page.getByRole('navigation', { name: 'My App sections' })).toBeVisible();
+}
+
 test('admin tabs survive repeated visits, reload, and unsaved My App navigation', async ({ page }, testInfo) => {
   test.setTimeout(90_000);
   const errors: string[] = [];
@@ -676,23 +685,28 @@ test('admin tabs survive repeated visits, reload, and unsaved My App navigation'
   await expect(page.getByRole('heading', { name: 'Operations Portal' })).toHaveCount(0);
 
   await openCrmTab(page, 'My App', mobile);
-  await page.getByRole('button', { name: /^Edit app(?: Unpublished changes)?$/ }).click();
-  for (const section of ['Pages', 'Components', 'Version history', 'Branding']) {
+  await openAppSettings(page);
+  for (const section of ['Pages', 'Version history', 'Branding']) {
     await page.getByRole('navigation', { name: 'My App sections' }).getByRole('button', { name: section, exact: true }).click();
     await expect(page.getByRole('alert').filter({ hasText: /could not|unavailable|invalid/i })).toHaveCount(0);
     await expect(page.getByRole('navigation', { name: 'My App sections' }).getByRole('button', { name: section, exact: true })).toHaveAttribute('aria-pressed', 'true');
   }
+  await page.getByRole('navigation', { name: 'My App sections' }).getByRole('button', { name: 'Components', exact: true }).click();
+  await expect(page.locator('[aria-label="App edit mode"]')).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'My App sections' })).toBeHidden();
+  await openAppSettings(page);
+  await page.getByRole('navigation', { name: 'My App sections' }).getByRole('button', { name: 'Branding', exact: true }).click();
   const appName = page.getByLabel('App Name', { exact: true });
   await appName.fill('Unsaved test name');
   await page.getByRole('button', { name: 'Back to app', exact: true }).click();
   await page.getByRole('button', { name: 'Admin tabs', exact: true }).click();
-  const events = page.getByRole('navigation', { name: 'Admin quick access' }).getByRole('button', { name: 'Events', exact: true });
+  const events = page.getByRole('navigation', { name: 'Admin quick access' }).getByRole('button', { name: 'Schedule', exact: true });
   await events.click();
   const guard = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: 'Keep editing', exact: true }) });
   await expect(guard).toBeVisible();
   await expect(guard.locator('.draft-navigation-actions button')).toHaveCount(2);
   await guard.getByRole('button', { name: 'Keep editing', exact: true }).click();
-  await page.getByRole('button', { name: /^Edit app(?: Unpublished changes)?$/ }).click();
+  await openAppSettings(page);
   await expect(appName).toHaveValue('Unsaved test name');
   await page.getByRole('button', { name: 'Back to app', exact: true }).click();
   if (await page.getByRole('button', { name: 'Admin tabs', exact: true }).isVisible()) {
@@ -700,9 +714,9 @@ test('admin tabs survive repeated visits, reload, and unsaved My App navigation'
   }
   await events.click();
   await guard.getByRole('button', { name: 'Save draft & leave', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Events', exact: true, level: 1 }).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Schedule', exact: true, level: 1 }).first()).toBeVisible();
   await openCrmTab(page, 'My App', mobile);
-  await page.getByRole('button', { name: /^Edit app(?: Unpublished changes)?$/ }).click();
+  await openAppSettings(page);
   await page.getByRole('button', { name: 'Restore', exact: true }).click();
   await expect(appName).toHaveValue('Unsaved test name');
   expect(errors).toEqual([]);
