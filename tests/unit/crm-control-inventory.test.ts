@@ -145,17 +145,27 @@ function walk(node: unknown, visit: (candidate: any) => void) {
   }
 }
 
+const handledFormSubmits = new WeakSet<object>();
+
 function inspectControls(source: string) {
   const parsed = parse(source);
   const controls: any[] = [];
   walk(parsed.html, (node) => {
     if (node.type === 'Element' && nativeControls.has(node.name)) controls.push(node);
+    if (node.type === 'Element' && node.name === 'form'
+      && node.attributes.some((attribute: any) => attribute.type === 'EventHandler' && attribute.name === 'submit')) {
+      walk(node, (child) => {
+        if (child.type === 'Element' && child.name === 'button'
+          && child.attributes.some((attribute: any) => attribute.type === 'Attribute' && attribute.name === 'type'
+            && attribute.value?.[0]?.data === 'submit')) handledFormSubmits.add(child);
+      });
+    }
   });
   return controls;
 }
 
 function hasRealDisposition(control: any) {
-  return control.attributes.some((attribute: any) =>
+  return handledFormSubmits.has(control) || control.attributes.some((attribute: any) =>
     attribute.type === 'EventHandler'
     || attribute.type === 'Binding'
     || (
@@ -178,6 +188,10 @@ function localSvelteImports(file: string) {
 }
 
 describe('exhaustive CRM control inventory', () => {
+  it('recognizes submit controls only when their form handles submission', () => {
+    expect(hasRealDisposition(inspectControls('<form on:submit={save}><button type="submit">Save</button></form>')[0])).toBe(true);
+    expect(hasRealDisposition(inspectControls('<form><button type="submit">Save</button></form>')[0])).toBe(false);
+  });
   it('keeps every canonical Svelte component in the reviewed inventory', () => {
     const actual = Object.fromEntries(
       componentFiles().map((file) => {
