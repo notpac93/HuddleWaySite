@@ -62,8 +62,8 @@
 </div>
 <style>
   fieldset { border: 0; padding: 0; margin: 14px 0; max-height: 45vh; overflow-y: auto; }
-  .placement-page { display: flex; align-items: center; gap: 12px; padding: 12px 4px; border-bottom: 1px solid var(--crm-border, #dce3ec); }
-  .placement-page input { width: 20px; height: 20px; accent-color: var(--crm-brand-primary, #397c69); }
+  .score-modal .placement-page { display: flex; flex-direction: row; align-items: center; gap: 12px; padding: 12px 4px; margin: 0; min-height: 48px; border-bottom: 1px solid var(--crm-border, #dce3ec); }
+  .score-modal .placement-page input { width: 20px; height: 20px; min-height: 20px; padding: 0; margin: 0; flex: 0 0 20px; border-radius: 4px; accent-color: var(--crm-brand-primary, #397c69); }
   .placement-page span { flex: 1; }
   .placement-published { flex: 0 !important; font-size: 12px; color: var(--crm-text-muted, #607087); }
 </style>
