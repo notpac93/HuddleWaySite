@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scoreModalViewport } from '../../../lib/ui/scoreModalViewport';
   import { onMount } from 'svelte';
   import { modalFocus } from '../../../lib/ui/modalFocus';
   import { createIdempotencyKey } from '../../../lib/api/BackendApi';
@@ -46,7 +47,7 @@
   }
   onMount(() => { void load(); return () => { active = false; }; });
 </script>
-<div class="score-modal-backdrop" use:overlay>
+<div class="score-modal-backdrop" use:scoreModalViewport use:overlay>
   <div class="score-modal" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="score-placement-title" use:modalFocus={{ onEscape: () => { if (!saving) onClose(); } }}>
     <form on:submit|preventDefault={save}>
       <header><h2 id="score-placement-title">Show on</h2><button type="button" class="score-icon" aria-label="Close page picker" disabled={saving} on:click={onClose}>×</button></header>

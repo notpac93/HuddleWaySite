@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scoreModalViewport } from '../../../lib/ui/scoreModalViewport';
   import { modalFocus } from '../../../lib/ui/modalFocus';
   import type { LiveScoreBoard, ScoreEvent } from '../../../lib/api/LiveScoresApi';
   export let board: LiveScoreBoard | null = null;
@@ -32,7 +33,7 @@
       ...(board ? { action: 'edit', revision: board.revision } : {}) });
   }
 </script>
-<div class="score-modal-backdrop" use:workspaceOverlay>
+<div class="score-modal-backdrop" use:scoreModalViewport use:workspaceOverlay>
   <div class="score-modal" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="score-setup-title" use:modalFocus={{ onEscape: () => { if (!busy) onClose(); }, initialFocusSelector: 'input' }}>
     <form on:submit|preventDefault={submit}>
       <header><h2 id="score-setup-title">{isFinal ? 'Final score' : board ? 'Game details' : 'New game'}</h2><button type="button" class="score-icon" aria-label="Close game setup" disabled={busy} on:click={onClose}>×</button></header>
