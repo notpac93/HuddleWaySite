@@ -5,6 +5,16 @@ import { liveScoresApi } from '../../src/lib/api/LiveScoresApi';
 const board = { id: 'board-1', tenantId: 'tenant-a', title: 'Game', names: ['A', 'B'], scores: [0, 0], status: 'draft', display: 'duel', revision: 0, started: false };
 beforeEach(() => mocks.request.mockReset());
 describe('live score API boundary', () => {
+  it('loads page choices and publishes within the requested tenant and board', async () => {
+    const pages = [{ id: 'home', title: 'Home', route: '/', recommended: true, placed: false }];
+    mocks.request.mockResolvedValue({ pages });
+    expect(await liveScoresApi.placement('tenant-a', 'board-1')).toEqual(pages);
+    expect(mocks.request).toHaveBeenLastCalledWith('/admin/live-scores/board-1/placement', { query: { tenantId: 'tenant-a' } });
+    await liveScoresApi.place('tenant-a', 'board-1', ['home'], 'operation-1');
+    expect(mocks.request).toHaveBeenLastCalledWith('/admin/live-scores/board-1/placement', { method: 'POST', body: { tenantId: 'tenant-a', pageIds: ['home'], operationId: 'operation-1' } });
+    mocks.request.mockResolvedValue({ pages: [{ id: 'bad' }] });
+    await expect(liveScoresApi.placement('tenant-a', 'board-1')).rejects.toThrow('Pages could not be loaded');
+  });
   it('uses a backend-compatible operation ID and binds every mutation to its tenant', async () => {
     mocks.request.mockResolvedValue({ board });
     await liveScoresApi.save('tenant-a', { title: 'Game', names: ['A', 'B'], display: 'duel', tenantId: 'foreign' });

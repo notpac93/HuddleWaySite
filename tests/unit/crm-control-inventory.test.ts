@@ -71,8 +71,9 @@ const reviewedControlCounts: Record<string, number> = {
   "events/RegistrationMethodPicker.svelte": 2,
   "events/ScheduleDatePicker.svelte": 3,
   "events/ScheduleOccurrenceEditor.svelte": 8,
-  "live-scores/LiveScoreControl.svelte": 11,
+  "live-scores/LiveScoreControl.svelte": 12,
   "live-scores/LiveScoreSetup.svelte": 10,
+  "live-scores/LiveScorePlacement.svelte": 5,
   "messages/AnnouncementPublishReview.svelte": 4,
   "messages/CompactAnnouncementComposer.svelte": 14,
   "messages/CompactMessageComposer.svelte": 15,
@@ -201,7 +202,7 @@ describe('exhaustive CRM control inventory', () => {
     );
 
     expect(actual).toEqual(reviewedControlCounts);
-    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(862);
+    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(868);
   });
 
   it('keeps every inventoried CRM component reachable from a production entry point', () => {

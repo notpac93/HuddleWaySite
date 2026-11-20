@@ -13,6 +13,7 @@ export interface LiveScoreBoard {
   revision: number;
   started: boolean;
 }
+export interface ScorePage { id: string; title: string; route: string; recommended: boolean; placed: boolean }
 export interface ScoreEvent { id: string; title: string }
 function validBoard(board: LiveScoreBoard, tenantId: string): boolean {
   return Boolean(board && board.tenantId === tenantId && typeof board.id === 'string' && typeof board.title === 'string'
@@ -22,6 +23,16 @@ function validBoard(board: LiveScoreBoard, tenantId: string): boolean {
     && board.names.every(name => typeof name === 'string') && board.scores.every(score => Number.isInteger(score) && score >= 0));
 }
 export const liveScoresApi = {
+  async placement(tenantId: string, boardId: string) {
+    const result = await backendClient.request<{ pages: ScorePage[] }>(`/admin/live-scores/${encodeURIComponent(boardId)}/placement`, { query: { tenantId } });
+    if (!Array.isArray(result.pages) || result.pages.some(page => typeof page.id !== 'string' || typeof page.title !== 'string' || typeof page.route !== 'string' || typeof page.placed !== 'boolean' || typeof page.recommended !== 'boolean')) throw new Error('Pages could not be loaded.');
+    return result.pages;
+  },
+  async place(tenantId: string, boardId: string, pageIds: string[], operationId: string) {
+    await backendClient.request(`/admin/live-scores/${encodeURIComponent(boardId)}/placement`, {
+      method: 'POST', body: { tenantId, pageIds, operationId },
+    });
+  },
   async list(tenantId: string) {
     const result = await backendClient.request<{ boards: LiveScoreBoard[] }>('/admin/live-scores', { query: { tenantId } });
     if (!Array.isArray(result.boards) || result.boards.some(board => !validBoard(board, tenantId))) throw new Error('Scores could not be loaded.');

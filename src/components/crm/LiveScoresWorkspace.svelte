@@ -4,6 +4,7 @@
   import { eventsStore } from '../../lib/services/DataStore';
   import { registerLiveRefresh } from '../../lib/crm/liveRefresh';
   import { liveScoresApi, type LiveScoreBoard, type ScoreEvent } from '../../lib/api/LiveScoresApi';
+  import LiveScorePlacement from './live-scores/LiveScorePlacement.svelte';
   import LiveScoreSetup from './live-scores/LiveScoreSetup.svelte';
   import LiveScoreControl from './live-scores/LiveScoreControl.svelte';
   import './live-scores/live-scores.css';
@@ -11,6 +12,7 @@
   export let launch: { token: number; scope: string; event: ScoreEvent | null } | null = null;
   let boards: LiveScoreBoard[] = [];
   let selected = '';
+  let placement: { board: LiveScoreBoard; start: boolean; scope: string } | null = null;
   let all = false;
   let busy = false;
   let loading = false;
@@ -38,7 +40,7 @@
     loadedScope = next;
     generation++;
     sequence++;
-    boards = []; selected = ''; undo = {}; setup = false; linkedEvent = null; editing = null;
+    boards = []; selected = ''; undo = {}; placement = null; setup = false; linkedEvent = null; editing = null;
     error = ''; busy = false; loading = false; initialLoadComplete = false; blocked = false; loadingSequence = 0;
     if (next) void load();
   }
@@ -89,6 +91,7 @@
     } finally { if (gen === generation) busy = false; }
   }
   function action(board: LiveScoreBoard, name: 'start' | 'finish' | 'undo') {
+    if (name === 'start') { placement = { board, start: true, scope }; return; }
     if (name === 'undo') {
       const last = undo[board.id];
       if (last?.revision === board.revision) void mutate({ action: 'score', participant: last.participant, delta: -last.delta }, board);
@@ -96,7 +99,7 @@
   }
   onMount(() => {
     mounted = true;
-    const poll = () => { if (!document.hidden && !busy && !setup && !blocked) void load(); };
+    const poll = () => { if (!document.hidden && !busy && !setup && !placement && !blocked) void load(); };
     const timer = window.setInterval(poll, 3000);
     const stopRefresh = registerLiveRefresh(load);
     return () => { mounted = false; generation++; window.clearInterval(timer); stopRefresh(); };
@@ -114,8 +117,13 @@
         {#each boards as board (board.id)}<button type="button" class:active={selected === board.id && !all} aria-pressed={selected === board.id && !all} on:click={() => { selected = board.id; all = false; }}>{#if board.status === 'live'}<span class="score-live-dot" aria-hidden="true"></span>{/if}{board.title}</button>{/each}
         {#if boards.length > 1}<button type="button" class:active={all} aria-pressed={all} on:click={() => all = !all}>All games</button>{/if}
       </nav>
-      <div class="score-controls-grid">{#each visible as board (board.id)}<LiveScoreControl {board} {busy} canEdit={authorized && !blocked} undoAvailable={undo[board.id]?.revision === board.revision} onEdit={() => edit(board)} onScore={(participant, delta) => void mutate({ action: 'score', participant, delta }, board, { participant, delta })} onAction={name => action(board, name)} />{/each}</div>
+      <div class="score-controls-grid">{#each visible as board (board.id)}<LiveScoreControl {board} {busy} canEdit={authorized && !blocked} undoAvailable={undo[board.id]?.revision === board.revision} onEdit={() => edit(board)} onPlace={() => placement = { board, start: false, scope }} onScore={(participant, delta) => void mutate({ action: 'score', participant, delta }, board, { participant, delta })} onAction={name => action(board, name)} />{/each}</div>
     {:else if !blocked}<div class="score-empty"><span class="score-empty-icon" aria-hidden="true">0 : 0</span><h3>Start your first game</h3><button type="button" class="crm-ui-button-primary" on:click={newGame}>+ New game</button></div>{/if}
   {/if}
 </section>
 {#if setup && authorized}<LiveScoreSetup board={editing} event={linkedEvent} events={eventOptions} {busy} {error} onClose={() => { if (!busy) { setup = false; error = ''; } }} onSave={values => void mutate(values, editing || undefined)} />{/if}
+
+{#if placement && authorized}<LiveScorePlacement tenantId={$tenantIdStore} board={placement.board} start={placement.start} onClose={() => placement = null} onDone={() => {
+  const request = placement; placement = null;
+  if (request?.start && request.scope === scope) void mutate({ action: 'start' }, request.board);
+}} />{/if}

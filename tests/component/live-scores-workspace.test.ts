@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/sve
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { tick } from 'svelte';
 import { get } from 'svelte/store';
-const api = vi.hoisted(() => ({ list: vi.fn(), save: vi.fn() }));
+const api = vi.hoisted(() => ({ list: vi.fn(), save: vi.fn(), placement: vi.fn(), place: vi.fn() }));
 vi.mock('../../src/lib/api/LiveScoresApi', () => ({ liveScoresApi: api }));
 vi.mock('../../src/lib/authStore', async () => {
   const { writable } = await import('svelte/store');
@@ -21,9 +21,30 @@ const role = activeTenantRole as Writable<string>;
 function board(values = {}): LiveScoreBoard {
   return { id: 'game-1', tenantId: 'tenant-a', title: 'U14 basketball', names: ['HuddleWay', 'Westside'], scores: [0, 0], display: 'duel', status: 'draft', revision: 0, started: false, ...values };
 }
-beforeEach(() => { tenant.set('tenant-a'); role.set('owner'); api.list.mockReset().mockResolvedValue([]); api.save.mockReset(); });
+beforeEach(() => { tenant.set('tenant-a'); role.set('owner'); api.list.mockReset().mockResolvedValue([]); api.save.mockReset(); api.placement.mockReset().mockResolvedValue([{ id: 'home', title: 'Home', route: '/', recommended: true, placed: false }, { id: 'schedule', title: 'Schedule', route: '/schedule', recommended: true, placed: false }, { id: 'team', title: 'Falcons', route: '/team-falcons', recommended: true, placed: false }]); api.place.mockReset().mockResolvedValue({}); });
 afterEach(() => vi.restoreAllMocks());
 describe('Live Scores workspace', () => {
+  it('keeps a game ready when page publication fails and retries before starting', async () => {
+    api.list.mockResolvedValue([board()]); api.place.mockRejectedValueOnce(new Error('Publishing failed'));
+    api.save.mockResolvedValue(board({ status: 'live', started: true }));
+    render(Workspace);
+    await fireEvent.click(await screen.findByRole('button', { name: '● Start live' }));
+    const publish = await screen.findByRole('button', { name: 'Publish & start' });
+    await waitFor(() => expect(publish).not.toBeDisabled()); await fireEvent.click(publish);
+    await screen.findByRole('alert'); expect(api.save).not.toHaveBeenCalled();
+    const operation = api.place.mock.calls[0][3]; await fireEvent.click(publish);
+    await screen.findByRole('button', { name: 'Add 1 point' });
+    expect(api.place.mock.calls[1][3]).toBe(operation);
+  });
+  it('publishes an already-running game without restarting or changing its score', async () => {
+    api.list.mockResolvedValue([board({ status: 'live', started: true, scores: [7, 3] })]); render(Workspace);
+    await fireEvent.click(await screen.findByRole('button', { name: 'Show in app' }));
+    const publish = await screen.findByRole('button', { name: 'Publish scores' });
+    await waitFor(() => expect(publish).not.toBeDisabled()); await fireEvent.click(publish);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(api.save).not.toHaveBeenCalled(); expect(api.place).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps the empty state visible during background polls and receives new games', async () => {
     let poll!: () => void;
     vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
@@ -89,7 +110,15 @@ describe('Live Scores workspace', () => {
     expect(api.save).toHaveBeenCalledWith('tenant-a', expect.objectContaining({ eventId: null, display: 'duel', names: ['HuddleWay', 'Westside'] }), undefined);
     expect(api.save.mock.calls.some(c => c[1].action === 'start')).toBe(false);
     await fireEvent.click(screen.getByRole('button', { name: '● Start live' }));
+    const publish = await screen.findByRole('button', { name: 'Publish & start' });
+    await waitFor(() => expect(publish).not.toBeDisabled());
+    expect(screen.getByRole('checkbox', { name: 'Home' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Schedule' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Falcons' })).toBeChecked();
+    expect(api.save.mock.calls.some(c => c[1].action === 'start')).toBe(false);
+    await fireEvent.click(publish);
     await screen.findByRole('button', { name: 'Add 1 point' });
+    expect(api.place).toHaveBeenCalledWith('tenant-a', 'game-1', ['home', 'schedule', 'team'], expect.any(String));
     await fireEvent.click(screen.getByRole('button', { name: 'Select Westside' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Add 2 points' }));
     await waitFor(() => expect(api.save).toHaveBeenLastCalledWith('tenant-a', { action: 'score', participant: 1, delta: 2 }, 'game-1'));
