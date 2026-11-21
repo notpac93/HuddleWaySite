@@ -6,6 +6,7 @@ export interface LiveScoreBoard {
   tenantId: string;
   title: string;
   names: string[];
+  players?: { id: string; name: string; points: number }[][];
   scores: number[];
   status: 'draft' | 'live' | 'final';
   display: 'duel' | 'bars';

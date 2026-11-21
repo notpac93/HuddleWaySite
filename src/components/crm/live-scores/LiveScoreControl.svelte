@@ -4,11 +4,16 @@
   export let busy = false;
   export let canEdit = true;
   export let undoAvailable = false;
-  export let onScore: (participant: number, delta: number) => void;
+  export let onScore: (participant: number, delta: number, playerId?: string) => void;
   export let onAction: (action: 'start' | 'finish' | 'undo') => void;
   export let onEdit: () => void;
   export let onPlace: () => void = () => {};
   let selected = 0;
+  let expanded: number | null = null;
+  let playerId: string | undefined;
+  $: roster = board.players?.[selected] || [];
+  $: selectedPlayer = roster.find(p => p.id === playerId);
+  $: bucket = selectedPlayer ? selectedPlayer.points : board.scores[selected] - roster.reduce((sum, p) => sum + p.points, 0);
   let confirmingFinish = false;
   $: if (selected >= board.names.length) selected = 0;
   $: live = board.status === 'live';
@@ -18,18 +23,25 @@
   {#if canEdit}<button type="button" class="score-text-button" disabled={busy} on:click={onPlace}>Show in app</button>{/if}
   <div class="score-teams" role="group" aria-label="Scoring team">
     {#each board.names as name, i}
-      <button type="button" class:selected={selected === i && board.status !== 'final'} aria-pressed={board.status === 'final' ? undefined : selected === i} aria-label={board.status === 'final' ? `${name}, ${board.scores[i]} points` : `Select ${name}`} disabled={busy || !canEdit || board.status === 'final'} on:click={() => selected = i}>
+      <button type="button" class:selected={selected === i && board.status !== 'final'} aria-pressed={board.status === 'final' ? undefined : selected === i} aria-label={board.status === 'final' ? `${name}, ${board.scores[i]} points` : `Select ${name}`} disabled={busy || !canEdit || board.status === 'final'} aria-expanded={expanded === i} on:click={() => { selected = i; playerId = undefined; expanded = expanded === i ? null : i; }}>
         <span class="score-badge" aria-hidden="true">{name.slice(0, 2).toUpperCase()}</span><span class="score-team-name">{name}</span><strong>{board.scores[i]}</strong>
       </button>
+      {#if expanded === i}
+        <div class="score-player-list">
+          {#each board.players?.[i] || [] as player (player.id)}
+            <button type="button" class:selected={playerId === player.id} aria-pressed={playerId === player.id} disabled={busy || !canEdit || !live} on:click={() => { selected = i; playerId = player.id; }}><span class="score-team-name">{player.name}</span><strong>{player.points}</strong></button>
+          {/each}
+        </div>
+      {/if}
     {/each}
   </div>
   {#if canEdit}
     {#if live}
       <div class="score-additions" role="group" aria-label={`Add points to ${board.names[selected]}`}>
-        <button type="button" class="score-minus" aria-label="Subtract 1 point" disabled={busy || board.scores[selected] === 0} on:click={() => onScore(selected, -1)}>−</button>
-        <button type="button" class="score-plus-one" aria-label="Add 1 point" disabled={busy} on:click={() => onScore(selected, 1)}>+1</button>
-        <button type="button" class="score-plus-two" aria-label="Add 2 points" disabled={busy} on:click={() => onScore(selected, 2)}>+2</button>
-        <button type="button" class="score-plus-three" aria-label="Add 3 points" disabled={busy} on:click={() => onScore(selected, 3)}>+3</button>
+        <button type="button" class="score-minus" aria-label="Subtract 1 point" disabled={busy || bucket <= 0} on:click={() => onScore(selected, -1, playerId)}>−</button>
+        <button type="button" class="score-plus-one" aria-label="Add 1 point" disabled={busy} on:click={() => onScore(selected, 1, playerId)}>+1</button>
+        <button type="button" class="score-plus-two" aria-label="Add 2 points" disabled={busy} on:click={() => onScore(selected, 2, playerId)}>+2</button>
+        <button type="button" class="score-plus-three" aria-label="Add 3 points" disabled={busy} on:click={() => onScore(selected, 3, playerId)}>+3</button>
       </div>
       <footer><button type="button" class="score-text-button" disabled={busy || !undoAvailable} on:click={() => onAction('undo')}>↶ Undo</button><button type="button" class="score-text-button" disabled={busy} on:click={() => confirmingFinish = !confirmingFinish}>Finish</button></footer>
       {#if confirmingFinish}<div class="score-finish"><strong>End game?</strong><button type="button" class="crm-ui-button-secondary" disabled={busy} on:click={() => confirmingFinish = false}>Keep live</button><button type="button" class="crm-ui-button-primary" disabled={busy} on:click={() => onAction('finish')}>End game</button></div>{/if}

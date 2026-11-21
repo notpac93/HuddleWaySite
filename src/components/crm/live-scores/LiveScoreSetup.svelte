@@ -18,17 +18,20 @@
   let title = board?.title || event?.title || '';
   let names = board?.names.slice() || ['', ''];
   let scores = board?.scores.slice() || [0, 0];
+  let players = board?.players?.map(team => team.map(p => ({ ...p }))) || names.map(() => [] as { id: string; name: string; points: number }[]);
+  function addPlayer(i: number) { players[i] = [...players[i], { id: crypto.randomUUID(), name: '', points: 0 }]; players = players; }
   let display = board?.display || 'duel';
   let eventId = board?.eventId || event?.id || '';
   $: locked = Boolean(board?.started || board?.status === 'live' || board?.status === 'final');
   $: isFinal = board?.status === 'final';
   function count(value: number) {
     names = Array.from({ length: value }, (_, i) => names[i] || '');
+    players = Array.from({ length: value }, (_, i) => players[i] || []);
     if (value !== 2) display = 'bars';
   }
   function submit() {
     onSave({ title: title.trim(), names: names.map(n => n.trim()), display,
-      eventId: eventId || null,
+      eventId: eventId || null, players: players.map(team => team.map(p => ({ ...p, name: p.name.trim() }))),
       ...(isFinal ? { scores } : {}),
       ...(board ? { action: 'edit', revision: board.revision } : {}) });
   }
@@ -45,6 +48,7 @@
         </div>
       {/if}
       <div class="score-name-grid">{#each names as name, i}<label>Team {i + 1}<input aria-label={`Team ${i + 1}`} required maxlength="40" bind:value={names[i]} placeholder={`Team ${i + 1}`} /></label>{#if isFinal}<label>Score<input aria-label={`Final score for team ${i + 1}`} type="number" inputmode="numeric" min="0" max="999999" step="1" required bind:value={scores[i]} /></label>{/if}{/each}</div>
+      <div class="score-roster-setup">{#each names as name, i}<section><h3>{name || `Team ${i + 1}`}</h3>{#each players[i] || [] as player, j (player.id)}<label>Public player name<input required maxlength="40" bind:value={players[i][j].name} /></label>{/each}<button type="button" class="score-text-button" disabled={busy || (players[i]?.length || 0) >= 50} on:click={() => addPlayer(i)}>+ Player</button></section>{/each}</div>
       {#if !locked}<fieldset><legend>Display</legend><div class="score-display-options"><button type="button" aria-pressed={display === 'duel'} disabled={names.length !== 2} on:click={() => display = 'duel'}><span aria-hidden="true">▯ ▯</span>1v1</button><button type="button" aria-pressed={display === 'bars'} on:click={() => display = 'bars'}><span aria-hidden="true">▂ ▆ ▃</span>Bars</button></div></fieldset>{/if}
       {#if error}<p role="alert" class="score-error">{error}</p>{/if}
       <footer><button type="button" class="crm-ui-button-secondary" disabled={busy} on:click={onClose}>Cancel</button><button class="crm-ui-button-primary" disabled={busy}>{busy ? 'Saving…' : isFinal ? 'Save final' : board ? 'Save' : 'Create game'}</button></footer>

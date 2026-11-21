@@ -28,7 +28,7 @@
   let sequence = 0;
   let loadingSequence = 0;
   let consumedLaunch = 0;
-  let undo: Record<string, { participant: number; delta: number; revision: number }> = {};
+  let undo: Record<string, { participant: number; delta: number; playerId?: string; revision: number }> = {};
   $: authorized = ['owner', 'editor', 'platform_admin'].includes($activeTenantRole || '');
   $: scope = authorized && $userStore?.uid && $tenantIdStore ? `${$userStore.uid}:${$tenantIdStore}` : '';
   $: if (mounted && loadedScope !== scope) bindScope(scope);
@@ -72,7 +72,7 @@
   }
   function newGame() { editing = null; linkedEvent = null; error = ''; setup = true; }
   function edit(board: LiveScoreBoard) { editing = board; linkedEvent = null; error = ''; setup = true; }
-  async function mutate(values: Record<string, unknown>, board?: LiveScoreBoard, score?: { participant: number; delta: number }) {
+  async function mutate(values: Record<string, unknown>, board?: LiveScoreBoard, score?: { participant: number; delta: number; playerId?: string }) {
     if (!authorized || blocked || busy || !scope) return;
     const gen = generation, tenant = $tenantIdStore;
     busy = true; error = ''; sequence++;
@@ -94,7 +94,7 @@
     if (name === 'start') { placement = { board, start: true, scope }; return; }
     if (name === 'undo') {
       const last = undo[board.id];
-      if (last?.revision === board.revision) void mutate({ action: 'score', participant: last.participant, delta: -last.delta }, board);
+      if (last?.revision === board.revision) void mutate({ action: 'score', participant: last.participant, delta: -last.delta, playerId: last.playerId }, board);
     } else void mutate({ action: name }, board);
   }
   onMount(() => {
@@ -117,7 +117,7 @@
         {#each boards as board (board.id)}<button type="button" class:active={selected === board.id && !all} aria-pressed={selected === board.id && !all} on:click={() => { selected = board.id; all = false; }}>{#if board.status === 'live'}<span class="score-live-dot" aria-hidden="true"></span>{/if}{board.title}</button>{/each}
         {#if boards.length > 1}<button type="button" class:active={all} aria-pressed={all} on:click={() => all = !all}>All games</button>{/if}
       </nav>
-      <div class="score-controls-grid">{#each visible as board (board.id)}<LiveScoreControl {board} {busy} canEdit={authorized && !blocked} undoAvailable={undo[board.id]?.revision === board.revision} onEdit={() => edit(board)} onPlace={() => placement = { board, start: false, scope }} onScore={(participant, delta) => void mutate({ action: 'score', participant, delta }, board, { participant, delta })} onAction={name => action(board, name)} />{/each}</div>
+      <div class="score-controls-grid">{#each visible as board (board.id)}<LiveScoreControl {board} {busy} canEdit={authorized && !blocked} undoAvailable={undo[board.id]?.revision === board.revision} onEdit={() => edit(board)} onPlace={() => placement = { board, start: false, scope }} onScore={(participant, delta, playerId) => void mutate({ action: 'score', participant, delta, playerId }, board, { participant, delta, playerId })} onAction={name => action(board, name)} />{/each}</div>
     {:else if !blocked}<div class="score-empty"><span class="score-empty-icon" aria-hidden="true">0 : 0</span><h3>Start your first game</h3><button type="button" class="crm-ui-button-primary" on:click={newGame}>+ New game</button></div>{/if}
   {/if}
 </section>

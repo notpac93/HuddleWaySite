@@ -61,3 +61,5 @@
 @media(max-width:540px) { .live-scores-workspace { padding:18px 16px; } .score-control { padding:18px; } .score-control header { margin:-18px -18px 0; padding:18px; } .score-modal-backdrop { padding:12px; align-items:flex-end; } .score-modal { padding:20px; max-height:100%; } }
 
 @media(max-width:600px) { .score-modal input,.score-modal select { font-size:16px; } }
+
+.live-scores-workspace .score-player-list{padding:0 16px 12px}.live-scores-workspace .score-player-list button{width:100%;margin-top:6px;font-size:1rem}.live-scores-workspace .score-player-list strong{font-size:1.25rem}.score-roster-setup section{margin:12px 0;padding:12px;border:1px solid var(--crm-border,#d6e0eb);border-radius:14px}
