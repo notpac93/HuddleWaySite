@@ -20,6 +20,7 @@
   import { buildTeamReferenceIndex, teamReferenceMatches } from '../../lib/ui/teamReferences';
   import { RosterService } from '../../lib/services/RosterService';
   import CreateTeamForm from './teams/CreateTeamForm.svelte';
+  import TeamCsvImport from './teams/TeamCsvImport.svelte';
   import EmptyState from './ui/EmptyState.svelte';
   import Icon from './ui/Icon.svelte';
   import LoadingState from './ui/LoadingState.svelte';
@@ -41,6 +42,7 @@
   ];
 
   let isTeamFormOpen = false;
+  let isTeamImportOpen = false;
   let editingTeam: any = null;
   let consumedTargetId = '';
   let pendingDeleteTeam: any = null;
@@ -192,6 +194,16 @@
     closeTeamForm();
   }
 
+  function closeTeamImport(imported: number) {
+    isTeamImportOpen = false;
+    if (!imported) return;
+    refreshOperationalCollections('teams');
+    teamReceipt = {
+      title: 'Teams imported',
+      message: `Imported ${imported} team${imported === 1 ? '' : 's'}.`,
+    };
+  }
+
   function requestDelete(team: any) {
     pendingDeleteTeam = team;
     deleteState = 'idle';
@@ -273,6 +285,10 @@
   <CreateTeamForm team={editingTeam} on:cancel={closeTeamForm} on:success={handleTeamSuccess} on:delete={(event) => { const team = event.detail; closeTeamForm(); requestDelete(team); }} />
 {/if}
 
+{#if isTeamImportOpen}
+  <TeamCsvImport teams={$teamsStore} onClose={closeTeamImport} />
+{/if}
+
 {#if pendingDeleteTeam}
   <div class="crm-ui-modal-root" role="dialog" aria-modal="true" aria-labelledby="delete-team-title">
     <button type="button" class="crm-ui-backdrop" aria-label="Cancel team deletion" tabindex="-1" disabled={deleteState === 'loading'} on:click={cancelDelete}></button>
@@ -306,6 +322,7 @@
       <button type="button" class="crm-auth-button-secondary" on:click={() => openEditForm(activeTeam)}><Icon name="pencil" size={16} /> Edit team</button>
       <button type="button" class="crm-ui-button-danger-outline bg-white inline-flex items-center gap-2" on:click={() => requestDelete(activeTeam)}><Icon name="trash" size={16} /> Delete team</button>
     {:else}
+      <button type="button" class="crm-auth-button-secondary" on:click={() => isTeamImportOpen = true} disabled={$teamsProjectionScope.loading || Boolean($teamsProjectionScope.error)}><Icon name="upload" size={16} /> Import CSV</button>
       <button type="button" on:click={openCreateForm} class="crm-auth-button-secondary"><Icon name="plus" size={16} /> Create team</button>
     {/if}
   </svelte:fragment>

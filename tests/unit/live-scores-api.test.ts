@@ -25,7 +25,7 @@ describe('live score API boundary', () => {
     expect(options.body.operationId).toMatch(/^[\w-]{1,150}$/);
   });
   it('rejects foreign and malformed board responses', async () => {
-    for (const value of [{ ...board, tenantId: 'tenant-b' }, { ...board, scores: [] }]) {
+    for (const value of [{ ...board, tenantId: 'tenant-b' }, { ...board, scores: [] }, { ...board, division: 42 }]) {
       mocks.request.mockResolvedValue({ boards: [value] });
       await expect(liveScoresApi.list('tenant-a')).rejects.toThrow('Scores could not be loaded.');
     }

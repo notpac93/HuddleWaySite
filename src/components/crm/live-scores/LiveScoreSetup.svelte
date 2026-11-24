@@ -5,6 +5,7 @@
   export let board: LiveScoreBoard | null = null;
   export let event: ScoreEvent | null = null;
   export let events: ScoreEvent[] = [];
+  export let teamChallenges = false;
   export let busy = false;
   export let error = '';
   export let onClose: () => void;
@@ -15,7 +16,8 @@
     host.appendChild(node);
     return { destroy: () => node.remove() };
   }
-  let title = board?.title || event?.title || '';
+  let title = board?.title || (teamChallenges ? '' : event?.title) || '';
+  let division = board?.division || '';
   let names = board?.names.slice() || ['', ''];
   let scores = board?.scores.slice() || [0, 0];
   let players = board?.players?.map(team => team.map(p => ({ ...p }))) || names.map(() => [] as { id: string; name: string; points: number }[]);
@@ -31,7 +33,10 @@
   }
   function submit() {
     onSave({ title: title.trim(), names: names.map(n => n.trim()), display,
-      eventId: eventId || null, players: players.map(team => team.map(p => ({ ...p, name: p.name.trim() }))),
+      eventId: eventId || null,
+      ...(teamChallenges
+        ? { division: division.trim() || null }
+        : { players: players.map(team => team.map(p => ({ ...p, name: p.name.trim() }))) }),
       ...(isFinal ? { scores } : {}),
       ...(board ? { action: 'edit', revision: board.revision } : {}) });
   }
@@ -39,19 +44,20 @@
 <div class="score-modal-backdrop" use:scoreModalViewport use:workspaceOverlay>
   <div class="score-modal" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="score-setup-title" use:modalFocus={{ onEscape: () => { if (!busy) onClose(); }, initialFocusSelector: 'input' }}>
     <form on:submit|preventDefault={submit}>
-      <header><h2 id="score-setup-title">{isFinal ? 'Final score' : board ? 'Game details' : 'New game'}</h2><button type="button" class="score-icon" aria-label="Close game setup" disabled={busy} on:click={onClose}>×</button></header>
-      <label>Game<input required maxlength="80" bind:value={title} placeholder="Game name" /></label>
+      <header><h2 id="score-setup-title">{isFinal ? 'Final score' : board ? (teamChallenges ? 'Challenge details' : 'Game details') : (teamChallenges ? 'New challenge' : 'New game')}</h2><button type="button" class="score-icon" aria-label={teamChallenges ? 'Close challenge setup' : 'Close game setup'} disabled={busy} on:click={onClose}>×</button></header>
+      <label>{teamChallenges ? 'Challenge' : 'Game'}<input required maxlength="80" bind:value={title} placeholder={teamChallenges ? 'Challenge name' : 'Game name'} /></label>
       {#if !locked}
         <div class="score-setup-grid">
           <label>Participants<select aria-label="Participants" value={names.length} on:change={e => count(Number(e.currentTarget.value))}>{#each Array.from({ length: 7 }, (_, i) => i + 2) as n}<option value={n}>{n}</option>{/each}</select></label>
           <label>Event<select bind:value={eventId}><option value="">Standalone</option>{#each events as item (item.id)}<option value={item.id}>{item.title}</option>{/each}{#if event && !events.some(e => e.id === event?.id)}<option value={event.id}>{event.title}</option>{/if}</select></label>
         </div>
       {/if}
+      {#if teamChallenges}<label>Division<input maxlength="80" bind:value={division} placeholder="e.g. Elementary" /></label>{/if}
       <div class="score-name-grid">{#each names as name, i}<label>Team {i + 1}<input aria-label={`Team ${i + 1}`} required maxlength="40" bind:value={names[i]} placeholder={`Team ${i + 1}`} /></label>{#if isFinal}<label>Score<input aria-label={`Final score for team ${i + 1}`} type="number" inputmode="numeric" min="0" max="999999" step="1" required bind:value={scores[i]} /></label>{/if}{/each}</div>
-      <div class="score-roster-setup">{#each names as name, i}<section><h3>{name || `Team ${i + 1}`}</h3>{#each players[i] || [] as player, j (player.id)}<label>Public player name<input required maxlength="40" bind:value={players[i][j].name} /></label>{/each}<button type="button" class="score-text-button" disabled={busy || (players[i]?.length || 0) >= 50} on:click={() => addPlayer(i)}>+ Player</button></section>{/each}</div>
+      {#if !teamChallenges}<div class="score-roster-setup">{#each names as name, i}<section><h3>{name || `Team ${i + 1}`}</h3>{#each players[i] || [] as player, j (player.id)}<label>Public player name<input required maxlength="40" bind:value={players[i][j].name} /></label>{/each}<button type="button" class="score-text-button" disabled={busy || (players[i]?.length || 0) >= 50} on:click={() => addPlayer(i)}>+ Player</button></section>{/each}</div>{/if}
       {#if !locked}<fieldset><legend>Display</legend><div class="score-display-options"><button type="button" aria-pressed={display === 'duel'} disabled={names.length !== 2} on:click={() => display = 'duel'}><span aria-hidden="true">▯ ▯</span>1v1</button><button type="button" aria-pressed={display === 'bars'} on:click={() => display = 'bars'}><span aria-hidden="true">▂ ▆ ▃</span>Bars</button></div></fieldset>{/if}
       {#if error}<p role="alert" class="score-error">{error}</p>{/if}
-      <footer><button type="button" class="crm-ui-button-secondary" disabled={busy} on:click={onClose}>Cancel</button><button class="crm-ui-button-primary" disabled={busy}>{busy ? 'Saving…' : isFinal ? 'Save final' : board ? 'Save' : 'Create game'}</button></footer>
+      <footer><button type="button" class="crm-ui-button-secondary" disabled={busy} on:click={onClose}>Cancel</button><button class="crm-ui-button-primary" disabled={busy}>{busy ? 'Saving…' : isFinal ? 'Save final' : board ? 'Save' : (teamChallenges ? 'Create challenge' : 'Create game')}</button></footer>
     </form>
   </div>
 </div>

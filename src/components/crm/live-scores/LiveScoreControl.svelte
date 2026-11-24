@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { LiveScoreBoard } from '../../../lib/api/LiveScoresApi';
   export let board: LiveScoreBoard;
+  export let teamChallenges = false;
   export let busy = false;
   export let canEdit = true;
   export let undoAvailable = false;
@@ -17,16 +18,17 @@
   let confirmingFinish = false;
   $: if (selected >= board.names.length) selected = 0;
   $: live = board.status === 'live';
+  $: boardLabel = board.division ? `${board.title} · ${board.division}` : board.title;
 </script>
-<article class="score-control" aria-label={board.title}>
-  <header><div><span class:score-is-live={live} class="score-status">{live ? '● Live' : board.status === 'draft' ? 'Ready' : 'Final'}</span><h2>{board.title}</h2></div><button class="score-icon" type="button" aria-label={`Edit ${board.title}`} disabled={busy || !canEdit} on:click={onEdit}>✎</button></header>
+<article class="score-control" aria-label={boardLabel}>
+  <header><div><span class:score-is-live={live} class="score-status">{live ? '● Live' : board.status === 'draft' ? 'Ready' : 'Final'}</span><h2>{boardLabel}</h2></div><button class="score-icon" type="button" aria-label={`Edit ${boardLabel}`} disabled={busy || !canEdit} on:click={onEdit}>✎</button></header>
   {#if canEdit}<button type="button" class="score-text-button" disabled={busy} on:click={onPlace}>Show in app</button>{/if}
   <div class="score-teams" role="group" aria-label="Scoring team">
     {#each board.names as name, i}
-      <button type="button" class:selected={selected === i && board.status !== 'final'} aria-pressed={board.status === 'final' ? undefined : selected === i} aria-label={board.status === 'final' ? `${name}, ${board.scores[i]} points` : `Select ${name}`} disabled={busy || !canEdit || board.status === 'final'} aria-expanded={expanded === i} on:click={() => { selected = i; playerId = undefined; expanded = expanded === i ? null : i; }}>
+      <button type="button" class:selected={selected === i && board.status !== 'final'} aria-pressed={board.status === 'final' ? undefined : selected === i} aria-label={board.status === 'final' ? `${name}, ${board.scores[i]} points` : `Select ${name}`} disabled={busy || !canEdit || board.status === 'final'} aria-expanded={teamChallenges ? undefined : expanded === i} on:click={() => { selected = i; playerId = undefined; if (!teamChallenges) expanded = expanded === i ? null : i; }}>
         <span class="score-badge" aria-hidden="true">{name.slice(0, 2).toUpperCase()}</span><span class="score-team-name">{name}</span><strong>{board.scores[i]}</strong>
       </button>
-      {#if expanded === i}
+      {#if !teamChallenges && expanded === i}
         <div class="score-player-list">
           {#each board.players?.[i] || [] as player (player.id)}
             <button type="button" class:selected={playerId === player.id} aria-pressed={playerId === player.id} disabled={busy || !canEdit || !live} on:click={() => { selected = i; playerId = player.id; }}><span class="score-team-name">{player.name}</span><strong>{player.points}</strong></button>

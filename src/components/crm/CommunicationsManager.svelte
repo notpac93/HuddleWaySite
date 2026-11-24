@@ -22,6 +22,7 @@
   import ConsumerAdminInbox from './ConsumerAdminInbox.svelte';
   import Icon from './ui/Icon.svelte';
   import EmailSendReview from './messages/EmailSendReview.svelte';
+  import MessageAudienceTools from './messages/MessageAudienceTools.svelte';
   import SentMessageList, { type SentItem } from './messages/SentMessageList.svelte';
   import DirectMessageComposer from './messages/DirectMessageComposer.svelte';
   import CompactMessageComposer from './messages/CompactMessageComposer.svelte';
@@ -1326,6 +1327,7 @@
         <button type="button" class="crm-message-choice" aria-label="New email" on:click={() => openComposer('email')}><Icon name="pencil" size={24} /><span><strong>New email</strong></span><Icon name="chevronRight" size={20} /></button>
         <button type="button" class="crm-message-choice" aria-label="New direct message" on:click={() => openComposer('direct')}><Icon name="myApp" size={24} /><span><strong>New direct message</strong></span><Icon name="chevronRight" size={20} /></button>
       </div>
+      <MessageAudienceTools tenantId={activeTenantId} />
       {#if emailQuota?.emailSendingStatus === 'suspended'}<p class="crm-ui-notice-card mt-3" role="status">Email sending is paused for this organization. In-app announcements are still available.</p>
       {:else if emailQuota?.capacityMode === 'unavailable'}<p class="crm-ui-hint mt-3" role="status">Email sending is temporarily unavailable. You can still publish an in-app announcement.</p>{/if}
     </section>

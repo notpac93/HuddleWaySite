@@ -136,6 +136,42 @@ describe('Live Scores workspace', () => {
     expect(within(dialog).getByRole('button', { name: /Bars/ })).toHaveAttribute('aria-pressed', 'true');
     expect(api.save).not.toHaveBeenCalled();
   });
+  it('creates a STEM team challenge under its selected event and division', async () => {
+    tenant.set('stem-it-up-sports');
+    api.save.mockResolvedValue(board({ tenantId: 'stem-it-up-sports', title: 'Build a Robot', division: 'Elementary' }));
+    render(Workspace, { launch: { token: 1, scope: 'user-a:stem-it-up-sports', event: { id: 'event-1', title: 'BOLT' } } });
+    const form = within(await screen.findByRole('dialog'));
+    expect(form.getByLabelText('Challenge')).toHaveValue('');
+    expect(form.getByLabelText('Event')).toHaveValue('event-1');
+    expect(form.queryByRole('button', { name: '+ Player' })).toBeNull();
+    await fireEvent.input(form.getByLabelText('Challenge'), { target: { value: 'Build a Robot' } });
+    await fireEvent.input(form.getByLabelText('Division'), { target: { value: '  Elementary  ' } });
+    await fireEvent.input(form.getByLabelText('Team 1'), { target: { value: 'Circuit Cats' } });
+    await fireEvent.input(form.getByLabelText('Team 2'), { target: { value: 'Robots' } });
+    await fireEvent.click(form.getByRole('button', { name: 'Create challenge' }));
+    await screen.findByRole('button', { name: 'Build a Robot · Elementary' });
+    expect(api.save).toHaveBeenCalledWith('stem-it-up-sports', expect.objectContaining({ title: 'Build a Robot', eventId: 'event-1', division: 'Elementary' }), undefined);
+    expect(api.save.mock.calls[0][1]).not.toHaveProperty('players');
+  });
+  it('edits a STEM challenge division without exposing or replacing legacy players', async () => {
+    tenant.set('stem-it-up-sports');
+    const live = board({ tenantId: 'stem-it-up-sports', title: 'Robotics', division: 'Middle School', eventId: 'event-1',
+      status: 'live', started: true, players: [[{ id: 'p1', name: 'Legacy Player', points: 0 }], []] });
+    api.list.mockResolvedValue([live]);
+    api.save.mockResolvedValue({ ...live, division: 'Elementary' });
+    render(Workspace);
+    await fireEvent.click(await screen.findByRole('button', { name: 'Select HuddleWay' }));
+    expect(screen.queryByRole('button', { name: /Legacy Player/ })).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit Robotics · Middle School' }));
+    const form = within(screen.getByRole('dialog'));
+    expect(form.getByLabelText('Division')).toHaveValue('Middle School');
+    expect(form.queryByLabelText('Public player name')).toBeNull();
+    await fireEvent.input(form.getByLabelText('Division'), { target: { value: 'Elementary' } });
+    await fireEvent.click(form.getByRole('button', { name: 'Save' }));
+    await screen.findByRole('button', { name: 'Robotics · Elementary' });
+    expect(api.save).toHaveBeenCalledWith('stem-it-up-sports', expect.objectContaining({ division: 'Elementary', action: 'edit', eventId: 'event-1' }), 'game-1');
+    expect(api.save.mock.calls[0][1]).not.toHaveProperty('players');
+  });
   it('reuses a linked game and keeps display settings out of live scoring', async () => {
     api.list.mockResolvedValue([board({ eventId: 'event-1', status: 'live', started: true })]);
     render(Workspace, { launch: { token: 1, scope: 'user-a:tenant-a', event: { id: 'event-1', title: 'U14 basketball' } } });

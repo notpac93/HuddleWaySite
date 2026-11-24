@@ -1932,6 +1932,29 @@ export class BackendApi {
     });
   }
 
+  importTeamFromCsv(
+    tenantId: string,
+    name: string,
+    { id, creationId, idempotencyKey }: {
+      id: string;
+      creationId: string;
+      idempotencyKey: string;
+    },
+  ) {
+    return this.crmResourceMutation(tenantId, "team.upsert_full", {
+      resourceId: id,
+      data: {
+        creationId, name, heroTitle: name, heroSubtitle: 'TEAM', heroImagePath: '',
+        carouselItems: [], roster: [], schedule: [], assistantCoaches: [],
+        headCoach: { name: '', role: 'Coach', bio: '', imageUrl: '' },
+        hasTeamPage: false, teamPageId: null, teamPageRoute: null, teamPagePublished: false,
+        sectionTitles: { roster: 'ROSTER', schedule: 'UPCOMING', media: 'MEDIA', coach_staff: 'STAFF' },
+      },
+      auditReason: 'Import a program team from a CSV in the Operations Portal.',
+      idempotencyKey,
+    });
+  }
+
   updateTeam(
     tenantId: string,
     teamId: string,

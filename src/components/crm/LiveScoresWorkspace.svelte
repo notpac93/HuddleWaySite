@@ -30,6 +30,7 @@
   let consumedLaunch = 0;
   let undo: Record<string, { participant: number; delta: number; playerId?: string; revision: number }> = {};
   $: authorized = ['owner', 'editor', 'platform_admin'].includes($activeTenantRole || '');
+  $: teamChallenges = $tenantIdStore === 'stem-it-up-sports';
   $: scope = authorized && $userStore?.uid && $tenantIdStore ? `${$userStore.uid}:${$tenantIdStore}` : '';
   $: if (mounted && loadedScope !== scope) bindScope(scope);
   $: eventOptions = $eventsStore.filter(e => e && typeof e.id === 'string' && typeof e.title === 'string').map(e => ({ id: e.id, title: e.title }));
@@ -107,21 +108,21 @@
 </script>
 
 <section class="live-scores-workspace" aria-labelledby="live-scores-title">
-  <header class="score-workspace-header"><h2 class="crm-ui-page-title" id="live-scores-title">Live Scores</h2>{#if authorized}<button type="button" class="crm-ui-button-primary" disabled={busy || blocked} on:click={newGame}>+ New game</button>{/if}</header>
+  <header class="score-workspace-header"><h2 class="crm-ui-page-title" id="live-scores-title">Live Scores</h2>{#if authorized}<button type="button" class="crm-ui-button-primary" disabled={busy || blocked} on:click={newGame}>+ New {teamChallenges ? 'challenge' : 'game'}</button>{/if}</header>
   {#if !authorized}<div role="status" class="score-empty">Live Scores is unavailable for this account.</div>
   {:else if loading}<div role="status" class="score-empty">Loading scores…</div>
   {:else}
     {#if error && !setup}<div class="score-error" role="alert">{error} <button type="button" class="score-text-button" on:click={() => void load()}>Retry</button></div>{/if}
     {#if boards.length}
-      <nav class="score-game-picker" aria-label="Games">
-        {#each boards as board (board.id)}<button type="button" class:active={selected === board.id && !all} aria-pressed={selected === board.id && !all} on:click={() => { selected = board.id; all = false; }}>{#if board.status === 'live'}<span class="score-live-dot" aria-hidden="true"></span>{/if}{board.title}</button>{/each}
-        {#if boards.length > 1}<button type="button" class:active={all} aria-pressed={all} on:click={() => all = !all}>All games</button>{/if}
+      <nav class="score-game-picker" aria-label={teamChallenges ? 'Challenges' : 'Games'}>
+        {#each boards as board (board.id)}<button type="button" class:active={selected === board.id && !all} aria-pressed={selected === board.id && !all} on:click={() => { selected = board.id; all = false; }}>{#if board.status === 'live'}<span class="score-live-dot" aria-hidden="true"></span>{/if}{board.title}{board.division ? ` · ${board.division}` : ''}</button>{/each}
+        {#if boards.length > 1}<button type="button" class:active={all} aria-pressed={all} on:click={() => all = !all}>All {teamChallenges ? 'challenges' : 'games'}</button>{/if}
       </nav>
-      <div class="score-controls-grid">{#each visible as board (board.id)}<LiveScoreControl {board} {busy} canEdit={authorized && !blocked} undoAvailable={undo[board.id]?.revision === board.revision} onEdit={() => edit(board)} onPlace={() => placement = { board, start: false, scope }} onScore={(participant, delta, playerId) => void mutate({ action: 'score', participant, delta, playerId }, board, { participant, delta, playerId })} onAction={name => action(board, name)} />{/each}</div>
-    {:else if !blocked}<div class="score-empty"><span class="score-empty-icon" aria-hidden="true">0 : 0</span><h3>Start your first game</h3><button type="button" class="crm-ui-button-primary" on:click={newGame}>+ New game</button></div>{/if}
+      <div class="score-controls-grid">{#each visible as board (board.id)}<LiveScoreControl {board} {busy} {teamChallenges} canEdit={authorized && !blocked} undoAvailable={undo[board.id]?.revision === board.revision} onEdit={() => edit(board)} onPlace={() => placement = { board, start: false, scope }} onScore={(participant, delta, playerId) => void mutate({ action: 'score', participant, delta, playerId }, board, { participant, delta, playerId })} onAction={name => action(board, name)} />{/each}</div>
+    {:else if !blocked}<div class="score-empty"><span class="score-empty-icon" aria-hidden="true">0 : 0</span><h3>Start your first {teamChallenges ? 'challenge' : 'game'}</h3><button type="button" class="crm-ui-button-primary" on:click={newGame}>+ New {teamChallenges ? 'challenge' : 'game'}</button></div>{/if}
   {/if}
 </section>
-{#if setup && authorized}<LiveScoreSetup board={editing} event={linkedEvent} events={eventOptions} {busy} {error} onClose={() => { if (!busy) { setup = false; error = ''; } }} onSave={values => void mutate(values, editing || undefined)} />{/if}
+{#if setup && authorized}<LiveScoreSetup board={editing} event={linkedEvent} events={eventOptions} {teamChallenges} {busy} {error} onClose={() => { if (!busy) { setup = false; error = ''; } }} onSave={values => void mutate(values, editing || undefined)} />{/if}
 
 {#if placement && authorized}<LiveScorePlacement tenantId={$tenantIdStore} board={placement.board} start={placement.start} onClose={() => placement = null} onDone={() => {
   const request = placement; placement = null;

@@ -11,6 +11,7 @@ export interface LiveScoreBoard {
   status: 'draft' | 'live' | 'final';
   display: 'duel' | 'bars';
   eventId?: string | null;
+  division?: string | null;
   revision: number;
   started: boolean;
 }
@@ -19,6 +20,7 @@ export interface ScoreEvent { id: string; title: string }
 function validBoard(board: LiveScoreBoard, tenantId: string): boolean {
   return Boolean(board && board.tenantId === tenantId && typeof board.id === 'string' && typeof board.title === 'string'
     && ['draft', 'live', 'final'].includes(board.status) && ['duel', 'bars'].includes(board.display)
+    && (board.division == null || typeof board.division === 'string')
     && Number.isInteger(board.revision) && board.revision >= 0 && Array.isArray(board.names) && Array.isArray(board.scores)
     && board.names.length >= 2 && board.names.length <= 8 && board.names.length === board.scores.length
     && board.names.every(name => typeof name === 'string') && board.scores.every(score => Number.isInteger(score) && score >= 0));
