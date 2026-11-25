@@ -1,0 +1,48 @@
+﻿sep=;
+ Notes ; Group Name ; Total Points ; Event Name ; Division ; Challenge
+" messy; note "; " Red   Rockets " ; "1,200"; " bolt 2026 " ; Elementary ; Bot Race
+"two
+lines"; Blue Bots; 0 ; BOLT 2026; elementary ; bot race
+dup; RED ROCKETS ; 785 ; BOLT 2026 ; Elementary ; Bot Race
+bad; No Score ; N/A ; BOLT 2026 ; Elementary ; Bot Race
+blank; ; 23 ; BOLT 2026 ; Elementary ; Bot Race
+unmatched; Neon Team ; +12.0 ; Winter Fest ; ; Free Play
+unlinked; Solo Team ; 44 ; ; ; Open Lab
+ragged; Lost Result
+
+extra; Team 01; 11; BOLT 2026; Middle School; Drone Relay
+extra; Team 02; 22; BOLT 2026; Middle School; Drone Relay
+extra; Team 03; 33; BOLT 2026; Middle School; Drone Relay
+extra; Team 04; 44; BOLT 2026; Middle School; Drone Relay
+extra; Team 05; 55; BOLT 2026; Middle School; Drone Relay
+extra; Team 06; 66; BOLT 2026; Middle School; Drone Relay
+extra; Team 07; 77; BOLT 2026; Middle School; Drone Relay
+extra; Team 08; 88; BOLT 2026; Middle School; Drone Relay
+extra; Team 09; 99; BOLT 2026; Middle School; Drone Relay
+extra; Team 10; 110; BOLT 2026; Middle School; Drone Relay
+extra; Team 11; 121; BOLT 2026; Middle School; Drone Relay
+extra; Team 12; 132; BOLT 2026; Middle School; Drone Relay
+extra; Team 13; 143; BOLT 2026; Middle School; Drone Relay
+extra; Team 14; 154; BOLT 2026; Middle School; Drone Relay
+extra; Team 15; 165; BOLT 2026; Middle School; Drone Relay
+extra; Team 16; 176; BOLT 2026; Middle School; Drone Relay
+extra; Team 17; 187; BOLT 2026; Middle School; Drone Relay
+extra; Team 18; 198; BOLT 2026; Middle School; Drone Relay
+extra; Team 19; 209; BOLT 2026; Middle School; Drone Relay
+extra; Team 20; 220; BOLT 2026; Middle School; Drone Relay
+extra; Team 21; 231; BOLT 2026; Middle School; Drone Relay
+extra; Team 22; 242; BOLT 2026; Middle School; Drone Relay
+extra; Team 23; 253; BOLT 2026; Middle School; Drone Relay
+extra; Team 24; 264; BOLT 2026; Middle School; Drone Relay
+extra; Team 25; 275; BOLT 2026; Middle School; Drone Relay
+extra; Team 26; 286; BOLT 2026; Middle School; Drone Relay
+extra; Team 27; 297; BOLT 2026; Middle School; Drone Relay
+extra; Team 28; 308; BOLT 2026; Middle School; Drone Relay
+extra; Team 29; 319; BOLT 2026; Middle School; Drone Relay
+extra; Team 30; 330; BOLT 2026; Middle School; Drone Relay
+extra; Team 31; 341; BOLT 2026; Middle School; Drone Relay
+extra; Team 32; 352; BOLT 2026; Middle School; Drone Relay
+extra; Team 33; 363; BOLT 2026; Middle School; Drone Relay
+extra; Team 34; 374; BOLT 2026; Middle School; Drone Relay
+extra; Team 35; 385; BOLT 2026; Middle School; Drone Relay
+extra; Team 36; 396; BOLT 2026; Middle School; Drone Relay

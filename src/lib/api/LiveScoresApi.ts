@@ -14,6 +14,7 @@ export interface LiveScoreBoard {
   division?: string | null;
   revision: number;
   started: boolean;
+  importedFromCsv?: boolean;
 }
 export interface ScorePage { id: string; title: string; route: string; recommended: boolean; placed: boolean }
 export interface ScoreEvent { id: string; title: string }
@@ -22,7 +23,7 @@ function validBoard(board: LiveScoreBoard, tenantId: string): boolean {
     && ['draft', 'live', 'final'].includes(board.status) && ['duel', 'bars'].includes(board.display)
     && (board.division == null || typeof board.division === 'string')
     && Number.isInteger(board.revision) && board.revision >= 0 && Array.isArray(board.names) && Array.isArray(board.scores)
-    && board.names.length >= 2 && board.names.length <= 8 && board.names.length === board.scores.length
+    && board.names.length >= (board.importedFromCsv ? 1 : 2) && board.names.length <= (board.importedFromCsv ? 500 : 8) && board.names.length === board.scores.length
     && board.names.every(name => typeof name === 'string') && board.scores.every(score => Number.isInteger(score) && score >= 0));
 }
 export const liveScoresApi = {
@@ -40,6 +41,18 @@ export const liveScoresApi = {
     const result = await backendClient.request<{ boards: LiveScoreBoard[] }>('/admin/live-scores', { query: { tenantId } });
     if (!Array.isArray(result.boards) || result.boards.some(board => !validBoard(board, tenantId))) throw new Error('Scores could not be loaded.');
     return result.boards;
+  },
+  async importFinal(tenantId: string, values: {
+    operationId: string; title: string; eventId: string | null; division: string | null;
+    names: string[]; scores: number[]; teamIds: string[];
+  }) {
+    const result = await backendClient.request<{ board: LiveScoreBoard }>('/admin/live-scores/import-final', {
+      method: 'POST', body: { ...values, tenantId },
+    });
+    if (!validBoard(result.board, tenantId) || result.board.status !== 'final' || !result.board.importedFromCsv) {
+      throw new Error('Past scores could not be verified.');
+    }
+    return result.board;
   },
   async save(tenantId: string, values: Record<string, unknown>, boardId?: string) {
     const result = await backendClient.request<{ board: LiveScoreBoard }>(

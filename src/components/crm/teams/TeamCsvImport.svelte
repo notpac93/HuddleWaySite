@@ -3,6 +3,9 @@
   import { tenantIdStore } from '../../../lib/authStore';
   import { BackendApiError } from '../../../lib/api/BackendApi';
   import { backendClient } from '../../../lib/api/backendClient';
+  import { liveScoresApi } from '../../../lib/api/LiveScoresApi';
+  import { groupTeamScores, reviewTeamScores, scoreImportIdentity, suggestScoreColumns,
+    type ScoreColumns, type ScoreEventOption, type ScoreImportRow } from '../../../lib/ui/teamScoreCsvImport';
   import { modalFocus } from '../../../lib/ui/modalFocus';
   import {
     readTeamCsv,
@@ -15,9 +18,10 @@
   import Icon from '../ui/Icon.svelte';
 
   export let teams: Array<{ id?: string; name?: string; title?: string }> = [];
-  export let onClose: (imported: number) => void = () => {};
+  export let events: ScoreEventOption[] = [];
+  export let onClose: (imported: number, teamsCreated?: number) => void = () => {};
 
-  type ImportRow = TeamCsvReviewRow & {
+  type ImportRow = TeamCsvReviewRow & Partial<ScoreImportRow> & {
     selected: boolean;
     status: 'ready' | 'importing' | 'imported' | 'duplicate' | 'retry';
   };
@@ -34,6 +38,13 @@
   let column: number | null = null;
   let hasHeader = false;
   let rows: ImportRow[] = [];
+  let columns: ScoreColumns = { score: null, event: null, division: null, challenge: null };
+  let eventOverrides: Record<string, string | undefined> = {};
+  const scoreLabels = { score: 'Score', event: 'Event', division: 'Division', challenge: 'Challenge' } as const;
+  const teamIds = new Map<string, string>();
+  $: scoreMode = columns.score !== null;
+  $: eventNames = [...new Set(rows.flatMap(row => row.eventName ? [row.eventName.toLowerCase()] : []))];
+  $: resultCount = scoreMode ? groupTeamScores(pending as ScoreImportRow[]).length : 0;
 
   onDestroy(() => { alive = false; });
   $: if ($tenantIdStore !== tenant) onClose(0);
@@ -42,11 +53,15 @@
   $: imported = rows.filter((row) => row.status === 'imported').length;
 
   function close() {
-    if (!applying && !reading) onClose(imported);
+    if (applying || reading) return;
+    if (scoreMode) onClose(imported, teamIds.size);
+    else onClose(imported);
   }
 
   function review() {
-    rows = table && column !== null ? reviewTeamCsv(table, column, hasHeader, existingTeams)
+    rows = table && column !== null ? (columns.score !== null
+      ? reviewTeamScores(table, column, hasHeader, columns, existingTeams, events, eventOverrides)
+      : reviewTeamCsv(table, column, hasHeader, existingTeams))
       .map((row) => ({ ...row, selected: !row.issue, status: 'ready' as const })) : [];
   }
 
@@ -65,7 +80,9 @@
       if (!alive || tenant !== $tenantIdStore) return;
       table = readTeamCsv(source);
       column = table.suggestedColumn ?? (table.columnCount === 1 ? 0 : null);
-      hasHeader = table.suggestedColumn !== null;
+      columns = suggestScoreColumns(table);
+      eventOverrides = {};
+      hasHeader = table.suggestedColumn !== null || columns.score !== null;
       review();
     } catch (cause) {
       if (alive) error = cause instanceof Error ? cause.message : 'Save the file as CSV UTF-8 and try again.';
@@ -79,12 +96,56 @@
     rows = rows.map((row) => row.line === line ? { ...row, ...change } : row);
   }
 
+  async function applyScores(selected: Array<ImportRow & ScoreImportRow>) {
+    for (const group of groupTeamScores(selected)) {
+      if (stopRequested || !alive || tenant !== $tenantIdStore) return;
+      let activeLine = group.rows[0].line;
+      try {
+        const entries = [];
+        for (const row of group.rows) {
+          activeLine = row.line;
+          const nameKey = row.name.toLowerCase();
+          let id = row.teamId || teamIds.get(nameKey);
+          if (!id) {
+            const identity = await teamCsvCreationIdentity(row.name);
+            if (!alive || tenant !== $tenantIdStore) return;
+            await backendClient.importTeamFromCsv(tenant, row.name, identity);
+            id = identity.id;
+            teamIds.set(nameKey, id);
+          }
+          if (!alive || tenant !== $tenantIdStore) return;
+          entries.push({ id, name: row.name, score: row.score });
+        }
+        entries.sort((a, b) => a.id.localeCompare(b.id));
+        const ids = entries.map(entry => entry.id);
+        const operationId = await scoreImportIdentity(group.title, group.eventId, group.division, ids);
+        if (!alive || tenant !== $tenantIdStore) return;
+        await liveScoresApi.importFinal(tenant, {
+          operationId, title: group.title, eventId: group.eventId, division: group.division,
+          names: entries.map(entry => entry.name), scores: entries.map(entry => entry.score), teamIds: ids,
+        });
+        if (!alive || tenant !== $tenantIdStore) return;
+        for (const row of group.rows) updateRow(row.line, { status: 'imported' });
+      } catch (cause) {
+        if (!alive || tenant !== $tenantIdStore) return;
+        for (const row of group.rows) updateRow(row.line, { status: 'retry' });
+        const detail = cause instanceof Error ? cause.message : 'Try again.';
+        error = `Could not finish “${group.title}” (CSV row ${activeLine}). Saved teams and results stay saved. ${detail}`;
+        return;
+      }
+    }
+  }
+
   async function applyImport() {
     if (applying || !pending.length || !tenant || tenant !== $tenantIdStore) return;
     error = '';
     applying = true;
     stopRequested = false;
     try {
+      if (scoreMode) {
+        await applyScores(pending as Array<ImportRow & ScoreImportRow>);
+        return;
+      }
       for (const row of pending) {
         if (stopRequested || !alive || tenant !== $tenantIdStore) return;
         updateRow(row.line, { status: 'importing' });
@@ -117,12 +178,12 @@
     <span class="crm-ui-modal-spacer" aria-hidden="true">&#8203;</span>
     <div class="import-panel" tabindex="-1" use:modalFocus={{ onEscape: close }}>
       <header>
-        <h2 id="team-import-title">Import teams from CSV</h2>
+        <h2 id="team-import-title">Import teams and scores from CSV</h2>
         <button type="button" aria-label="Close team import" class="close" disabled={applying || reading} on:click={close}><Icon name="close" size={20} /></button>
       </header>
       {#if !attempting}
         <label class="upload">
-          <span>Choose a CSV file with one team per row.</span>
+          <span>Choose a CSV file with a team name and optional score, event, division, and challenge columns.</span>
           <input type="file" aria-label="Choose CSV file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" disabled={reading || applying} on:change={chooseFile} />
         </label>
       {/if}
@@ -137,6 +198,37 @@
               <option value={index}>{teamCsvColumnLabel(table, index, hasHeader)}</option>
             {/each}
           </select>
+          {#each (Object.keys(scoreLabels) as Array<keyof ScoreColumns>) as field}
+            {#if field === 'score' || scoreMode}
+              <label for={`team-import-${field}`} class="crm-ui-label">{scoreLabels[field]} column</label>
+              <select id={`team-import-${field}`} class="crm-ui-input" bind:value={columns[field]} on:change={review}>
+                <option value={null}>{field === 'score' ? 'Teams only' : 'None'}</option>
+                {#each Array.from({ length: table.columnCount }, (_, index) => index) as index}
+                  <option value={index}>{teamCsvColumnLabel(table, index, hasHeader)}</option>
+                {/each}
+              </select>
+            {/if}
+          {/each}
+          {#if scoreMode}
+            {#each eventNames as name}
+              {@const row = rows.find(row => row.eventName?.toLowerCase() === name)}
+              <label class="crm-ui-label">
+                Event match for {row?.eventName}
+                <select class="crm-ui-input" value={eventOverrides[name] ?? row?.eventId ?? '?'}
+                  on:change={event => {
+                    const value = event.currentTarget.value;
+                    eventOverrides = { ...eventOverrides, [name]: value === '?' ? undefined : value };
+                    review();
+                  }}>
+                  <option value="?">Choose an event</option>
+                  <option value="">Leave unlinked</option>
+                  {#each events.filter(event => event.id && event.title) as event}
+                    <option value={event.id}>{event.title} ({event.id})</option>
+                  {/each}
+                </select>
+              </label>
+            {/each}
+          {/if}
           <label class="check"><input type="checkbox" bind:checked={hasHeader} on:change={review} /> First row contains column headers</label>
         </fieldset>
         {#if column === null}
@@ -145,15 +237,20 @@
           <p>There are no team names to review.</p>
         {:else}
           <p role="status">{pending.length} ready · {imported} imported · {rows.length - pending.length - imported} skipped</p>
+          {#if scoreMode}<p>{resultCount} result group{resultCount === 1 ? '' : 's'} to publish in Past Scores.</p>{/if}
           <div class="row-list" aria-label="Team import preview">
             {#each rows as row (row.line)}
               {@const status = row.issue || ({ ready: '', importing: 'Importing…', imported: 'Imported', duplicate: 'Already exists in this program', retry: 'Retry needed' })[row.status]}
               <div class="row">
                 {#if !row.issue && (row.status === 'ready' || row.status === 'retry')}
-                  <input type="checkbox" aria-label={`Import row ${row.line}: ${row.name}`} checked={row.selected} disabled={applying}
+                  <input type="checkbox" aria-label={`Import row ${row.line}: ${row.name}`} checked={row.selected} disabled={applying || (scoreMode && attempting)}
                     on:change={(event) => updateRow(row.line, { selected: event.currentTarget.checked })} />
                 {/if}
-                <strong>{row.name || 'Unnamed team'}</strong>
+                <strong>{row.name || 'Unnamed team'}{scoreMode && Number.isFinite(row.score) ? ` · ${row.score}` : ''}</strong>
+                {#if scoreMode}
+                  <small>{row.teamId ? 'Existing team' : 'New team'} · {row.title}{row.division ? ` · ${row.division}` : ''}
+                    · {events.find(event => event.id === row.eventId)?.title || (row.eventName ? `Unlinked · CSV event: ${row.eventName}` : 'No linked event')}</small>
+                {/if}
                 <span>Row {row.line}{status ? ` · ${status}` : ''}</span>
               </div>
             {/each}
@@ -163,12 +260,12 @@
       {#if error}<p class="error" role="alert">{error}</p>{/if}
       <footer>
         {#if applying}
-          <button type="button" class="crm-ui-button-secondary" disabled={stopRequested} on:click={() => stopRequested = true}>{stopRequested ? 'Stopping after this row' : 'Stop after this row'}</button>
+          <button type="button" class="crm-ui-button-secondary" disabled={stopRequested} on:click={() => stopRequested = true}>{stopRequested ? 'Stopping…' : scoreMode ? 'Stop after this result group' : 'Stop after this row'}</button>
         {:else}
           <button type="button" class="crm-ui-button-secondary" disabled={reading} on:click={close}>{attempting ? 'Done' : 'Close'}</button>
         {/if}
         {#if table && (pending.length || applying)}
-          <button type="button" class="crm-ui-button-primary" disabled={applying} on:click={applyImport}>{applying ? 'Importing…' : `Import ${pending.length} team${pending.length === 1 ? '' : 's'}`}</button>
+          <button type="button" class="crm-ui-button-primary" disabled={applying} on:click={applyImport}>{applying ? 'Importing…' : scoreMode ? `Import ${pending.length} score rows` : `Import ${pending.length} team${pending.length === 1 ? '' : 's'}`}</button>
         {/if}
       </footer>
     </div>

@@ -194,10 +194,17 @@
     closeTeamForm();
   }
 
-  function closeTeamImport(imported: number) {
+  function closeTeamImport(imported: number, teamsCreated?: number) {
     isTeamImportOpen = false;
-    if (!imported) return;
+    if (!imported && !teamsCreated) return;
     refreshOperationalCollections('teams');
+    if (teamsCreated !== undefined) {
+      teamReceipt = {
+        title: imported ? 'Past scores imported' : 'Teams created',
+        message: `Published ${imported} score row${imported === 1 ? '' : 's'} and created ${teamsCreated} new team${teamsCreated === 1 ? '' : 's'}.`,
+      };
+      return;
+    }
     teamReceipt = {
       title: 'Teams imported',
       message: `Imported ${imported} team${imported === 1 ? '' : 's'}.`,
@@ -286,7 +293,7 @@
 {/if}
 
 {#if isTeamImportOpen}
-  <TeamCsvImport teams={$teamsStore} onClose={closeTeamImport} />
+  <TeamCsvImport teams={$teamsStore} events={$eventsStore} onClose={closeTeamImport} />
 {/if}
 
 {#if pendingDeleteTeam}
