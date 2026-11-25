@@ -1,4 +1,6 @@
 ﻿sep=;
+BOLT season export
+Generated for the scoring desk
  Notes ; Group Name ; Total Points ; Event Name ; Division ; Challenge
 " messy; note "; " Red   Rockets " ; "1,200"; " bolt 2026 " ; Elementary ; Bot Race
 "two
@@ -8,6 +10,7 @@ bad; No Score ; N/A ; BOLT 2026 ; Elementary ; Bot Race
 blank; ; 23 ; BOLT 2026 ; Elementary ; Bot Race
 unmatched; Neon Team ; +12.0 ; Winter Fest ; ; Free Play
 unlinked; Solo Team ; 44 ; ; ; Open Lab
+footer; Grand Total:; 9000; BOLT 2026; Elementary; Bot Race
 ragged; Lost Result
 
 extra; Team 01; 11; BOLT 2026; Middle School; Drone Relay

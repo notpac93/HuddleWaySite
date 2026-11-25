@@ -1,5 +1,5 @@
 import { normalizeCsvHeader } from './csvImport';
-import { digest, normalizeName, teamSlug, type TeamCsvTable } from './teamCsvImport';
+import { digest, isCsvSummary, normalizeName, scoreCsvHeaders, teamSlug, type TeamCsvTable } from './teamCsvImport';
 
 export type ScoreEventOption = { id?: string; title?: string };
 export type ScoreColumns = Record<'score' | 'event' | 'division' | 'challenge', number | null>;
@@ -9,7 +9,7 @@ export type ScoreImportRow = {
 };
 
 const headers = {
-  score: ['score', 'scores', 'points', 'totalpoints', 'totalscore', 'finalscore', 'result'],
+  score: scoreCsvHeaders,
   event: ['event', 'eventname', 'eventtitle', 'eventid', 'competition', 'tournament'],
   division: ['division', 'classification', 'category', 'agegroup'],
   challenge: ['challenge', 'challengename', 'game', 'gamename', 'activity'],
@@ -61,6 +61,7 @@ export function reviewTeamScores(
     const previous = seen.get(JSON.stringify([eventId, key(division || ''), key(title), teamKey]));
     let issue = '';
     if (!name || !/[\p{L}\p{N}]/u.test(name) || name.length > 160) issue = 'Enter a valid team name of up to 160 characters';
+    else if (isCsvSummary(name)) issue = 'Summary row ignored';
     else if (!Number.isInteger(score) || score < 0 || score > 999999) issue = 'Enter a whole-number score from 0 to 999999';
     else if (eventName && !eventId && override !== '') issue = matches.length > 1 ? 'Choose the matching event' : 'Event not found. Choose an event or leave it unlinked';
     else if (title.length > 80 || (division?.length || 0) > 80) issue = 'Challenge and division must be 80 characters or fewer';

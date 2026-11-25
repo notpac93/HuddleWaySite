@@ -60,6 +60,8 @@ it('uploads messy scores, previews event links, and retries an unconfirmed final
   expect(screen.getByText(/Existing team.*BOLT 2026/)).toBeVisible();
   expect(screen.getByText(/Duplicate team result/)).toBeVisible();
   expect(screen.getByText(/Event not found/)).toBeVisible();
+  expect(screen.getByText(/Skipped report headings/)).toBeVisible();
+  expect(screen.getByText(/Summary row ignored/)).toBeVisible();
   expect(api.request).not.toHaveBeenCalled();
   expect(api.importTeamFromCsv).not.toHaveBeenCalled();
   await fireEvent.change(screen.getByLabelText(/Event match for Winter Fest/), { target: { value: 'winter-2026' } });
@@ -68,7 +70,7 @@ it('uploads messy scores, previews event links, and retries an unconfirmed final
   expect(await screen.findByText(/Response lost/)).toBeVisible();
   const first = api.request.mock.calls[0];
   await fireEvent.click(screen.getByRole('button', { name: 'Import 40 score rows' }));
-  expect(await screen.findByText('0 ready · 40 imported · 4 skipped')).toBeVisible();
+  expect(await screen.findByText('0 ready · 40 imported · 5 skipped')).toBeVisible();
   expect(api.request.mock.calls[1]).toEqual(first);
   expect(first[1].body).toMatchObject({ eventId: 'bolt-2026', scores: [0, 1200], division: 'Elementary' });
   expect(api.request.mock.calls.some(([, { body }]) => body.eventId === 'winter-2026')).toBe(true);

@@ -1,6 +1,9 @@
 import { normalizeCsvHeader, parseCsvRecords } from './csvImport';
 
 const nameHeaders = ['teamname', 'teamnames', 'groupname', 'groupnames', 'team', 'teams', 'group', 'groups', 'name'];
+export const scoreCsvHeaders = ['score', 'scores', 'points', 'totalpoints', 'totalscore', 'finalscore', 'result'];
+const summaryRows = new Set(['total', 'totals', 'grandtotal', 'grandtotals', 'subtotal', 'subtotals', 'teamtotals', 'overalltotal']);
+export const isCsvSummary = (name: string) => summaryRows.has(normalizeCsvHeader(name));
 type ExistingTeam = { id?: string; name?: string; title?: string };
 
 export function normalizeName(value = '') {
@@ -17,13 +20,22 @@ export function readTeamCsv(source: string) {
   const text = hint ? contents.slice(hint[0].length) : contents;
   const candidates = (hint ? [hint[1]] : [',', ';', '\t']).map((delimiter) => {
     const parsed = parseCsvRecords(text, { delimiter, looseQuotes: true, firstLine: hint ? 2 : 1 });
-    const headers = parsed.records[0]?.values.map(normalizeCsvHeader) || [];
+    let records = parsed.records;
+    const headerIndex = records.slice(0, 30).findIndex((record, index) => {
+      const fields = record.values.map(normalizeCsvHeader);
+      const hasName = nameHeaders.some(name => fields.includes(name));
+      return hasName && (index === 0 || scoreCsvHeaders.some(score => fields.includes(score)));
+    });
+    const skippedPreamble = headerIndex > 0 ? records[headerIndex].line - 1 : 0;
+    if (headerIndex > 0) records = records.slice(headerIndex);
+    const headers = records[0]?.values.map(normalizeCsvHeader) || [];
     const matchingHeader = nameHeaders.find((name) => headers.includes(name));
     const suggestedColumn = matchingHeader ? headers.indexOf(matchingHeader) : null;
     const score = (suggestedColumn === null ? 0 : 100)
-      + parsed.records.slice(0, 30).filter((row) => row.values.length > 1).length
+      + (scoreCsvHeaders.some(field => headers.includes(field)) ? 20 : 0)
+      + records.slice(0, 30).filter((row) => row.values.length > 1).length
       + (parsed.splitIncompleteRow ? 1 : 0);
-    return { ...parsed, suggestedColumn, score };
+    return { ...parsed, records, suggestedColumn, skippedPreamble, score };
   });
   const best = candidates.sort((left, right) => right.score - left.score)[0];
   if (best.unfinishedQuoteLine) throw new Error(`A quote opened on row ${best.unfinishedQuoteLine} is missing its closing quote.`);
@@ -31,7 +43,7 @@ export function readTeamCsv(source: string) {
   const columnCount = best.records.reduce((count, row) => Math.max(count, row.values.length), 0);
   if (columnCount > 200) throw new Error('Keep the name column and up to 199 other columns, then upload the file again.');
   if (best.records.length > 501) throw new Error('Split the file into batches of up to 500 team rows.');
-  return { records: best.records, columnCount, suggestedColumn: best.suggestedColumn };
+  return { records: best.records, columnCount, suggestedColumn: best.suggestedColumn, skippedPreamble: best.skippedPreamble };
 }
 
 export type TeamCsvTable = ReturnType<typeof readTeamCsv>;

@@ -190,6 +190,9 @@
       {#if fileName}<p class="filename">{fileName}</p>{/if}
       {#if reading}<p role="status">Reading CSV…</p>{/if}
       {#if table}
+        {#if table.skippedPreamble}
+          <p>Skipped report headings above the detected header row.</p>
+        {/if}
         <fieldset disabled={attempting || applying}>
           <label for="team-import-column" class="crm-ui-label">Team name column</label>
           <select id="team-import-column" class="crm-ui-input" bind:value={column} on:change={review}>
