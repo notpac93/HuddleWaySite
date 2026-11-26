@@ -599,7 +599,7 @@ test('event tap-to-edit stays compact and saves automatic season enrollment', as
     const records = collection === 'events' ? [{
       id: 'event-e2e', tenantId, title: 'Winter Basketball Kickoff', lifecycleStatus: 'published',
       isDeleted: false, isVisible: true, teamId: 'team-e2e',
-      date: '2030-12-04T23:00:00.000Z', endDate: '2030-12-05T00:30:00.000Z',
+      date: '2030-12-04T18:00:00.000Z', endDate: '2030-12-04T19:30:00.000Z',
       priceCents: 1700, currency: 'USD', registrationMethod: 'easy',
       paymentTerms: { mode: 'pay_in_full', currency: 'USD' },
     }] : [{ id: 'winter-e2e', tenantId, name: 'Winter Skills Series', status: 'active', teamId: 'team-e2e' }];
