@@ -45,7 +45,7 @@ const reviewedControlCounts: Record<string, number> = {
   "app-studio/ComponentThumbnail.svelte": 0,
   "app-studio/ComponentsStudio.svelte": 16,
   "app-studio/GlassAppearanceControls.svelte": 4,
-  "app-studio/NavigationPanel.svelte": 4,
+  "app-studio/NavigationPanel.svelte": 10,
   "app-studio/SharedSectionEditor.svelte": 2,
   "app-studio/StructuredCollectionEditor.svelte": 7,
   "app-studio/VersionHistoryPanel.svelte": 2,
@@ -204,7 +204,7 @@ describe('exhaustive CRM control inventory', () => {
     );
 
     expect(actual).toEqual(reviewedControlCounts);
-    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(899);
+    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(905);
   });
 
   it('keeps every inventoried CRM component reachable from a production entry point', () => {

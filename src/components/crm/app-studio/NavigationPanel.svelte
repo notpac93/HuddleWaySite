@@ -1,102 +1,275 @@
 <script lang="ts">
-  import type { NavigationTabDraft } from './appConfigurationDraft';
-  import { maxActiveTabs, permanentTabName, isRetiredNavigationTab } from './appConfigurationDraft';
+  import { onMount, tick } from 'svelte';
+  import { backendClient } from '../../../lib/api/backendClient';
   import { eventsStore, teamsStore } from '../../../lib/services/DataStore';
+  import type { NavigationTabDraft } from './appConfigurationDraft';
+  import { availableToProgram, isRetiredNavigationTab, maxActiveTabs, permanentTabName } from './appConfigurationDraft';
 
+  export let tenantId: string;
   export let tabsConfig: NavigationTabDraft[] = [];
   export let disabled = false;
   export let duplicateLabels = false;
-  export let onMove: (index: number, direction: -1 | 1) => void;
 
-  // These collections are needed only while the navigation editor is visible.
-  function activeContentCount(tab: NavigationTabDraft) {
-    if (tab.key === 'events') return $eventsStore.length;
-    if (tab.key === 'schedule') return $eventsStore.filter((event) => !['cancelled', 'archived'].includes(String(event.status || event.lifecycleStatus || '').toLowerCase())).length;
-    if (tab.key === 'teams' || permanentTabName(tab) === 'Teams') return $teamsStore.length;
-    return 0;
+  const supportedRoutes = new Set(['/', '/teams', '/scores', '/schedule', '/resources', '/staff', '/messaging', '/my-events', '/account', '/contact']);
+  let pages: NavigationTabDraft[] = [];
+  let pageState: 'loading' | 'ready' | 'error' = 'loading';
+  let alive = false;
+  let menu = '';
+  let editKey = '';
+  let editMode: 'position' | 'name' = 'position';
+  let position = 0;
+  let label = '';
+  let dragKey = '';
+  let dropTarget = '';
+  let announcement = '';
+  let editField: HTMLInputElement | HTMLSelectElement;
+
+  $: current = tabsConfig.filter((tab) => availableToProgram(tenantId, tab) && tab.enabled);
+  $: configured = tabsConfig.filter((tab) => availableToProgram(tenantId, tab) && !tab.enabled);
+  $: available = [...configured, ...pages.filter((page) => !tabsConfig.some((tab) => tab.route === page.route || tab.key === page.key))];
+  $: retired = tabsConfig.filter(isRetiredNavigationTab);
+  $: storedEnabledCount = tabsConfig.filter((tab) => tab.enabled).length;
+  $: blockedByHistory = storedEnabledCount > maxActiveTabs && current.length <= maxActiveTabs;
+
+  onMount(() => {
+    alive = true;
+    void loadPages();
+    return () => { alive = false; };
+  });
+
+  async function loadPages() {
+    const requestedTenant = tenantId;
+    pageState = 'loading';
+    try {
+      const snapshot = await backendClient.componentStudio(requestedTenant);
+      if (!alive || requestedTenant !== tenantId) return;
+      if (snapshot.tenantId !== tenantId) throw new Error('Unexpected program');
+      pages = snapshot.pages
+        .filter((page) => page.isVisible && page.status === 'published'
+          && (supportedRoutes.has(page.route) || /^\/team-[a-z0-9-]+$/.test(page.route)))
+        .map((page) => ({
+          key: page.route.slice(1) || 'home',
+          pageId: page.id,
+          route: page.route,
+          label: page.title.trim().slice(0, 80) || page.route,
+          enabled: false,
+        }))
+        .filter((tab) => availableToProgram(tenantId, tab));
+      pageState = 'ready';
+    } catch {
+      if (alive && requestedTenant === tenantId) pageState = 'error';
+    }
   }
 
-  $: activeTabCount = tabsConfig.filter((tab) => tab.enabled && !isRetiredNavigationTab(tab)).length;
+  function contentCount(tab: NavigationTabDraft) {
+    if (tab.route === '/schedule') return $eventsStore.filter((event) =>
+      !['cancelled', 'archived'].includes(String(event.status || event.lifecycleStatus || '').toLowerCase())).length;
+    return permanentTabName(tab) === 'Teams' ? $teamsStore.length : 0;
+  }
 
-  $: storedEnabledCount = tabsConfig.filter((tab) => tab.enabled).length;
-  $: retiredEnabledCount = storedEnabledCount - activeTabCount;
+  function canAdd(tab: NavigationTabDraft) {
+    return !disabled && current.length < maxActiveTabs
+      && (tabsConfig.length < 12 || tabsConfig.some((saved) => saved.key === tab.key));
+  }
 
-  function toggleTab(index: number) {
-    tabsConfig[index].enabled = !tabsConfig[index].enabled;
-    tabsConfig = tabsConfig;
+  function placeTab(tab: NavigationTabDraft, position: number) {
+    const order = current.filter((entry) => entry.key !== tab.key);
+    order.splice(position, 0, { ...tab, enabled: true });
+    let index = 0;
+    const marked = tabsConfig.some((saved) => saved.key === tab.key)
+      ? tabsConfig.map((saved) => saved.key === tab.key ? { ...saved, enabled: true } : saved)
+      : [...tabsConfig, { ...tab, enabled: true }];
+    // A retired Events entry can remain in history without taking a visible slot.
+    const retireLegacySlot = !tab.enabled && storedEnabledCount >= maxActiveTabs;
+    tabsConfig = marked.map((entry) => {
+      if (availableToProgram(tenantId, entry) && entry.enabled) return order[index++];
+      return retireLegacySlot && isRetiredNavigationTab(entry) ? { ...entry, enabled: false } : entry;
+    });
+    announcement = tab.label + (tab.enabled ? ' moved in the draft.' : ' added to the draft.');
+  }
+
+  function hideTab(tab: NavigationTabDraft) {
+    if (disabled || tab.route === '/') return;
+    tabsConfig = tabsConfig.map((entry) => entry.key === tab.key ? { ...entry, enabled: false } : entry);
+    menu = '';
+    announcement = tab.label + ' hidden from the draft. Its page is kept.';
+  }
+
+  function addTab(tab: NavigationTabDraft) {
+    if (canAdd(tab)) placeTab(tab, current.length);
+  }
+
+  async function openEdit(tab: NavigationTabDraft, mode: 'position' | 'name') {
+    editKey = tab.key;
+    editMode = mode;
+    label = tab.label;
+    position = current.findIndex((entry) => entry.key === tab.key);
+    menu = '';
+    await tick();
+    editField?.focus();
+  }
+
+  function applyEdit(tab: NavigationTabDraft) {
+    if (disabled) return;
+    if (editMode === 'position') {
+      if (position !== current.findIndex((entry) => entry.key === tab.key)) placeTab(tab, position);
+    } else if (label.trim() && label.trim() !== tab.label) {
+      tabsConfig = tabsConfig.map((entry) => entry.key === tab.key ? { ...entry, label: label.trim() } : entry);
+      announcement = 'Tab renamed in the draft.';
+    }
+    editKey = '';
+  }
+
+  function allowDrop(event: DragEvent, target: string) {
+    if (!dragKey || disabled) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dropTarget = target;
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+  }
+
+  function clearDrag() {
+    dragKey = '';
+    dropTarget = '';
+  }
+
+  function startDrag(event: DragEvent, tab: NavigationTabDraft) {
+    if (disabled || (!tab.enabled && !canAdd(tab)) || !event.dataTransfer) {
+      event.preventDefault();
+      return;
+    }
+    menu = '';
+    dragKey = tab.key;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', tab.key);
+  }
+
+  function dropTab(event: DragEvent, zone: 'current' | 'available', beforeKey?: string) {
+    if (!dragKey || disabled) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const tab = [...current, ...available].find((entry) => entry.key === dragKey);
+    clearDrag();
+    if (!tab) return;
+    if (zone === 'available') {
+      if (tab.enabled) hideTab(tab);
+    } else if (tab.key !== beforeKey && (tab.enabled || canAdd(tab))) {
+      const others = current.filter((entry) => entry.key !== tab.key);
+      const index = others.findIndex((entry) => entry.key === beforeKey);
+      placeTab(tab, index < 0 ? others.length : index);
+    }
+  }
+
+  function handleEscape(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      menu = '';
+      editKey = '';
+    }
   }
 </script>
 
-<div class="space-y-6">
-  <div class="crm-ui-studio-modules">
-    <div class="mb-4 flex flex-wrap items-start justify-between gap-2">
-      <div>
-        <h3 class="text-sm font-medium text-gray-900">App tabs</h3>
-        <p class="mt-1 text-xs text-gray-500">The permanent name identifies the tab's purpose. You can rename the tab families see.</p>
+<svelte:window on:keydown={handleEscape} />
+
+<div class="navigation-editor">
+  <header class="navigation-heading">
+    <div>
+      <h3>App tabs</h3>
+      <p>Drag to reorder or move pages between lists. Use the options menu to change a tab without dragging.</p>
+    </div>
+    <span class="navigation-count" aria-live="polite">{current.length} of {maxActiveTabs} active</span>
+  </header>
+  {#if current.length > maxActiveTabs}
+    <p class="navigation-alert" role="alert">The app can show up to five tabs. Hide another tab before publishing.</p>
+  {:else if blockedByHistory}
+    <p class="navigation-alert" role="alert">The preserved retired Events setting still uses {storedEnabledCount - current.length} stored configuration slot{storedEnabledCount - current.length === 1 ? '' : 's'}. Hide another tab before publishing.</p>
+  {/if}
+  {#if duplicateLabels}
+    <p class="navigation-alert" role="alert">Active tabs must have unique names.</p>
+  {/if}
+
+  <section class="navigation-list" aria-label="In the app" class:drop-zone={dropTarget === 'current'}
+    on:dragover={(event) => allowDrop(event, 'current')} on:drop={(event) => dropTab(event, 'current')}>
+    <h4>In the app</h4>
+    {#each current as tab (tab.key)}
+      <div class="navigation-row" role="group" aria-label={tab.label + ' tab'} class:drop-before={dropTarget === tab.key}
+        draggable={!disabled && editKey !== tab.key} on:dragstart={(event) => startDrag(event, tab)} on:dragend={clearDrag}
+        on:dragover={(event) => allowDrop(event, tab.key)} on:drop={(event) => dropTab(event, 'current', tab.key)}>
+        <div class="navigation-name"><span class="navigation-grip" aria-hidden="true">⠿</span><span><strong>{tab.label}</strong>{#if permanentTabName(tab) !== tab.label}<small>{permanentTabName(tab)}</small>{/if}</span></div>
+        <button class="navigation-more" type="button" aria-label={'Options for ' + tab.label} aria-expanded={menu === tab.key} {disabled}
+          on:click={() => { menu = menu === tab.key ? '' : tab.key; editKey = ''; }}>⋯</button>
+        {#if menu === tab.key}
+          <div class="navigation-menu" role="group" aria-label={tab.label + ' options'}>
+            <button type="button" on:click={() => openEdit(tab, 'position')} disabled={disabled || current.length < 2}>Change position</button>
+            <button type="button" on:click={() => openEdit(tab, 'name')} {disabled}>Rename</button>
+            {#if tab.route !== '/'}
+              <button type="button" aria-label={'Hide ' + tab.label + ' tab'} on:click={() => hideTab(tab)} {disabled}>Hide from app</button>
+              {#if contentCount(tab) > 0}<small>{contentCount(tab)} active records stay in this program.</small>{/if}
+            {/if}
+          </div>
+        {/if}
+        {#if editKey === tab.key}
+          <form class="navigation-edit" on:submit|preventDefault={() => applyEdit(tab)}>
+            {#if editMode === 'position'}
+              <label>Position <select bind:value={position} bind:this={editField} {disabled}>
+                {#each current as entry, index (entry.key)}<option value={index}>{index + 1}</option>{/each}
+              </select></label>
+            {:else}
+              <label>Tab name <input bind:value={label} bind:this={editField} maxlength="80" required {disabled} /></label>
+            {/if}
+            <button class="navigation-link" type="submit" disabled={disabled || (editMode === 'name' && !label.trim())}>Done</button>
+            <button class="navigation-link" type="button" on:click={() => { editKey = ''; }}>Cancel</button>
+          </form>
+        {/if}
       </div>
-      <span class="rounded-full px-2.5 py-1 text-xs font-medium {activeTabCount > maxActiveTabs ? 'bg-red-100 text-red-800' : 'bg-emerald-50 text-emerald-800'}" aria-live="polite">
-        {activeTabCount} of {maxActiveTabs} active
-      </span>
-    </div>
+    {:else}
+      <p>Drag a page here or choose Add below.</p>
+    {/each}
+  </section>
 
-    {#if activeTabCount > maxActiveTabs}
-      <p class="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-800" role="alert">
-        The app can show up to five tabs. Turn off at least {activeTabCount - maxActiveTabs} tab{activeTabCount - maxActiveTabs === 1 ? '' : 's'} before publishing.
-      </p>
-    {/if}
-    {#if retiredEnabledCount > 0 && storedEnabledCount > maxActiveTabs}
-      <p class="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-800" role="alert">
-        The preserved retired Events setting still uses {retiredEnabledCount} stored configuration slot{retiredEnabledCount === 1 ? '' : 's'}. Turn off at least {storedEnabledCount - maxActiveTabs} current tab{storedEnabledCount - maxActiveTabs === 1 ? '' : 's'} before publishing to meet the five-entry configuration limit.
-      </p>
-    {/if}
-    {#if duplicateLabels}
-      <p class="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-800" role="alert">Active app tabs must have unique names so families can distinguish each destination.</p>
-    {/if}
-
-    <div class="space-y-4">
-      {#each tabsConfig as tab, index (tab.key)}
-        <div class="crm-ui-studio-module-row">
-          {#if isRetiredNavigationTab(tab)}
-            <div class="min-w-0" role="note" aria-label="Retired Events tab">
-              <h4 class="text-sm font-semibold text-gray-900">Events (retired)</h4>
-              <p class="mt-1 text-xs text-gray-500">Families use Schedule for events. This historical setting is preserved and is not an active family tab.</p>
-            </div>
-          {:else}
-          <div class="min-w-0 flex-1 pr-4">
-            <h4 class="text-sm font-semibold text-gray-900">{permanentTabName(tab)}</h4>
-            <input
-              id={`studio-tab-name-${tab.key}`}
-              type="text"
-              bind:value={tab.label}
-              aria-label={`Tab name for ${permanentTabName(tab)}`}
-              maxlength="80"
-              {disabled}
-              class="mt-1 w-full max-w-xs rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none"
-            />
-          </div>
-          <button
-            type="button"
-            {disabled}
-            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {tab.enabled ? 'bg-[var(--crm-brand-control)]' : 'bg-gray-200'}"
-            aria-label={`${tab.enabled ? 'Hide' : 'Show'} ${permanentTabName(tab)} tab`}
-            aria-pressed={tab.enabled}
-            on:click={() => toggleTab(index)}
-          >
-            <span class="inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {tab.enabled ? 'translate-x-5' : 'translate-x-0'}"></span>
-          </button>
-          <div class="ml-3 flex flex-col gap-1">
-            <button type="button" aria-label={`Move ${permanentTabName(tab)} tab up`} disabled={disabled || index === 0 || isRetiredNavigationTab(tabsConfig[index - 1])} class="rounded border px-2 py-1 text-xs disabled:opacity-40" on:click={() => onMove(index, -1)}>↑</button>
-            <button type="button" aria-label={`Move ${permanentTabName(tab)} tab down`} disabled={disabled || index === tabsConfig.length - 1 || isRetiredNavigationTab(tabsConfig[index + 1])} class="rounded border px-2 py-1 text-xs disabled:opacity-40" on:click={() => onMove(index, 1)}>↓</button>
-          </div>
-          {#if tab.enabled && activeContentCount(tab) > 0}
-            <p class="mt-2 basis-full text-xs text-amber-800">Hiding this tab would remove access to {activeContentCount(tab)} active {permanentTabName(tab).toLowerCase()} record{activeContentCount(tab) === 1 ? '' : 's'} from family navigation; the content itself is retained.</p>
-          {/if}
-          {/if}
-        </div>
-      {/each}
-      {#if tabsConfig.length === 0}
-        <p class="text-sm text-gray-500">No app tabs are configured for this program.</p>
-      {/if}
-    </div>
-  </div>
+  <section class="navigation-list" aria-label="Available pages" class:drop-zone={dropTarget === 'available'}
+    on:dragover={(event) => allowDrop(event, 'available')} on:drop={(event) => dropTab(event, 'available')}>
+    <h4>Available pages</h4>
+    {#each available as tab (tab.key)}
+      <div class="navigation-row" role="group" aria-label={tab.label + ' page'} draggable={canAdd(tab)}
+        on:dragstart={(event) => startDrag(event, tab)} on:dragend={clearDrag}>
+        <div class="navigation-name"><span class="navigation-grip" aria-hidden="true">⠿</span><strong>{tab.label}</strong></div>
+        <button class="navigation-link" type="button" aria-label={'Add ' + tab.label + ' tab'} disabled={!canAdd(tab)} on:click={() => addTab(tab)}>Add</button>
+      </div>
+    {/each}
+    {#if pageState === 'loading'}<p role="status">Loading published pages…</p>
+    {:else if pageState === 'error'}<p>Could not load additional pages. <button class="navigation-link" type="button" on:click={loadPages}>Try again</button></p>
+    {:else if !available.length}<p>No other pages are available.</p>{/if}
+    {#if current.length >= maxActiveTabs && available.length}<p>Hide a tab to make room for another.</p>{/if}
+  </section>
+  {#if retired.length}<p role="note" aria-label="Retired Events tab">Events (retired) is kept for historical settings. Families use Schedule.</p>{/if}
+  <p class="sr-only" role="status">{announcement}</p>
 </div>
+
+<style>
+  .navigation-editor { display: grid; gap: 12px; max-width: 54rem; color: var(--crm-brand-ink, #172638); }
+  .navigation-heading, .navigation-row, .navigation-name, .navigation-edit { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .navigation-heading, .navigation-row { justify-content: space-between; }
+  h3 { font-size: 1rem; font-weight: 650; }
+  h4, strong { font-size: .875rem; font-weight: 600; }
+  h4 { margin-bottom: 5px; }
+  p, small { color: #526174; font-size: .8125rem; }
+  .navigation-name small { display: block; }
+  .navigation-count { background: var(--crm-brand-surface, #edf5f1); color: var(--crm-brand-link, #226953); border-radius: 8px; padding: 4px 8px; font-size: .75rem; }
+  .navigation-list { border: 1px solid #dae1e7; border-radius: 10px; padding: 11px 12px; background: white; }
+  .navigation-row { position: relative; border-top: 1px solid #edf0f2; min-height: 42px; padding: 3px 0; }
+  .navigation-row[draggable="true"] { cursor: grab; }
+  .navigation-grip { color: #637486; font-size: 1.15rem; padding: 0 3px; }
+  .navigation-more, .navigation-link, .navigation-menu button { border-radius: 6px; background: transparent; font-size: .8125rem; padding: 6px 8px; }
+  .navigation-more { color: #445467; font-size: 1.2rem; width: 36px; min-height: 34px; line-height: 1; }
+  .navigation-link, .navigation-menu button { color: var(--crm-brand-link, #226953); }
+  button:not(:disabled):hover, .drop-zone { background: var(--crm-brand-surface, #edf5f1); }
+  button:disabled { opacity: .45; }
+  .drop-before { box-shadow: inset 0 2px var(--crm-brand-control, #226953); }
+  .navigation-menu { position: absolute; z-index: 3; right: 0; top: calc(100% - 3px); min-width: 145px; max-width: 220px; background: white; border: 1px solid #dae1e7; border-radius: 8px; padding: 4px; display: grid; box-shadow: 0 8px 20px #19283a21; }
+  .navigation-menu button { text-align: left; }
+  .navigation-menu small { padding: 4px 8px; }
+  .navigation-edit { width: 100%; padding: 3px 0; }
+  .navigation-edit input, .navigation-edit select { border: 1px solid #bac5d0; border-radius: 6px; font-size: .875rem; padding: 3px 6px; max-width: 100%; }
+  .navigation-alert { background: #fef2f2; color: #991b1b; border-radius: 6px; padding: 8px; }
+  @media (pointer: coarse) { .navigation-more, .navigation-link, .navigation-menu button { min-width: 44px; min-height: 44px; } }
+</style>

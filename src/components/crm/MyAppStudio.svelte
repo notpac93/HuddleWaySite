@@ -7,6 +7,7 @@
 
   export let active = true;
   export let suspendInactivePreviews = false;
+  export let allowNavigationEditing = true;
   let showTools = false;
   let toolsMounted = false;
   let componentsMounted = false;
@@ -55,6 +56,7 @@
     completeFiveTabSlots,
     configurationSignature,
     initialTabs,
+    portalNavigationTabs,
     validAppConfiguration,
     type AppVersion,
     type NavigationTabDraft,
@@ -240,7 +242,8 @@
   }
 
   let activeTab = 'Branding';
-  const tabs = ['Branding', 'Pages', 'Components', 'Version history'];
+  $: tabs = ['Branding', ...(allowNavigationEditing ? ['Pages'] : []), 'Components', 'Version history'];
+  $: if (!allowNavigationEditing && activeTab === 'Pages') activeTab = 'Branding';
 
   $: if (String($tenantIdStore || '') !== activeTenantId) {
     activeTenantId = String($tenantIdStore || '');
@@ -348,7 +351,9 @@
       secondaryColor = loadedConfiguration.secondaryColor;
       tertiaryColor = loadedConfiguration.tertiaryColor;
       logoUrl = loadedConfiguration.logoUrl;
-      tabsConfig = completeFiveTabSlots(loadedConfiguration.navigationTabs);
+      tabsConfig = allowNavigationEditing
+        ? completeFiveTabSlots(loadedConfiguration.navigationTabs)
+        : loadedConfiguration.navigationTabs.map((tab) => ({ ...tab }));
     }
     logoFile = null;
     removeLocalDraft();
@@ -370,12 +375,8 @@
     tertiaryColor = prior.tertiaryColor;
   }
 
-  function moveTab(index: number, direction: -1 | 1) {
-    const target = index + direction;
-    if (target < 0 || target >= tabsConfig.length) return;
-    const next = [...tabsConfig];
-    [next[index], next[target]] = [next[target], next[index]];
-    tabsConfig = next;
+  function editableNavigation(tabs: NavigationTabDraft[]) {
+    return allowNavigationEditing ? portalNavigationTabs(activeTenantId, tabs) : tabs.map((tab) => ({ ...tab }));
   }
 
   function useVersionAsRollbackDraft(version: AppVersion) {
@@ -388,7 +389,7 @@
     secondaryColor = configuration.secondaryColor;
     tertiaryColor = configuration.tertiaryColor;
     logoUrl = configuration.logoUrl;
-    tabsConfig = configuration.navigationTabs.map((tab) => ({ ...tab }));
+    if (allowNavigationEditing) tabsConfig = editableNavigation(configuration.navigationTabs);
     activeTab = 'Branding';
     draftNotice = `Version ${version.configVersion} is loaded as an unpublished rollback draft. Review the preview and publish to make it current.`;
   }
@@ -415,7 +416,7 @@
     secondaryColor = configuration.secondaryColor;
     tertiaryColor = configuration.tertiaryColor;
     logoUrl = configuration.logoUrl;
-    tabsConfig = configuration.navigationTabs.map((tab) => ({ ...tab }));
+    if (allowNavigationEditing) tabsConfig = editableNavigation(configuration.navigationTabs);
     savedDraft = null;
   }
 
@@ -442,13 +443,14 @@
         appStyle = configuration.appStyle || 'system';
         glassAppearance = normalizeGlassAppearance(configuration.glassAppearance);
         logoUrl = configuration.logoUrl;
-        tabsConfig = configuration.navigationTabs.map((tab) => ({ ...tab }));
+        tabsConfig = editableNavigation(configuration.navigationTabs);
         loadedConfigSignature = buildConfigSignature();
         loadedConfiguration = currentConfiguration();
-        tabsConfig = completeFiveTabSlots(tabsConfig);
-        suggestedTabKeys = new Set(tabsConfig.filter((tab) =>
-          !configuration.navigationTabs.some((saved) => saved.key === tab.key),
-        ).map((tab) => tab.key));
+        if (allowNavigationEditing) {
+          const configuredKeys = new Set(tabsConfig.map((tab) => tab.key));
+          tabsConfig = completeFiveTabSlots(tabsConfig);
+          suggestedTabKeys = new Set(tabsConfig.filter((tab) => !configuredKeys.has(tab.key)).map((tab) => tab.key));
+        }
       } else {
         primaryColor = '';
         secondaryColor = '';
@@ -458,7 +460,7 @@
         glassAppearance = normalizeGlassAppearance();
         logoUrl = null;
         // Defaults are offered only after the backend confirms initialize mode.
-        tabsConfig = initialTabs.map((tab) => ({ ...tab }));
+        tabsConfig = editableNavigation(initialTabs);
         loadedConfigSignature = buildConfigSignature();
         loadedConfiguration = currentConfiguration();
       }
@@ -476,7 +478,7 @@
   async function handlePublish() {
     if (!canPublish || submitState === 'loading') return;
     const tenantId = $tenantIdStore;
-    if (!tenantId) return;
+    if (!tenantId || tenantId !== activeTenantId) return;
 
     logoValidationMessage = validateImageFile(logoFile);
     if (logoValidationMessage) {
@@ -557,7 +559,7 @@
   }
 
   function requestPublishReview() {
-    if (!canPublish) return;
+    if (!canPublish || activeTenantId !== $tenantIdStore) return;
     showPublishReview = true;
   }
 
@@ -581,6 +583,7 @@
 {#if showPublishReview}
   <AppPublishReview
     organizationName={selectedOrganizationName}
+    previousNavigation={allowNavigationEditing ? loadedConfiguration?.navigationTabs : undefined}
     {versionLabel}
     changes={reviewChanges}
     configuration={currentConfiguration()}
@@ -669,8 +672,10 @@
                 <BrandingPanel bind:appName disabled={submitState === 'loading'} onCaptureUndo={captureBrandingUndo} />
                 <BrandingControls bind:primaryColor bind:secondaryColor bind:tertiaryColor bind:logoFile bind:logoValidationMessage {safeLogoPreviewUrl} disabled={submitState === 'loading'} canUndo={Boolean(brandingUndoSnapshot)} onCaptureUndo={captureBrandingUndo} onUndo={undoBrandingChange} />
               </div>
-            {:else if active && showTools}
-              <NavigationPanel bind:tabsConfig disabled={submitState === 'loading'} duplicateLabels={hasDuplicateTabLabels(currentConfiguration())} onMove={moveTab} />
+            {:else if allowNavigationEditing && active && showTools && configLoadState === 'ready'}
+              {#key activeTenantId}
+                <NavigationPanel tenantId={activeTenantId} bind:tabsConfig disabled={submitState === 'loading'} duplicateLabels={hasDuplicateTabLabels(currentConfiguration())} />
+              {/key}
             {/if}
           </aside>
 

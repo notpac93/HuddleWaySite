@@ -3,16 +3,21 @@
   import { readableTextColor } from '../../../lib/ui/appConfigurationReview';
   import { modalFocus } from '../../../lib/ui/modalFocus';
   import Icon from '../ui/Icon.svelte';
+  import { isRetiredNavigationTab, type NavigationTabDraft } from '../app-studio/appConfigurationDraft';
 
   export let organizationName: string;
   export let versionLabel: string;
   export let changes: string[] = [];
   export let configuration: CrmAppConfiguration;
+  export let previousNavigation: NavigationTabDraft[] | undefined = undefined;
   export let busy = false;
   export let onCancel: () => void = () => {};
   export let onConfirm: () => void = () => {};
 
   let targetConfirmed = false;
+  const visibleTabs = (tabs: NavigationTabDraft[]) => tabs.filter((tab) => tab.enabled && !isRetiredNavigationTab(tab)).map((tab) => tab.label);
+  $: beforeTabs = previousNavigation && visibleTabs(previousNavigation);
+  $: afterTabs = visibleTabs(configuration.navigationTabs);
   const colorRoles = [
     { key: 'primaryColor', label: 'Primary', use: 'Primary actions and prominent brand surfaces' },
     { key: 'secondaryColor', label: 'Secondary', use: 'Supporting accents and secondary surfaces' },
@@ -43,6 +48,12 @@
           </p>
         {/if}
       </section>
+      {#if beforeTabs && JSON.stringify(beforeTabs) !== JSON.stringify(afterTabs)}
+        <section aria-label="App tab order" class="space-y-2 text-sm text-gray-800">
+          <p><strong>Currently published</strong> · {beforeTabs.join(' / ')}</p>
+          <p><strong>After publishing</strong> · {afterTabs.join(' / ')}</p>
+        </section>
+      {/if}
       <section aria-labelledby="app-color-review-title">
         <h3 id="app-color-review-title" class="text-sm font-semibold text-gray-950">Color readability</h3>
         <div class="mt-3 grid gap-3 sm:grid-cols-3">

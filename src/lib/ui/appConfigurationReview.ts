@@ -35,7 +35,7 @@ export function describeAppConfigurationChanges(
   for (const tab of after.navigationTabs) {
     const previous = previousTabs.get(tab.key);
     if (!previous) {
-      changes.push(`Add ${tab.label} to the app navigation.`);
+      if (tab.enabled) changes.push(`Add ${tab.label} to the app navigation.`);
       continue;
     }
     if (previous.label.trim() !== tab.label.trim()) {
@@ -44,6 +44,16 @@ export function describeAppConfigurationChanges(
     if (previous.enabled !== tab.enabled) {
       changes.push(`${tab.enabled ? 'Show' : 'Hide'} ${tab.label} in the family app.`);
     }
+  }
+  const currentTabs = tabMap(after);
+  const previousOrder = before.navigationTabs
+    .filter((tab) => tab.enabled && currentTabs.get(tab.key)?.enabled)
+    .map((tab) => tab.key);
+  const currentOrder = after.navigationTabs
+    .filter((tab) => tab.enabled && previousTabs.get(tab.key)?.enabled)
+    .map((tab) => tab.key);
+  if (previousOrder.some((key, index) => key !== currentOrder[index])) {
+    changes.push('Change the order of the app tabs.');
   }
   return changes;
 }

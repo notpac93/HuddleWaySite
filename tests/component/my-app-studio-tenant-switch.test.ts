@@ -266,6 +266,15 @@ async function reviewAndPublish(buttonName: 'Publish App' | 'Retry Publish' = 'P
   return review;
 }
 
+async function chooseTabAction(tab: string, action: string) {
+  await fireEvent.click(screen.getByRole('button', { name: 'Options for ' + tab }));
+  await fireEvent.click(screen.getByRole('button', { name: action }));
+}
+
+async function hideTab(tab: string) {
+  await chooseTabAction(tab, 'Hide ' + tab + ' tab');
+}
+
 async function openAppearanceSettings() {
   if (screen.queryByRole('button', { name: /^Edit$/ })) await fireEvent.click(screen.getByRole('button', { name: /^Edit$/ }));
   await fireEvent.click(await screen.findByLabelText('More editing actions'));
@@ -406,11 +415,11 @@ describe('MyAppStudio tenant preview isolation', () => {
     expect(screen.getByRole('button', { name: 'Publish App' })).toBeDisabled();
     await fireEvent.click(screen.getByRole('button', { name: 'Pages' }));
     expect(screen.getByText('3 of 5 active')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Show Teams tab' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Add Teams tab' })).toBeVisible();
     expect(get(portalDraftStore)).toBeNull();
-    await fireEvent.click(screen.getByRole('button', { name: 'Show Teams tab' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Add Teams tab' }));
     expect(get(portalDraftStore)?.id).toBe('my-app-configuration');
-    await fireEvent.click(screen.getByRole('button', { name: 'Hide Teams tab' }));
+    await hideTab('Teams');
     expect(get(portalDraftStore)).toBeNull();
     await fireEvent.click(screen.getByRole('button', { name: 'Branding' }));
     await fireEvent.input(screen.getByLabelText('App Name'), { target: { value: 'Edited app' } });
@@ -468,7 +477,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     expect(appMocks.publishAppConfiguration).not.toHaveBeenCalled();
   });
 
-  it('loads navigation counts only in visible Pages tools and stops refreshing them on exit', async () => {
+  it('loads navigation counts only when tab options are open and stops refreshing them on exit', async () => {
     appMocks.crmOperationalPage.mockReset();
     appMocks.crmOperationalPage.mockResolvedValue({ records: [], hasMore: false });
     render(TestedMyAppStudio);
@@ -477,7 +486,9 @@ describe('MyAppStudio tenant preview isolation', () => {
     await openAppearanceSettings();
     expect(appMocks.crmOperationalPage).not.toHaveBeenCalled();
     await fireEvent.click(screen.getByRole('button', { name: 'Pages' }));
-    await waitFor(() => expect(appMocks.crmOperationalPage).toHaveBeenCalledTimes(2));
+    expect(appMocks.crmOperationalPage).not.toHaveBeenCalled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Options for Schedule' }));
+    await waitFor(() => expect(appMocks.crmOperationalPage).toHaveBeenCalled());
     await fireEvent.click(screen.getByRole('button', { name: 'Back to app' }));
     appMocks.crmOperationalPage.mockClear();
     await refreshActiveData('pull');
@@ -660,7 +671,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     expect(screen.getByText('5 of 5 active')).toBeVisible();
     expect(screen.getByRole('alert')).toHaveTextContent('preserved retired Events setting still uses 1 stored configuration slot');
     expect(screen.getByRole('button', { name: 'Publish App' })).toBeDisabled();
-    await fireEvent.click(screen.getByRole('button', { name: 'Hide Staff tab' }));
+    await hideTab('Staff');
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.getByText('4 of 5 active')).toBeVisible();
     await reviewAndPublish();
@@ -695,16 +706,16 @@ describe('MyAppStudio tenant preview isolation', () => {
 
     await fireEvent.click(await screen.findByRole('button', { name: 'Pages' }));
     expect(screen.getByText('4 of 5 active')).toBeVisible();
-    expect(screen.getByRole('note', { name: 'Retired Events tab' })).toHaveTextContent('not an active family tab');
+    expect(screen.getByRole('note', { name: 'Retired Events tab' })).toHaveTextContent('Families use Schedule');
     expect(screen.queryByLabelText('Tab name for Events')).toBeNull();
     expect(screen.queryByRole('button', { name: /(?:Hide|Show|Move) Events/ })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Move Teams tab down' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Move Board tab up' })).toBeDisabled();
-    await fireEvent.click(screen.getByRole('button', { name: 'Move Home tab down' }));
-    await fireEvent.input(screen.getByLabelText('Tab name for Home'), {
-      target: { value: 'Start' },
-    });
-    await fireEvent.click(screen.getByRole('button', { name: 'Hide Teams tab' }));
+    await chooseTabAction('Home', 'Change position');
+    await fireEvent.change(screen.getByLabelText('Position'), { target: { value: '1' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    await chooseTabAction('Home', 'Rename');
+    await fireEvent.input(screen.getByLabelText('Tab name'), { target: { value: 'Start' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    await hideTab('Teams');
     expect(screen.getByText('3 of 5 active')).toBeVisible();
     await reviewAndPublish();
 
@@ -744,10 +755,10 @@ describe('MyAppStudio tenant preview isolation', () => {
     await openAppearanceSettings();
 
     await fireEvent.click(await screen.findByRole('button', { name: 'Pages' }));
-    expect(screen.getAllByLabelText(/Tab name for/)).toHaveLength(4);
-    expect(screen.getByRole('heading', { name: 'Teams' })).toBeVisible();
-    expect(screen.getByLabelText('Tab name for Teams')).toHaveValue('Esports');
-    expect(screen.queryByRole('heading', { name: 'Esports' })).toBeNull();
+    const row = screen.getByRole('group', { name: 'Esports tab' });
+    expect(within(row).getByText('Teams')).toBeVisible();
+    await chooseTabAction('Esports', 'Rename');
+    expect(screen.getByLabelText('Tab name')).toHaveValue('Esports');
     expect(screen.queryByRole('heading', { name: 'Events' })).toBeNull();
     expect(screen.queryByLabelText('Tab name for Events')).toBeNull();
     expect(screen.getByText('4 of 5 active')).toBeVisible();
@@ -779,9 +790,104 @@ describe('MyAppStudio tenant preview isolation', () => {
     );
     expect(screen.getByRole('button', { name: 'Publish App' })).toBeDisabled();
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Hide Staff tab' }));
+    await hideTab('Staff');
     expect(screen.getByText('5 of 5 active')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Publish App' })).toBeEnabled();
+  });
+
+  it('adds a published page by drag, reviews its order, and publishes only to the selected tenant', async () => {
+    const stored = new Map<string, ReturnType<typeof configurationSnapshot>['configuration']['navigationTabs']>();
+    appMocks.appConfiguration.mockImplementation(async (tenantId: string) => {
+      const snapshot = configurationSnapshot(tenantId);
+      snapshot.configuration.navigationTabs = stored.get(tenantId) || snapshot.configuration.navigationTabs;
+      return snapshot;
+    });
+    appMocks.componentStudio.mockImplementation(async (tenantId: string) => ({
+      tenantId, definitions: [], versions: [],
+      pages: [
+        { id: 'resources_page', title: 'Resources', route: '/resources', status: 'published', isVisible: true, components: [] },
+        { id: 'contact_page', title: 'Private draft', route: '/contact', status: 'draft', isVisible: true, components: [] },
+      ],
+    }));
+    appMocks.publishAppConfiguration.mockImplementation(async (tenantId, data) => {
+      stored.set(tenantId, data.navigationTabs);
+      return publishResult();
+    });
+    render(TestedMyAppStudio);
+    await act(async () => { tenants.set('tenant-b'); });
+    await openAppearanceSettings();
+    await fireEvent.click(screen.getByRole('button', { name: 'Pages' }));
+    const source = await screen.findByRole('group', { name: 'Resources page' });
+    expect(within(screen.getByRole('region', { name: 'Available pages' })).queryByText('Private draft')).toBeNull();
+    await hideTab('Teams');
+    const target = screen.getByRole('group', { name: 'Schedule tab' });
+    const dataTransfer = { setData: vi.fn(), effectAllowed: '', dropEffect: '' };
+    await fireEvent.dragStart(source, { dataTransfer });
+    await fireEvent.dragOver(target, { dataTransfer });
+    await fireEvent.drop(target, { dataTransfer });
+    await fireEvent.click(screen.getByRole('button', { name: 'Publish App' }));
+    const dialog = screen.getByRole('dialog', { name: 'Review family app publication' });
+    expect(within(dialog).getByText(/After publishing/).parentElement).toHaveTextContent('Resources / Schedule');
+    await fireEvent.click(within(dialog).getByRole('checkbox', { name: /Beta organization/ }));
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm and publish' }));
+    await screen.findByText('App configuration published and reloaded from the server.');
+    expect([...stored.keys()]).toEqual(['tenant-b']);
+    const order = stored.get('tenant-b')!.filter((tab) => tab.enabled).map((tab) => tab.key);
+    expect(order.indexOf('resources')).toBe(order.indexOf('schedule') - 1);
+    expect(stored.get('tenant-b')).toContainEqual(expect.objectContaining({ key: 'teams', enabled: false }));
+  });
+
+  it('makes the implicit STEM Scores tab editable and publishes an explicit hide', async () => {
+    const stem = 'stem-it-up-sports';
+    const initial = configurationSnapshot(stem);
+    let navigationTabs = initial.configuration.navigationTabs;
+    appMocks.appConfiguration.mockImplementation(async () => ({
+      ...initial, configuration: { ...initial.configuration, navigationTabs },
+    }));
+    appMocks.publishAppConfiguration.mockImplementation(async (_tenantId, data) => {
+      navigationTabs = data.navigationTabs;
+      return publishResult();
+    });
+    await act(async () => { tenants.set(stem); });
+    render(TestedMyAppStudio);
+    await openAppearanceSettings();
+    await fireEvent.click(screen.getByRole('button', { name: 'Pages' }));
+    expect(screen.queryByRole('button', { name: 'Options for Teams' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Options for Scores' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Publish App' })).toBeDisabled();
+    await hideTab('Scores');
+    await reviewAndPublish();
+    await screen.findByText('App configuration published and reloaded from the server.');
+    expect(navigationTabs).toContainEqual(expect.objectContaining({ key: 'scores', enabled: false }));
+  });
+
+  it('lets a program use its fifth visible slot while keeping the retired entry', async () => {
+    const stem = 'stem-it-up-sports';
+    appMocks.componentStudio.mockImplementation(async (tenantId: string) => ({
+      tenantId, definitions: [], versions: [],
+      pages: [{ id: 'resources_page', title: 'Resources', route: '/resources', status: 'published', isVisible: true, components: [] }],
+    }));
+    await act(async () => { tenants.set(stem); });
+    render(TestedMyAppStudio);
+    await openAppearanceSettings();
+    await fireEvent.click(screen.getByRole('button', { name: 'Pages' }));
+    await fireEvent.click(await screen.findByRole('button', { name: 'Add Resources tab' }));
+    expect(screen.getByText('5 of 5 active')).toBeVisible();
+    expect(screen.getByRole('note', { name: 'Retired Events tab' })).toBeVisible();
+    await reviewAndPublish();
+    expect(appMocks.publishAppConfiguration).toHaveBeenCalledWith(stem, expect.objectContaining({
+      navigationTabs: expect.arrayContaining([
+        expect.objectContaining({ key: 'resources', enabled: true }),
+        expect.objectContaining({ key: 'events', enabled: false }),
+      ]),
+    }), expect.any(String), expect.any(String));
+  });
+
+  it('omits tab editing from the Admin app workspace', async () => {
+    render(TestedMyAppStudio, { allowNavigationEditing: false });
+    await openAppearanceSettings();
+    expect(screen.queryByRole('button', { name: 'Pages' })).toBeNull();
+    expect(appMocks.componentStudio).toHaveBeenCalledTimes(1);
   });
 
   it('resends the authoritative draft after the selected tenant preview is ready', async () => {

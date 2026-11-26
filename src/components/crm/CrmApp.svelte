@@ -473,7 +473,7 @@
     {#if myAppComponent && !isTenantSwitching && currentTabs.some(tab => tab.name === 'My App')}
       {#key $tenantIdStore}
         <div hidden={activeTab !== 'My App'} style:display={activeTab === 'My App' ? 'flex' : 'none'} class="min-h-0 flex-1 flex-col">
-          <svelte:component this={myAppComponent} active={activeTab === 'My App'} suspendInactivePreviews={isNativeWorkspace} />
+          <svelte:component this={myAppComponent} active={activeTab === 'My App'} suspendInactivePreviews={isNativeWorkspace} allowNavigationEditing={!usesAppEntry && !isNativeWorkspace} />
         </div>
       {/key}
     {/if}

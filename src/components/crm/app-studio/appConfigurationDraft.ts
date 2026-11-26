@@ -53,6 +53,7 @@ const permanentTabNames: Record<string, string> = {
   events: "Events",
   messaging: "Board",
   schedule: "Schedule",
+  scores: "Scores",
   resources: "Resources",
   staff: "Staff",
   account: "Account",
@@ -67,7 +68,35 @@ export function isRetiredNavigationTab(tab: NavigationTabDraft) {
 }
 
 export function permanentTabName(tab: NavigationTabDraft) {
-  return permanentTabNames[tab.key] || "Teams";
+  return isTeamTab(tab) ? "Teams" : permanentTabNames[tab.key] || tab.label;
+}
+
+function usesProgramScores(tenantId: string) {
+  return tenantId === 'stem-it-up' || tenantId === 'stem-it-up-sports';
+}
+
+function isTeamTab(tab: NavigationTabDraft) {
+  return tab.route === '/teams' || /^\/team-[a-z0-9-]+$/.test(tab.route);
+}
+
+export function portalNavigationTabs(tenantId: string, saved: NavigationTabDraft[]) {
+  const tabs = saved.map((tab) => ({ ...tab }));
+  if (!usesProgramScores(tenantId)) return tabs;
+  const scoresConfigured = tabs.some((tab) => tab.route === '/scores');
+  const teamIndex = tabs.findIndex((tab) => tab.enabled && isTeamTab(tab));
+  for (const tab of tabs) {
+    if (isTeamTab(tab)) tab.enabled = false;
+  }
+  if (!scoresConfigured && (teamIndex >= 0 ||
+      tabs.filter((tab) => tab.enabled && !isRetiredNavigationTab(tab)).length < maxActiveTabs)) {
+    const position = teamIndex >= 0 ? teamIndex : tabs.findIndex((tab) => tab.route === '/') + 1;
+    tabs.splice(position, 0, { key: 'scores', pageId: 'scores_page', route: '/scores', label: 'Scores', enabled: true });
+  }
+  return tabs;
+}
+
+export function availableToProgram(tenantId: string, tab: NavigationTabDraft) {
+  return !isRetiredNavigationTab(tab) && !(usesProgramScores(tenantId) && isTeamTab(tab));
 }
 
 export function completeFiveTabSlots(tabs: NavigationTabDraft[]) {
