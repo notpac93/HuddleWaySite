@@ -1,6 +1,5 @@
 <script lang="ts">
   import { tick, type Component } from 'svelte';
-  import { signOut } from 'firebase/auth';
   import { auth } from '../../lib/firebase';
   import { getToken as getAppCheckToken } from 'firebase/app-check';
   import {
@@ -23,7 +22,7 @@
   } from '../../lib/crm/crmContextPersistence';
   import type { PortalIconName } from '../../lib/ui/portalIcons';
   import Login from './Login.svelte';
-  import { usesAppEntry, returnToAppSignIn } from '../../lib/crm/adminEntryContext';
+  import { endAdminSession, usesAppEntry, returnToAppSignIn } from '../../lib/crm/adminEntryContext';
   $: if (usesAppEntry && !$nativeWorkspacePending && !$isAuthLoading && !$userStore) {
     returnToAppSignIn(Boolean(auth.currentUser));
   }
@@ -410,7 +409,7 @@
           class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
           on:click={async () => {
             try {
-              await signOut(auth);
+              await endAdminSession(auth);
             } catch {}
             authErrorStore.set('');
           }}

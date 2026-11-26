@@ -9,10 +9,12 @@ import {
   connectAuthEmulator,
   getAuth,
   indexedDBLocalPersistence,
+  inMemoryPersistence,
   initializeAuth,
   type Auth,
 } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { isNativeWorkspace } from './crm/nativeWorkspaceContext';
 import {
   publicEnvironment,
   resolveFirebaseEnvironment,
@@ -42,7 +44,11 @@ function resolveAuth(): Auth {
     // popup/redirect resolver avoids loading Google's cross-origin auth iframe
     // on CRM routes that do not offer federated sign-in.
     return initializeAuth(firebaseApp, {
-      persistence: [browserLocalPersistence, indexedDBLocalPersistence],
+      // The native app owns the durable session. Its hosted workspace shares
+      // an origin and Firebase project with the Consumer preview in production.
+      persistence: isNativeWorkspace
+        ? inMemoryPersistence
+        : [browserLocalPersistence, indexedDBLocalPersistence],
     });
   } catch (error) {
     const code = String((error as { code?: unknown })?.code || '');

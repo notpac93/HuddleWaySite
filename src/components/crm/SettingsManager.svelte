@@ -1,10 +1,10 @@
 <script lang="ts">
+  import { endAdminSession } from '../../lib/crm/adminEntryContext';
   import { toast } from './ui/toast';
   import BrandedWorkspace from './ui/BrandedWorkspace.svelte';
   import {
     EmailAuthProvider,
     reauthenticateWithCredential,
-    signOut,
     updatePassword,
     updateProfile,
     verifyBeforeUpdateEmail,
@@ -129,7 +129,7 @@
       const credential = EmailAuthProvider.credential(user.email, passwordCurrent);
       await reauthenticateWithCredential(user, credential);
       await updatePassword(user, passwordNew);
-      await signOut(auth);
+      await endAdminSession(auth);
       passwordCurrent = '';
       passwordNew = '';
       passwordConfirmation = '';

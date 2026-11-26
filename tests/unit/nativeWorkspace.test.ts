@@ -179,7 +179,7 @@ test('authorization diagnostics bind the current load and omit arbitrary SDK/ide
   expect(messages).toHaveLength(2);
 });
 
-test("does not end the native session while the portal auth observer catches up", async () => {
+test("keeps native identity when the web auth observer catches up or loses its session", async () => {
   const { returnToAppSignIn } = await import("../../src/lib/crm/adminEntryContext");
   const { setNativeWorkspaceNonce } = await import("../../src/lib/crm/nativeWorkspaceContext");
   setNativeWorkspaceNonce(nonce);
@@ -188,5 +188,19 @@ test("does not end the native session while the portal auth observer catches up"
   expect(messages).toEqual([]);
 
   returnToAppSignIn(false);
+  expect(messages).toEqual([{ type: "failed", nonce }]);
+});
+
+test("only an intentional web sign-out requests native sign-out", async () => {
+  const { endAdminSession, returnToAppSignIn } = await import("../../src/lib/crm/adminEntryContext");
+  const { setNativeWorkspaceNonce } = await import("../../src/lib/crm/nativeWorkspaceContext");
+  const { auth } = await import("../../src/lib/firebase");
+  setNativeWorkspaceNonce(nonce);
+  mocks.signOut.mockImplementationOnce(async () => returnToAppSignIn(false));
+
+  await endAdminSession(auth);
+  returnToAppSignIn(false);
+
+  expect(mocks.signOut).toHaveBeenCalledWith(auth);
   expect(messages).toEqual([{ type: "signedOut", nonce }]);
 });

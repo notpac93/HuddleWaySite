@@ -7,7 +7,7 @@
   import { get, writable } from 'svelte/store';
   import { SECTION_NAVIGATION, type SectionNavigation } from '../../lib/crm/sectionNavigation';
   import { auth } from '../../lib/firebase';
-  import { signOut } from 'firebase/auth';
+  import { endAdminSession } from '../../lib/crm/adminEntryContext';
   import { backendClient } from '../../lib/api/backendClient';
   import { publicEnvironment, resolveBackendUrl } from '../../lib/config/publicEnvironment';
   import {
@@ -105,7 +105,7 @@
         await $portalDraftStore.onDiscard();
         clearPortalDraft($portalDraftStore.id);
       }
-      await signOut(auth);
+      await endAdminSession(auth);
       showLogoutModal = false;
     } catch {
       console.error('Sign out failed.');
