@@ -201,7 +201,7 @@ describe('deployed app preview parity contract', () => {
     expect(url.searchParams.get('parentOrigin')).toBe(options.contract.parentOrigin);
     expect(url.searchParams.get('forcedTenant')).toBe('stem-it-up-sports');
     expect(options.expectedTenantMarker).toBe('STEM It Up Sports');
-    const configuration = previewProbeConfiguration('stage');
+    const configuration = previewProbeConfiguration('stage', options.tenantId);
     const message = previewProbeMessage(options, session, configuration);
     expect(message).toMatchObject({
       type: 'huddleway.crm.preview.update',
@@ -210,11 +210,12 @@ describe('deployed app preview parity contract', () => {
       revision: 1,
     });
     expect(configuration.navigationTabs.map((tab) => tab.route)).toEqual([
-      '/', '/teams', '/schedule', '/messaging',
+      '/', '/scores', '/schedule', '/messaging',
     ]);
     expect(configuration.navigationTabs.map((tab) => tab.label)).toEqual([
-      'HProbe', 'TProbe', 'SProbe', 'BProbe',
+      'HProbe', 'RProbe', 'SProbe', 'BProbe',
     ]);
+    expect(previewProbeConfiguration('stage', 'huddleway').navigationTabs[1].route).toBe('/teams');
   });
 
   it('accepts a resolved single-team route only for the Teams destination', () => {

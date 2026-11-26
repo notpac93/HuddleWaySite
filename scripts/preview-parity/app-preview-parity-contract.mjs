@@ -267,7 +267,10 @@ export function createPreviewProbeSession() {
   };
 }
 
-export function previewProbeConfiguration(environment) {
+export function previewProbeConfiguration(environment, tenantId) {
+  const programTab = tenantId === 'stem-it-up-sports'
+    ? { key: 'scores', pageId: 'scores_page', route: '/scores', label: 'RProbe', enabled: true }
+    : { key: 'teams', pageId: 'teams_page', route: '/teams', label: 'TProbe', enabled: true };
   return {
     name: `HuddleWay ${environment} parity probe`,
     primaryColor: '#0F4C81',
@@ -276,7 +279,7 @@ export function previewProbeConfiguration(environment) {
     logoUrl: '',
     navigationTabs: [
       { key: 'home', pageId: 'home_page', route: '/', label: 'HProbe', enabled: true },
-      { key: 'teams', pageId: 'teams_page', route: '/teams', label: 'TProbe', enabled: true },
+      programTab,
       { key: 'schedule', pageId: 'schedule_page', route: '/schedule', label: 'SProbe', enabled: true },
       { key: 'messaging', pageId: 'board_page', route: '/messaging', label: 'BProbe', enabled: true },
     ],
