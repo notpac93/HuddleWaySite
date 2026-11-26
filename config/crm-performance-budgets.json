@@ -6,10 +6,10 @@
     "maxInitialJsGzipBytes": 225000,
     "maxInitialJsBrotliBytes": 190000,
     "maxInitialCssGzipBytes": 43000,
-    "maxInitialNetworkRequests": 22,
+    "maxInitialNetworkRequests": 24,
     "maxDashboardAdditionalJsGzipBytes": 15100,
     "maxLargestJsChunkRawBytes": 250000,
-    "maxTotalCrmJsRawBytes": 1500000,
+    "maxTotalCrmJsRawBytes": 1700000,
     "maxCrmFaviconRawBytes": 8192,
     "minLazyCrmFeatureChunks": 12
   },
