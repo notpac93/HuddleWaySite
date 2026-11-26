@@ -6,6 +6,7 @@
 
   export let component: CrmPageComponent;
   export let definition: CrmComponentDefinition | undefined;
+  export let publishedComponent: CrmPageComponent | undefined = undefined;
   export let adding = false;
   export let busy = false;
   export let sectionMode = false;
@@ -18,6 +19,9 @@
   export let onCancel: () => void;
 
   $: issues = validateComponent(component, definition);
+  $: fieldIssues = new Map(issues.filter(({ fieldId }) => fieldId &&
+    (!publishedComponent || JSON.stringify(component.content[fieldId]) !== JSON.stringify(publishedComponent.content[fieldId])))
+    .map(({ fieldId, message }) => [fieldId, message]));
   $: fields = (definition?.fields || []).filter((field) => !sectionMode ||
     !['registrationEventId', 'eventIds', 'dataBindingSource', 'dataBindingMode', 'dataBindingFallback', 'dataBindingSort', 'teamBindingMode', 'teamFilter'].includes(field.id))
     .filter((field) => !textOnly || ['text', 'multiline_text', 'string_list', 'items', 'profiles', 'highlights'].includes(field.type))
@@ -59,13 +63,6 @@
     {#if !sectionMode || adding}<button type="button" class="rounded-md border px-3 py-2 text-sm" on:click={onCancel}>{adding ? 'Back' : 'Close'}</button>{/if}
   </div>
 
-  {#if issues.length > 0}
-    <div class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950" role="alert">
-      <p class="font-semibold">Needs attention</p>
-      <ul class="mt-1 list-disc pl-5">{#each issues as issue}<li>{issue.message}</li>{/each}</ul>
-    </div>
-  {/if}
-
   {#if definition}
     <div class="field-list mt-5 space-y-4">
       {#each fields as field (field.id)}
@@ -102,7 +99,9 @@
             <label for={`component-field-${component.id}-${field.id}`} class="block text-sm font-medium text-gray-800">{field.label || fieldLabel(field.id)}</label>
             <input id={`component-field-${component.id}-${field.id}`} type={field.type === 'number' ? 'number' : field.type === 'url' ? 'url' : 'text'} class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" value={inputValue(field.id)} maxlength={field.maxLength} required={field.required} disabled={busy} on:focus={() => onFieldFocus(field.id)} on:input={(event) => onChange(field.id, field.type === 'number' ? Number(event.currentTarget.value) : event.currentTarget.value)} />
           {/if}
-          {#if sectionMode && ['text', 'multiline_text'].includes(field.type) && !field.options?.length && field.maxLength && inputValue(field.id).length >= Math.ceil(field.maxLength * 0.8)}
+          {#if fieldIssues.has(field.id)}
+            <p aria-live="polite" class="mt-1 text-xs text-red-800">{fieldIssues.get(field.id)}</p>
+          {:else if sectionMode && ['text', 'multiline_text'].includes(field.type) && !field.options?.length && field.maxLength && inputValue(field.id).length >= Math.ceil(field.maxLength * 0.8) && inputValue(field.id).length <= field.maxLength}
             <p aria-live="polite" class="mt-1 text-xs text-gray-600">{inputValue(field.id).length >= field.maxLength ? 'Character limit reached' : `${field.maxLength - inputValue(field.id).length} characters left`}</p>
           {/if}
         </div>

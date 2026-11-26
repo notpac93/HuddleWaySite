@@ -121,6 +121,42 @@ function layoutSnapshot() {
 }
 
 describe("ComponentsStudio", () => {
+  it('sends the edited hero button to the preview without warning about published copy', async () => {
+    const data = snapshot();
+    data.definitions[0].fields.push(
+      { id: 'subheadline', label: 'Bottom line', type: 'text', required: false, maxLength: 120 },
+      { id: 'ctaLabel', label: 'Button text', type: 'text', required: false, maxLength: 30 },
+    );
+    data.pages[0].components[0].content = {
+      ...data.pages[0].components[0].content,
+      subheadline: 'A'.repeat(130),
+      ctaLabel: 'Register',
+    };
+    api.componentStudio.mockResolvedValue(data);
+    const onPageDraftChange = vi.fn();
+    render(TestedComponentsStudio, {
+      tenantId: 'tenant-a', configuration, configurationReady: true,
+      previewOrigin: null, previewEnvironment: 'dev', canvasOnly: true,
+      canvasEditing: true, externalCanvas: true, previewSynced: true, onPageDraftChange,
+    });
+
+    const buttonText = await screen.findByLabelText('Button text');
+    expect(buttonText).toHaveValue('Register');
+    expect(screen.queryByText('Needs attention')).not.toBeInTheDocument();
+    expect(screen.queryByText('Character limit reached')).not.toBeInTheDocument();
+    await fireEvent.input(buttonText, { target: { value: 'Join the program' } });
+    expect(onPageDraftChange.mock.lastCall?.[0].components[0].content).toMatchObject({
+      ctaLabel: 'Join the program', showCtaButton: true,
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Publish all changes' }));
+    await waitFor(() => expect(api.publishPageLayout).toHaveBeenCalledOnce());
+    expect(api.publishPageLayout.mock.calls[0][0]).toBe('tenant-a');
+    expect(api.publishPageLayout.mock.calls[0][1].pages[0].components[0].content).toMatchObject({
+      ctaLabel: 'Join the program', showCtaButton: true, subheadline: 'A'.repeat(130),
+    });
+  });
+
   it('opens a section directly, retains drafts across pages, undoes only the current page, and publishes shared edits with one click after review', async () => {
     const data = layoutSnapshot();
     data.definitions.push({ ...data.definitions[1], id: 'schedule', type: 'schedule_section', label: 'Practice', fields: [{ id: 'title', type: 'text', label: 'Section title', required: false, maxLength: 60 }] });

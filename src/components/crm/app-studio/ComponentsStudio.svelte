@@ -187,6 +187,8 @@
   $: selectedDefinition = addingDefinition || snapshot?.definitions.find(
     (definition) => definition.id === selectedComponent?.definitionId,
   );
+  $: publishedComponent = snapshot?.pages.find((page) => page.id === selectedPage?.id)
+    ?.components.find((component) => component.id === selectedComponent?.id);
   $: currentSignature = pagesSignature(pages) + JSON.stringify(sources);
   $: dirty = state !== 'loading' && Boolean(snapshot) && currentSignature !== loadedSignature;
   $: issues = snapshot ? [...validatePages(pages, snapshot.definitions, snapshot.pages), ...sourceIssues.map((message) => ({ fieldId: '', message }))] : [];
@@ -510,7 +512,7 @@
           <button type="button" class="source-back" on:click={() => selectedSourceId = ''}>Back to section</button>
           <SharedSectionEditor sources={[selectedSource]} componentType={selectedComponent.type} busy={state !== 'ready'} onChange={changeSharedSource} />
         {:else}
-        <ComponentEditor sectionMode textOnly component={selectedComponent} definition={selectedDefinition} adding={Boolean(addingComponent)} busy={state !== 'ready'} onChange={changeField} onFieldFocus={focusPreviewField} onToggleVisibility={toggleVisibility} onRemove={() => removeSelected()} onConfirmAdd={confirmAdd} onCancel={closeEditor} />
+        <ComponentEditor sectionMode textOnly component={selectedComponent} definition={selectedDefinition} {publishedComponent} adding={Boolean(addingComponent)} busy={state !== 'ready'} onChange={changeField} onFieldFocus={focusPreviewField} onToggleVisibility={toggleVisibility} onRemove={() => removeSelected()} onConfirmAdd={confirmAdd} onCancel={closeEditor} />
         {#each selectedSources.filter((source) => source.kind === 'event' || selectedComponent?.type !== 'schedule_section') as source (`${source.kind}:${source.id}`)}
           <button type="button" class="source-choice" on:click={() => selectedSourceId = `${source.kind}:${source.id}`}>Edit {source.kind === 'event' ? 'event information' : 'team & coach information'} · {source.label}</button>
         {/each}
@@ -577,7 +579,7 @@
                 <ComponentPlacement page={selectedPage} location={insertion} disabled={state === 'publishing'} onChange={(location) => insertion = location} />
                 <p class="my-2 text-sm" role="status">Preview · Not added yet · {locationLabel(selectedPage, insertion)}</p>
               {/if}
-              <ComponentEditor bind:this={componentEditor} component={selectedComponent} definition={selectedDefinition} adding={Boolean(addingComponent)} busy={state === 'publishing'} onChange={changeField} onFieldFocus={focusPreviewField} onToggleVisibility={toggleVisibility} onRemove={() => removeSelected()} onConfirmAdd={confirmAdd} onCancel={closeEditor} />
+              <ComponentEditor bind:this={componentEditor} component={selectedComponent} definition={selectedDefinition} {publishedComponent} adding={Boolean(addingComponent)} busy={state === 'publishing'} onChange={changeField} onFieldFocus={focusPreviewField} onToggleVisibility={toggleVisibility} onRemove={() => removeSelected()} onConfirmAdd={confirmAdd} onCancel={closeEditor} />
             </div>
             {#if !externalCanvas}
             <section aria-label="Live isolated component preview" class="min-h-0 min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-gray-100 p-2">
