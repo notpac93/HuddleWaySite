@@ -453,6 +453,7 @@
   </div>
 {:else}
   <CrmShell
+    desktopMyApp={!usesAppEntry && !isNativeWorkspace}
     bind:activeTab
     bind:activeResultId
     tabs={currentTabs}

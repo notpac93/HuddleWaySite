@@ -32,6 +32,7 @@
   import AdminMoreScreen from './AdminMoreScreen.svelte';
 
   export let activeTab = 'Dashboard';
+  export let desktopMyApp = true;
   export let tabs: any[] = [];
   export let activeTeam: any = null;
   export let onExitTeam = () => {};
@@ -46,10 +47,14 @@
   let showMobileMenu = false;
   let showMore = false;
   let showAdminTabs = false;
-  setContext<MyAppNavigation>(MY_APP_NAVIGATION, { dismiss: () => showAdminTabs = false });
-  $: immersiveApp = activeTab === 'My App' && !showMore;
+  const desktopDashboard = writable(false);
+  setContext<MyAppNavigation>(MY_APP_NAVIGATION, { dismiss: () => showAdminTabs = false, desktopDashboard });
+  $: useDesktopDashboard = viewportReady && desktopMyApp && !isMobileViewport;
+  $: desktopDashboard.set(useDesktopDashboard);
+  $: immersiveApp = activeTab === 'My App' && !showMore && !useDesktopDashboard;
   let mobileMenuOpener: HTMLButtonElement | null = null;
   let isMobileViewport = false;
+  let viewportReady = false;
   const quickAccessNames = new Set(['Dashboard', 'Events', 'Messages', 'My App']);
   const sectionNavigationAvailable = writable(false);
   setContext<SectionNavigation>(SECTION_NAVIGATION, { available: sectionNavigationAvailable, openMore });
@@ -75,7 +80,8 @@
     const mobileViewport = window.matchMedia('(max-width: 767px)');
     const updateViewport = () => {
       isMobileViewport = mobileViewport.matches;
-      if (!isMobileViewport) { showMobileMenu = false; showMore = false; }
+      viewportReady = true;
+      if (!isMobileViewport) { showMobileMenu = false; showMore = false; showAdminTabs = false; }
     };
     updateViewport();
     mobileViewport.addEventListener('change', updateViewport);

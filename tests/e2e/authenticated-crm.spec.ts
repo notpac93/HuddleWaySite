@@ -654,6 +654,7 @@ test('event tap-to-edit stays compact and saves automatic season enrollment', as
 });
 
 async function openAppSettings(page: Page) {
+  if (await page.getByRole('navigation', { name: 'My App sections' }).isVisible()) return;
   const toolbar = page.locator('[aria-label="App edit mode"]');
   if (!await toolbar.isVisible()) await page.getByRole('button', { name: 'Edit', exact: true }).click();
   const settings = toolbar.getByRole('button', { name: 'Appearance & navigation', exact: true });
@@ -685,6 +686,19 @@ test('admin tabs survive repeated visits, reload, and unsaved My App navigation'
   await expect(page.getByRole('heading', { name: 'Operations Portal' })).toHaveCount(0);
 
   await openCrmTab(page, 'My App', mobile);
+  if (!mobile) {
+    const sidebar = page.locator('aside[data-sidebar-expanded]');
+    await expect(sidebar).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Admin tabs', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Edit', exact: true })).toHaveCount(0);
+    const toolbar = page.locator('[aria-label="App edit mode"]');
+    const preview = page.getByRole('heading', { name: 'Consumer app preview' });
+    await expect(toolbar).toBeVisible();
+    await expect(preview).toBeVisible();
+    const toolbarBounds = await toolbar.boundingBox();
+    const previewBounds = await preview.boundingBox();
+    expect(toolbarBounds!.x + toolbarBounds!.width).toBeLessThan(previewBounds!.x);
+  }
   await openAppSettings(page);
   for (const section of ['Pages', 'Version history', 'Branding']) {
     await page.getByRole('navigation', { name: 'My App sections' }).getByRole('button', { name: section, exact: true }).click();
@@ -693,14 +707,19 @@ test('admin tabs survive repeated visits, reload, and unsaved My App navigation'
   }
   await page.getByRole('navigation', { name: 'My App sections' }).getByRole('button', { name: 'Components', exact: true }).click();
   await expect(page.locator('[aria-label="App edit mode"]')).toBeVisible();
-  await expect(page.getByRole('navigation', { name: 'My App sections' })).toBeHidden();
+  if (mobile) await expect(page.getByRole('navigation', { name: 'My App sections' })).toBeHidden();
+  else await expect(page.getByRole('navigation', { name: 'My App sections' })).toBeVisible();
   await openAppSettings(page);
   await page.getByRole('navigation', { name: 'My App sections' }).getByRole('button', { name: 'Branding', exact: true }).click();
   const appName = page.getByLabel('App Name', { exact: true });
   await appName.fill('Unsaved test name');
-  await page.getByRole('button', { name: 'Back to app', exact: true }).click();
-  await page.getByRole('button', { name: 'Admin tabs', exact: true }).click();
-  const events = page.getByRole('navigation', { name: 'Admin quick access' }).getByRole('button', { name: 'Schedule', exact: true });
+  const events = (mobile
+    ? page.getByRole('navigation', { name: 'Admin quick access' })
+    : page.locator('aside[data-sidebar-expanded] nav')).getByRole('button', { name: 'Schedule', exact: true });
+  if (mobile) {
+    await page.getByRole('button', { name: 'Back to app', exact: true }).click();
+    await page.getByRole('button', { name: 'Admin tabs', exact: true }).click();
+  }
   await events.click();
   const guard = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: 'Keep editing', exact: true }) });
   await expect(guard).toBeVisible();
@@ -708,7 +727,7 @@ test('admin tabs survive repeated visits, reload, and unsaved My App navigation'
   await guard.getByRole('button', { name: 'Keep editing', exact: true }).click();
   await openAppSettings(page);
   await expect(appName).toHaveValue('Unsaved test name');
-  await page.getByRole('button', { name: 'Back to app', exact: true }).click();
+  if (mobile) await page.getByRole('button', { name: 'Back to app', exact: true }).click();
   if (await page.getByRole('button', { name: 'Admin tabs', exact: true }).isVisible()) {
     await page.getByRole('button', { name: 'Admin tabs', exact: true }).click();
   }
@@ -717,6 +736,7 @@ test('admin tabs survive repeated visits, reload, and unsaved My App navigation'
   await expect(page.getByRole('heading', { name: 'Schedule', exact: true, level: 1 }).first()).toBeVisible();
   await openCrmTab(page, 'My App', mobile);
   await openAppSettings(page);
+  if (!mobile) await page.getByRole('navigation', { name: 'My App sections' }).getByRole('button', { name: 'Branding', exact: true }).click();
   await page.getByRole('button', { name: 'Restore', exact: true }).click();
   await expect(appName).toHaveValue('Unsaved test name');
   expect(errors).toEqual([]);

@@ -1,8 +1,10 @@
 <script lang="ts">
   import { toast } from './ui/toast';
   import { getContext, onDestroy } from 'svelte';
+  import { readable } from 'svelte/store';
   import { MY_APP_NAVIGATION, type MyAppNavigation } from '../../lib/crm/myAppNavigation';
   const navigation = getContext<MyAppNavigation | undefined>(MY_APP_NAVIGATION);
+  const desktopDashboard = navigation?.desktopDashboard ?? readable(false);
   import Icon from './ui/Icon.svelte';
 
   export let active = true;
@@ -15,7 +17,37 @@
   let canvasEditor: ComponentsStudio | null = null;
   let editSessionId = '';
   function editOnCanvas() { navigation?.dismiss(); showTools = false; componentsMounted = true; editSessionId = createIdempotencyKey('canvas'); canvasEditing = true; }
-  function openTools() { navigation?.dismiss(); toolsMounted = true; showTools = true; }
+  function openTools() {
+    if ($desktopDashboard) {
+      selectStudioSection('Branding');
+      return;
+    }
+    navigation?.dismiss();
+    if (activeTab === 'Components') activeTab = 'Branding';
+    toolsMounted = true;
+    showTools = true;
+  }
+  function selectStudioSection(section: string) {
+    if (section === 'Components') {
+      if ($desktopDashboard) activeTab = section;
+      if (!canvasEditing || showTools) editOnCanvas();
+      return;
+    }
+    activeTab = section;
+    if ($desktopDashboard) canvasEditing = false;
+  }
+
+  let desktopStarted = false;
+  function syncDesktopLayout(desktop: boolean, visible: boolean) {
+    if (!desktop || !visible) return;
+    showTools = false;
+    if (!desktopStarted) {
+      desktopStarted = true;
+      activeTab = 'Components';
+    }
+    if (activeTab === 'Components' && !canvasEditing) editOnCanvas();
+  }
+  $: syncDesktopLayout($desktopDashboard, active);
   $: if (!active) { showTools = false; canvasEditing = false; }
   import { tenantIdStore, tenantNamesStore } from '../../lib/authStore';
   import {
@@ -244,6 +276,8 @@
   let activeTab = 'Branding';
   $: tabs = ['Branding', ...(allowNavigationEditing ? ['Pages'] : []), 'Components', 'Version history'];
   $: if (!allowNavigationEditing && activeTab === 'Pages') activeTab = 'Branding';
+  $: settingsOpen = $desktopDashboard ? active && activeTab !== 'Components' : showTools;
+  $: editingComponents = $desktopDashboard ? active && activeTab === 'Components' : canvasEditing && !showTools;
 
   $: if (String($tenantIdStore || '') !== activeTenantId) {
     activeTenantId = String($tenantIdStore || '');
@@ -390,7 +424,7 @@
     tertiaryColor = configuration.tertiaryColor;
     logoUrl = configuration.logoUrl;
     if (allowNavigationEditing) tabsConfig = editableNavigation(configuration.navigationTabs);
-    activeTab = 'Branding';
+    selectStudioSection('Branding');
     draftNotice = `Version ${version.configVersion} is loaded as an unpublished rollback draft. Review the preview and publish to make it current.`;
   }
 
@@ -593,27 +627,45 @@
   />
 {/if}
 
-<div class="my-app-canvas" class:section-editing={canvasEditing && !showTools} class:tools-open={showTools} aria-label="My App canvas">
+{#snippet studioSections()}
+  <nav aria-label="My App sections" class="flex shrink-0 gap-1 overflow-x-auto border-b border-gray-200 px-4 sm:px-6">
+      {#each tabs as tab}
+        <button type="button" disabled={submitState === 'loading'} aria-pressed={activeTab === tab} class="whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors {activeTab !== tab ? 'border-transparent text-gray-500 hover:text-gray-800' : 'border-[var(--crm-brand-border)] text-[var(--crm-brand-link)]'}" on:click={() => selectStudioSection(tab)}>{tab}</button>
+      {/each}
+    </nav>
+{/snippet}
+
+<div class="studio-workspace" class:desktop-studio={$desktopDashboard}>
+  {#if $desktopDashboard}
+    <header class="studio-desktop-header">
+      <h2>My App</h2>
+      {@render studioSections()}
+    </header>
+  {/if}
+<div class="my-app-canvas" class:section-editing={editingComponents} class:tools-open={showTools} aria-label="My App canvas">
+  <div class="studio-preview" aria-label="Consumer app preview">
+  {#if $desktopDashboard}<h3>Consumer app preview</h3>{/if}
   {#if !suspendInactivePreviews || active}
   <AppPreviewFrame immersive {pageDraft} {onCanvasAction} onSyncedChange={setPreviewSynced} onInteract={() => navigation?.dismiss()} previewOrigin={previewBaseUrl} tenantId={String($tenantIdStore || '')} environment={previewEnvironment} configuration={previewConfiguration} configurationReady={configLoadState === 'ready'} title={`${appName.trim() || 'Program'} mobile app preview`} expectedSourceCommit={publicEnvironment.PUBLIC_APP_PREVIEW_COMMIT || ''} expectedReleaseId={publicEnvironment.PUBLIC_APP_PREVIEW_RELEASE_ID || ''} />
   {/if}
   {#if configLoadState === 'error' || configLoadState === 'permission'}
     <div class="canvas-error" role="alert"><p>{configLoadMessage}</p>{#if configLoadState === 'error'}<button type="button" on:click={() => loadTenantConfig(activeTenantId)}>Retry</button>{/if}</div>
   {/if}
-  {#if componentsMounted}<div class="canvas-edit-tools" hidden={!canvasEditing || showTools}>
-    <ComponentsStudio bind:this={canvasEditor} canvasOnly externalCanvas {editSessionId} canvasEditing={canvasEditing && !showTools} previewSynced={layoutPreviewSynced} active={active} previewActive={false} onSettings={openTools} onDone={() => canvasEditing = false} onPageDraftChange={setPageDraft} tenantId={String($tenantIdStore || '')} configuration={previewConfiguration} configurationReady={configLoadState === 'ready'} previewOrigin={previewBaseUrl} {previewEnvironment} expectedSourceCommit={publicEnvironment.PUBLIC_APP_PREVIEW_COMMIT || ''} expectedReleaseId={publicEnvironment.PUBLIC_APP_PREVIEW_RELEASE_ID || ''} />
+  </div>
+  {#if componentsMounted}<div class="canvas-edit-tools" hidden={!editingComponents}>
+    <ComponentsStudio bind:this={canvasEditor} canvasOnly externalCanvas {editSessionId} canvasEditing={editingComponents} previewSynced={layoutPreviewSynced} active={active} previewActive={false} onSettings={openTools} onDone={() => $desktopDashboard ? selectStudioSection('Branding') : canvasEditing = false} onPageDraftChange={setPageDraft} tenantId={String($tenantIdStore || '')} configuration={previewConfiguration} configurationReady={configLoadState === 'ready'} previewOrigin={previewBaseUrl} {previewEnvironment} expectedSourceCommit={publicEnvironment.PUBLIC_APP_PREVIEW_COMMIT || ''} expectedReleaseId={publicEnvironment.PUBLIC_APP_PREVIEW_RELEASE_ID || ''} />
   </div>{/if}
-  {#if active && !showTools && !canvasEditing}<div class="canvas-tools"><button type="button" aria-label="Edit" on:click={editOnCanvas}><Icon name="myApp" size={18} />Edit{#if isDirty}<span class="draft-dot" aria-label="Unpublished changes"></span>{/if}</button></div>{/if}
+  {#if active && !$desktopDashboard && !showTools && !canvasEditing}<div class="canvas-tools"><button type="button" aria-label="Edit" on:click={editOnCanvas}><Icon name="myApp" size={18} />Edit{#if isDirty}<span class="draft-dot" aria-label="Unpublished changes"></span>{/if}</button></div>{/if}
 </div>
-{#if toolsMounted}
-<AppStudioTools open={showTools} focusEnabled={!showPublishReview}>
+{#if toolsMounted || $desktopDashboard}
+<AppStudioTools open={settingsOpen} embedded={$desktopDashboard} focusEnabled={!showPublishReview}>
 <div class="crm-ui-studio-root">
   <div class="crm-ui-studio-editor">
     <header class="flex flex-wrap items-center justify-between gap-4 border-b border-gray-200 px-5 py-3 sm:px-6">
       <div class="min-w-0">
-        <h2 class="text-xl font-semibold text-gray-950">Edit app</h2>
+        <h2 class="text-xl font-semibold text-gray-950">{$desktopDashboard ? activeTab : 'Edit app'}</h2>
       </div>
-      <button type="button" class="app-tools-done" on:click={() => showTools = false}>Back to app</button>
+      {#if !$desktopDashboard}<button type="button" class="app-tools-done" on:click={() => showTools = false}>Back to app</button>{/if}
         <div class="flex items-center gap-3">
           <span class="hidden max-w-64 text-right text-xs text-gray-500 md:block">
             {#if configLoadState !== 'ready'}Loading authoritative configuration…
@@ -625,11 +677,7 @@
         </div>
     </header>
 
-    <nav aria-label="My App sections" class="flex shrink-0 gap-1 overflow-x-auto border-b border-gray-200 px-4 sm:px-6">
-      {#each tabs as tab}
-        <button type="button" disabled={submitState === 'loading'} aria-pressed={activeTab === tab} class="whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors {activeTab !== tab ? 'border-transparent text-gray-500 hover:text-gray-800' : 'border-[var(--crm-brand-border)] text-[var(--crm-brand-link)]'}" on:click={() => tab === 'Components' ? editOnCanvas() : activeTab = tab}>{tab}</button>
-      {/each}
-    </nav>
+    {#if !$desktopDashboard}{@render studioSections()}{/if}
 
     {#if configLoadState === 'loading'}
       <p class="crm-ui-studio-loading" role="status">Loading authoritative app configuration…</p>
@@ -672,7 +720,7 @@
                 <BrandingPanel bind:appName disabled={submitState === 'loading'} onCaptureUndo={captureBrandingUndo} />
                 <BrandingControls bind:primaryColor bind:secondaryColor bind:tertiaryColor bind:logoFile bind:logoValidationMessage {safeLogoPreviewUrl} disabled={submitState === 'loading'} canUndo={Boolean(brandingUndoSnapshot)} onCaptureUndo={captureBrandingUndo} onUndo={undoBrandingChange} />
               </div>
-            {:else if allowNavigationEditing && active && showTools && configLoadState === 'ready'}
+            {:else if allowNavigationEditing && active && settingsOpen && configLoadState === 'ready'}
               {#key activeTenantId}
                 <NavigationPanel tenantId={activeTenantId} bind:tabsConfig disabled={submitState === 'loading'} duplicateLabels={hasDuplicateTabLabels(currentConfiguration())} />
               {/key}
@@ -686,7 +734,25 @@
 </div>
 
 </AppStudioTools>{/if}
+</div>
 <style>
+  .studio-workspace { display: flex; flex: 1; min-width: 0; min-height: 0; }
+  .studio-preview { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; }
+  .desktop-studio { display: grid; grid-template: "header header" auto "editor preview" minmax(0, 1fr) / minmax(0, 1fr) minmax(260px, min(38%, 420px)); gap: 14px; padding: 16px; min-height: 540px; }
+  .studio-desktop-header { grid-area: header; display: flex; flex-wrap: wrap; align-items: center; gap: 0 12px; min-width: 0; border: 1px solid #dce2eb; border-radius: 12px; background: white; }
+  .studio-desktop-header h2 { padding: 10px 16px; font-size: 1.125rem; font-weight: 650; }
+  .studio-desktop-header nav { flex: 1; min-width: 0; border: 0; padding-inline: 4px; }
+  .desktop-studio .my-app-canvas { display: contents; }
+  .desktop-studio .studio-preview { position: relative; grid-area: preview; border: 1px solid #dce2eb; border-radius: 12px; background: white; overflow: hidden; }
+  .desktop-studio .studio-preview h3 { padding: 9px 12px; border-bottom: 1px solid #dce2eb; font-size: .8125rem; font-weight: 600; color: #435266; }
+  .desktop-studio .my-app-canvas .canvas-edit-tools { position: relative; grid-area: editor; inset: auto; width: auto; min-width: 0; min-height: 0; overflow: auto; scrollbar-gutter: stable; }
+  .desktop-studio .canvas-edit-tools :global(.toolbar-row) { flex-wrap: wrap; }
+  .desktop-studio .canvas-edit-tools[hidden] { display: none; }
+  .desktop-studio .canvas-error { inset: 48px 10px auto; }
+  @media (max-width: 1000px) {
+    .desktop-studio { grid-template-columns: minmax(0, 1fr) minmax(220px, 35%); gap: 9px; padding: 10px; }
+  }
+
   .my-app-canvas { position: relative; display: flex; flex: 1; min-height: 0; width: min(100%, 480px); max-width: 480px; height: 100%; padding-top: max(80px, calc(env(safe-area-inset-top) + 80px)); margin: 0 auto; overflow: hidden; background: #fafafa; }
   .canvas-tools { position: absolute; bottom: max(100px, calc(env(safe-area-inset-bottom) + 92px)); left: 50%; transform: translateX(-50%); z-index: 10; padding: 4px; background: white; border: 1px solid #dce2eb; border-radius: 18px; box-shadow: 0 5px 20px #0002; }
   .canvas-edit-tools { position: absolute; top: max(4px, env(safe-area-inset-top)); left: 4px; right: 4px; z-index: 20; }

@@ -1,3 +1,5 @@
+import type { Readable } from 'svelte/store';
+
 /** Shell-owned navigation; preview events can dismiss it, never select an Admin route. */
 export const MY_APP_NAVIGATION = Symbol('my-app-navigation');
-export type MyAppNavigation = { dismiss: () => void };
+export type MyAppNavigation = { dismiss: () => void; desktopDashboard: Readable<boolean> };
