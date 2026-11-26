@@ -30,7 +30,7 @@ const reviewedControlCounts: Record<string, number> = {
   "SettingsManager.svelte": 12,
   "SetupWorkflow.svelte": 11,
   "StaffManager.svelte": 19,
-  "TeamsManager.svelte": 14,
+  "TeamsManager.svelte": 15,
   "TenantOperations.svelte": 10,
   "app-studio/AppStudioTools.svelte": 0,
   "app-studio/BrandingControls.svelte": 7,
@@ -71,14 +71,15 @@ const reviewedControlCounts: Record<string, number> = {
   "events/RegistrationMethodPicker.svelte": 2,
   "events/ScheduleDatePicker.svelte": 3,
   "events/ScheduleOccurrenceEditor.svelte": 8,
-  "live-scores/LiveScoreControl.svelte": 12,
-  "live-scores/LiveScoreSetup.svelte": 10,
+  "live-scores/LiveScoreControl.svelte": 13,
+  "live-scores/LiveScoreSetup.svelte": 13,
   "live-scores/LiveScorePlacement.svelte": 5,
   "messages/AnnouncementPublishReview.svelte": 4,
   "messages/CompactAnnouncementComposer.svelte": 14,
   "messages/CompactMessageComposer.svelte": 15,
   "messages/DirectMessageComposer.svelte": 7,
   "messages/EmailSendReview.svelte": 6,
+  "messages/MessageAudienceTools.svelte": 15,
   "messages/SentMessageList.svelte": 7,
   "registration/ConsumerRegistrationPreview.svelte": 4,
   "registration/CreateRegistrationForm.svelte": 1,
@@ -105,6 +106,7 @@ const reviewedControlCounts: Record<string, number> = {
   "seasons/SeasonDetail.svelte": 16,
   "seasons/SeasonsManager.svelte": 10,
   "teams/CreateTeamForm.svelte": 8,
+  "teams/TeamCsvImport.svelte": 11,
   "ui/BrandedWorkspace.svelte": 0,
   "ui/ChangeReceipt.svelte": 2,
   "ui/DetailDrawer.svelte": 2,
@@ -202,7 +204,7 @@ describe('exhaustive CRM control inventory', () => {
     );
 
     expect(actual).toEqual(reviewedControlCounts);
-    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(868);
+    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(899);
   });
 
   it('keeps every inventoried CRM component reachable from a production entry point', () => {
