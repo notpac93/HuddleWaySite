@@ -1,0 +1,1 @@
+import{n as r}from"./rolldown-runtime.B8FqhfKh.js";r(()=>{var r;((r=new URLSearchParams(window.location.search)).get("eventId")||"").trim()&&(window.location.href="huddleway://register?"+r.toString())})();

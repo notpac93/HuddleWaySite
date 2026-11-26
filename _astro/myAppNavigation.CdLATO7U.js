@@ -1,0 +1,1 @@
+import{n as a}from"./rolldown-runtime.B8FqhfKh.js";var o,n=a(()=>{o=Symbol("my-app-navigation")});export{n,o as t};

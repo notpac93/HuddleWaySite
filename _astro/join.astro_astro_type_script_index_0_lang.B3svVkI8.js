@@ -1,0 +1,1 @@
+import{n as o}from"./rolldown-runtime.B8FqhfKh.js";o(()=>{var o;(o=new URLSearchParams(window.location.search)).toString()&&(window.location.href="huddleway://join?"+o.toString())})();
