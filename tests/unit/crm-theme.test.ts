@@ -43,6 +43,9 @@ describe('CRM tenant theme', () => {
       expect(crmContrastRatio(theme.sidebarHover, theme.sidebar)).toBeGreaterThanOrEqual(3);
       expect(crmContrastRatio(theme.sidebarActive, theme.sidebar)).toBeGreaterThanOrEqual(3);
       expect(crmContrastRatio(theme.sidebarIcon, theme.sidebar)).toBeGreaterThanOrEqual(3);
+      for (const stop of [theme.workspaceBackground, theme.workspaceGlow, theme.workspaceShade]) {
+        expect(crmContrastRatio(stop, '#FFFFFF')).toBeGreaterThanOrEqual(9);
+      }
     }
   });
 

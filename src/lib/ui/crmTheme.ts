@@ -23,6 +23,9 @@ export type CrmThemeTokens = CrmThemePalette & {
   onSidebarMuted: string;
   onSidebarActive: string;
   sidebarIcon: string;
+  workspaceBackground: string;
+  workspaceGlow: string;
+  workspaceShade: string;
 };
 
 export const HUDDLEWAY_CRM_PALETTE: Readonly<CrmThemePalette> = Object.freeze({
@@ -178,6 +181,10 @@ export function buildCrmThemeTokens(
     onSidebarMuted: ensureContrast(mix(onSidebar, sidebar, 0.34), sidebar, 4.5),
     onSidebarActive: bestOn(sidebarActive),
     sidebarIcon: ensureContrast(tertiary, sidebar, 3),
+    // Leave contrast headroom for the light grid and watermark behind headings.
+    workspaceBackground: ensureContrast(primary, WHITE, 9),
+    workspaceGlow: ensureContrast(mix(primary, secondary, 0.42), WHITE, 9),
+    workspaceShade: ensureContrast(mix(mix(primary, tertiary, 0.18), BLACK, 0.3), WHITE, 9),
   };
 }
 
@@ -203,6 +210,9 @@ const CSS_TOKEN_NAMES: ReadonlyArray<[keyof CrmThemeTokens, string]> = [
   ['onSidebarMuted', '--crm-on-sidebar-muted'],
   ['onSidebarActive', '--crm-on-sidebar-active'],
   ['sidebarIcon', '--crm-sidebar-icon'],
+  ['workspaceBackground', '--crm-workspace-background'],
+  ['workspaceGlow', '--crm-workspace-glow'],
+  ['workspaceShade', '--crm-workspace-shade'],
 ];
 
 export function serializeCrmThemeVariables(tokens: CrmThemeTokens) {

@@ -20,7 +20,7 @@
 .crm-registration-eyebrow { color: var(--crm-brand-secondary); font-size: .65rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
 .crm-registration-header .crm-auth-button-secondary { width: auto; flex: none; gap: .5rem; }
 .crm-registration-tabs nav { display: flex; flex-wrap: wrap; gap: .35rem; margin: 0; }
-.crm-registration-tabs .crm-registration-tab { padding: .6rem 1.1rem; min-height: 2.75rem; border: 0; border-radius: .65rem; color: var(--crm-on-sidebar-muted); font-size: .875rem; font-weight: 600; background: transparent; }
+.crm-registration-tabs .crm-registration-tab { padding: .6rem 1.1rem; min-height: 2.75rem; border: 0; border-radius: .65rem; color: #e2e8f0; font-size: .875rem; font-weight: 600; background: transparent; }
 .crm-registration-tabs .crm-ui-registration-tab-active { background: var(--crm-brand-surface); color: var(--crm-brand-link); box-shadow: inset 0 -3px var(--crm-brand-secondary); }
 .crm-registration-tabs .crm-registration-tab:hover { background: rgba(255,255,255,.15); color: white; }
 .crm-registration-tabs .crm-ui-registration-tab-active:hover { background: var(--crm-brand-surface); color: var(--crm-brand-link); }

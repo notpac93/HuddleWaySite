@@ -7,7 +7,7 @@
   export let headingLevel: 1 | 2 = 2;
 </script>
 
-<div class="crm-branded-workspace crm-auth-shell">
+<div class="crm-branded-workspace crm-auth-shell crm-workspace-backdrop">
   <div class="crm-auth-watermark" aria-hidden="true"></div>
   <header class="crm-branded-header">
     <div class="crm-branded-heading">
@@ -28,7 +28,7 @@
   .crm-branded-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;color:white}
   .crm-branded-heading{min-width:0}
   .crm-branded-heading :is(h1,h2){margin:.25rem 0 0;font-size:clamp(1.65rem,3vw,2.1rem);font-weight:800;line-height:1.2;letter-spacing:-.04em;overflow-wrap:anywhere}
-  .crm-branded-support{margin-top:.5rem;color:var(--crm-on-sidebar-muted);font-size:.875rem;overflow-wrap:anywhere}
+  .crm-branded-support{margin-top:.5rem;color:#e2e8f0;font-size:.875rem;overflow-wrap:anywhere}
   .crm-branded-actions{display:flex;flex-shrink:0;flex-wrap:wrap;align-items:center;gap:.5rem}
   .crm-branded-actions :global(.crm-auth-button-secondary){width:auto;gap:.5rem}
   .crm-branded-body{display:flex;flex-direction:column;gap:1.25rem;min-width:0}
@@ -39,7 +39,7 @@
   .crm-branded-body :global(input[type=search]){min-height:44px;border-color:#dce2e9;background:#f4f6f8}
   .crm-branded-body :global(.crm-ui-empty){border:0;background:transparent;box-shadow:none}
   .crm-branded-workspace :global(button:focus-visible),.crm-branded-workspace :global(a:focus-visible){outline:3px solid var(--crm-brand-secondary);outline-offset:3px}
-  .crm-branded-navigation :global(button){min-height:44px;padding:.6rem 1.1rem;border-radius:.65rem;font-size:.875rem;font-weight:600;color:var(--crm-on-sidebar-muted)}
+  .crm-branded-navigation :global(button){min-height:44px;padding:.6rem 1.1rem;border-radius:.65rem;font-size:.875rem;font-weight:600;color:#e2e8f0}
   .crm-branded-navigation :global(button[aria-pressed=true]){background:var(--crm-brand-surface);color:var(--crm-brand-link);box-shadow:inset 0 -3px var(--crm-brand-secondary)}
   @media(max-width:600px){.crm-branded-header{align-items:flex-start;flex-wrap:wrap}.crm-branded-body :global(input:not([type=checkbox]):not([type=radio]):not([type=file])),.crm-branded-body :global(select),.crm-branded-body :global(textarea){font-size:1rem}}
 </style>

@@ -2,7 +2,7 @@
 @config "../../tailwind.config.mjs";
 
 .crm-theme-default-host,
-.crm-auth-shell,
+.crm-auth-shell:not(.crm-workspace-backdrop),
 .crm-ui-shell-root {
   --crm-brand-primary: #003366;
   --crm-brand-secondary: #C6A95B;
@@ -35,6 +35,24 @@
     radial-gradient(circle at 14% 12%, color-mix(in srgb, var(--crm-brand-secondary) 42%, transparent), transparent 34%),
     radial-gradient(circle at 88% 88%, color-mix(in srgb, var(--crm-brand-tertiary) 18%, transparent), transparent 36%),
     linear-gradient(135deg, var(--crm-brand-sidebar) 0%, var(--crm-brand-primary) 58%, var(--crm-brand-primary-hover) 100%);
+}
+
+.crm-workspace-backdrop {
+  background:
+    radial-gradient(ellipse at 14% 12%, var(--crm-workspace-glow, #535548), transparent 45%),
+    linear-gradient(135deg, var(--crm-workspace-shade, #203D59), var(--crm-workspace-background, #003366));
+}
+
+.crm-ui-shell-root[data-branding-state="idle"] .crm-workspace-backdrop {
+  background: #222831;
+}
+
+.crm-workspace-backdrop > .crm-auth-watermark {
+  filter: grayscale(1);
+}
+
+.crm-workspace-backdrop .section-eyebrow {
+  color: #f1f5f9;
 }
 
 .crm-auth-shell::before {

@@ -312,7 +312,7 @@
   />
 {/if}
 
-<div class="crm-registration-workspace crm-auth-shell">
+<div class="crm-registration-workspace crm-auth-shell crm-workspace-backdrop">
   <div class="crm-auth-watermark" aria-hidden="true"></div>
   {#if formChangeReceipt}
     {#key formChangeReceipt}

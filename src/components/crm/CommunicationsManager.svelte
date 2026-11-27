@@ -1310,7 +1310,7 @@
   </div>
 {/if}
 
-<div class="crm-ui-message-root crm-message-workspace crm-auth-shell">
+<div class="crm-ui-message-root crm-message-workspace crm-auth-shell crm-workspace-backdrop">
   <div class="crm-auth-watermark" aria-hidden="true"></div>
   <header class="crm-message-header">
     <div><h2>Messages</h2></div>

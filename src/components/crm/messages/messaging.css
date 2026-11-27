@@ -10,11 +10,11 @@
 .crm-message-workspace > .crm-auth-watermark { position: absolute; }
 .crm-message-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; color: white; }
 .crm-message-header h2 { margin: .25rem 0; font-size: clamp(1.65rem, 3vw, 2.1rem); font-weight: 800; letter-spacing: -.04em; }
-.crm-message-header p { color: var(--crm-on-sidebar-muted); font-size: .875rem; }
-.crm-message-header .crm-message-eyebrow { color: var(--crm-brand-secondary); font-size: .65rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.crm-message-header p { color: #e2e8f0; font-size: .875rem; }
+.crm-message-header .crm-message-eyebrow { color: #f1f5f9; font-size: .65rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
 .crm-message-header .crm-auth-button-secondary { width: auto; flex: none; gap: .5rem; }
 .crm-message-tabs { display: flex; flex-wrap: wrap; gap: .35rem; }
-.crm-message-tabs button { padding: .6rem 1.1rem; min-height: 2.75rem; border-radius: .65rem; color: var(--crm-on-sidebar-muted); font-size: .875rem; font-weight: 600; }
+.crm-message-tabs button { padding: .6rem 1.1rem; min-height: 2.75rem; border-radius: .65rem; color: #e2e8f0; font-size: .875rem; font-weight: 600; }
 .crm-message-tabs button[aria-pressed=true] { background: var(--crm-brand-surface); color: var(--crm-brand-link); box-shadow: inset 0 -3px var(--crm-brand-secondary); }
 .crm-message-tabs button:hover { background: rgba(255,255,255,.15); color: white; }
 .crm-message-tabs button[aria-pressed=true]:hover { background: var(--crm-brand-surface); color: var(--crm-brand-link); }
