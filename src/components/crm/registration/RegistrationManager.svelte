@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CrmLogo from '../ui/CrmLogo.svelte';
   import SectionEyebrow from '../ui/SectionEyebrow.svelte';
   import './registration.css';
   import SuccessToast from '../ui/SuccessToast.svelte';
@@ -313,7 +314,7 @@
 {/if}
 
 <div class="crm-registration-workspace crm-auth-shell crm-workspace-backdrop">
-  <div class="crm-auth-watermark" aria-hidden="true"></div>
+  <CrmLogo class="crm-auth-watermark" />
   {#if formChangeReceipt}
     {#key formChangeReceipt}
       <SuccessToast title={formChangeReceipt} onDismiss={() => formChangeReceipt = ''} />

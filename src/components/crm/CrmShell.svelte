@@ -9,7 +9,6 @@
   import { auth } from '../../lib/firebase';
   import { endAdminSession } from '../../lib/crm/adminEntryContext';
   import { backendClient } from '../../lib/api/backendClient';
-  import { publicEnvironment, resolveBackendUrl } from '../../lib/config/publicEnvironment';
   import {
     tenantIdStore,
     availableTenants,
@@ -27,6 +26,7 @@
   import CrmBreadcrumbs from './CrmBreadcrumbs.svelte';
   import CrmPortalScope from './CrmPortalScope.svelte';
   import Icon from './ui/Icon.svelte';
+  import CrmLogo, { CRM_DEFAULT_LOGO, CRM_LOGO } from './ui/CrmLogo.svelte';
   import AdminQuickAccess from './AdminQuickAccess.svelte';
   import { MY_APP_NAVIGATION, type MyAppNavigation } from '../../lib/crm/myAppNavigation';
   import AdminMoreScreen from './AdminMoreScreen.svelte';
@@ -138,9 +138,8 @@
   }
 
   let appName = 'HuddleWay';
-  let logoUrl: string | null = null;
-  const defaultLogoUrl = '/logo.webp';
-  let resolvedLogoUrl = defaultLogoUrl;
+  const logo = writable<string | null>(null);
+  setContext(CRM_LOGO, logo);
   let brandingState: 'idle' | 'ready' | 'missing' | 'error' | 'permission' = 'idle';
   let brandingMessage = '';
   let unsubscribeTenant = () => {};
@@ -154,9 +153,9 @@
     unsubscribeTenant();
   });
 
-  function resetBranding() {
+  function resetBranding(resolvedLogo: string | null = CRM_DEFAULT_LOGO) {
     appName = 'HuddleWay';
-    logoUrl = null;
+    logo.set(resolvedLogo);
     themeTokens = buildCrmThemeTokens(null);
   }
 
@@ -169,32 +168,20 @@
     return generation === brandingGeneration && get(tenantIdStore) === tenantId;
   }
 
-  function resolveLogoUrl(value: any) {
+  function resolveLogoUrl(value: string | null | undefined) {
     const candidate = typeof value === 'string' ? value.trim() : '';
     if (!candidate || candidate === 'null' || candidate === 'undefined') {
-      return defaultLogoUrl;
+      return CRM_DEFAULT_LOGO;
     }
 
     // The mobile app stores its bundled HuddleWay logo as an asset path.
     // Browsers cannot load Flutter bundle paths, so use the equivalent CRM asset.
     if (candidate.startsWith('assets/images/branding/')) {
-      return defaultLogoUrl;
+      return CRM_DEFAULT_LOGO;
     }
 
     return candidate;
   }
-
-  function handleLogoError(event: Event) {
-    const image = event.currentTarget;
-    if (image && image.getAttribute('src') !== defaultLogoUrl) {
-      image.src = defaultLogoUrl;
-    }
-  }
-
-  $: resolvedLogoUrl = resolveLogoUrl(logoUrl);
-  // API images require CORS mode under the backend resource policy.
-  // Other hosted logos retain normal image loading without a CORS requirement.
-  $: logoCrossOrigin = resolvedLogoUrl.startsWith(`${resolveBackendUrl(publicEnvironment)}/`) ? 'anonymous' : undefined;
 
   async function loadProgramProfile(tenantId: string, generation: number) {
     try {
@@ -208,7 +195,7 @@
 
   async function loadTenantBranding(tenantId: string | null) {
     const generation = beginBrandingRequest();
-    resetBranding();
+    resetBranding(tenantId ? null : CRM_DEFAULT_LOGO);
     programProfileStore.set({ tenantId: tenantId || '', profile: null });
     if (tenantId) void loadProgramProfile(tenantId, generation);
     brandingState = 'idle';
@@ -221,7 +208,7 @@
         if (snapshot.exists && snapshot.branding) {
           const data = snapshot.branding;
           appName = data.name || 'Organization name unavailable';
-          logoUrl = data.logoUrl || null;
+          logo.set(resolveLogoUrl(data.logoUrl));
           themeTokens = buildCrmThemeTokens({
             primary: data.primaryColor,
             secondary: data.secondaryColor,
@@ -428,12 +415,10 @@
         use:modalFocus={{ onEscape: closeMobileMenu, initialFocusSelector: '[data-mobile-close]' }}
       >
         <div class="crm-ui-shell-mobile-header">
-          <img
-            crossorigin={logoCrossOrigin} src={resolvedLogoUrl}
+          <CrmLogo
             width="32"
             height="32"
             decoding="async"
-            on:error={handleLogoError}
             alt=""
             class="h-8 w-8 shrink-0 object-contain"
           />
@@ -497,13 +482,11 @@
     data-sidebar-expanded={isSidebarExpanded}
   >
     <div class="crm-theme-sidebar-divider flex h-[73px] items-center {isSidebarExpanded ? 'gap-3 px-4' : 'justify-center px-3'}">
-      <img
-        crossorigin={logoCrossOrigin} src={resolvedLogoUrl}
+      <CrmLogo
         width="32"
         height="32"
         decoding="async"
         fetchpriority="high"
-        on:error={handleLogoError}
         alt="{appName} logo"
         class="w-8 h-8 object-contain shrink-0"
       />
@@ -614,7 +597,7 @@
       </button>
       {#if isMobileViewport}
         <div class="flex min-w-0 flex-1 items-center gap-2.5">
-          <img crossorigin={logoCrossOrigin} src={resolvedLogoUrl} alt="Program logo" on:error={handleLogoError} class="h-9 w-9 shrink-0 rounded-xl object-contain" />
+          <CrmLogo alt="Program logo" class="h-9 w-9 shrink-0 rounded-xl object-contain" />
           <span class="truncate text-sm font-semibold text-gray-950">{appName}</span>
         </div>
       {:else}

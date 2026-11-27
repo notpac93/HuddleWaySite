@@ -108,7 +108,7 @@
 </script>
 
 <div class="crm-auth-shell min-h-screen flex flex-col justify-center px-4 py-12 sm:px-6 lg:px-8">
-  <div class="crm-auth-watermark" data-testid="huddleway-background-logo" aria-hidden="true"></div>
+  <div class="crm-auth-watermark crm-platform-watermark" data-testid="huddleway-background-logo" aria-hidden="true"></div>
   <div class="relative z-10 sm:mx-auto sm:w-full sm:max-w-md">
     <div class="flex justify-center">
       <div class="crm-auth-brand-mark">

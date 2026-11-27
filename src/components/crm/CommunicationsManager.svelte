@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CrmLogo from './ui/CrmLogo.svelte';
   import { toast } from './ui/toast';
   import { registerLiveRefresh } from '../../lib/crm/liveRefresh';
   import { onMount as mountRefresh } from 'svelte';
@@ -1311,7 +1312,7 @@
 {/if}
 
 <div class="crm-ui-message-root crm-message-workspace crm-auth-shell crm-workspace-backdrop">
-  <div class="crm-auth-watermark" aria-hidden="true"></div>
+  <CrmLogo class="crm-auth-watermark" />
   <header class="crm-message-header">
     <div><h2>Messages</h2></div>
     {#if isAdding && composerKind !== 'direct' && composerKind !== 'email'}

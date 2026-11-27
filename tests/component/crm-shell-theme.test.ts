@@ -1,4 +1,4 @@
-import { act, render, waitFor } from '@testing-library/svelte';
+import { act, fireEvent, render, waitFor } from '@testing-library/svelte';
 import type { Component } from 'svelte';
 import type { Writable } from 'svelte/store';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -92,6 +92,10 @@ describe('CRM shell tenant theme lifecycle', () => {
       expect(image).not.toBeNull();
       expect(image?.getAttribute('crossorigin')).toBe(crossOrigin);
     });
+    const image = container.querySelector<HTMLImageElement>(`img[src="${logoUrl}"]`)!;
+    await fireEvent.error(image);
+    expect(image).toHaveAttribute('src', '/logo.webp');
+    expect(image).not.toHaveAttribute('crossorigin');
   });
 
   it('resets on tenant switch and ignores the previous tenant callback', async () => {
@@ -117,8 +121,10 @@ describe('CRM shell tenant theme lifecycle', () => {
     tenants.set('tenant-b');
     await waitFor(() =>
       expect(root.style.getPropertyValue('--crm-brand-primary')).toBe('#0000AA'));
-    await act(() => resolveTenantA(brandingResponse({ primaryColor: '#AA0000' })));
+    await act(() => resolveTenantA(brandingResponse({ primaryColor: '#AA0000', logoUrl: 'https://images.example.com/stale.webp' })));
     expect(root.style.getPropertyValue('--crm-brand-primary')).toBe('#0000AA');
+    expect(root.querySelector('img[src="https://images.example.com/stale.webp"]')).toBeNull();
+    expect(root.querySelector('img[src="/logo.webp"]')).toBeInTheDocument();
   });
 
   it('falls back for a missing or failed branding document', async () => {

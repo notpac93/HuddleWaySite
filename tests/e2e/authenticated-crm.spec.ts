@@ -193,7 +193,7 @@ async function signIn(page: Page, email: string) {
   await expect(page.locator('astro-dev-toolbar')).toHaveCount(0);
 }
 
-async function mockAuthenticatedBackend(page: Page, tenantId: string, palette?: CrmThemePalette) {
+async function mockAuthenticatedBackend(page: Page, tenantId: string, branding?: CrmThemePalette & { logoUrl?: string }) {
   const operationalResponses: Record<string, Record<string, unknown>> = {
     '/admin/owner-onboarding/vocabulary': { programProfile: null },
     '/admin/live-scores': { boards: [] },
@@ -258,10 +258,10 @@ async function mockAuthenticatedBackend(page: Page, tenantId: string, palette?: 
         exists: true,
         branding: {
           name: 'Fixture Athletics',
-          logoUrl: null,
-          primaryColor: palette?.primary ?? '',
-          secondaryColor: palette?.secondary ?? '',
-          tertiaryColor: palette?.tertiary ?? '',
+          logoUrl: branding?.logoUrl ?? null,
+          primaryColor: branding?.primary ?? '',
+          secondaryColor: branding?.secondary ?? '',
+          tertiaryColor: branding?.tertiary ?? '',
         },
         requestId: 'e2e-tenant-branding',
       }),
@@ -486,11 +486,16 @@ async function openCrmTab(page: Page, tab: string, mobile: boolean) {
   }
 }
 
-test('the signed-in dashboard paints the tenant palette', async ({ page }, testInfo) => {
+test('the signed-in workspace paints the tenant palette and logos', async ({ page }, testInfo) => {
   const suffix = `workspace-colors-${testInfo.project.name}`;
   const { email } = await seedVerifiedOwner(suffix);
   const palette = { primary: '#0B5C42', secondary: '#0F2747', tertiary: '#F4B41A' };
-  await mockAuthenticatedBackend(page, `e2e-tenant-${suffix}`, palette);
+  const logoUrl = '/fixture-organization.svg';
+  await page.route(`**${logoUrl}`, (route) => route.fulfill({
+    contentType: 'image/svg+xml',
+    body: '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="20"><rect width="36" height="20" fill="green"/></svg>',
+  }));
+  await mockAuthenticatedBackend(page, `e2e-tenant-${suffix}`, { ...palette, logoUrl });
   await signIn(page, email);
 
   await expect(page.locator('.crm-ui-shell-root')).toHaveAttribute('data-branding-state', 'ready');
@@ -501,6 +506,15 @@ test('the signed-in dashboard paints the tenant palette', async ({ page }, testI
     await expect(dashboard).toHaveCSS('background-image', new RegExp(`rgb\\(${pixels(stop)}\\)`));
   }
   await expect(dashboard.getByRole('heading', { name: 'Dashboard', exact: true })).toHaveCSS('color', 'rgb(255, 255, 255)');
+  await expect(dashboard.locator('img.crm-auth-watermark')).toHaveAttribute('src', logoUrl);
+
+  await openCrmTab(page, 'Teams', Boolean(testInfo.project.use.isMobile));
+  await page.getByRole('button', { name: 'Import CSV' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Import teams & scores' });
+  const logo = dialog.locator('.crm-auth-brand-mark img');
+  await expect(logo).toHaveAttribute('src', logoUrl);
+  await expect(logo).toHaveJSProperty('naturalWidth', 36);
+  await expect(dialog.locator('img.crm-auth-watermark')).toHaveAttribute('src', logoUrl);
 });
 
 test('verified owner can use the authenticated CRM shell by keyboard and mobile navigation', async ({

@@ -75,10 +75,14 @@
   width: min(72vw, 52rem);
   aspect-ratio: 1;
   transform: translateY(-50%) rotate(-5deg);
-  background: url('/logo.webp') center / contain no-repeat;
+  object-fit: contain;
   filter: saturate(0.8);
   opacity: 0.13;
   pointer-events: none;
+}
+
+.crm-platform-watermark {
+  background: url('/logo.webp') center / contain no-repeat;
 }
 
 .crm-auth-brand-mark {

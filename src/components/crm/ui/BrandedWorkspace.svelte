@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CrmLogo from './CrmLogo.svelte';
   import SectionEyebrow from './SectionEyebrow.svelte';
   export let title: string;
   export let eyebrow = '';
@@ -8,7 +9,7 @@
 </script>
 
 <div class="crm-branded-workspace crm-auth-shell crm-workspace-backdrop">
-  <div class="crm-auth-watermark" aria-hidden="true"></div>
+  <CrmLogo class="crm-auth-watermark" />
   <header class="crm-branded-header">
     <div class="crm-branded-heading">
       <SectionEyebrow label={eyebrow} />
@@ -24,7 +25,7 @@
 <style>
   .crm-branded-workspace{position:relative;isolation:isolate;display:flex;flex:1;flex-direction:column;gap:1.25rem;width:100%;height:100%;min-width:0;min-height:0;overflow-y:auto;padding:clamp(1rem,3vw,2rem)}
   .crm-branded-workspace> *{position:relative;flex-shrink:0;margin-block:0}
-  .crm-branded-workspace>.crm-auth-watermark{position:absolute}
+  .crm-branded-workspace>:global(.crm-auth-watermark){position:absolute}
   .crm-branded-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;color:white}
   .crm-branded-heading{min-width:0}
   .crm-branded-heading :is(h1,h2){margin:.25rem 0 0;font-size:clamp(1.65rem,3vw,2.1rem);font-weight:800;line-height:1.2;letter-spacing:-.04em;overflow-wrap:anywhere}

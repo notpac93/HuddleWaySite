@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CrmLogo from '../ui/CrmLogo.svelte';
   import { onDestroy } from 'svelte';
   import { tenantIdStore } from '../../../lib/authStore';
   import { BackendApiError } from '../../../lib/api/BackendApi';
@@ -224,9 +225,9 @@
   <div class="crm-ui-modal-shell import-shell">
     <button type="button" class="crm-ui-backdrop" aria-label="Close team import" tabindex="-1" disabled={applying || reading} on:click={close}></button>
     <div class="import-panel crm-auth-shell" tabindex="-1" use:modalFocus={{ onEscape: close }}>
-      <div class="crm-auth-watermark" aria-hidden="true"></div>
+      <CrmLogo class="crm-auth-watermark" />
       <header>
-        <div class="crm-auth-brand-mark"><img src="/logo.webp" alt="HuddleWay" /></div>
+        <div class="crm-auth-brand-mark"><CrmLogo /></div>
         <h2 id="team-import-title">Import teams &amp; scores</h2>
         <button type="button" aria-label="Close team import" class="close" disabled={applying || reading} on:click={close}><Icon name="close" size={20} /></button>
       </header>
