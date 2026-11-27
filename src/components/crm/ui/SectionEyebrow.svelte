@@ -1,10 +1,10 @@
 <script lang="ts">
   import { getContext } from 'svelte';
   import { readable } from 'svelte/store';
-  import { SECTION_NAVIGATION, type SectionNavigation } from '../../../lib/crm/sectionNavigation';
+  import { CRM_WORKSPACE, type CrmWorkspaceContext } from '../../../lib/crm/workspaceContext';
 
   export let label = '';
-  const navigation = getContext<SectionNavigation | undefined>(SECTION_NAVIGATION);
+  const navigation = getContext<CrmWorkspaceContext | undefined>(CRM_WORKSPACE);
   const available = navigation?.available ?? readable(false);
 </script>
 

@@ -5,7 +5,8 @@
   import { programProfileStore, programTermsStore, programTabLabel, type ProgramProfile } from '../../lib/crm/programVocabulary';
   import { onDestroy, onMount, setContext, tick } from 'svelte';
   import { get, writable } from 'svelte/store';
-  import { SECTION_NAVIGATION, type SectionNavigation } from '../../lib/crm/sectionNavigation';
+  import { CRM_WORKSPACE, CRM_DEFAULT_LOGO, useDefaultLogo, type CrmWorkspaceContext } from '../../lib/crm/workspaceContext';
+  import { publicEnvironment, resolveBackendUrl } from '../../lib/config/publicEnvironment';
   import { auth } from '../../lib/firebase';
   import { endAdminSession } from '../../lib/crm/adminEntryContext';
   import { backendClient } from '../../lib/api/backendClient';
@@ -26,7 +27,6 @@
   import CrmBreadcrumbs from './CrmBreadcrumbs.svelte';
   import CrmPortalScope from './CrmPortalScope.svelte';
   import Icon from './ui/Icon.svelte';
-  import CrmLogo, { CRM_DEFAULT_LOGO, CRM_LOGO } from './ui/CrmLogo.svelte';
   import AdminQuickAccess from './AdminQuickAccess.svelte';
   import { MY_APP_NAVIGATION, type MyAppNavigation } from '../../lib/crm/myAppNavigation';
   import AdminMoreScreen from './AdminMoreScreen.svelte';
@@ -57,7 +57,8 @@
   let viewportReady = false;
   const quickAccessNames = new Set(['Dashboard', 'Events', 'Messages', 'My App']);
   const sectionNavigationAvailable = writable(false);
-  setContext<SectionNavigation>(SECTION_NAVIGATION, { available: sectionNavigationAvailable, openMore });
+  const logo = writable<string | null>(null);
+  setContext<CrmWorkspaceContext>(CRM_WORKSPACE, { available: sectionNavigationAvailable, openMore, logo });
   $: sectionNavigationAvailable.set(!quickAccessNames.has(activeTab));
   $: moreTabs = tabs.filter((tab) => !quickAccessNames.has(tab.name));
   let mobileMenuTrigger: HTMLButtonElement | null = null;
@@ -138,8 +139,7 @@
   }
 
   let appName = 'HuddleWay';
-  const logo = writable<string | null>(null);
-  setContext(CRM_LOGO, logo);
+  $: logoCrossOrigin = $logo?.startsWith(`${resolveBackendUrl(publicEnvironment)}/`) ? 'anonymous' : undefined;
   let brandingState: 'idle' | 'ready' | 'missing' | 'error' | 'permission' = 'idle';
   let brandingMessage = '';
   let unsubscribeTenant = () => {};
@@ -415,10 +415,12 @@
         use:modalFocus={{ onEscape: closeMobileMenu, initialFocusSelector: '[data-mobile-close]' }}
       >
         <div class="crm-ui-shell-mobile-header">
-          <CrmLogo
+          <img
+            crossorigin={logoCrossOrigin} src={$logo ?? undefined} style:visibility={$logo ? undefined : 'hidden'}
             width="32"
             height="32"
             decoding="async"
+            on:error={useDefaultLogo}
             alt=""
             class="h-8 w-8 shrink-0 object-contain"
           />
@@ -482,11 +484,13 @@
     data-sidebar-expanded={isSidebarExpanded}
   >
     <div class="crm-theme-sidebar-divider flex h-[73px] items-center {isSidebarExpanded ? 'gap-3 px-4' : 'justify-center px-3'}">
-      <CrmLogo
+      <img
+        crossorigin={logoCrossOrigin} src={$logo ?? undefined} style:visibility={$logo ? undefined : 'hidden'}
         width="32"
         height="32"
         decoding="async"
         fetchpriority="high"
+        on:error={useDefaultLogo}
         alt="{appName} logo"
         class="w-8 h-8 object-contain shrink-0"
       />
@@ -597,7 +601,7 @@
       </button>
       {#if isMobileViewport}
         <div class="flex min-w-0 flex-1 items-center gap-2.5">
-          <CrmLogo alt="Program logo" class="h-9 w-9 shrink-0 rounded-xl object-contain" />
+          <img crossorigin={logoCrossOrigin} src={$logo ?? undefined} style:visibility={$logo ? undefined : 'hidden'} alt="Program logo" on:error={useDefaultLogo} class="h-9 w-9 shrink-0 rounded-xl object-contain" />
           <span class="truncate text-sm font-semibold text-gray-950">{appName}</span>
         </div>
       {:else}
