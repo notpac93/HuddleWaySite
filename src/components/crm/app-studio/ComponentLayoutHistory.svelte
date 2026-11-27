@@ -9,10 +9,9 @@
   export let onClose: () => void;
 </script>
 
-<div class="crm-ui-modal-root" role="dialog" aria-modal="true" aria-labelledby="component-layout-history-title">
+<div class="crm-ui-modal-root crm-ui-modal-centered" role="dialog" aria-modal="true" aria-labelledby="component-layout-history-title">
   <button type="button" class="crm-ui-backdrop" aria-label="Close component layout history" tabindex="-1" on:click={onClose}></button>
-  <span class="crm-ui-modal-spacer" aria-hidden="true">&#8203;</span>
-  <div class="relative z-10 inline-block max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto rounded-lg bg-white text-left align-bottom shadow-xl sm:my-8 sm:align-middle" tabindex="-1" use:modalFocus={{ onEscape: onClose }}>
+  <div class="crm-ui-modal-centered-panel max-w-xl" tabindex="-1" use:modalFocus={{ onEscape: onClose }}>
     <header class="flex items-start justify-between gap-4 border-b border-gray-200 p-6">
       <div><h2 id="component-layout-history-title" class="text-xl font-semibold text-gray-950">Component layout history</h2><p class="mt-1 text-sm text-gray-600">Load a retained layout as a draft, inspect it in the live preview, then publish only after review.</p></div>
       <button type="button" class="rounded-md border px-3 py-2 text-sm" on:click={onClose}>Close</button>

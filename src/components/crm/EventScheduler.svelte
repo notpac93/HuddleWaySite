@@ -2,6 +2,7 @@
   import { toast } from './ui/toast';
   import { groupEventSeries } from '../../lib/ui/eventSeries';
   import { eventPriceCents, eventPriceLabel } from '../../lib/ui/eventMoney';
+  import { modalFocus } from '../../lib/ui/modalFocus';
   import { programTermsStore } from '../../lib/crm/programVocabulary';
   import {
     DataStore,
@@ -439,12 +440,12 @@
 </script>
 
 {#if shareDialogEvent}
-  <div class="crm-ui-modal-root">
-    <div class="crm-ui-modal-shell">
-      <div class="crm-ui-modal-panel-lg">
+  <div class="crm-ui-modal-root crm-ui-modal-centered" role="dialog" aria-modal="true" aria-labelledby="share-event-title">
+    <button type="button" class="crm-ui-backdrop" aria-label="Close event sharing" tabindex="-1" on:click={() => shareDialogEvent = null}></button>
+    <div class="crm-ui-modal-centered-panel max-w-2xl" tabindex="-1" use:modalFocus={{ onEscape: () => shareDialogEvent = null }}>
         <div class="crm-ui-modal-body">
-          <button class="crm-ui-button-secondary" on:click={() => shareDialogEvent = null}>×</button>
-          <h3 class="crm-ui-modal-title">Share {shareDialogEvent.title}</h3>
+          <button class="crm-ui-button-secondary" aria-label="Close" on:click={() => shareDialogEvent = null}>×</button>
+          <h3 id="share-event-title" class="crm-ui-modal-title">Share {shareDialogEvent.title}</h3>
           <p class="crm-ui-field">{shareableRegistrationLinks[shareDialogEvent.id].url}</p>
           <div class="crm-ui-between">
             <button class="crm-ui-button-secondary" on:click={() => navigator.clipboard?.writeText(shareableRegistrationLinks[shareDialogEvent.id].url)}>Copy link</button>
@@ -457,7 +458,6 @@
             >Send link</button>
           </div>
         </div>
-      </div>
     </div>
   </div>
 {/if}

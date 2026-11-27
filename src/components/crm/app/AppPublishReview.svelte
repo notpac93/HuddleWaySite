@@ -25,10 +25,9 @@
   ] as const;
 </script>
 
-<div class="crm-ui-modal-root" role="dialog" aria-modal="true" aria-labelledby="app-publish-review-title">
+<div class="crm-ui-modal-root crm-ui-modal-centered" role="dialog" aria-modal="true" aria-labelledby="app-publish-review-title">
   <button type="button" class="crm-ui-backdrop" aria-label="Cancel app publication" tabindex="-1" disabled={busy} on:click={onCancel}></button>
-  <span class="crm-ui-modal-spacer" aria-hidden="true">&#8203;</span>
-  <div class="relative z-10 inline-block max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-lg bg-white text-left align-bottom shadow-xl sm:my-8 sm:align-middle" tabindex="-1" use:modalFocus={{ onEscape: onCancel }}>
+  <div class="crm-ui-modal-centered-panel max-w-2xl" tabindex="-1" use:modalFocus={{ onEscape: onCancel }}>
     <header class="border-b border-gray-200 p-6">
       <h2 id="app-publish-review-title" class="text-xl font-semibold text-gray-950">Review family app publication</h2>
       <p class="mt-1 text-sm text-gray-600">Target: <strong>{organizationName}</strong> · {versionLabel}</p>

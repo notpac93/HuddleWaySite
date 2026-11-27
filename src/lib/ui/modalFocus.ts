@@ -48,8 +48,16 @@ export function modalFocus(node: HTMLElement, options: ModalFocusOptions) {
   let currentOptions = options;
   const previousFocus =
     document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  let liftedDialog: HTMLElement | null = null;
 
   const focusInitialControl = () => {
+    const dialog = node.closest<HTMLElement>('[role="dialog"], [role="alertdialog"]');
+    const shell = dialog?.closest('.crm-ui-shell-root');
+    // Keep tenant styles while escaping the workspace's stacking context.
+    if (dialog?.classList.contains('crm-ui-modal-root') && shell && dialog.parentElement !== shell) {
+      shell.append(dialog);
+      liftedDialog = dialog;
+    }
     const requested = currentOptions.initialFocusSelector
       ? node.querySelector<HTMLElement>(currentOptions.initialFocusSelector)
       : null;
@@ -95,6 +103,7 @@ export function modalFocus(node: HTMLElement, options: ModalFocusOptions) {
     destroy() {
       cancelAnimationFrame(initialFocusFrame);
       node.removeEventListener('keydown', handleKeydown);
+      liftedDialog?.remove();
       if (previousFocus?.isConnected) {
         requestAnimationFrame(() => previousFocus.focus());
       }

@@ -72,4 +72,22 @@ describe('shared CRM modal keyboard contract', () => {
     expect(document.activeElement).toBe(panel);
     action.destroy();
   });
+
+  it('lifts a workspace dialog above the themed shell and cleans it up', () => {
+    const shell = document.createElement('div');
+    shell.className = 'crm-ui-shell-root';
+    shell.innerHTML = '<main><button>Open</button><div class="crm-ui-modal-root" role="dialog"><div><input type="checkbox"></div></div></main>';
+    document.body.append(shell);
+    const opener = shell.querySelector('button')!;
+    const dialog = shell.querySelector<HTMLElement>('[role="dialog"]')!;
+    opener.focus();
+
+    const action = modalFocus(dialog.firstElementChild as HTMLElement, { onEscape: vi.fn() });
+    expect(dialog.parentElement).toBe(shell);
+    expect(document.activeElement).toBe(dialog.querySelector('input'));
+    action.destroy();
+
+    expect(dialog.isConnected).toBe(false);
+    expect(document.activeElement).toBe(opener);
+  });
 });

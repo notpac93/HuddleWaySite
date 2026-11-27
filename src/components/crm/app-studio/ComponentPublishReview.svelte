@@ -9,10 +9,9 @@
 
 </script>
 
-<div class="crm-ui-modal-root" role="dialog" aria-modal="true" aria-labelledby="component-publish-review-title">
+<div class="crm-ui-modal-root crm-ui-modal-centered" role="dialog" aria-modal="true" aria-labelledby="component-publish-review-title">
   <button type="button" class="crm-ui-backdrop" aria-label="Cancel component publication" tabindex="-1" disabled={busy} on:click={onCancel}></button>
-  <span class="crm-ui-modal-spacer" aria-hidden="true">&#8203;</span>
-  <div class="relative z-10 inline-block max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto rounded-lg bg-white text-left align-bottom shadow-xl sm:my-8 sm:align-middle" tabindex="-1" use:modalFocus={{ onEscape: onCancel }}>
+  <div class="crm-ui-modal-centered-panel max-w-xl" tabindex="-1" use:modalFocus={{ onEscape: onCancel }}>
     <header class="border-b border-gray-200 p-6">
       <h2 id="component-publish-review-title" class="mt-1 text-xl font-semibold text-gray-950">Review your changes</h2>
       <p class="mt-1 text-sm text-gray-600">Families using <strong>{organizationName}</strong> will receive these updates.</p>
