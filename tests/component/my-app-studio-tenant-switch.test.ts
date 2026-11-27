@@ -13,6 +13,8 @@ import type { Writable } from 'svelte/store';
 import { get } from 'svelte/store';
 import { portalDraftStore } from '../../src/lib/ui/portalDraftGuard';
 import { refreshActiveData } from '../../src/lib/crm/liveRefresh';
+import { resolveAppPreviewEnvironment } from '../../src/lib/crm/appPreviewProtocol';
+import { publicEnvironment, resolveCrmAppPreviewUrl } from '../../src/lib/config/publicEnvironment';
 import { nativeBridgeAvailable, setNativeWorkspaceNonce } from '../../src/lib/crm/nativeWorkspaceContext';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -102,9 +104,10 @@ const TestedMyAppStudio = MyAppStudio as unknown as Component;
 const tenants = tenantIdStore as Writable<string | null>;
 const configNames = new Map<string, string>();
 const configLogos = new Map<string, string>();
-const previewOrigin = process.env.PUBLIC_FIREBASE_PROJECT_ID === 'sports-team-apps'
-  ? 'https://huddleway-app-preview-prod.web.app'
-  : 'https://huddleway-app-preview-canary.web.app';
+const previewOrigin = resolveCrmAppPreviewUrl(publicEnvironment);
+const navigationPublishMessage = previewOrigin && resolveAppPreviewEnvironment(publicEnvironment) !== 'dev'
+  ? 'Published. The family app tab order was verified.'
+  : 'App configuration published and reloaded from the server.';
 
 function configurationSnapshot(tenantId: string) {
   return {
@@ -233,11 +236,11 @@ function previewResponse(
     type,
     protocolVersion: 1,
     tenantId: url.searchParams.get('forcedTenant'),
-    environment: process.env.PUBLIC_APP_PREVIEW_ENVIRONMENT || 'dev',
+    environment: resolveAppPreviewEnvironment(publicEnvironment),
     sessionId: url.searchParams.get('previewSession'),
     nonce: url.searchParams.get('previewNonce'),
-    sourceCommit: process.env.PUBLIC_APP_PREVIEW_COMMIT || 'local-unattested',
-    releaseId: process.env.PUBLIC_APP_PREVIEW_RELEASE_ID || 'local-unattested',
+    sourceCommit: publicEnvironment.PUBLIC_APP_PREVIEW_COMMIT || 'fixture-consumer-commit',
+    releaseId: publicEnvironment.PUBLIC_APP_PREVIEW_RELEASE_ID || 'fixture-consumer-release',
     capabilities: ['page-layout-v1', 'canvas-edit-v1'],
     ...(revision ? { revision } : {}),
   };
@@ -248,7 +251,7 @@ function dispatchPreviewResponse(
   payload: Record<string, unknown>,
 ) {
   window.dispatchEvent(new MessageEvent('message', {
-    origin: previewOrigin,
+    origin: new URL(preview.src).origin,
     source: preview.contentWindow,
     data: JSON.stringify(payload),
   }));
@@ -259,8 +262,31 @@ async function reviewAndPublish() {
   const review = await screen.findByRole('dialog', { name: 'Publish app changes?' });
   expect(within(review).getByRole('list', { name: 'Changes families will see' }).children.length).toBeGreaterThan(0);
   expect(within(review).queryByText(/No publishable changes were detected/)).toBeNull();
-  await fireEvent.click(screen.getByRole('button', { name: 'Publish changes' }));
+  await publishReviewedChanges(review);
   return review;
+}
+
+async function publishReviewedChanges(review: HTMLElement) {
+  const publish = within(review).getByRole('button', { name: 'Publish changes' });
+  if (within(review).queryByText('Wait for the app preview to catch up before publishing.')) {
+    expect(publish).toBeDisabled();
+    const preview = screen.getByTitle(/ mobile app preview$/) as HTMLIFrameElement;
+    const postMessage = vi.spyOn(preview.contentWindow!, 'postMessage');
+    dispatchPreviewResponse(preview, previewResponse(preview, 'huddleway.crm.preview.ready'));
+    await waitFor(() => expect(postMessage).toHaveBeenCalled());
+    const { revision } = JSON.parse(String(postMessage.mock.calls.at(-1)?.[0]));
+    dispatchPreviewResponse(preview, previewResponse(preview, 'huddleway.crm.preview.applied', revision));
+    postMessage.mockRestore();
+    await waitFor(() => expect(publish).toBeEnabled());
+    vi.stubGlobal('fetch', vi.fn(async (url: URL) => {
+      const [tenantId, { navigationTabs }] = appMocks.publishAppConfiguration.mock.lastCall!;
+      expect(url.pathname).toBe('/public/page-bundle');
+      expect(url.searchParams.get('tenantId')).toBe(tenantId);
+      expect(url.searchParams.get('route')).toBe('/');
+      return Response.json({ bundle: { tenantId, aboveTheFold: { navigation: { tabs: navigationTabs } } } });
+    }));
+  }
+  await fireEvent.click(publish);
 }
 
 async function chooseTabAction(tab: string, action: string) {
@@ -718,7 +744,7 @@ describe('MyAppStudio tenant preview isolation', () => {
 
     expect(
       await screen.findByText(
-        'App configuration published and reloaded from the server.',
+        navigationPublishMessage,
       ),
     ).toBeVisible();
     expect(appMocks.publishAppConfiguration).toHaveBeenCalledWith(
@@ -827,8 +853,8 @@ describe('MyAppStudio tenant preview isolation', () => {
     expect(within(dialog).getByText('Beta organization')).toBeVisible();
     const tabs = within(dialog).getByRole('list', { name: 'Tab order after publishing' });
     expect(tabs).toHaveTextContent('ResourcesSchedule');
-    await fireEvent.click(within(dialog).getByRole('button', { name: 'Publish changes' }));
-    await screen.findByText('App configuration published and reloaded from the server.');
+    await publishReviewedChanges(dialog);
+    await screen.findByText(navigationPublishMessage);
     expect([...stored.keys()]).toEqual(['tenant-b']);
     const order = stored.get('tenant-b')!.filter((tab) => tab.enabled).map((tab) => tab.key);
     expect(order.indexOf('resources')).toBe(order.indexOf('schedule') - 1);
@@ -872,7 +898,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Replace tab' }));
     expect(screen.getByRole('group', { name: 'Staff tab' })).toBeVisible();
     await reviewAndPublish();
-    await screen.findByText('App configuration published and reloaded from the server.');
+    await screen.findByText(navigationPublishMessage);
     expect(navigationTabs).toEqual(expect.arrayContaining([
       expect.objectContaining({ key: 'teams', enabled: true }),
       expect.objectContaining({ key: 'scores', enabled: true }),

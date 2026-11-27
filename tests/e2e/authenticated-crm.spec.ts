@@ -691,13 +691,15 @@ test('admin tabs survive repeated visits, reload, and unsaved My App navigation'
     await expect(sidebar).toBeVisible();
     await expect(page.getByRole('button', { name: 'Admin tabs', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Edit', exact: true })).toHaveCount(0);
-    const toolbar = page.locator('[aria-label="App edit mode"]');
+    await page.getByRole('navigation', { name: 'My App sections' }).getByRole('button', { name: 'Branding', exact: true }).click();
+    const editor = page.getByRole('region', { name: 'Edit app' });
     const preview = page.getByRole('heading', { name: 'Consumer app preview' });
-    await expect(toolbar).toBeVisible();
+    await expect(editor).toBeVisible();
+    await expect(editor.getByRole('heading', { name: 'Branding' })).toBeVisible();
     await expect(preview).toBeVisible();
-    const toolbarBounds = await toolbar.boundingBox();
+    const editorBounds = await editor.boundingBox();
     const previewBounds = await preview.boundingBox();
-    expect(toolbarBounds!.x + toolbarBounds!.width).toBeLessThan(previewBounds!.x);
+    expect(editorBounds!.x + editorBounds!.width).toBeLessThan(previewBounds!.x);
   }
   await openAppSettings(page);
   for (const section of ['Pages', 'Version history', 'Branding']) {
