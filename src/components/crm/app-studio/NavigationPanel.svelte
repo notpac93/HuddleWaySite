@@ -3,7 +3,7 @@
   import { backendClient } from '../../../lib/api/backendClient';
   import { eventsStore, teamsStore } from '../../../lib/services/DataStore';
   import type { NavigationTabDraft } from './appConfigurationDraft';
-  import { availableToProgram, isRetiredNavigationTab, maxActiveTabs, permanentTabName } from './appConfigurationDraft';
+  import { isRetiredNavigationTab, maxActiveTabs, optionalNavigationTabs, permanentTabName } from './appConfigurationDraft';
 
   export let tenantId: string;
   export let tabsConfig: NavigationTabDraft[] = [];
@@ -24,12 +24,19 @@
   let announcement = '';
   let editField: HTMLInputElement | HTMLSelectElement;
 
-  $: current = tabsConfig.filter((tab) => availableToProgram(tenantId, tab) && tab.enabled);
-  $: configured = tabsConfig.filter((tab) => availableToProgram(tenantId, tab) && !tab.enabled);
-  $: available = [...configured, ...pages.filter((page) => !tabsConfig.some((tab) => tab.route === page.route || tab.key === page.key))];
+  $: current = tabsConfig.filter((tab) => !isRetiredNavigationTab(tab) && tab.enabled);
+  $: configured = tabsConfig.filter((tab) => !isRetiredNavigationTab(tab) && !tab.enabled);
+  $: available = [...configured, ...pageChoices(tabsConfig, pages)];
   $: retired = tabsConfig.filter(isRetiredNavigationTab);
   $: storedEnabledCount = tabsConfig.filter((tab) => tab.enabled).length;
   $: blockedByHistory = storedEnabledCount > maxActiveTabs && current.length <= maxActiveTabs;
+
+  function pageChoices(saved: NavigationTabDraft[], published: NavigationTabDraft[]) {
+    const byRoute = new Map(optionalNavigationTabs.map((tab) => [tab.route, tab]));
+    for (const page of published) byRoute.set(page.route, page);
+    return [...byRoute.values()].filter((page) =>
+      !saved.some((tab) => tab.route === page.route || tab.key === page.key));
+  }
 
   onMount(() => {
     alive = true;
@@ -53,8 +60,7 @@
           route: page.route,
           label: page.title.trim().slice(0, 80) || page.route,
           enabled: false,
-        }))
-        .filter((tab) => availableToProgram(tenantId, tab));
+        }));
       pageState = 'ready';
     } catch {
       if (alive && requestedTenant === tenantId) pageState = 'error';
@@ -82,7 +88,7 @@
     // A retired Events entry can remain in history without taking a visible slot.
     const retireLegacySlot = !tab.enabled && storedEnabledCount >= maxActiveTabs;
     tabsConfig = marked.map((entry) => {
-      if (availableToProgram(tenantId, entry) && entry.enabled) return order[index++];
+      if (!isRetiredNavigationTab(entry) && entry.enabled) return order[index++];
       return retireLegacySlot && isRetiredNavigationTab(entry) ? { ...entry, enabled: false } : entry;
     });
     announcement = tab.label + (tab.enabled ? ' moved in the draft.' : ' added to the draft.');

@@ -46,6 +46,15 @@ export const initialTabs: NavigationTabDraft[] = [
 
 export const maxActiveTabs = 5;
 
+export const optionalNavigationTabs: NavigationTabDraft[] = [
+  { ...initialTabs[1], enabled: false },
+  { key: 'resources', pageId: 'resources_page', route: '/resources', label: 'Resources', enabled: false },
+  { key: 'staff', pageId: 'staff_page', route: '/staff', label: 'Staff', enabled: false },
+  { key: 'my-events', pageId: 'my_events_page', route: '/my-events', label: 'My Events', enabled: false },
+  { key: 'account', pageId: 'account_page', route: '/account', label: 'Account', enabled: false },
+  { key: 'contact', pageId: 'contact_page', route: '/contact', label: 'Contact', enabled: false },
+];
+
 const missingTabPriority = ["home", "teams", "schedule", "messaging"];
 const permanentTabNames: Record<string, string> = {
   home: "Home",
@@ -56,6 +65,7 @@ const permanentTabNames: Record<string, string> = {
   scores: "Scores",
   resources: "Resources",
   staff: "Staff",
+  "my-events": "My Events",
   account: "Account",
   contact: "Contact",
 };
@@ -83,20 +93,17 @@ export function portalNavigationTabs(tenantId: string, saved: NavigationTabDraft
   const tabs = saved.map((tab) => ({ ...tab }));
   if (!usesProgramScores(tenantId)) return tabs;
   const scoresConfigured = tabs.some((tab) => tab.route === '/scores');
+  if (scoresConfigured) return tabs;
   const teamIndex = tabs.findIndex((tab) => tab.enabled && isTeamTab(tab));
   for (const tab of tabs) {
     if (isTeamTab(tab)) tab.enabled = false;
   }
-  if (!scoresConfigured && (teamIndex >= 0 ||
-      tabs.filter((tab) => tab.enabled && !isRetiredNavigationTab(tab)).length < maxActiveTabs)) {
+  if (teamIndex >= 0 ||
+      tabs.filter((tab) => tab.enabled && !isRetiredNavigationTab(tab)).length < maxActiveTabs) {
     const position = teamIndex >= 0 ? teamIndex : tabs.findIndex((tab) => tab.route === '/') + 1;
     tabs.splice(position, 0, { key: 'scores', pageId: 'scores_page', route: '/scores', label: 'Scores', enabled: true });
   }
   return tabs;
-}
-
-export function availableToProgram(tenantId: string, tab: NavigationTabDraft) {
-  return !isRetiredNavigationTab(tab) && !(usesProgramScores(tenantId) && isTeamTab(tab));
 }
 
 export function completeFiveTabSlots(tabs: NavigationTabDraft[]) {

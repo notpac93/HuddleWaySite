@@ -837,7 +837,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     expect(stored.get('tenant-b')).toContainEqual(expect.objectContaining({ key: 'teams', enabled: false }));
   });
 
-  it('makes the implicit STEM Scores tab editable and publishes an explicit hide', async () => {
+  it('lists built-in pages for STEM and publishes Teams beside Scores', async () => {
     const stem = 'stem-it-up-sports';
     const initial = configurationSnapshot(stem);
     let navigationTabs = initial.configuration.navigationTabs;
@@ -855,10 +855,18 @@ describe('MyAppStudio tenant preview isolation', () => {
     expect(screen.queryByRole('button', { name: 'Options for Teams' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Options for Scores' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Publish App' })).toBeDisabled();
-    await hideTab('Scores');
+    for (const label of ['Teams', 'Resources', 'Staff', 'My Events', 'Account', 'Contact']) {
+      expect(await screen.findByRole('button', { name: `Add ${label} tab` })).toBeEnabled();
+    }
+    await fireEvent.click(screen.getByRole('button', { name: 'Add Teams tab' }));
+    expect(screen.getByText('5 of 5 active')).toBeVisible();
     await reviewAndPublish();
     await screen.findByText('App configuration published and reloaded from the server.');
-    expect(navigationTabs).toContainEqual(expect.objectContaining({ key: 'scores', enabled: false }));
+    expect(navigationTabs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: 'teams', enabled: true }),
+      expect.objectContaining({ key: 'scores', enabled: true }),
+    ]));
+    expect(screen.getByRole('button', { name: 'Options for Teams' })).toBeVisible();
   });
 
   it('lets a program use its fifth visible slot while keeping the retired entry', async () => {
