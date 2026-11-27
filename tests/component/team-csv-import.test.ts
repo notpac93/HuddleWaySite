@@ -56,20 +56,21 @@ it('uploads messy scores, previews event links, and retries an unconfirmed final
   const file = new File([source], 'messy-team-scores.csv', { type: 'text/csv' });
   Object.defineProperty(file, 'text', { value: async () => source });
   await fireEvent.change(screen.getByLabelText('Choose CSV file'), { target: { files: [file] } });
-  expect(await screen.findByText('Red Rockets · 1200')).toBeVisible();
+  expect(await screen.findByText('Red Rockets')).toBeVisible();
+  await fireEvent.click(screen.getByRole('button', { name: /Show all .* teams/ }));
   expect(screen.getByText(/Existing team.*BOLT 2026/)).toBeVisible();
   expect(screen.getByText(/Duplicate team result/)).toBeVisible();
   expect(screen.getByText(/Event not found/)).toBeVisible();
-  expect(screen.getByText(/Skipped report headings/)).toBeVisible();
+  expect(screen.getByText(/Report headings skipped/)).toBeVisible();
   expect(screen.getByText(/Summary row ignored/)).toBeVisible();
   expect(api.request).not.toHaveBeenCalled();
   expect(api.importTeamFromCsv).not.toHaveBeenCalled();
   await fireEvent.change(screen.getByLabelText(/Event match for Winter Fest/), { target: { value: 'winter-2026' } });
-  expect(screen.getByText(/4 result groups to publish/)).toBeVisible();
-  await fireEvent.click(screen.getByRole('button', { name: 'Import 40 scores' }));
+  expect(screen.getByText(/4 result groups/)).toBeVisible();
+  await fireEvent.click(screen.getByRole('button', { name: 'Publish 40 scores' }));
   expect(await screen.findByText(/Response lost/)).toBeVisible();
   const first = api.request.mock.calls[0];
-  await fireEvent.click(screen.getByRole('button', { name: 'Import 40 scores' }));
+  await fireEvent.click(screen.getByRole('button', { name: 'Publish 40 scores' }));
   expect(await screen.findByText('0 ready · 40 imported · 5 skipped')).toBeVisible();
   expect(api.request.mock.calls[1]).toEqual(first);
   expect(first[1].body).toMatchObject({ eventId: 'bolt-2026', scores: [0, 1200], division: 'Elementary' });
@@ -96,14 +97,14 @@ it('detects a populated challenge score column in a form responses export', asyn
   Object.defineProperty(file, 'text', { value: async () => source });
   await fireEvent.change(screen.getByLabelText('Choose CSV file'), { target: { files: [file] } });
 
-  expect(await screen.findByText('Red Team · 140')).toBeVisible();
+  expect(await screen.findByText('Red Team')).toBeVisible();
   expect(screen.getByRole('textbox', { name: 'Scoring event title' })).toHaveValue('BOLT Challenge 1');
   expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
-  expect(screen.getByText('2 scores ready to publish · 2 matched to existing teams')).toBeVisible();
+  expect(screen.getByText('2 matched teams')).toBeVisible();
   await fireEvent.input(screen.getByRole('textbox', { name: 'Scoring event title' }), {
     target: { value: 'Irving ITG BOLT Challenge 1' },
   });
-  await fireEvent.click(screen.getByRole('button', { name: 'Import 2 scores' }));
+  await fireEvent.click(screen.getByRole('button', { name: 'Publish 2 scores' }));
   expect(await screen.findByText('0 ready · 2 imported · 0 skipped')).toBeVisible();
   expect(api.request).toHaveBeenCalledWith('/admin/live-scores/import-final', expect.objectContaining({
     body: expect.objectContaining({ title: 'Irving ITG BOLT Challenge 1', names: ['Blue Team', 'Red Team'], scores: [105, 140] }),
@@ -126,10 +127,10 @@ it('asks only for the missing score choice and imports teams with blank scores',
   await fireEvent.change(screen.getByLabelText('Choose CSV file'), { target: { files: [file] } });
 
   expect(screen.getAllByRole('combobox')).toHaveLength(1);
-  expect(screen.queryByRole('button', { name: /^Import / })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /^(Import|Publish) / })).not.toBeInTheDocument();
   await fireEvent.change(screen.getByRole('combobox', { name: 'Score column' }), { target: { value: '1' } });
   expect(screen.getByRole('textbox', { name: 'Scoring event title' })).toHaveValue('Round 1');
-  await fireEvent.click(screen.getByRole('button', { name: 'Import 1 score' }));
+  await fireEvent.click(screen.getByRole('button', { name: 'Publish 1 score' }));
   expect(await screen.findByText('0 ready · 2 imported · 0 skipped')).toBeVisible();
   expect(api.importTeamFromCsv).toHaveBeenCalledExactlyOnceWith('tenant-a', 'Blue Team', expect.any(Object));
   expect(api.request).toHaveBeenCalledWith('/admin/live-scores/import-final', expect.objectContaining({
@@ -144,9 +145,9 @@ it('requires a title for a generic score column and preserves zero scores', asyn
   Object.defineProperty(file, 'text', { value: async () => source });
   await fireEvent.change(screen.getByLabelText('Choose CSV file'), { target: { files: [file] } });
 
-  const publish = screen.getByRole('button', { name: 'Import 1 score' });
+  const publish = screen.getByRole('button', { name: 'Publish 1 score' });
   expect(publish).toBeDisabled();
   await fireEvent.input(screen.getByRole('textbox', { name: 'Scoring event title' }), { target: { value: 'BOLT' } });
   expect(publish).toBeEnabled();
-  expect(screen.getByText('Red Team · 0')).toBeVisible();
+  expect(screen.getByText('0')).toBeVisible();
 });

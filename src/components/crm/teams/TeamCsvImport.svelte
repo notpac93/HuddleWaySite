@@ -36,6 +36,7 @@
   let scoreChoices: number[] = [];
   let scoreSelectionRequired = false;
   let editColumns = false;
+  let showAllRows = false;
   let reading = false;
   let applying = false;
   let stopRequested = false;
@@ -118,6 +119,7 @@
       scoreChoices = scoreColumnCandidates(table);
       scoreSelectionRequired = columns.score === null && scoreChoices.length > 1;
       editColumns = column === null;
+      showAllRows = false;
       titleEdited = false;
       importTitle = columns.score === null ? '' : suggestImportTitle(table.records[0].values[columns.score]);
       eventOverrides = {};
@@ -219,29 +221,32 @@
 <div class="crm-ui-modal-root" role="dialog" aria-modal="true" aria-labelledby="team-import-title">
   <div class="crm-ui-modal-shell import-shell">
     <button type="button" class="crm-ui-backdrop" aria-label="Close team import" tabindex="-1" disabled={applying || reading} on:click={close}></button>
-    <div class="import-panel" tabindex="-1" use:modalFocus={{ onEscape: close }}>
+    <div class="import-panel crm-auth-shell" tabindex="-1" use:modalFocus={{ onEscape: close }}>
+      <div class="crm-auth-watermark" aria-hidden="true"></div>
       <header>
-        <h2 id="team-import-title">Import teams and scores from CSV</h2>
+        <div class="crm-auth-brand-mark"><img src="/logo.webp" alt="HuddleWay" /></div>
+        <h2 id="team-import-title">Import teams &amp; scores</h2>
         <button type="button" aria-label="Close team import" class="close" disabled={applying || reading} on:click={close}><Icon name="close" size={20} /></button>
       </header>
-      <div class="import-content">
-        {#if !attempting}
-          <div class="file-picker">
-            <label class="choose-file crm-ui-button-secondary">
+      <div class="import-card crm-auth-card">
+        <div class="import-content">
+        {#if fileName}<div class="crm-ui-label">CSV file</div>{/if}
+        <div class="file-picker">
+          {#if fileName}<span class="filename" title={fileName}>{fileName}</span>{/if}
+          {#if !attempting}
+            <label class="choose-file" class:crm-auth-link={fileName} class:crm-ui-button-primary={!fileName}>
               <span aria-hidden="true">{fileName ? 'Replace CSV' : 'Choose CSV'}</span>
-              <input type="file" aria-label="Choose CSV file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" disabled={reading || applying} on:change={chooseFile} />
+              <input type="file" aria-label={fileName ? 'Replace CSV file' : 'Choose CSV file'} accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" disabled={reading || applying} on:change={chooseFile} />
             </label>
-            {#if !fileName}<p>Include team names and any scores you want to publish.</p>{/if}
-          </div>
-        {/if}
-        {#if fileName}<p class="filename">{fileName}</p>{/if}
+          {/if}
+        </div>
         {#if reading}<p role="status">Reading CSV…</p>{/if}
         {#if table}
           {#if table.skippedPreamble}
-            <p>Skipped report headings above the detected header row.</p>
+            <p>Report headings skipped</p>
           {/if}
           {#if scoreSelectionRequired}
-            <p>This file contains multiple score columns. Choose which scores to import.</p>
+            <h3>Choose a score column</h3>
           {:else if showTitle}
             <div class="title-field">
               <label for="team-import-title-value" class="crm-ui-label">Scoring event title</label>
@@ -249,16 +254,20 @@
                 placeholder="e.g. BOLT Challenge 1" value={importTitle} disabled={attempting || applying}
                 aria-required="true"
                 on:input={event => { importTitle = event.currentTarget.value; titleEdited = true; review(true); }} />
-              <p>Results will appear under Scores → Past results.</p>
             </div>
           {/if}
+          <div class="review-heading">
+            {#if rows.length}
+              <h3>{existingScores && !newTeams ? `${existingScores} matched team${existingScores === 1 ? '' : 's'}` : 'Review teams'}</h3>
+            {/if}
           {#if !attempting}
-            <button class="columns-toggle" type="button" aria-expanded={editColumns}
+            <button class="columns-toggle crm-auth-link" type="button" aria-expanded={editColumns}
               aria-controls="team-import-columns" disabled={applying}
               on:click={() => { editColumns = !editColumns; }}>
-              {editColumns ? 'Hide column settings' : 'Edit columns'}
+              {editColumns ? 'Done editing columns' : 'Edit columns'}
             </button>
           {/if}
+          </div>
           <fieldset id="team-import-columns" disabled={attempting || applying}
             hidden={!editColumns && !scoreSelectionRequired}>
             {#if editColumns}
@@ -319,30 +328,36 @@
           {:else if !scoreSelectionRequired && rows.length === 0}
             <p>There are no team names to review.</p>
           {:else if rows.length}
-            <p role="status">{pending.length} ready · {imported} imported · {rows.length - pending.length - imported} skipped</p>
-            {#if pendingScores.length}
-              <p>{pendingScores.length} score{pendingScores.length === 1 ? '' : 's'} ready to publish{existingScores ? ` · ${existingScores} matched to existing teams` : ''}{newTeams ? ` · ${newTeams} new team${newTeams === 1 ? '' : 's'}` : ''}</p>
-              {#if resultCount > 1}<p>{resultCount} result groups to publish in Past results.</p>{/if}
-            {:else if !scoreMode && !attempting}
-              <p>{rows.some(row => row.issue === 'Already exists in this program') ? 'Existing teams are already saved. Use Edit columns if this file includes scores.' : 'No score column selected.'}</p>
+            {#if attempting || rows.some(row => row.issue)}
+              <p role="status">{pending.length} ready · {imported} imported · {rows.length - pending.length - imported} skipped</p>
             {/if}
+            {#if newTeams}<p>{newTeams} new team{newTeams === 1 ? '' : 's'}</p>{/if}
+            {#if resultCount > 1}<p>{resultCount} result groups</p>{/if}
             <div class="row-list" aria-label="Team import preview">
-              {#each rows as row (row.line)}
+              <div class="row-heading"><span>Team</span>{#if scoreMode}<span>Score</span>{/if}</div>
+              {#each (showAllRows ? rows : rows.slice(0, 3)) as row (row.line)}
                 {@const status = row.issue || ({ ready: '', importing: 'Importing…', imported: 'Imported', duplicate: 'Already exists in this program', retry: 'Retry needed' })[row.status]}
                 <div class="row">
-                  {#if !row.issue && (row.status === 'ready' || row.status === 'retry')}
+                  {#if showAllRows && !row.issue && (row.status === 'ready' || row.status === 'retry')}
                     <input type="checkbox" aria-label={`Import row ${row.line}: ${row.name}`} checked={row.selected} disabled={applying || (scoreMode && attempting)}
                       on:change={(event) => updateRow(row.line, { selected: event.currentTarget.checked })} />
                   {/if}
-                  <strong>{row.name || 'Unnamed team'}{scoreMode && Number.isFinite(row.score) ? ` · ${row.score}` : ''}</strong>
-                  {#if isScoreRow(row)}
+                  <strong>{row.name || 'Unnamed team'}</strong>
+                  {#if scoreMode}<span class="score">{Number.isFinite(row.score) ? row.score : '—'}</span>{/if}
+                  {#if isScoreRow(row) && (showAllRows || resultCount > 1)}
                     {@const eventTitle = events.find(event => event.id === row.eventId)?.title}
                     <small>{row.teamId ? 'Existing team' : 'New team'}{!row.usesImportTitle ? ` · ${row.title}` : ''}{row.division && row.division !== row.title ? ` · ${row.division}` : ''}{eventTitle && eventTitle !== row.title ? ` · ${eventTitle}` : ''}</small>
                   {/if}
-                  <span>Row {row.line}{status ? ` · ${status}` : ''}</span>
+                  {#if status}<small>Row {row.line} · {status}</small>{/if}
                 </div>
               {/each}
             </div>
+            {#if rows.length > 3}
+              <button type="button" class="all-teams crm-auth-link" aria-expanded={showAllRows}
+                on:click={() => { showAllRows = !showAllRows; }}>
+                {showAllRows ? 'Show fewer teams' : `Show all ${rows.length} teams`}
+              </button>
+            {/if}
           {/if}
         {/if}
         {#if error}<p class="error" role="alert">{error}</p>{/if}
@@ -350,42 +365,50 @@
       <footer>
         {#if applying}
           <button type="button" class="crm-ui-button-secondary" disabled={stopRequested} on:click={() => stopRequested = true}>{stopRequested ? 'Stopping…' : scoreMode ? 'Stop after this result group' : 'Stop after this row'}</button>
-        {:else}
+        {:else if attempting && !pending.length}
           <button type="button" class="crm-ui-button-secondary" disabled={reading} on:click={close}>{attempting ? 'Done' : 'Close'}</button>
         {/if}
         {#if table && (pending.length || applying)}
-          <button type="button" class="crm-ui-button-primary" disabled={applying || missingTitle} on:click={applyImport}>{applying ? 'Importing…' : pendingScores.length ? `Import ${pendingScores.length} score${pendingScores.length === 1 ? '' : 's'}` : `Import ${pending.length} team${pending.length === 1 ? '' : 's'}`}</button>
+          <button type="button" class="crm-ui-button-primary" disabled={applying || missingTitle} on:click={applyImport}>{applying ? 'Importing…' : pendingScores.length ? `Publish ${pendingScores.length} score${pendingScores.length === 1 ? '' : 's'}` : `Import ${pending.length} team${pending.length === 1 ? '' : 's'}`}</button>
         {/if}
       </footer>
+      </div>
     </div>
   </div>
 </div>
 
 <style>
   .import-shell { display: flex; align-items: center; justify-content: center; min-height: 100%; padding: 12px; }
-  .import-panel { position: relative; display: flex; flex-direction: column; box-sizing: border-box; width: min(100%, 640px); max-height: calc(100dvh - 24px); overflow: hidden; padding: 24px; border-radius: 16px; background: white; color: #182235; text-align: left; }
-  header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 16px; flex-shrink: 0; }
-  h2 { margin: 0; font-size: 1.35rem; font-weight: 650; }
-  .close { display: grid; place-items: center; min-width: 44px; min-height: 44px; color: #485870; }
+  .import-panel { position: relative; display: flex; flex-direction: column; box-sizing: border-box; width: min(100%, 440px); max-height: calc(100dvh - 24px); padding: 20px 16px; border-radius: 22px; color: #182235; text-align: left; }
+  header { position: relative; display: grid; justify-items: center; gap: 10px; margin-bottom: 16px; flex-shrink: 0; color: white; text-align: center; }
+  header .crm-auth-brand-mark { padding: 6px; border-radius: 17px; }
+  header img { width: 46px; height: 46px; border-radius: 11px; }
+  h2 { margin: 0; font-size: clamp(1.3rem, 5vw, 1.65rem); font-weight: 800; line-height: 1.15; letter-spacing: -.025em; }
+  h3 { margin: 0; font-size: .95rem; font-weight: 750; }
+  .close { position: absolute; top: 0; right: 0; display: grid; place-items: center; min-width: 44px; min-height: 44px; color: white; }
+  .import-card { display: flex; flex-direction: column; min-height: 0; padding: 16px; border-radius: 20px; }
   .import-content { min-height: 0; overflow-y: auto; padding: 2px; }
-  .file-picker { margin-top: 8px; }
-  .choose-file { display: inline-flex; position: relative; }
+  .file-picker, .review-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .choose-file { display: inline-flex; align-items: center; min-height: 44px; flex-shrink: 0; position: relative; font-size: .875rem; }
   .choose-file input { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }
-  .choose-file:focus-within { outline: 2px solid #2858a8; outline-offset: 3px; }
-  .title-field { margin-top: 16px; }
-  .title-field input { width: 100%; }
-  .title-field p { color: #485870; }
-  .columns-toggle { color: #244a86; font-weight: 600; min-height: 44px; text-decoration: underline; }
-  .filename { margin: 8px 0; overflow-wrap: anywhere; color: #485870; }
-  fieldset { margin-top: 16px; }
+  .choose-file:focus-within, .close:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+  .title-field { margin-top: 12px; }
+  .title-field input { width: 100%; margin-top: 4px; }
+  .columns-toggle, .all-teams { min-height: 44px; font-size: .875rem; }
+  .columns-toggle { margin-left: auto; }
+  .all-teams { display: block; margin: 0 auto; }
+  .filename { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .875rem; font-weight: 600; }
+  fieldset { margin-top: 8px; }
   select { width: 100%; margin: 4px 0 8px; }
   .check { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: .875rem; }
-  p { margin: 10px 0; font-size: .9rem; }
-  .row-list { display: grid; border: 1px solid #dce3ed; border-radius: 10px; }
-  .row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 9px 12px; min-height: 44px; }
-  .row + .row { border-top: 1px solid #dce3ed; }
-  .row strong { min-width: 0; overflow-wrap: anywhere; }
-  .row span { margin-left: auto; color: #485870; font-size: .875rem; }
+  p { margin: 8px 0; font-size: .875rem; }
+  .row-heading, .row { display: flex; align-items: center; gap: 6px; padding: 7px 3px; border-bottom: 1px solid #d9dfe8; }
+  .row-heading { justify-content: space-between; font-size: .75rem; color: #374151; font-weight: 600; }
+  .row { flex-wrap: wrap; font-size: .875rem; }
+  .row strong { min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
+  .row small { flex-basis: 100%; color: #485870; }
+  .score { margin-left: auto; color: var(--crm-brand-primary); font-weight: 750; font-variant-numeric: tabular-nums; }
   .error { color: #b42318; }
-  footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; flex-shrink: 0; padding-top: 12px; }
+  footer { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+  footer:not(:empty) { padding-top: 8px; }
 </style>
