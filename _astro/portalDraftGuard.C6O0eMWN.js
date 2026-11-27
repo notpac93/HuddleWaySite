@@ -1,1 +1,0 @@
-import{n}from"./rolldown-runtime.B8FqhfKh.js";import{cn as t,on as o}from"./client.Crn4Uei4.js";import{t as s}from"./index-client.ukepcUdK.js";function i(n){a.set(n)}function r(n){a.update(t=>t?.id===n?null:t)}var a,l=n(()=>{s(),a=t(null)});export{i,l as n,a as r,r as t};

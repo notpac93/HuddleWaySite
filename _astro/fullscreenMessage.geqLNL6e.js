@@ -1,0 +1,1 @@
+import{n as o}from"./rolldown-runtime.B8FqhfKh.js";import{Et as e,Tt as t,at as n}from"./client.QdeAbW-P.js";function r(o){const t=document.body.style.overflow;let n=!0;return document.body.style.overflow="hidden",e().then(()=>{n&&document.body.appendChild(o)}),{destroy(){n=!1,o.remove(),document.body.style.overflow=t}}}var d=o(()=>{n()});export{d as n,r as t};
