@@ -15,6 +15,10 @@ vi.mock('firebase/auth', () => ({
   inMemoryPersistence: mocks.memory,
 }));
 vi.mock('firebase/firestore', () => ({ getFirestore: () => ({}) }));
+vi.mock('firebase/app-check', () => ({
+  initializeAppCheck: vi.fn(),
+  ReCaptchaEnterpriseProvider: class {},
+}));
 
 afterEach(() => vi.unstubAllGlobals());
 

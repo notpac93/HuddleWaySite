@@ -24,14 +24,14 @@ describe('CRM interaction hardening source evidence', () => {
     expect(media).toContain('role="alert"');
   });
 
-  it('names app-tab toggles and exposes their current pressed state', () => {
+  it('names tab actions and exposes the tab options menu state', () => {
     const studio = source('MyAppStudio.svelte');
     const navigation = source('app-studio/NavigationPanel.svelte');
 
-    expect(navigation).toContain(
-      "`${tab.enabled ? 'Hide' : 'Show'} ${permanentTabName(tab)} tab`",
-    );
-    expect(navigation).toContain('aria-pressed={tab.enabled}');
+    expect(navigation).toContain("aria-label={'Options for ' + tab.label}");
+    expect(navigation).toContain('aria-expanded={menu === tab.key}');
+    expect(navigation).toContain("aria-label={'Hide ' + tab.label + ' tab'}");
+    expect(navigation).toContain("'Add ' + tab.label + ' tab'");
     expect(navigation).not.toContain('Route: {tab.route}');
     expect(studio).toContain('<AppPreviewFrame immersive');
     expect(studio).not.toContain('background-size: 20px 20px');
