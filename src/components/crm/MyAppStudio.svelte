@@ -64,6 +64,7 @@
   import {
     describeAppConfigurationChanges,
     hasDuplicateTabLabels,
+    isRetiredNavigationTab,
   } from '../../lib/ui/appConfigurationReview';
   import {
     clearPortalDraft,
@@ -89,7 +90,6 @@
     completeFiveTabSlots,
     configurationSignature,
     initialTabs,
-    isRetiredNavigationTab,
     portalNavigationTabs,
     useSingleTeamsTab,
     validAppConfiguration,
@@ -662,7 +662,6 @@
 <div class="studio-workspace" class:desktop-studio={$desktopDashboard}>
   {#if $desktopDashboard}
     <header class="studio-desktop-header">
-      <h2>My App</h2>
       {@render studioSections()}
     </header>
   {/if}
@@ -765,8 +764,7 @@
   .studio-preview { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; }
   .desktop-studio { display: grid; grid-template: "header header" auto "editor preview" minmax(0, 1fr) / minmax(0, 1fr) minmax(260px, min(38%, 420px)); gap: 14px; padding: 16px; min-height: 540px; }
   .studio-desktop-header { grid-area: header; display: flex; flex-wrap: wrap; align-items: center; gap: 0 12px; min-width: 0; border: 1px solid #dce2eb; border-radius: 12px; background: white; }
-  .studio-desktop-header h2 { padding: 10px 16px; font-size: 1.125rem; font-weight: 650; }
-  .studio-desktop-header nav { flex: 1; min-width: 0; border: 0; padding-inline: 4px; }
+  .studio-desktop-header nav { flex: 1; min-width: 0; border: 0; }
   .desktop-studio .my-app-canvas { display: contents; }
   .desktop-studio .studio-preview { position: relative; grid-area: preview; border: 1px solid #dce2eb; border-radius: 12px; background: white; overflow: hidden; }
   .desktop-studio .studio-preview h3 { padding: 9px 12px; border-bottom: 1px solid #dce2eb; font-size: .8125rem; font-weight: 600; color: #435266; }

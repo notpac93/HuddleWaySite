@@ -687,6 +687,7 @@ test('admin tabs survive repeated visits, reload, and unsaved My App navigation'
 
   await openCrmTab(page, 'My App', mobile);
   if (!mobile) {
+    await expect(page.getByRole('heading', { name: 'My App', exact: true })).toHaveCount(1);
     const sidebar = page.locator('aside[data-sidebar-expanded]');
     await expect(sidebar).toBeVisible();
     await expect(page.getByRole('button', { name: 'Admin tabs', exact: true })).toHaveCount(0);

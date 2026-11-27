@@ -1,3 +1,4 @@
+import { isRetiredNavigationTab } from '../../../lib/ui/appConfigurationReview';
 import { normalizeGlassAppearance, validGlassAppearance } from '../../../lib/ui/glassAppearance';
 import type { CrmAppConfiguration } from "../../../lib/api/BackendApi";
 
@@ -70,13 +71,6 @@ const permanentTabNames: Record<string, string> = {
   account: "Account",
   contact: "Contact",
 };
-
-// Matches the Consumer route retirement policy; preserve historical payloads.
-export function isRetiredNavigationTab(tab: NavigationTabDraft) {
-  const route = tab.route.trim();
-  const withLeadingSlash = route.startsWith('/') ? route : `/${route}`;
-  return withLeadingSlash.replace(/\/$/, '') === '/events';
-}
 
 export function visibleNavigationSignature(tabs: NavigationTabDraft[]) {
   return JSON.stringify(tabs.filter((tab) => tab.enabled && !isRetiredNavigationTab(tab))

@@ -59,14 +59,19 @@ describe('app configuration publication review', () => {
   });
 
   it('describes every changed family-facing value', () => {
-    const changes = describeAppConfigurationChanges(baseline, {
+    const board = { key: 'messaging', pageId: 'board', route: '/messaging', label: 'Board', enabled: true };
+    const changes = describeAppConfigurationChanges({
+      ...baseline,
+      navigationTabs: [...baseline.navigationTabs, board],
+    }, {
       ...baseline,
       name: 'Falcons Club',
       appStyle: 'dark',
       primaryColor: '#123456',
       navigationTabs: [
         { ...baseline.navigationTabs[0], label: 'Start' },
-        { ...baseline.navigationTabs[1], enabled: false },
+        baseline.navigationTabs[1],
+        { ...board, enabled: false },
       ],
     });
     expect(changes).toEqual(expect.arrayContaining([
@@ -74,7 +79,7 @@ describe('app configuration publication review', () => {
       'Primary color · #123456',
       'Appearance · dark',
       'Rename a tab to “Start”',
-      'Hide Events in the family app.',
+      'Hide Board in the family app.',
     ]));
   });
 

@@ -3,7 +3,8 @@
   import { backendClient } from '../../../lib/api/backendClient';
   import { eventsStore, teamsStore } from '../../../lib/services/DataStore';
   import type { NavigationTabDraft } from './appConfigurationDraft';
-  import { isRetiredNavigationTab, maxActiveTabs, optionalNavigationTabs, permanentTabName } from './appConfigurationDraft';
+  import { isRetiredNavigationTab } from '../../../lib/ui/appConfigurationReview';
+  import { maxActiveTabs, optionalNavigationTabs, permanentTabName } from './appConfigurationDraft';
 
   export let tenantId: string;
   export let tabsConfig: NavigationTabDraft[] = [];

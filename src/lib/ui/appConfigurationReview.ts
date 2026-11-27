@@ -5,8 +5,11 @@ function normalizedHex(value: string) {
   return value.trim().toLowerCase();
 }
 
-function tabMap(configuration: CrmAppConfiguration) {
-  return new Map(configuration.navigationTabs.map((tab) => [tab.key, tab]));
+// Matches the Consumer route retirement policy; preserve historical payloads.
+export function isRetiredNavigationTab(tab: { route: string }) {
+  const route = tab.route.trim();
+  const withLeadingSlash = route.startsWith('/') ? route : `/${route}`;
+  return withLeadingSlash.replace(/\/$/, '') === '/events';
 }
 
 export function describeAppConfigurationChanges(
@@ -31,9 +34,12 @@ export function describeAppConfigurationChanges(
     }
   }
   if (before.logoUrl !== after.logoUrl) changes.push('Replace the family app logo.');
-  const previousTabs = tabMap(before);
-  for (const tab of after.navigationTabs) {
-    const previous = previousTabs.get(tab.key);
+  // Retired routes are never visible, even when a legacy record is marked enabled.
+  const beforeTabs = before.navigationTabs.filter((tab) => !isRetiredNavigationTab(tab));
+  const afterTabs = after.navigationTabs.filter((tab) => !isRetiredNavigationTab(tab));
+  const previousByKey = new Map(beforeTabs.map((tab) => [tab.key, tab]));
+  for (const tab of afterTabs) {
+    const previous = previousByKey.get(tab.key);
     if (!previous) {
       if (tab.enabled) changes.push(`Add ${tab.label} to the app navigation.`);
       continue;
@@ -45,12 +51,12 @@ export function describeAppConfigurationChanges(
       changes.push(`${tab.enabled ? 'Show' : 'Hide'} ${tab.label} in the family app.`);
     }
   }
-  const currentTabs = tabMap(after);
-  const previousOrder = before.navigationTabs
-    .filter((tab) => tab.enabled && currentTabs.get(tab.key)?.enabled)
+  const currentByKey = new Map(afterTabs.map((tab) => [tab.key, tab]));
+  const previousOrder = beforeTabs
+    .filter((tab) => tab.enabled && currentByKey.get(tab.key)?.enabled)
     .map((tab) => tab.key);
-  const currentOrder = after.navigationTabs
-    .filter((tab) => tab.enabled && previousTabs.get(tab.key)?.enabled)
+  const currentOrder = afterTabs
+    .filter((tab) => tab.enabled && previousByKey.get(tab.key)?.enabled)
     .map((tab) => tab.key);
   if (previousOrder.some((key, index) => key !== currentOrder[index])) {
     changes.push('Change the order of the app tabs.');

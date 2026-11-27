@@ -944,6 +944,28 @@ describe('MyAppStudio tenant preview isolation', () => {
     }), expect.any(String), expect.any(String));
   });
 
+  it('reviews only the Scores addition when the retired Events entry gives up its stored slot', async () => {
+    render(TestedMyAppStudio);
+    await openAppearanceSettings();
+    await fireEvent.click(screen.getByRole('button', { name: 'Pages' }));
+    await fireEvent.click(await screen.findByRole('button', { name: 'Add Scores tab' }));
+    expect(screen.getByText('5 of 5 active')).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Review changes' }));
+    const review = await screen.findByRole('dialog', { name: 'Publish app changes?' });
+    const changes = within(review).getByRole('list', { name: 'Changes families will see' });
+    expect(within(changes).getAllByRole('listitem').map(item => item.textContent?.trim()))
+      .toEqual(['Add Scores to the app navigation.']);
+    const tabOrder = within(review).getByRole('list', { name: 'Tab order after publishing' });
+    expect(tabOrder).not.toHaveTextContent('Events');
+    await publishReviewedChanges(review);
+    expect(appMocks.publishAppConfiguration).toHaveBeenCalledWith('tenant-a', expect.objectContaining({
+      navigationTabs: expect.arrayContaining([
+        expect.objectContaining({ key: 'scores', enabled: true }),
+        expect.objectContaining({ key: 'events', enabled: false }),
+      ]),
+    }), expect.any(String), expect.any(String));
+  });
+
   it('omits tab editing from the Admin app workspace', async () => {
     render(TestedMyAppStudio, { allowNavigationEditing: false });
     await openAppearanceSettings();
