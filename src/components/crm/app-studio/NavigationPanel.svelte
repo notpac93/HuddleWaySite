@@ -36,7 +36,9 @@
 
   function pageChoices(saved: NavigationTabDraft[], published: NavigationTabDraft[]) {
     const byRoute = new Map(optionalNavigationTabs.map((tab) => [tab.route, tab]));
-    for (const page of published) byRoute.set(page.route, page);
+    for (const page of published) {
+      if (page.route !== '/teams') byRoute.set(page.route, page);
+    }
     return [...byRoute.values()].filter((page) =>
       !saved.some((tab) => tab.route === page.route || tab.key === page.key));
   }
@@ -56,7 +58,7 @@
       if (snapshot.tenantId !== tenantId) throw new Error('Unexpected program');
       pages = snapshot.pages
         .filter((page) => page.isVisible && page.status === 'published'
-          && (supportedRoutes.has(page.route) || /^\/team-[a-z0-9-]+$/.test(page.route)))
+          && supportedRoutes.has(page.route))
         .map((page) => ({
           key: page.route.slice(1) || 'home',
           pageId: page.id,
@@ -76,13 +78,10 @@
     return permanentTabName(tab) === 'Teams' ? $teamsStore.length : 0;
   }
 
-  function pageHint(tab: NavigationTabDraft, published: NavigationTabDraft[], count: number) {
+  function pageHint(tab: NavigationTabDraft, count: number) {
     if (tab.route === '/account' || tab.route === '/my-events') return 'Sign-in required';
     if (tab.route === '/resources' && count >= maxActiveTabs && tab.label.trim().length > 8) return 'Shows as Files in the tab bar';
-    const destination = published.find((page) => page.route === tab.route);
-    return /^\/team-/.test(tab.route) && destination && destination.label !== tab.label
-      ? 'Opens ' + destination.label
-      : '';
+    return '';
   }
 
   function canChoose(tab: NavigationTabDraft) {
@@ -230,7 +229,7 @@
       <div class="navigation-row" role="group" aria-label={tab.label + ' tab'} class:drop-before={dropTarget === tab.key}
         draggable={!disabled && editKey !== tab.key} on:dragstart={(event) => startDrag(event, tab)} on:dragend={clearDrag}
         on:dragover={(event) => allowDrop(event, tab.key)} on:drop={(event) => dropTab(event, 'current', tab.key)}>
-        <div class="navigation-name"><span class="navigation-grip" aria-hidden="true">⠿</span><span><strong>{tab.label}</strong>{#if pageHint(tab, pages, current.length)}<small>{pageHint(tab, pages, current.length)}</small>{:else if permanentTabName(tab) !== tab.label}<small>{permanentTabName(tab)}</small>{/if}</span></div>
+        <div class="navigation-name"><span class="navigation-grip" aria-hidden="true">⠿</span><span><strong>{tab.label}</strong>{#if pageHint(tab, current.length)}<small>{pageHint(tab, current.length)}</small>{:else if permanentTabName(tab) !== tab.label}<small>{permanentTabName(tab)}</small>{/if}</span></div>
         <button class="navigation-more" type="button" aria-label={'Options for ' + tab.label} aria-expanded={menu === tab.key} {disabled}
           on:click={() => { menu = menu === tab.key ? '' : tab.key; editKey = ''; }}>⋯</button>
         {#if menu === tab.key}
@@ -269,7 +268,7 @@
     {#each available as tab (tab.key)}
       <div class="navigation-row" role="group" aria-label={tab.label + ' page'} draggable={canChoose(tab)}
         on:dragstart={(event) => startDrag(event, tab)} on:dragend={clearDrag}>
-        <div class="navigation-name"><span class="navigation-grip" aria-hidden="true">⠿</span><span><strong>{tab.label}</strong>{#if pageHint(tab, pages, Math.min(current.length + 1, maxActiveTabs))}<small>{pageHint(tab, pages, Math.min(current.length + 1, maxActiveTabs))}</small>{/if}</span></div>
+        <div class="navigation-name"><span class="navigation-grip" aria-hidden="true">⠿</span><span><strong>{tab.label}</strong>{#if pageHint(tab, Math.min(current.length + 1, maxActiveTabs))}<small>{pageHint(tab, Math.min(current.length + 1, maxActiveTabs))}</small>{/if}</span></div>
         <button class="navigation-link" type="button" aria-label={current.length >= maxActiveTabs ? 'Replace a tab with ' + tab.label : 'Add ' + tab.label + ' tab'} disabled={!canChoose(tab)} on:click={() => addTab(tab)}>{current.length >= maxActiveTabs ? 'Replace…' : 'Add'}</button>
         {#if replacement?.key === tab.key}
           <form class="navigation-edit" on:submit|preventDefault={replaceTab}>

@@ -91,6 +91,7 @@
     initialTabs,
     isRetiredNavigationTab,
     portalNavigationTabs,
+    useSingleTeamsTab,
     validAppConfiguration,
     verifyPublishedNavigation,
     visibleNavigationSignature,
@@ -420,7 +421,9 @@
   }
 
   function editableNavigation(tabs: NavigationTabDraft[]) {
-    return allowNavigationEditing ? portalNavigationTabs(activeTenantId, tabs) : tabs.map((tab) => ({ ...tab }));
+    return allowNavigationEditing
+      ? useSingleTeamsTab(portalNavigationTabs(activeTenantId, tabs))
+      : tabs.map((tab) => ({ ...tab }));
   }
 
   function useVersionAsRollbackDraft(version: AppVersion) {
@@ -487,10 +490,13 @@
         appStyle = configuration.appStyle || 'system';
         glassAppearance = normalizeGlassAppearance(configuration.glassAppearance);
         logoUrl = configuration.logoUrl;
-        tabsConfig = editableNavigation(configuration.navigationTabs);
+        tabsConfig = allowNavigationEditing
+          ? portalNavigationTabs(tenantId, configuration.navigationTabs)
+          : editableNavigation(configuration.navigationTabs);
         loadedConfigSignature = buildConfigSignature();
         loadedConfiguration = currentConfiguration();
         if (allowNavigationEditing) {
+          tabsConfig = useSingleTeamsTab(tabsConfig);
           const configuredKeys = new Set(tabsConfig.map((tab) => tab.key));
           tabsConfig = completeFiveTabSlots(tabsConfig);
           suggestedTabKeys = new Set(tabsConfig.filter((tab) => !configuredKeys.has(tab.key)).map((tab) => tab.key));

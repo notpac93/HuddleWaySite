@@ -48,6 +48,7 @@ export const maxActiveTabs = 5;
 
 export const optionalNavigationTabs: NavigationTabDraft[] = [
   { ...initialTabs[1], enabled: false },
+  { key: 'scores', pageId: 'scores_page', route: '/scores', label: 'Scores', enabled: false },
   { key: 'resources', pageId: 'resources_page', route: '/resources', label: 'Resources', enabled: false },
   { key: 'staff', pageId: 'staff_page', route: '/staff', label: 'Staff', enabled: false },
   { key: 'my-events', pageId: 'my_events_page', route: '/my-events', label: 'My Events', enabled: false },
@@ -128,6 +129,18 @@ export function portalNavigationTabs(tenantId: string, saved: NavigationTabDraft
     tabs.splice(position, 0, { key: 'scores', pageId: 'scores_page', route: '/scores', label: 'Scores', enabled: true });
   }
   return tabs;
+}
+
+export function useSingleTeamsTab(tabs: NavigationTabDraft[]) {
+  const hub = tabs.find((tab) => tab.route === '/teams');
+  const firstEnabledTeam = tabs.find((tab) => tab.enabled && isTeamTab(tab));
+  const hubIsActive = hub?.enabled || Boolean(firstEnabledTeam);
+  const anchor = hub?.enabled ? hub : firstEnabledTeam ?? hub;
+  return tabs.flatMap((tab) => {
+    if (!isTeamTab(tab)) return [tab];
+    if (tab !== anchor) return [];
+    return [{ ...(hub ?? initialTabs[1]), enabled: hubIsActive }];
+  });
 }
 
 export function completeFiveTabSlots(tabs: NavigationTabDraft[]) {

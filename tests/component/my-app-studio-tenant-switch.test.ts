@@ -761,7 +761,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     );
   });
 
-  it('uses tenant-neutral permanent names for legacy team tabs', async () => {
+  it('reviews one Teams hub in place of legacy team tabs and offers Scores to any tenant', async () => {
     appMocks.appConfiguration.mockImplementation(async (tenantId: string) => ({
       ...configurationSnapshot(tenantId),
       configuration: {
@@ -769,23 +769,37 @@ describe('MyAppStudio tenant preview isolation', () => {
         navigationTabs: [
           { key: 'home', pageId: 'home_page', route: '/', label: 'Home', enabled: true },
           { key: 'esports', pageId: 'esports_page', route: '/team-esports', label: 'Esports', enabled: true },
+          { key: 'robotics', pageId: 'robotics_page', route: '/team-robotics', label: 'Robotics', enabled: true },
           { key: 'schedule', pageId: 'schedule_page', route: '/schedule', label: 'Schedule', enabled: true },
           { key: 'messaging', pageId: 'board_page', route: '/messaging', label: 'Board', enabled: true },
         ],
       },
     }));
+    appMocks.componentStudio.mockImplementation(async (tenantId: string) => ({
+      tenantId, definitions: [], versions: [],
+      pages: [{ id: 'basketball_page', title: 'Basketball', route: '/team-basketball', status: 'published', isVisible: true, components: [] }],
+    }));
     render(TestedMyAppStudio);
     await openAppearanceSettings();
 
     await fireEvent.click(await screen.findByRole('button', { name: 'Pages' }));
-    const row = screen.getByRole('group', { name: 'Esports tab' });
-    expect(within(row).getByText('Teams')).toBeVisible();
-    await chooseTabAction('Esports', 'Rename');
-    expect(screen.getByLabelText('Tab name')).toHaveValue('Esports');
-    expect(screen.queryByRole('heading', { name: 'Events' })).toBeNull();
-    expect(screen.queryByLabelText('Tab name for Events')).toBeNull();
+    expect(screen.getAllByRole('group', { name: 'Teams tab' })).toHaveLength(1);
+    expect(screen.queryByRole('group', { name: 'Esports tab' })).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Robotics tab' })).toBeNull();
+    await waitFor(() => expect(screen.queryByText('Loading published pages…')).toBeNull());
+    expect(screen.queryByRole('button', { name: 'Add Basketball tab' })).toBeNull();
     expect(screen.getByText('4 of 5 active')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Review changes' })).toBeDisabled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Add Scores tab' }));
+    expect(screen.getByRole('group', { name: 'Scores tab' })).toBeVisible();
+    await reviewAndPublish();
+    expect(appMocks.publishAppConfiguration).toHaveBeenCalledWith('tenant-a',
+      expect.objectContaining({ navigationTabs: [
+        expect.objectContaining({ route: '/' }),
+        expect.objectContaining({ route: '/teams', label: 'Teams', enabled: true }),
+        expect.objectContaining({ route: '/schedule' }),
+        expect.objectContaining({ route: '/messaging' }),
+        expect.objectContaining({ route: '/scores', enabled: true }),
+      ] }), expect.any(String), expect.any(String));
   });
 
   it('blocks publication when more than five app tabs are active', async () => {
