@@ -1,0 +1,33 @@
+.crm-score-import .import-shell { display: flex; align-items: center; justify-content: center; min-height: 100%; padding: 12px; }
+.crm-score-import .import-panel { position: relative; display: flex; flex-direction: column; box-sizing: border-box; width: min(100%, 440px); max-height: calc(100dvh - 24px); padding: 20px 16px; border-radius: 22px; color: #182235; text-align: left; }
+.crm-score-import header { position: relative; display: grid; justify-items: center; gap: 10px; margin-bottom: 16px; flex-shrink: 0; color: white; text-align: center; }
+.crm-score-import header .crm-auth-brand-mark { padding: 6px; border-radius: 17px; }
+.crm-score-import header img { width: 46px; height: 46px; border-radius: 11px; }
+.crm-score-import h2 { margin: 0; font-size: clamp(1.3rem, 5vw, 1.65rem); font-weight: 800; line-height: 1.15; letter-spacing: -.025em; }
+.crm-score-import h3 { margin: 0; font-size: .95rem; font-weight: 750; }
+.crm-score-import .close { position: absolute; top: 0; right: 0; display: grid; place-items: center; min-width: 44px; min-height: 44px; color: white; }
+.crm-score-import .import-card { display: flex; flex-direction: column; min-height: 0; padding: 16px; border-radius: 20px; }
+.crm-score-import .import-content { min-height: 0; overflow-y: auto; padding: 2px; }
+.crm-score-import .file-picker, .crm-score-import .review-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.crm-score-import .choose-file { display: inline-flex; align-items: center; min-height: 44px; flex-shrink: 0; position: relative; font-size: .875rem; }
+.crm-score-import .choose-file input { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }
+.crm-score-import .choose-file:focus-within, .crm-score-import .close:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.crm-score-import .title-field { margin-top: 12px; }
+.crm-score-import .title-field input { width: 100%; margin-top: 4px; }
+.crm-score-import .columns-toggle, .crm-score-import .all-teams { min-height: 44px; font-size: .875rem; }
+.crm-score-import .columns-toggle { margin-left: auto; }
+.crm-score-import .all-teams { display: block; margin: 0 auto; }
+.crm-score-import .filename { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .875rem; font-weight: 600; }
+.crm-score-import fieldset { margin-top: 8px; }
+.crm-score-import select { width: 100%; margin: 4px 0 8px; }
+.crm-score-import .check { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: .875rem; }
+.crm-score-import p { margin: 8px 0; font-size: .875rem; }
+.crm-score-import .row-heading, .crm-score-import .row { display: flex; align-items: center; gap: 6px; padding: 7px 3px; border-bottom: 1px solid #d9dfe8; }
+.crm-score-import .row-heading { justify-content: space-between; font-size: .75rem; color: #374151; font-weight: 600; }
+.crm-score-import .row { flex-wrap: wrap; font-size: .875rem; }
+.crm-score-import .row strong { min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
+.crm-score-import .row small { flex-basis: 100%; color: #485870; }
+.crm-score-import .score { margin-left: auto; color: var(--crm-brand-primary); font-weight: 750; font-variant-numeric: tabular-nums; }
+.crm-score-import .error { color: #b42318; }
+.crm-score-import footer { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+.crm-score-import footer:not(:empty) { padding-top: 8px; }
