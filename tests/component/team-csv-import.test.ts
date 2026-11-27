@@ -66,10 +66,10 @@ it('uploads messy scores, previews event links, and retries an unconfirmed final
   expect(api.importTeamFromCsv).not.toHaveBeenCalled();
   await fireEvent.change(screen.getByLabelText(/Event match for Winter Fest/), { target: { value: 'winter-2026' } });
   expect(screen.getByText(/4 result groups to publish/)).toBeVisible();
-  await fireEvent.click(screen.getByRole('button', { name: 'Import 40 score rows' }));
+  await fireEvent.click(screen.getByRole('button', { name: 'Import 40 scores' }));
   expect(await screen.findByText(/Response lost/)).toBeVisible();
   const first = api.request.mock.calls[0];
-  await fireEvent.click(screen.getByRole('button', { name: 'Import 40 score rows' }));
+  await fireEvent.click(screen.getByRole('button', { name: 'Import 40 scores' }));
   expect(await screen.findByText('0 ready · 40 imported · 5 skipped')).toBeVisible();
   expect(api.request.mock.calls[1]).toEqual(first);
   expect(first[1].body).toMatchObject({ eventId: 'bolt-2026', scores: [0, 1200], division: 'Elementary' });
@@ -97,10 +97,56 @@ it('detects a populated challenge score column in a form responses export', asyn
   await fireEvent.change(screen.getByLabelText('Choose CSV file'), { target: { files: [file] } });
 
   expect(await screen.findByText('Red Team · 140')).toBeVisible();
-  await fireEvent.click(screen.getByRole('button', { name: 'Import 2 score rows' }));
+  expect(screen.getByRole('textbox', { name: 'Scoring event title' })).toHaveValue('BOLT Challenge 1');
+  expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+  expect(screen.getByText('2 scores ready to publish · 2 matched to existing teams')).toBeVisible();
+  await fireEvent.input(screen.getByRole('textbox', { name: 'Scoring event title' }), {
+    target: { value: 'Irving ITG BOLT Challenge 1' },
+  });
+  await fireEvent.click(screen.getByRole('button', { name: 'Import 2 scores' }));
   expect(await screen.findByText('0 ready · 2 imported · 0 skipped')).toBeVisible();
   expect(api.request).toHaveBeenCalledWith('/admin/live-scores/import-final', expect.objectContaining({
-    body: expect.objectContaining({ names: ['Blue Team', 'Red Team'], scores: [105, 140] }),
+    body: expect.objectContaining({ title: 'Irving ITG BOLT Challenge 1', names: ['Blue Team', 'Red Team'], scores: [105, 140] }),
   }));
   expect(api.importTeamFromCsv).not.toHaveBeenCalled();
+});
+
+it('asks only for the missing score choice and imports teams with blank scores', async () => {
+  vi.stubGlobal('crypto', webcrypto);
+  api.request.mockImplementation(async (_path, { body }) => ({ board: {
+    ...body, id: body.operationId, status: 'final', display: 'bars', importedFromCsv: true, revision: 0,
+  } }));
+  api.importTeamFromCsv.mockResolvedValue({});
+  render(TeamCsvImport as unknown as Component, { props: {
+    teams: [{ id: 'red', name: 'Red Team' }],
+  } });
+  const source = 'Team Name,Round 1 Score,Round 2 Score\nRed Team,140,105\nBlue Team,,50';
+  const file = new File([source], 'results.csv', { type: 'text/csv' });
+  Object.defineProperty(file, 'text', { value: async () => source });
+  await fireEvent.change(screen.getByLabelText('Choose CSV file'), { target: { files: [file] } });
+
+  expect(screen.getAllByRole('combobox')).toHaveLength(1);
+  expect(screen.queryByRole('button', { name: /^Import / })).not.toBeInTheDocument();
+  await fireEvent.change(screen.getByRole('combobox', { name: 'Score column' }), { target: { value: '1' } });
+  expect(screen.getByRole('textbox', { name: 'Scoring event title' })).toHaveValue('Round 1');
+  await fireEvent.click(screen.getByRole('button', { name: 'Import 1 score' }));
+  expect(await screen.findByText('0 ready · 2 imported · 0 skipped')).toBeVisible();
+  expect(api.importTeamFromCsv).toHaveBeenCalledExactlyOnceWith('tenant-a', 'Blue Team', expect.any(Object));
+  expect(api.request).toHaveBeenCalledWith('/admin/live-scores/import-final', expect.objectContaining({
+    body: expect.objectContaining({ title: 'Round 1', names: ['Red Team'], scores: [140] }),
+  }));
+});
+
+it('requires a title for a generic score column and preserves zero scores', async () => {
+  render(TeamCsvImport as unknown as Component, {});
+  const source = 'Team Name,Score\nRed Team,0';
+  const file = new File([source], 'results.csv', { type: 'text/csv' });
+  Object.defineProperty(file, 'text', { value: async () => source });
+  await fireEvent.change(screen.getByLabelText('Choose CSV file'), { target: { files: [file] } });
+
+  const publish = screen.getByRole('button', { name: 'Import 1 score' });
+  expect(publish).toBeDisabled();
+  await fireEvent.input(screen.getByRole('textbox', { name: 'Scoring event title' }), { target: { value: 'BOLT' } });
+  expect(publish).toBeEnabled();
+  expect(screen.getByText('Red Team · 0')).toBeVisible();
 });
