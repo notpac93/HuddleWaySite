@@ -77,3 +77,30 @@ it('uploads messy scores, previews event links, and retries an unconfirmed final
   expect(api.request.mock.calls.some(([, { body }]) => body.scores.length === 36)).toBe(true);
   expect(api.importTeamFromCsv).toHaveBeenCalledTimes(39);
 });
+
+
+it('detects a populated challenge score column in a form responses export', async () => {
+  vi.stubGlobal('crypto', webcrypto);
+  api.request.mockImplementation(async (_path, { body }) => ({ board: {
+    ...body, id: body.operationId, status: 'final', display: 'bars', importedFromCsv: true, revision: 0,
+  } }));
+  render(TeamCsvImport as unknown as Component, { props: {
+    teams: [{ id: 'red', name: 'Red Team' }, { id: 'blue', name: 'Blue Team' }],
+  } });
+  const source = [
+    'Timestamp,Judge Name,Team Name,BOLT Challenge 1 Score,BOLT Challenge 2 Score,Interview Score,Additional Notes',
+    '11/14/2026,Judge A,Red Team,140,Top score,,Extra notes',
+    '11/14/2026,Judge A,Blue Team,105,,,',
+  ].join('\n');
+  const file = new File([source], 'responses.csv', { type: 'text/csv' });
+  Object.defineProperty(file, 'text', { value: async () => source });
+  await fireEvent.change(screen.getByLabelText('Choose CSV file'), { target: { files: [file] } });
+
+  expect(await screen.findByText('Red Team · 140')).toBeVisible();
+  await fireEvent.click(screen.getByRole('button', { name: 'Import 2 score rows' }));
+  expect(await screen.findByText('0 ready · 2 imported · 0 skipped')).toBeVisible();
+  expect(api.request).toHaveBeenCalledWith('/admin/live-scores/import-final', expect.objectContaining({
+    body: expect.objectContaining({ names: ['Blue Team', 'Red Team'], scores: [105, 140] }),
+  }));
+  expect(api.importTeamFromCsv).not.toHaveBeenCalled();
+});

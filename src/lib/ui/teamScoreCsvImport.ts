@@ -15,13 +15,24 @@ const headers = {
   challenge: ['challenge', 'challengename', 'game', 'gamename', 'activity'],
 };
 
+function readScore(value: string) {
+  return /^[+]?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.0+)?$/.test(value)
+    ? Number(value.replaceAll(',', '')) : NaN;
+}
+
 export function suggestScoreColumns(table: TeamCsvTable): ScoreColumns {
   const values = table.records[0].values.map(normalizeCsvHeader);
   const find = (aliases: string[]) => {
     const index = values.findIndex(value => aliases.includes(value));
     return index < 0 ? null : index;
   };
-  return { score: find(headers.score), event: find(headers.event),
+  const qualifiedScores = values.flatMap((value, index) =>
+    /(?:score|points)$/.test(value) && table.records.slice(1).some(
+      ({ values: row }) => Number.isInteger(readScore(normalizeName(row[index]))),
+    ) ? [index] : [],
+  );
+  const score = find(headers.score) ?? (qualifiedScores.length === 1 ? qualifiedScores[0] : null);
+  return { score, event: find(headers.event),
     division: find(headers.division), challenge: find(headers.challenge) };
 }
 
@@ -42,8 +53,7 @@ export function reviewTeamScores(
   return table.records.slice(hasHeader ? 1 : 0).map(({ line, values }): ScoreImportRow => {
     const name = read(values, nameColumn);
     const rawScore = read(values, columns.score);
-    const score = /^[+]?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.0+)?$/.test(rawScore)
-      ? Number(rawScore.replaceAll(',', '')) : NaN;
+    const score = readScore(rawScore);
     const eventName = read(values, columns.event);
     const matches = events.filter(event => event.id &&
       (key(event.id) === key(eventName) || key(event.title) === key(eventName)));
