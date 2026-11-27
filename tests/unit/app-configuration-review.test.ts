@@ -1,11 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   contrastRatio,
   describeAppConfigurationChanges,
   hasDuplicateTabLabels,
   readableTextColor,
 } from '../../src/lib/ui/appConfigurationReview';
-import { completeFiveTabSlots, validAppConfiguration } from '../../src/components/crm/app-studio/appConfigurationDraft';
+import { completeFiveTabSlots, validAppConfiguration, verifyPublishedNavigation } from '../../src/components/crm/app-studio/appConfigurationDraft';
 import type { CrmAppConfiguration } from '../../src/lib/api/BackendApi';
 
 const baseline: CrmAppConfiguration = {
@@ -21,6 +21,28 @@ const baseline: CrmAppConfiguration = {
 };
 
 describe('app configuration publication review', () => {
+  it('verifies the rendered order against the selected tenant’s public home bundle', async () => {
+    const [home, retired] = baseline.navigationTabs;
+    const staff = { key: 'staff', pageId: 'staff_page', route: '/staff', label: 'Staff', enabled: true };
+    const fetchBundle = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        bundle: { tenantId: 'tenant-a', aboveTheFold: { navigation: { tabs: [home, staff] } } },
+      })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        bundle: { tenantId: 'tenant-a', aboveTheFold: { navigation: { tabs: [staff, home] } } },
+      })));
+    vi.stubGlobal('fetch', fetchBundle);
+    try {
+      await expect(verifyPublishedNavigation('https://api.example.test', 'tenant-a', [home, retired, staff])).resolves.toBe(true);
+      await expect(verifyPublishedNavigation('https://api.example.test', 'tenant-a', [home, retired, staff])).resolves.toBe(false);
+      const [url, options] = fetchBundle.mock.calls[0];
+      expect(url.searchParams.get('tenantId')).toBe('tenant-a');
+      expect(options.cache).toBe('no-store');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('suggests missing current tabs while preserving the historical stored-entry limit', () => {
     const tabs = [
       ...baseline.navigationTabs,

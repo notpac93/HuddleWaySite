@@ -535,7 +535,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     await openAppearanceSettings();
     await fireEvent.change(await screen.findByLabelText('App appearance'), { target: { value: 'light' } });
     await reviewAndPublish();
-    await screen.findByText(/Consumer publication is pending/);
+    await screen.findByText(/family app update is still pending/i);
     expect(screen.getByRole('button', { name: 'Retry Publish' })).toBeEnabled();
     await reviewAndPublish('Retry Publish');
     await waitFor(() => expect(appMocks.publishAppConfiguration).toHaveBeenCalledTimes(2));
@@ -860,11 +860,26 @@ describe('MyAppStudio tenant preview isolation', () => {
     }
     await fireEvent.click(screen.getByRole('button', { name: 'Add Teams tab' }));
     expect(screen.getByText('5 of 5 active')).toBeVisible();
+    const teams = screen.getByRole('group', { name: 'Teams tab' });
+    const available = screen.getByRole('region', { name: 'Available pages' });
+    const drag = { setData: vi.fn(), effectAllowed: '', dropEffect: '' };
+    await fireEvent.dragStart(teams, { dataTransfer: drag });
+    await fireEvent.dragOver(available, { dataTransfer: drag });
+    expect(within(available).getByText('Drop Teams here to hide it from the draft.')).toBeVisible();
+    await fireEvent.drop(available, { dataTransfer: drag });
+    expect(within(available).getByRole('group', { name: 'Teams page' })).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'Add Teams tab' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Replace a tab with Staff' }));
+    await fireEvent.change(screen.getByRole('combobox', { name: 'Tab to replace' }), { target: { value: 'schedule' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Replace tab' }));
+    expect(screen.getByRole('group', { name: 'Staff tab' })).toBeVisible();
     await reviewAndPublish();
     await screen.findByText('App configuration published and reloaded from the server.');
     expect(navigationTabs).toEqual(expect.arrayContaining([
       expect.objectContaining({ key: 'teams', enabled: true }),
       expect.objectContaining({ key: 'scores', enabled: true }),
+      expect.objectContaining({ key: 'staff', enabled: true }),
+      expect.objectContaining({ key: 'schedule', enabled: false }),
     ]));
     expect(screen.getByRole('button', { name: 'Options for Teams' })).toBeVisible();
   });

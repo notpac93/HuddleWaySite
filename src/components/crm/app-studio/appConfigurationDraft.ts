@@ -77,6 +77,30 @@ export function isRetiredNavigationTab(tab: NavigationTabDraft) {
   return withLeadingSlash.replace(/\/$/, '') === '/events';
 }
 
+export function visibleNavigationSignature(tabs: NavigationTabDraft[]) {
+  return JSON.stringify(tabs.filter((tab) => tab.enabled && !isRetiredNavigationTab(tab))
+    .map(({ key, pageId, route, label }) => [key, pageId, route, label.trim()]));
+}
+
+export async function verifyPublishedNavigation(
+  backendUrl: string,
+  tenantId: string,
+  tabs: NavigationTabDraft[],
+) {
+  const url = new URL('/public/page-bundle', backendUrl);
+  url.search = new URLSearchParams({ tenantId, route: '/' }).toString();
+  try {
+    const response = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+    if (!response.ok) return false;
+    const { bundle } = await response.json();
+    return bundle?.tenantId === tenantId &&
+      Array.isArray(bundle.aboveTheFold?.navigation?.tabs) &&
+      visibleNavigationSignature(bundle.aboveTheFold.navigation.tabs) === visibleNavigationSignature(tabs);
+  } catch {
+    return false;
+  }
+}
+
 export function permanentTabName(tab: NavigationTabDraft) {
   return isTeamTab(tab) ? "Teams" : permanentTabNames[tab.key] || tab.label;
 }

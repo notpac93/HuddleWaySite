@@ -19,6 +19,8 @@
   let editMode: 'position' | 'name' = 'position';
   let position = 0;
   let label = '';
+  let replacement: NavigationTabDraft | null = null;
+  let replacementKey = '';
   let dragKey = '';
   let dropTarget = '';
   let announcement = '';
@@ -30,6 +32,7 @@
   $: retired = tabsConfig.filter(isRetiredNavigationTab);
   $: storedEnabledCount = tabsConfig.filter((tab) => tab.enabled).length;
   $: blockedByHistory = storedEnabledCount > maxActiveTabs && current.length <= maxActiveTabs;
+  $: draggedTab = [...current, ...available].find((tab) => tab.key === dragKey);
 
   function pageChoices(saved: NavigationTabDraft[], published: NavigationTabDraft[]) {
     const byRoute = new Map(optionalNavigationTabs.map((tab) => [tab.route, tab]));
@@ -73,13 +76,21 @@
     return permanentTabName(tab) === 'Teams' ? $teamsStore.length : 0;
   }
 
-  function canAdd(tab: NavigationTabDraft) {
-    return !disabled && current.length < maxActiveTabs
-      && (tabsConfig.length < 12 || tabsConfig.some((saved) => saved.key === tab.key));
+  function pageHint(tab: NavigationTabDraft, published: NavigationTabDraft[], count: number) {
+    if (tab.route === '/account' || tab.route === '/my-events') return 'Sign-in required';
+    if (tab.route === '/resources' && count >= maxActiveTabs && tab.label.trim().length > 8) return 'Shows as Files in the tab bar';
+    const destination = published.find((page) => page.route === tab.route);
+    return /^\/team-/.test(tab.route) && destination && destination.label !== tab.label
+      ? 'Opens ' + destination.label
+      : '';
   }
 
-  function placeTab(tab: NavigationTabDraft, position: number) {
-    const order = current.filter((entry) => entry.key !== tab.key);
+  function canChoose(tab: NavigationTabDraft) {
+    return !disabled && (tabsConfig.length < 12 || tabsConfig.some((saved) => saved.key === tab.key));
+  }
+
+  function placeTab(tab: NavigationTabDraft, position: number, replaced?: NavigationTabDraft) {
+    const order = current.filter((entry) => entry.key !== tab.key && entry.key !== replaced?.key);
     order.splice(position, 0, { ...tab, enabled: true });
     let index = 0;
     const marked = tabsConfig.some((saved) => saved.key === tab.key)
@@ -88,10 +99,12 @@
     // A retired Events entry can remain in history without taking a visible slot.
     const retireLegacySlot = !tab.enabled && storedEnabledCount >= maxActiveTabs;
     tabsConfig = marked.map((entry) => {
+      if (entry.key === replaced?.key) return { ...entry, enabled: false };
       if (!isRetiredNavigationTab(entry) && entry.enabled) return order[index++];
       return retireLegacySlot && isRetiredNavigationTab(entry) ? { ...entry, enabled: false } : entry;
     });
-    announcement = tab.label + (tab.enabled ? ' moved in the draft.' : ' added to the draft.');
+    announcement = replaced ? `${tab.label} replaced ${replaced.label} in the draft.`
+      : tab.label + (tab.enabled ? ' moved in the draft.' : ' added to the draft.');
   }
 
   function hideTab(tab: NavigationTabDraft) {
@@ -102,7 +115,20 @@
   }
 
   function addTab(tab: NavigationTabDraft) {
-    if (canAdd(tab)) placeTab(tab, current.length);
+    if (!canChoose(tab)) return;
+    if (current.length < maxActiveTabs) placeTab(tab, current.length);
+    else {
+      replacement = tab;
+      replacementKey = '';
+      menu = editKey = '';
+    }
+  }
+
+  function replaceTab() {
+    const index = current.findIndex((tab) => tab.key === replacementKey && tab.route !== '/');
+    if (!replacement || !canChoose(replacement) || index < 0) return;
+    placeTab(replacement, index, current[index]);
+    replacement = null;
   }
 
   async function openEdit(tab: NavigationTabDraft, mode: 'position' | 'name') {
@@ -128,6 +154,7 @@
 
   function allowDrop(event: DragEvent, target: string) {
     if (!dragKey || disabled) return;
+    if (target === 'available' && (!draggedTab?.enabled || draggedTab.route === '/')) return;
     event.preventDefault();
     event.stopPropagation();
     dropTarget = target;
@@ -140,7 +167,7 @@
   }
 
   function startDrag(event: DragEvent, tab: NavigationTabDraft) {
-    if (disabled || (!tab.enabled && !canAdd(tab)) || !event.dataTransfer) {
+    if (disabled || (!tab.enabled && !canChoose(tab)) || !event.dataTransfer) {
       event.preventDefault();
       return;
     }
@@ -159,7 +186,9 @@
     if (!tab) return;
     if (zone === 'available') {
       if (tab.enabled) hideTab(tab);
-    } else if (tab.key !== beforeKey && (tab.enabled || canAdd(tab))) {
+    } else if (!tab.enabled && current.length >= maxActiveTabs) {
+      addTab(tab);
+    } else if (tab.key !== beforeKey && (tab.enabled || canChoose(tab))) {
       const others = current.filter((entry) => entry.key !== tab.key);
       const index = others.findIndex((entry) => entry.key === beforeKey);
       placeTab(tab, index < 0 ? others.length : index);
@@ -168,6 +197,7 @@
 
   function handleEscape(event: KeyboardEvent) {
     if (event.key === 'Escape') {
+      replacement = null;
       menu = '';
       editKey = '';
     }
@@ -180,7 +210,7 @@
   <header class="navigation-heading">
     <div>
       <h3>App tabs</h3>
-      <p>Drag to reorder or move pages between lists. Use the options menu to change a tab without dragging.</p>
+      <p>Drag to reorder. Drop a tab in Available pages to hide it from the draft.</p>
     </div>
     <span class="navigation-count" aria-live="polite">{current.length} of {maxActiveTabs} active</span>
   </header>
@@ -193,14 +223,14 @@
     <p class="navigation-alert" role="alert">Active tabs must have unique names.</p>
   {/if}
 
-  <section class="navigation-list" aria-label="In the app" class:drop-zone={dropTarget === 'current'}
+  <section class="navigation-list" aria-label="Draft tabs" class:drop-zone={dropTarget === 'current'}
     on:dragover={(event) => allowDrop(event, 'current')} on:drop={(event) => dropTab(event, 'current')}>
-    <h4>In the app</h4>
+    <h4>Draft tabs</h4>
     {#each current as tab (tab.key)}
       <div class="navigation-row" role="group" aria-label={tab.label + ' tab'} class:drop-before={dropTarget === tab.key}
         draggable={!disabled && editKey !== tab.key} on:dragstart={(event) => startDrag(event, tab)} on:dragend={clearDrag}
         on:dragover={(event) => allowDrop(event, tab.key)} on:drop={(event) => dropTab(event, 'current', tab.key)}>
-        <div class="navigation-name"><span class="navigation-grip" aria-hidden="true">⠿</span><span><strong>{tab.label}</strong>{#if permanentTabName(tab) !== tab.label}<small>{permanentTabName(tab)}</small>{/if}</span></div>
+        <div class="navigation-name"><span class="navigation-grip" aria-hidden="true">⠿</span><span><strong>{tab.label}</strong>{#if pageHint(tab, pages, current.length)}<small>{pageHint(tab, pages, current.length)}</small>{:else if permanentTabName(tab) !== tab.label}<small>{permanentTabName(tab)}</small>{/if}</span></div>
         <button class="navigation-more" type="button" aria-label={'Options for ' + tab.label} aria-expanded={menu === tab.key} {disabled}
           on:click={() => { menu = menu === tab.key ? '' : tab.key; editKey = ''; }}>⋯</button>
         {#if menu === tab.key}
@@ -235,17 +265,27 @@
   <section class="navigation-list" aria-label="Available pages" class:drop-zone={dropTarget === 'available'}
     on:dragover={(event) => allowDrop(event, 'available')} on:drop={(event) => dropTab(event, 'available')}>
     <h4>Available pages</h4>
+    {#if draggedTab?.enabled && draggedTab.route !== '/'}<p class="navigation-drop-hint">Drop {draggedTab.label} here to hide it from the draft.</p>{/if}
     {#each available as tab (tab.key)}
-      <div class="navigation-row" role="group" aria-label={tab.label + ' page'} draggable={canAdd(tab)}
+      <div class="navigation-row" role="group" aria-label={tab.label + ' page'} draggable={canChoose(tab)}
         on:dragstart={(event) => startDrag(event, tab)} on:dragend={clearDrag}>
-        <div class="navigation-name"><span class="navigation-grip" aria-hidden="true">⠿</span><strong>{tab.label}</strong></div>
-        <button class="navigation-link" type="button" aria-label={'Add ' + tab.label + ' tab'} disabled={!canAdd(tab)} on:click={() => addTab(tab)}>Add</button>
+        <div class="navigation-name"><span class="navigation-grip" aria-hidden="true">⠿</span><span><strong>{tab.label}</strong>{#if pageHint(tab, pages, Math.min(current.length + 1, maxActiveTabs))}<small>{pageHint(tab, pages, Math.min(current.length + 1, maxActiveTabs))}</small>{/if}</span></div>
+        <button class="navigation-link" type="button" aria-label={current.length >= maxActiveTabs ? 'Replace a tab with ' + tab.label : 'Add ' + tab.label + ' tab'} disabled={!canChoose(tab)} on:click={() => addTab(tab)}>{current.length >= maxActiveTabs ? 'Replace…' : 'Add'}</button>
+        {#if replacement?.key === tab.key}
+          <form class="navigation-edit" on:submit|preventDefault={replaceTab}>
+            <label>Tab to replace <select bind:value={replacementKey} required {disabled}>
+              <option value="" disabled>Choose a tab</option>
+              {#each current.filter((entry) => entry.route !== '/') as entry (entry.key)}<option value={entry.key}>{entry.label}</option>{/each}
+            </select></label>
+            <button class="navigation-link" type="submit" disabled={disabled || !replacementKey}>Replace tab</button>
+            <button class="navigation-link" type="button" on:click={() => replacement = null}>Cancel</button>
+          </form>
+        {/if}
       </div>
     {/each}
     {#if pageState === 'loading'}<p role="status">Loading published pages…</p>
     {:else if pageState === 'error'}<p>Could not load additional pages. <button class="navigation-link" type="button" on:click={loadPages}>Try again</button></p>
     {:else if !available.length}<p>No other pages are available.</p>{/if}
-    {#if current.length >= maxActiveTabs && available.length}<p>Hide a tab to make room for another.</p>{/if}
   </section>
   {#if retired.length}<p role="note" aria-label="Retired Events tab">Events (retired) is kept for historical settings. Families use Schedule.</p>{/if}
   <p class="sr-only" role="status">{announcement}</p>
@@ -259,6 +299,7 @@
   h4, strong { font-size: .875rem; font-weight: 600; }
   h4 { margin-bottom: 5px; }
   p, small { color: #526174; font-size: .8125rem; }
+  .navigation-drop-hint { padding: 6px 0; color: var(--crm-brand-link, #226953); }
   .navigation-name small { display: block; }
   .navigation-count { background: var(--crm-brand-surface, #edf5f1); color: var(--crm-brand-link, #226953); border-radius: 8px; padding: 4px 8px; font-size: .75rem; }
   .navigation-list { border: 1px solid #dae1e7; border-radius: 10px; padding: 11px 12px; background: white; }

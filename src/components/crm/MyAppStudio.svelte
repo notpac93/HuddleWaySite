@@ -52,6 +52,7 @@
   import { tenantIdStore, tenantNamesStore } from '../../lib/authStore';
   import {
     publicEnvironment,
+    resolveBackendUrl,
     resolveCrmAppPreviewUrl,
   } from '../../lib/config/publicEnvironment';
   import {
@@ -90,6 +91,8 @@
     initialTabs,
     portalNavigationTabs,
     validAppConfiguration,
+    verifyPublishedNavigation,
+    visibleNavigationSignature,
     type AppVersion,
     type NavigationTabDraft,
   } from './app-studio/appConfigurationDraft';
@@ -230,11 +233,16 @@
   $: versionLabel = configMode === 'initialize'
     ? 'Initial configuration'
     : `Authoritative version ${configVersionToken.slice(0, 8)}…`;
+  $: navigationDirty = Boolean(loadedConfiguration) &&
+    visibleNavigationSignature(tabsConfig) !== visibleNavigationSignature(loadedConfiguration?.navigationTabs ?? []);
+  $: previewRequired = allowNavigationEditing && Boolean(previewBaseUrl)
+    && previewEnvironment !== 'dev' && (activeTab === 'Pages' || navigationDirty);
   $: canPublish =
     configLoadState === 'ready'
     && Boolean(configVersionToken)
     && configIsValid
     && (isDirty || publicationPending)
+    && (!previewRequired || layoutPreviewSynced)
     && submitState !== 'loading';
   $: currentAttemptSignature = JSON.stringify({
     tenantId: $tenantIdStore,
@@ -546,6 +554,9 @@
       logoUrl: publishedLogoUrl,
     };
     const submittedSignature = configurationSignature(configuration);
+    const checkNavigation = allowNavigationEditing && previewEnvironment !== 'dev'
+      && (publicationPending || visibleNavigationSignature(configuration.navigationTabs)
+        !== visibleNavigationSignature(loadedConfiguration?.navigationTabs ?? []));
     const result = await controller.publish({
       tenantId,
       configuration,
@@ -570,11 +581,17 @@
       publishAttemptSignature = buildAttemptSignature();
       publishIdempotencyKey =
         createIdempotencyKey('app-configuration-publish');
-      publicationPending = result.publicationPending === true;
+      const navigationVerified = !checkNavigation || await verifyPublishedNavigation(
+        resolveBackendUrl(publicEnvironment), tenantId, configuration.navigationTabs,
+      );
+      if ($tenantIdStore !== tenantId) return;
+      publicationPending = result.publicationPending === true || !navigationVerified;
       submitState = publicationPending ? 'error' : 'success';
       publishMessage = publicationPending
-        ? 'Configuration saved. Consumer publication is pending. Publish again to retry.'
-        : 'App configuration published and reloaded from the server.';
+        ? 'Configuration saved. The family app update is still pending. Publish again to retry.'
+        : checkNavigation
+          ? 'Published. The family app tab order was verified.'
+          : 'App configuration published and reloaded from the server.';
       removeLocalDraft();
     } else {
       console.error('App configuration publish failed.');
@@ -644,7 +661,7 @@
   {/if}
 <div class="my-app-canvas" class:section-editing={editingComponents} class:tools-open={showTools} aria-label="My App canvas">
   <div class="studio-preview" aria-label="Consumer app preview">
-  {#if $desktopDashboard}<h3>Consumer app preview</h3>{/if}
+  {#if $desktopDashboard}<h3>{activeTab === 'Pages' && isDirty ? 'Draft app preview' : 'Consumer app preview'}</h3>{/if}
   {#if !suspendInactivePreviews || active}
   <AppPreviewFrame immersive {pageDraft} {onCanvasAction} onSyncedChange={setPreviewSynced} onInteract={() => navigation?.dismiss()} previewOrigin={previewBaseUrl} tenantId={String($tenantIdStore || '')} environment={previewEnvironment} configuration={previewConfiguration} configurationReady={configLoadState === 'ready'} title={`${appName.trim() || 'Program'} mobile app preview`} expectedSourceCommit={publicEnvironment.PUBLIC_APP_PREVIEW_COMMIT || ''} expectedReleaseId={publicEnvironment.PUBLIC_APP_PREVIEW_RELEASE_ID || ''} />
   {/if}
@@ -671,9 +688,10 @@
             {#if configLoadState !== 'ready'}Loading authoritative configuration…
             {:else if !configIsValid}Resolve the highlighted settings.
             {:else if !isDirty}No unpublished changes.
+            {:else if previewRequired && !layoutPreviewSynced}Updating preview…
             {:else}Ready for review.{/if}
           </span>
-          <StatusButton type="button" state={submitState} on:click={requestPublishReview} disabled={!canPublish} idleText="Publish App" loadingText="Publishing..." successText="Published" errorText="Retry Publish" class="crm-ui-studio-publish" />
+          <StatusButton type="button" state={submitState} on:click={requestPublishReview} disabled={!canPublish} idleText={previewRequired ? 'Review changes' : 'Publish App'} loadingText="Publishing..." successText="Published" errorText="Retry Publish" class="crm-ui-studio-publish" />
         </div>
     </header>
 

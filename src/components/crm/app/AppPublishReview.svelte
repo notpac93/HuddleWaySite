@@ -49,9 +49,9 @@
         {/if}
       </section>
       {#if beforeTabs && JSON.stringify(beforeTabs) !== JSON.stringify(afterTabs)}
-        <section aria-label="App tab order" class="space-y-2 text-sm text-gray-800">
-          <p><strong>Currently published</strong> · {beforeTabs.join(' / ')}</p>
-          <p><strong>After publishing</strong> · {afterTabs.join(' / ')}</p>
+        <section aria-label="App tab order" class="grid gap-3 text-sm text-gray-800 sm:grid-cols-2">
+          <p class="rounded-md border border-gray-200 p-3"><strong class="block">Currently published</strong>{beforeTabs.join(' / ')}</p>
+          <p class="rounded-md border border-gray-200 p-3"><strong class="block">After publishing</strong>{afterTabs.join(' / ')}</p>
         </section>
       {/if}
       <section aria-labelledby="app-color-review-title">
