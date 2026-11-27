@@ -108,6 +108,7 @@ const reviewedControlCounts: Record<string, number> = {
   "teams/TeamCsvImport.svelte": 14,
   "ui/BrandedWorkspace.svelte": 0,
   "ui/ChangeReceipt.svelte": 2,
+  "ui/CrmLogo.svelte": 0,
   "ui/DetailDrawer.svelte": 2,
   "ui/EmptyState.svelte": 2,
   "ui/FilterBar.svelte": 2,
