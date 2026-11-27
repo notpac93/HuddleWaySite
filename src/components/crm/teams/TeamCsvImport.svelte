@@ -218,7 +218,9 @@
   }
 </script>
 
-<div class="crm-ui-modal-root" role="dialog" aria-modal="true" aria-labelledby="team-import-title">
+<svelte:head><link rel="stylesheet" href="/admin-score-import.css" /></svelte:head>
+
+<div class="crm-ui-modal-root crm-score-import" role="dialog" aria-modal="true" aria-labelledby="team-import-title">
   <div class="crm-ui-modal-shell import-shell">
     <button type="button" class="crm-ui-backdrop" aria-label="Close team import" tabindex="-1" disabled={applying || reading} on:click={close}></button>
     <div class="import-panel crm-auth-shell" tabindex="-1" use:modalFocus={{ onEscape: close }}>
@@ -376,39 +378,3 @@
     </div>
   </div>
 </div>
-
-<style>
-  .import-shell { display: flex; align-items: center; justify-content: center; min-height: 100%; padding: 12px; }
-  .import-panel { position: relative; display: flex; flex-direction: column; box-sizing: border-box; width: min(100%, 440px); max-height: calc(100dvh - 24px); padding: 20px 16px; border-radius: 22px; color: #182235; text-align: left; }
-  header { position: relative; display: grid; justify-items: center; gap: 10px; margin-bottom: 16px; flex-shrink: 0; color: white; text-align: center; }
-  header .crm-auth-brand-mark { padding: 6px; border-radius: 17px; }
-  header img { width: 46px; height: 46px; border-radius: 11px; }
-  h2 { margin: 0; font-size: clamp(1.3rem, 5vw, 1.65rem); font-weight: 800; line-height: 1.15; letter-spacing: -.025em; }
-  h3 { margin: 0; font-size: .95rem; font-weight: 750; }
-  .close { position: absolute; top: 0; right: 0; display: grid; place-items: center; min-width: 44px; min-height: 44px; color: white; }
-  .import-card { display: flex; flex-direction: column; min-height: 0; padding: 16px; border-radius: 20px; }
-  .import-content { min-height: 0; overflow-y: auto; padding: 2px; }
-  .file-picker, .review-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .choose-file { display: inline-flex; align-items: center; min-height: 44px; flex-shrink: 0; position: relative; font-size: .875rem; }
-  .choose-file input { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }
-  .choose-file:focus-within, .close:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-  .title-field { margin-top: 12px; }
-  .title-field input { width: 100%; margin-top: 4px; }
-  .columns-toggle, .all-teams { min-height: 44px; font-size: .875rem; }
-  .columns-toggle { margin-left: auto; }
-  .all-teams { display: block; margin: 0 auto; }
-  .filename { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .875rem; font-weight: 600; }
-  fieldset { margin-top: 8px; }
-  select { width: 100%; margin: 4px 0 8px; }
-  .check { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: .875rem; }
-  p { margin: 8px 0; font-size: .875rem; }
-  .row-heading, .row { display: flex; align-items: center; gap: 6px; padding: 7px 3px; border-bottom: 1px solid #d9dfe8; }
-  .row-heading { justify-content: space-between; font-size: .75rem; color: #374151; font-weight: 600; }
-  .row { flex-wrap: wrap; font-size: .875rem; }
-  .row strong { min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
-  .row small { flex-basis: 100%; color: #485870; }
-  .score { margin-left: auto; color: var(--crm-brand-primary); font-weight: 750; font-variant-numeric: tabular-nums; }
-  .error { color: #b42318; }
-  footer { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
-  footer:not(:empty) { padding-top: 8px; }
-</style>
