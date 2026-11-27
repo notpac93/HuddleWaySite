@@ -2,7 +2,7 @@
 .crm-score-import .import-panel { position: relative; display: flex; flex-direction: column; box-sizing: border-box; width: min(100%, 440px); max-height: calc(100dvh - 24px); padding: 20px 16px; border-radius: 22px; color: #182235; text-align: left; }
 .crm-score-import header { position: relative; display: grid; justify-items: center; gap: 10px; margin-bottom: 16px; flex-shrink: 0; color: white; text-align: center; }
 .crm-score-import header .crm-auth-brand-mark { padding: 6px; border-radius: 17px; }
-.crm-score-import header img { width: 46px; height: 46px; border-radius: 11px; }
+.crm-score-import header img { width: 46px; height: 46px; border-radius: 11px; object-fit: contain; }
 .crm-score-import h2 { margin: 0; font-size: clamp(1.3rem, 5vw, 1.65rem); font-weight: 800; line-height: 1.15; letter-spacing: -.025em; }
 .crm-score-import h3 { margin: 0; font-size: .95rem; font-weight: 750; }
 .crm-score-import .close { position: absolute; top: 0; right: 0; display: grid; place-items: center; min-width: 44px; min-height: 44px; color: white; }

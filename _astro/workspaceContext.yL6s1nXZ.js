@@ -1,0 +1,1 @@
+import{n as r}from"./rolldown-runtime.B8FqhfKh.js";function o(r){const o=r.currentTarget;"/logo.webp"!==o.getAttribute("src")&&(o.removeAttribute("crossorigin"),o.src=e)}var t,e,s=r(()=>{t=Symbol("CRM workspace"),e="/logo.webp"});export{o as i,t as n,s as r,e as t};
