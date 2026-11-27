@@ -70,10 +70,10 @@ describe('app configuration publication review', () => {
       ],
     });
     expect(changes).toEqual(expect.arrayContaining([
-      'App name: “Falcons” → “Falcons Club”',
-      'Primary color: #000000 → #123456',
-      'App appearance: system → dark',
-      'Home tab label: “Home” → “Start”',
+      'App name · “Falcons Club”',
+      'Primary color · #123456',
+      'Appearance · dark',
+      'Rename a tab to “Start”',
       'Hide Events in the family app.',
     ]));
   });

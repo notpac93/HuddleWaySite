@@ -19,7 +19,8 @@
   import ComponentLibrary from './ComponentLibrary.svelte';
   import ComponentLayoutHistory from './ComponentLayoutHistory.svelte';
   import ComponentOutline from './ComponentOutline.svelte';
-  import ComponentPublishReview from './ComponentPublishReview.svelte';
+  import AppPublishReview from '../app/AppPublishReview.svelte';
+  import StatusButton from '../ui/StatusButton.svelte';
   import ComponentPlacement from './ComponentPlacement.svelte';
   import CanvasEditingToolbar from './CanvasEditingToolbar.svelte';
   import { createCanvasEditingSession } from './canvasEditingSession';
@@ -41,6 +42,7 @@
   export let previewActive = true;
   export let configuration: CrmAppConfiguration;
   export let configurationReady: boolean;
+  export let organizationName = '';
   export let previewOrigin: string | null;
   export let previewEnvironment: AppPreviewEnvironment;
   export let expectedSourceCommit = '';
@@ -124,7 +126,14 @@
   function undoPageEdits() {
     if (!snapshot || !selectedPage || state !== 'ready') return;
     canvasAction.reset(); checkpoint();
-    pages = restorePage(pages, snapshot.pages, selectedPage.id);
+    const selectedId = selectedPage.id;
+    const prior = snapshot.pages.find((page) => page.id === selectedId);
+    const shared = new Map((prior?.components || [])
+      .filter((component) => pages.some((page) => page.id !== selectedId && page.components.some(({ id }) => id === component.id))
+        && selectedPage?.components.some((draft) => draft.id === component.id && JSON.stringify(draft.content) !== JSON.stringify(component.content)))
+      .map((component) => [component.id, component.content]));
+    pages = restorePage(pages, snapshot.pages, selectedId);
+    for (const [id, content] of shared) updateComponentContent(id, content);
     for (const source of sources) {
       const baseline = snapshot.sources?.find((item) => item.kind === source.kind && item.id === source.id);
       for (const key of Object.keys(source.values)) {
@@ -145,7 +154,17 @@
     addingComponent = null; addingDefinition = null; lastRemoval = null;
     selectedComponentId = pages.find((page) => page.id === selectedPageId)?.components[0]?.id || '';
     lastHistoryField = '';
-    message = 'Page edits undone. Your edits on other pages are kept.';
+    message = shared.size ? 'Page edits undone, including wording on linked pages.' : 'Page edits undone. Your edits on other pages are kept.';
+  }
+
+  function updateComponentContent(id: string, content: Record<string, unknown>) {
+    pages = pages.map((page) => ({ ...page, components: page.components.map((component) => {
+      if (component.id !== id) return component;
+      const baseline = snapshot?.pages.find((item) => item.id === page.id)?.components.find((item) => item.id === id);
+      const status = baseline && JSON.stringify(content) === JSON.stringify(baseline.content) &&
+        component.enabled === baseline.enabled && component.isVisible === baseline.isVisible ? baseline.status : 'draft';
+      return { ...component, content, status };
+    }) }));
   }
 
   function changeSharedSource(source: CrmSectionSource, key: string, value: string, recordOrigin = true) {
@@ -163,12 +182,12 @@
     const field = ({ name: 'badgeText', heroTitle: 'headline', heroSubtitle: 'subheadline', coachSectionTitle: 'title', scheduleSectionTitle: 'title' } as Record<string, string>)[key];
     const componentType = key === 'coachSectionTitle' ? 'coach_grid' : key === 'scheduleSectionTitle' ? 'schedule_section' : 'hero_section';
     if (source.kind === 'team' && field) {
-      pages = pages.map((page) => ({ ...page, components: page.components.map((component) => {
-        if (component.type !== componentType || !source.bindings.some((binding) => binding.pageId === page.id && binding.componentId === component.id)) return component;
-        const content = { ...component.content, [field]: key === 'name' ? value.toUpperCase() : value };
-        const baseline = snapshot?.pages.find((item) => item.id === page.id)?.components.find((item) => item.id === component.id);
-        return { ...component, content, status: baseline && JSON.stringify(content) === JSON.stringify(baseline.content) ? baseline.status : 'draft' };
-      }) }));
+      const bound = new Map(pages.flatMap((page) => page.components
+        .filter((component) => component.type === componentType && source.bindings.some((binding) => binding.pageId === page.id && binding.componentId === component.id))
+        .map((component) => [component.id, component] as const)));
+      for (const component of bound.values()) {
+        updateComponentContent(component.id, { ...component.content, [field]: key === 'name' ? value.toUpperCase() : value });
+      }
     }
   }
 
@@ -189,14 +208,21 @@
   );
   $: publishedComponent = snapshot?.pages.find((page) => page.id === selectedPage?.id)
     ?.components.find((component) => component.id === selectedComponent?.id);
+  $: linkedPages = selectedComponent ? pages.filter((page) => page.id !== selectedPage?.id &&
+    page.components.some(({ id }) => id === selectedComponent?.id)).map(({ title }) => title) : [];
   $: currentSignature = pagesSignature(pages) + JSON.stringify(sources);
   $: dirty = state !== 'loading' && Boolean(snapshot) && currentSignature !== loadedSignature;
   $: issues = snapshot ? [...validatePages(pages, snapshot.definitions, snapshot.pages), ...sourceIssues.map((message) => ({ fieldId: '', message }))] : [];
-  $: publishChanges = snapshot ? [...componentChangeSummary(snapshot.pages, pages), ...sourceEdits.map((edit) => {
+  $: publishChanges = snapshot ? [...componentChangeSummary(snapshot.pages, pages, snapshot.definitions), ...sourceEdits.flatMap((edit) => {
     const source = sources.find((item) => item.kind === edit.kind && item.id === edit.id)!;
     const labels: Record<string, string> = { name: 'Team name', heroTitle: 'Main title', heroSubtitle: 'Bottom line', coachName: 'Coach name', coachRole: 'Coach role', coachSectionTitle: 'Coaches title', scheduleSectionTitle: 'Schedule title', title: 'Event title', description: 'Description', location: 'Location' };
-    return `${source.label}: ${Object.entries(edit.values).map(([key, value]) => `${labels[key] || key}: ${value || 'Removed'}`).join('; ')} · updates everywhere${source.recurring ? ' · includes the recurring event' : ''}.`;
+    return Object.entries(edit.values).map(([key, value]) =>
+      `${source.label} · ${labels[key] || key} · ${value || 'Removed'}${source.recurring ? ' · includes the recurring event' : ''}`);
   })] : [];
+  $: reviewBlocker = issues[0]?.message
+    || (addingComponent ? 'Add or cancel the new section before publishing.' : '')
+    || (canvasTextActive ? 'Finish editing text in the preview before publishing.' : '');
+  $: canReview = dirty && state === 'ready';
   $: currentPageDirty = Boolean(snapshot && selectedPage && pageHasEdits(pages, snapshot.pages, selectedPage.id));
   $: if (tenantId !== activeTenantId) {
     activeTenantId = tenantId;
@@ -324,13 +350,12 @@
       : fieldId === 'title' ? ({ coach_grid: 'coachSectionTitle', schedule_section: 'scheduleSectionTitle' } as Record<string, string>)[component.type] : undefined;
     const boundTeam = sources.find((source) => source.kind === 'team' && source.bindings.some((binding) => binding.pageId === selectedPage?.id && binding.componentId === component.id));
     if (!addingComponent && boundTeam && sharedKey && typeof value === 'string') { changeSharedSource(boundTeam, sharedKey, value); return; }
-    component.content = { ...component.content, [fieldId]: value };
+    const content = { ...component.content, [fieldId]: value };
     if (component.type === 'hero_section' && fieldId === 'ctaLabel' && typeof value === 'string') {
-      component.content = { ...component.content, showCtaButton: Boolean(value.trim()) };
+      content.showCtaButton = Boolean(value.trim());
     }
-    component.status = 'draft';
-    if (addingComponent) addingComponent = { ...component };
-    else pages = [...pages];
+    if (addingComponent) addingComponent = { ...component, content };
+    else updateComponentContent(component.id, content);
   }
 
   function focusPreviewField(fieldId: string) {
@@ -372,8 +397,8 @@
     if (!selectedComponent || state !== 'ready') return;
     checkpoint();
     if (selectedComponent.type === 'hero_section') {
-      selectedComponent.content = { ...selectedComponent.content, hideSection: !selectedComponent.content.hideSection };
-      selectedComponent.status = 'draft'; pages = [...pages]; return;
+      updateComponentContent(selectedComponent.id, { ...selectedComponent.content, hideSection: !selectedComponent.content.hideSection });
+      return;
     }
     const visible = selectedComponent.enabled && selectedComponent.isVisible;
     selectedComponent.enabled = !visible;
@@ -385,7 +410,11 @@
   function removeSelected(id = selectedComponent?.id) {
     const component = selectedPage?.components.find((item) => item.id === id);
     if (!selectedPage || !component || state !== 'ready') return;
-    if (component.type === 'hero_section') { checkpoint(); component.content = { ...component.content, hideSection: true }; component.status = 'draft'; pages = [...pages]; return; }
+    if (component.type === 'hero_section') {
+      checkpoint();
+      updateComponentContent(component.id, { ...component.content, hideSection: true });
+      return;
+    }
     checkpoint();
     lastRemoval = {
       pageId: selectedPage.id,
@@ -451,7 +480,7 @@
   }
 
   async function publish() {
-    if (!snapshot || !dirty || issues.length > 0 || state === 'publishing' || (externalCanvas && !previewSynced)) return;
+    if (!snapshot || !canReview || reviewBlocker || !publishChanges.length) return;
     const publishingTenant = tenantId;
     const publishingSequence = loadSequence;
     state = 'publishing';
@@ -488,14 +517,14 @@
 </script>
 
 {#if showPublishReview && snapshot}
-  <ComponentPublishReview organizationName={configuration.name || 'this organization'} changes={publishChanges} busy={state === 'publishing'} onCancel={() => showPublishReview = false} onConfirm={() => { showPublishReview = false; void publish(); }} />
+  <AppPublishReview organizationName={organizationName || configuration.name || 'this program'} changes={publishChanges} blockedReason={reviewBlocker} previewUpdating={externalCanvas && Boolean(previewOrigin) && !previewSynced} onCancel={() => showPublishReview = false} onConfirm={() => { showPublishReview = false; void publish(); }} />
 {/if}
 {#if historyOpen && snapshot}
   <ComponentLayoutHistory versions={snapshot.versions || []} currentVersionToken={snapshot.versionToken} truncated={snapshot.historyTruncated === true} onUse={useLayoutVersion} onClose={() => historyOpen = false} />
 {/if}
 
 {#if canvasOnly}
-  <CanvasEditingToolbar {pages} pageId={selectedPageId} busy={state === 'publishing'} {dirty} canUndoPage={currentPageDirty || Object.values(sourceOrigins).includes(selectedPageId)} onUndoPage={undoPageEdits} canUndo={undoStack.length > 0 && !canvasTextActive} canRedo={redoStack.length > 0 && !canvasTextActive && sourceEdits.length === 0} canPublish={dirty && issues.length === 0 && state === 'ready' && previewSynced && !addingComponent && !canvasTextActive} retryable={state === 'error'} onRetry={() => resetAndLoad(tenantId)} message={state === 'loading' ? 'Loading editing guides…' : message} canManage={!canvasTextActive && state === 'ready'} onDiscard={discardChanges} onHistory={() => historyOpen = true} onPage={selectPage} onUndo={() => undo()} onRedo={() => undo(true)} onReview={() => showPublishReview = true} {onDone} {onSettings} />
+  <CanvasEditingToolbar {pages} pageId={selectedPageId} busy={state === 'publishing'} {dirty} canUndoPage={currentPageDirty || Object.values(sourceOrigins).includes(selectedPageId)} onUndoPage={undoPageEdits} canUndo={undoStack.length > 0 && !canvasTextActive} canRedo={redoStack.length > 0 && !canvasTextActive && sourceEdits.length === 0} canReview={canReview} retryable={state === 'error'} onRetry={() => resetAndLoad(tenantId)} message={state === 'loading' ? 'Loading editing guides…' : message || (dirty ? reviewBlocker : '')} canManage={!canvasTextActive && state === 'ready'} onDiscard={discardChanges} onHistory={() => historyOpen = true} onPage={selectPage} onUndo={() => undo()} onRedo={() => undo(true)} onReview={() => showPublishReview = true} {onDone} {onSettings} />
   {#if snapshot && selectedPage && canvasEditing}
     <section class:sheet-open={editorOpen || libraryOpen} class="section-edit-page" aria-label={`${selectedPage.title} section editor`}>
       {#if editorOpen || libraryOpen}<header class="sheet-heading"><strong>{selectedSource ? selectedSource.label : selectedComponent?.label || 'Edit section'}</strong><button type="button" on:click={() => { closeEditor(); libraryOpen = false; }}>Done</button></header>{/if}
@@ -512,6 +541,7 @@
           <button type="button" class="source-back" on:click={() => selectedSourceId = ''}>Back to section</button>
           <SharedSectionEditor sources={[selectedSource]} componentType={selectedComponent.type} busy={state !== 'ready'} onChange={changeSharedSource} />
         {:else}
+        {#if linkedPages.length}<p class="px-5 pt-3 text-sm text-gray-600">Text edits also update this section on {linkedPages.join(', ')}.</p>{/if}
         <ComponentEditor sectionMode textOnly component={selectedComponent} definition={selectedDefinition} {publishedComponent} adding={Boolean(addingComponent)} busy={state !== 'ready'} onChange={changeField} onFieldFocus={focusPreviewField} onToggleVisibility={toggleVisibility} onRemove={() => removeSelected()} onConfirmAdd={confirmAdd} onCancel={closeEditor} />
         {#each selectedSources.filter((source) => source.kind === 'event' || selectedComponent?.type !== 'schedule_section') as source (`${source.kind}:${source.id}`)}
           <button type="button" class="source-choice" on:click={() => selectedSourceId = `${source.kind}:${source.id}`}>Edit {source.kind === 'event' ? 'event information' : 'team & coach information'} · {source.label}</button>
@@ -544,7 +574,7 @@
         <button type="button" class="crm-ui-button-secondary" on:click={() => historyOpen = true}>History</button>
         <button type="button" class="crm-ui-button-secondary" disabled={!dirty || state === 'publishing'} on:click={discardChanges}>Discard</button>
       {/if}
-      <button type="button" class="crm-ui-button-primary" disabled={!dirty || issues.length > 0 || state === 'publishing' || (externalCanvas && !previewSynced)} on:click={() => showPublishReview = true}>{state === 'publishing' ? 'Publishing…' : 'Publish components'}</button>
+      <StatusButton type="button" class="crm-ui-studio-publish" state={state === 'publishing' ? 'loading' : 'idle'} disabled={!canReview} idleText="Review changes" loadingText="Publishing…" on:click={() => showPublishReview = true} />
     </div>
   </div>
 

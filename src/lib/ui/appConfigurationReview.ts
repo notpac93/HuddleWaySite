@@ -13,21 +13,21 @@ export function describeAppConfigurationChanges(
   before: CrmAppConfiguration | null,
   after: CrmAppConfiguration,
 ) {
-  if (!before) return ['Initialize the family app configuration.', `App appearance: ${after.appStyle || 'system'}`];
+  if (!before) return [`Set up the family app as “${after.name.trim()}”`, `Appearance · ${after.appStyle || 'system'}`];
   const changes: string[] = [];
   if (JSON.stringify(normalizeGlassAppearance(before.glassAppearance)) !== JSON.stringify(normalizeGlassAppearance(after.glassAppearance))) {
-    changes.push(`Glass appearance: ${normalizeGlassAppearance(after.glassAppearance).style}. Photos retain their original colors.`);
+    changes.push(`Glass appearance · ${normalizeGlassAppearance(after.glassAppearance).style}`);
   }
   if ((before.appStyle || 'system') !== (after.appStyle || 'system')) {
-    changes.push(`App appearance: ${before.appStyle || 'system'} → ${after.appStyle || 'system'}`);
+    changes.push(`Appearance · ${after.appStyle || 'system'}`);
   }
   if (before.name.trim() !== after.name.trim()) {
-    changes.push(`App name: “${before.name}” → “${after.name}”`);
+    changes.push(`App name · “${after.name.trim()}”`);
   }
   for (const role of ['primaryColor', 'secondaryColor', 'tertiaryColor'] as const) {
     if (normalizedHex(before[role]) !== normalizedHex(after[role])) {
       const label = role.replace('Color', '').replace(/^./, (value) => value.toUpperCase());
-      changes.push(`${label} color: ${before[role]} → ${after[role]}`);
+      changes.push(`${label} color · ${after[role]}`);
     }
   }
   if (before.logoUrl !== after.logoUrl) changes.push('Replace the family app logo.');
@@ -39,7 +39,7 @@ export function describeAppConfigurationChanges(
       continue;
     }
     if (previous.label.trim() !== tab.label.trim()) {
-      changes.push(`${previous.label} tab label: “${previous.label}” → “${tab.label}”`);
+      changes.push(`Rename a tab to “${tab.label}”`);
     }
     if (previous.enabled !== tab.enabled) {
       changes.push(`${tab.enabled ? 'Show' : 'Hide'} ${tab.label} in the family app.`);

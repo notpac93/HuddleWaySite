@@ -121,6 +121,34 @@ function layoutSnapshot() {
 }
 
 describe("ComponentsStudio", () => {
+  it('reviews and publishes a one-character shared Hero edit with the new text and affected pages', async () => {
+    const data = snapshot();
+    const home = data.pages[0];
+    data.pages.push({ ...home, id: 'events', route: '/events', title: 'Events', components: structuredClone(home.components) });
+    api.componentStudio.mockResolvedValue(data);
+    const onPageDraftChange = vi.fn();
+    render(TestedComponentsStudio, {
+      tenantId: 'tenant-a', configuration, configurationReady: true, organizationName: 'HuddleWay Demo',
+      previewOrigin: 'https://preview.example.test', previewEnvironment: 'stage', canvasOnly: true,
+      canvasEditing: true, externalCanvas: true, previewSynced: false, onPageDraftChange,
+    });
+    const input = await screen.findByLabelText('Main title');
+    await fireEvent.input(input, { target: { value: 'Welcome familiesy' } });
+    expect(onPageDraftChange.mock.lastCall?.[0].components[0].content.headline).toBe('Welcome familiesy');
+    await fireEvent.click(screen.getByRole('button', { name: 'Review changes' }));
+    const dialog = screen.getByRole('dialog', { name: 'Publish app changes?' });
+    expect(dialog).toHaveTextContent('HuddleWay Demo');
+    expect(dialog).toHaveTextContent('Home, Events · Home Hero · Headline · “Welcome familiesy”');
+    expect(dialog).toHaveTextContent('preview hasn’t caught up');
+    expect(api.publishPageLayout).not.toHaveBeenCalled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Publish changes' }));
+    await waitFor(() => expect(api.publishPageLayout).toHaveBeenCalledOnce());
+    const [tenant, payload] = api.publishPageLayout.mock.calls[0];
+    expect(tenant).toBe('tenant-a');
+    expect(payload.pages.map((page: CrmComponentStudioSnapshot['pages'][number]) => page.components[0].content.headline))
+      .toEqual(['Welcome familiesy', 'Welcome familiesy']);
+  });
+
   it('sends the edited hero button to the preview without warning about published copy', async () => {
     const data = snapshot();
     data.definitions[0].fields.push(
@@ -148,8 +176,8 @@ describe("ComponentsStudio", () => {
     expect(onPageDraftChange.mock.lastCall?.[0].components[0].content).toMatchObject({
       ctaLabel: 'Join the program', showCtaButton: true,
     });
-    await fireEvent.click(screen.getByRole('button', { name: 'Review' }));
-    await fireEvent.click(screen.getByRole('button', { name: 'Publish all changes' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Review changes' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Publish changes' }));
     await waitFor(() => expect(api.publishPageLayout).toHaveBeenCalledOnce());
     expect(api.publishPageLayout.mock.calls[0][0]).toBe('tenant-a');
     expect(api.publishPageLayout.mock.calls[0][1].pages[0].components[0].content).toMatchObject({
@@ -181,10 +209,10 @@ describe("ComponentsStudio", () => {
     await fireEvent.click(screen.getByText('Edit event information · Weekly training'));
     expect(screen.getByLabelText('Event location')).toHaveValue('North field');
     await fireEvent.input(screen.getByLabelText('Event location'), { target: { value: 'East field' } });
-    await fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Review changes' }));
     expect(screen.queryByRole('checkbox')).toBeNull();
     expect(screen.getByText(/includes the recurring event/)).toBeVisible();
-    await fireEvent.click(screen.getByRole('button', { name: 'Publish all changes' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Publish changes' }));
     await waitFor(() => expect(api.publishPageLayout).toHaveBeenCalledOnce());
     const payload = api.publishPageLayout.mock.calls[0][1];
     expect(payload.pages[0].components[0].content.headline).toBe('Home change kept');
@@ -268,9 +296,11 @@ describe("ComponentsStudio", () => {
     await act(() => editor.handleCanvasAction({ ...target, action: 'text-begin' }));
     await act(() => editor.handleCanvasAction({ ...target, action: 'text-change', value: 'Changed on canvas' }));
     expect(onPageDraftChange.mock.calls.at(-1)![0].components[0].content.headline).toBe('Changed on canvas');
-    expect(screen.getByRole('button', { name: 'Review' })).toBeDisabled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Review changes' }));
+    expect(screen.getByRole('button', { name: 'Publish changes' })).toBeDisabled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Back to editing' }));
     await act(() => editor.handleCanvasAction({ ...target, action: 'text-end' }));
-    expect(screen.getByRole('button', { name: 'Review' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Review changes' })).toBeEnabled();
     await act(() => editor.handleCanvasAction({ pageId: 'home_page', componentId: 'about_1', action: 'remove' }));
     expect(onPageDraftChange.mock.calls.at(-1)![0].components).toHaveLength(1);
     await fireEvent.click(screen.getAllByRole('button', { name: 'Undo Page Edits' })[0]);
@@ -327,9 +357,9 @@ describe("ComponentsStudio", () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Add to page' }));
     expect(screen.getByText('Unpublished component changes')).toBeVisible();
     await view.rerender({ previewSynced: false });
-    expect(screen.getByRole('button', { name: 'Publish components' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Review changes' })).toBeEnabled();
     await view.rerender({ previewSynced: true });
-    expect(screen.getByRole('button', { name: 'Publish components' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Review changes' })).toBeEnabled();
     await fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
     expect(onPageDraftChange.mock.calls.at(-1)![0].components).toHaveLength(2);
     await fireEvent.click(screen.getByRole('button', { name: 'Redo' }));
@@ -347,8 +377,8 @@ describe("ComponentsStudio", () => {
     expect(screen.queryByRole('button', { name: 'Move Home Hero up' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Move About Program up' })).toBeDisabled();
     await fireEvent.change(screen.getByRole('combobox', { name: 'Move Staff to' }), { target: { value: 'about_1' } });
-    await fireEvent.click(screen.getByRole('button', { name: 'Publish components' }));
-        await fireEvent.click(screen.getByRole('button', { name: 'Publish all changes' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Review changes' }));
+        await fireEvent.click(screen.getByRole('button', { name: 'Publish changes' }));
     await waitFor(() => expect(api.publishPageLayout).toHaveBeenCalled());
     expect(api.publishPageLayout.mock.calls[0][1].pages[0].components.map((item: { id: string }) => item.id))
       .toEqual(['home_hero_1', 'staff_1', 'about_1']);
@@ -361,8 +391,8 @@ describe("ComponentsStudio", () => {
     renderStudio();
     await screen.findByLabelText('Headline');
     await fireEvent.input(screen.getByLabelText('Headline'), { target: { value: 'Keep my draft' } });
-    await fireEvent.click(screen.getByRole('button', { name: 'Publish components' }));
-        await fireEvent.click(screen.getByRole('button', { name: 'Publish all changes' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Review changes' }));
+        await fireEvent.click(screen.getByRole('button', { name: 'Publish changes' }));
     await screen.findByText(/Your draft is retained/);
     expect(screen.getByLabelText('Headline')).toHaveValue('Keep my draft');
     expect(api.publishPageLayout).not.toHaveBeenCalled();
@@ -400,7 +430,7 @@ describe("ComponentsStudio", () => {
     });
     expect(screen.getByText("Unpublished component changes")).toBeVisible();
     expect(
-      screen.getByRole("button", { name: "Publish components" }),
+      screen.getByRole("button", { name: "Review changes" }),
     ).toBeEnabled();
   });
 
@@ -417,7 +447,7 @@ describe("ComponentsStudio", () => {
     const newFrame = await screen.findByTitle("Home Hero isolated consumer preview");
     expect(newFrame).not.toBe(oldFrame);
     expect(newFrame.getAttribute('src')).not.toBe(oldSource);
-    expect(screen.getByRole("button", { name: "Publish components" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Review changes" })).toBeEnabled();
     expect(api.componentStudio).toHaveBeenCalledTimes(1);
     expect(api.publishPageLayout).not.toHaveBeenCalled();
   });
@@ -461,9 +491,9 @@ describe("ComponentsStudio", () => {
       target: { value: "Updated welcome" },
     });
     await fireEvent.click(
-      screen.getByRole("button", { name: "Publish components" }),
+      screen.getByRole("button", { name: "Review changes" }),
     );
-        await fireEvent.click(screen.getByRole("button", { name: "Publish all changes" }));
+        await fireEvent.click(screen.getByRole("button", { name: "Publish changes" }));
     await waitFor(() =>
       expect(api.publishPageLayout).toHaveBeenCalledWith(
         "tenant-a",

@@ -254,15 +254,12 @@ function dispatchPreviewResponse(
   }));
 }
 
-async function reviewAndPublish(buttonName: 'Publish App' | 'Retry Publish' = 'Publish App') {
-  await fireEvent.click(screen.getByRole('button', { name: buttonName }));
-  const review = await screen.findByRole('dialog', { name: 'Review family app publication' });
-  expect(within(review).getByRole('list').children.length).toBeGreaterThan(0);
+async function reviewAndPublish() {
+  await fireEvent.click(screen.getByRole('button', { name: 'Review changes' }));
+  const review = await screen.findByRole('dialog', { name: 'Publish app changes?' });
+  expect(within(review).getByRole('list', { name: 'Changes families will see' }).children.length).toBeGreaterThan(0);
   expect(within(review).queryByText(/No publishable changes were detected/)).toBeNull();
-  await fireEvent.click(screen.getByRole('checkbox', {
-    name: /I confirm these changes should be published/,
-  }));
-  await fireEvent.click(screen.getByRole('button', { name: 'Confirm and publish' }));
+  await fireEvent.click(screen.getByRole('button', { name: 'Publish changes' }));
   return review;
 }
 
@@ -412,7 +409,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     await screen.findByTitle('Alpha League mobile app preview');
     await waitFor(() => expect(get(portalDraftStore)).toBeNull());
     await openAppearanceSettings();
-    expect(screen.getByRole('button', { name: 'Publish App' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Review changes' })).toBeDisabled();
     await fireEvent.click(screen.getByRole('button', { name: 'Pages' }));
     expect(screen.getByText('3 of 5 active')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Add Teams tab' })).toBeVisible();
@@ -536,8 +533,8 @@ describe('MyAppStudio tenant preview isolation', () => {
     await fireEvent.change(await screen.findByLabelText('App appearance'), { target: { value: 'light' } });
     await reviewAndPublish();
     await screen.findByText(/family app update is still pending/i);
-    expect(screen.getByRole('button', { name: 'Retry Publish' })).toBeEnabled();
-    await reviewAndPublish('Retry Publish');
+    expect(screen.getByRole('button', { name: 'Review changes' })).toBeEnabled();
+    await reviewAndPublish();
     await waitFor(() => expect(appMocks.publishAppConfiguration).toHaveBeenCalledTimes(2));
   });
 
@@ -644,7 +641,7 @@ describe('MyAppStudio tenant preview isolation', () => {
         },
       },
     });
-    expect(screen.getByRole('button', { name: 'Publish App' }).getAttribute('style') || '')
+    expect(screen.getByRole('button', { name: 'Review changes' }).getAttribute('style') || '')
       .not.toContain('#ABCDEF');
     expect(screen.getByLabelText('Primary brand color hex value').getAttribute('style') || '')
       .not.toContain('#ABCDEF');
@@ -670,7 +667,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     await fireEvent.click(await screen.findByRole('button', { name: 'Pages' }));
     expect(screen.getByText('5 of 5 active')).toBeVisible();
     expect(screen.getByRole('alert')).toHaveTextContent('preserved retired Events setting still uses 1 stored configuration slot');
-    expect(screen.getByRole('button', { name: 'Publish App' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Review changes' })).toBeDisabled();
     await hideTab('Staff');
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.getByText('4 of 5 active')).toBeVisible();
@@ -762,7 +759,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     expect(screen.queryByRole('heading', { name: 'Events' })).toBeNull();
     expect(screen.queryByLabelText('Tab name for Events')).toBeNull();
     expect(screen.getByText('4 of 5 active')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Publish App' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Review changes' })).toBeDisabled();
   });
 
   it('blocks publication when more than five app tabs are active', async () => {
@@ -788,11 +785,11 @@ describe('MyAppStudio tenant preview isolation', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       'The app can show up to five tabs.',
     );
-    expect(screen.getByRole('button', { name: 'Publish App' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Review changes' })).toBeDisabled();
 
     await hideTab('Staff');
     expect(screen.getByText('5 of 5 active')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Publish App' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Review changes' })).toBeEnabled();
   });
 
   it('adds a published page by drag, reviews its order, and publishes only to the selected tenant', async () => {
@@ -825,11 +822,12 @@ describe('MyAppStudio tenant preview isolation', () => {
     await fireEvent.dragStart(source, { dataTransfer });
     await fireEvent.dragOver(target, { dataTransfer });
     await fireEvent.drop(target, { dataTransfer });
-    await fireEvent.click(screen.getByRole('button', { name: 'Publish App' }));
-    const dialog = screen.getByRole('dialog', { name: 'Review family app publication' });
-    expect(within(dialog).getByText(/After publishing/).parentElement).toHaveTextContent('Resources / Schedule');
-    await fireEvent.click(within(dialog).getByRole('checkbox', { name: /Beta organization/ }));
-    await fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm and publish' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Review changes' }));
+    const dialog = screen.getByRole('dialog', { name: 'Publish app changes?' });
+    expect(within(dialog).getByText('Beta organization')).toBeVisible();
+    const tabs = within(dialog).getByRole('list', { name: 'Tab order after publishing' });
+    expect(tabs).toHaveTextContent('ResourcesSchedule');
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Publish changes' }));
     await screen.findByText('App configuration published and reloaded from the server.');
     expect([...stored.keys()]).toEqual(['tenant-b']);
     const order = stored.get('tenant-b')!.filter((tab) => tab.enabled).map((tab) => tab.key);
@@ -854,7 +852,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Pages' }));
     expect(screen.queryByRole('button', { name: 'Options for Teams' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Options for Scores' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Publish App' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Review changes' })).toBeDisabled();
     for (const label of ['Teams', 'Resources', 'Staff', 'My Events', 'Account', 'Contact']) {
       expect(await screen.findByRole('button', { name: `Add ${label} tab` })).toBeEnabled();
     }
@@ -971,19 +969,16 @@ describe('MyAppStudio tenant preview isolation', () => {
     await fireEvent.input(nameInput, {
       target: { value: 'Alpha League Updated' },
     });
-    const publish = screen.getByRole('button', { name: 'Publish App' });
+    const publish = screen.getByRole('button', { name: 'Review changes' });
     await fireEvent.click(publish);
     expect(appMocks.publishAppConfiguration).not.toHaveBeenCalled();
-    await fireEvent.click(screen.getByRole('checkbox', {
-      name: /I confirm these changes should be published/,
-    }));
-    await fireEvent.click(screen.getByRole('button', { name: 'Confirm and publish' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Publish changes' }));
 
     expect(appMocks.publishAppConfiguration).toHaveBeenCalledTimes(1);
     expect(nameInput).toBeDisabled();
     expect(screen.getByLabelText('Primary brand color')).toBeDisabled();
     expect(
-      screen.getByRole('button', { name: 'Publishing...' }),
+      screen.getByRole('button', { name: 'Publishing…' }),
     ).toBeDisabled();
     pending.resolve();
 
@@ -1053,7 +1048,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     expect(alert).not.toHaveTextContent('publish-support-8');
     expect(alert).not.toHaveTextContent('raw provider detail');
 
-    await reviewAndPublish('Retry Publish');
+    await reviewAndPublish();
     await screen.findByText(
       'App configuration published and reloaded from the server.',
     );
@@ -1088,7 +1083,7 @@ describe('MyAppStudio tenant preview isolation', () => {
     pending.resolve(publishResult());
     await pending.promise;
     expect(screen.getByLabelText('App Name')).toHaveValue('Beta League');
-    expect(screen.getByRole('button', { name: 'Publish App' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Review changes' })).toBeDisabled();
   });
 
   it('loads a prior published version as an unpublished rollback draft', async () => {
@@ -1119,6 +1114,6 @@ describe('MyAppStudio tenant preview isolation', () => {
     expect(screen.getByText(
       /Version 2 is loaded as an unpublished rollback draft/,
     )).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Publish App' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Review changes' })).toBeEnabled();
   });
 });

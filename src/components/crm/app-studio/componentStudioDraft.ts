@@ -104,41 +104,38 @@ export function validatePages(
     definitions.map((definition) => [definition.id, definition]),
   );
   const issues: ComponentIssue[] = [];
-  const instanceIds = new Set<string>();
+  const baselineByPage = new Map(baseline.map((page) => [page.id, page]));
+  const instancePages = new Map<string, string>();
   for (const page of pages) {
+    const pageIds = new Set<string>();
+    const priorPage = baselineByPage.get(page.id);
     const heroes = page.components.filter((component) => component.type === 'hero_section');
-    if (heroes.length && (heroes.length > 1 || page.components[0]?.type !== 'hero_section' ||
-        !heroes[0].enabled || !heroes[0].isVisible)) {
+    if ((!heroes.length && priorPage?.components.some((item) => item.type === 'hero_section')) ||
+        (heroes.length && (heroes.length > 1 || page.components[0]?.type !== 'hero_section' ||
+        !heroes[0].enabled || !heroes[0].isVisible))) {
       issues.push({ fieldId: '', message: `${page.title}: keep one visible hero pinned first.` });
     }
-    let heroCount = 0;
     for (const component of page.components) {
-      if (instanceIds.has(component.id)) {
+      const firstPage = instancePages.get(component.id);
+      const prior = priorPage?.components.find((item) => item.id === component.id);
+      const shared = firstPage && prior &&
+        baselineByPage.get(firstPage)?.components.some((item) => item.id === component.id);
+      if (pageIds.has(component.id) || (firstPage && !shared)) {
         issues.push({
           fieldId: "",
-          message: `Component ID ${component.id} is duplicated.`,
+          message: `${page.title}: ${component.label} has a duplicate section reference.`,
         });
       }
-      instanceIds.add(component.id);
-      if (
-        component.type === "hero_section" &&
-        component.enabled &&
-        component.isVisible
-      )
-        heroCount += 1;
-      const prior = baseline.flatMap((page) => page.components).find((item) => item.id === component.id);
+      pageIds.add(component.id);
+      if (!firstPage) instancePages.set(component.id, page.id);
       issues.push(
         ...validateComponent(
           component,
           definitionsById.get(component.definitionId),
-        ).filter((issue) => !prior || !issue.fieldId || JSON.stringify(component.content[issue.fieldId]) !== JSON.stringify(prior.content[issue.fieldId])),
+        ).filter((issue) => !prior || (issue.fieldId
+          ? JSON.stringify(component.content[issue.fieldId]) !== JSON.stringify(prior.content[issue.fieldId])
+          : JSON.stringify(component.content) !== JSON.stringify(prior.content))),
       );
-    }
-    if (heroCount > 1) {
-      issues.push({
-        fieldId: "",
-        message: `${page.title} can contain only one visible hero.`,
-      });
     }
   }
   return issues;
@@ -192,7 +189,7 @@ export function publishPayload(
     expectedVersionToken: snapshot.versionToken,
     pages,
     stalePageIds: [],
-    staleComponentIds: snapshot.pages
+    staleComponentIds: [...new Set(snapshot.pages
       .flatMap((page) => page.components)
       .filter(
         (published) =>
@@ -200,41 +197,89 @@ export function publishPayload(
             page.components.some((draft) => draft.id === published.id),
           ),
       )
-      .map((component) => component.id),
+      .map((component) => component.id))],
   };
+}
+
+function reviewFieldValue(value: unknown, previous: unknown): string {
+  if (typeof value === 'string') return value.trim() ? `“${value}”` : 'Removed';
+  if (Array.isArray(value)) {
+    const prior = new Set(Array.isArray(previous) ? previous.map((item) => JSON.stringify(item)) : []);
+    const names = value.filter((item) => !prior.has(JSON.stringify(item))).flatMap((item) => {
+      if (typeof item === 'string') return [item];
+      if (!item || typeof item !== 'object') return [];
+      const label = item.title ?? item.name ?? item.label;
+      return typeof label === 'string' && label.trim() ? [label] : [];
+    });
+    const count = `${value.length} ${value.length === 1 ? 'item' : 'items'}`;
+    return names.length ? `${count} · ${names.slice(0, 3).join(', ')}` : count;
+  }
+  if (typeof value === 'boolean') return value ? 'On' : 'Off';
+  if (typeof value === 'number') return String(value);
+  return value == null ? 'Removed' : 'Updated';
 }
 
 export function componentChangeSummary(
   before: CrmComponentStudioPage[],
   after: CrmComponentStudioPage[],
+  definitions: CrmComponentDefinition[] = [],
 ) {
   const changes: string[] = [];
+  const fieldChanges = new Map<string, { pageTitles: Set<string>; detail: string }>();
   const beforeById = new Map(before.map((page) => [page.id, page]));
   for (const page of after) {
     const priorPage = beforeById.get(page.id);
+    if (!priorPage) changes.push(`Add the ${page.title} page`);
+    else {
+      if (priorPage.title !== page.title) changes.push(`Page name · “${page.title}”`);
+      if (priorPage.isVisible !== page.isVisible) changes.push(`${page.isVisible ? 'Show' : 'Hide'} the ${page.title} page`);
+      for (const [key, label] of [['headline', 'Page headline'], ['subheader', 'Page subheader'], ['route', 'Page destination']] as const) {
+        if (priorPage[key] !== page[key]) changes.push(`${page.title} · ${label} · ${page[key] || 'Removed'}`);
+      }
+    }
     const priorComponents = new Map((priorPage?.components || []).map((component) => [component.id, component]));
     const nextIds = new Set(page.components.map((component) => component.id));
+    const previousOrder = (priorPage?.components || []).filter((component) => nextIds.has(component.id)).map(({ id }) => id);
+    const nextOrder = page.components.filter((component) => priorComponents.has(component.id)).map(({ id }) => id);
+    if (previousOrder.some((id, index) => id !== nextOrder[index])) {
+      changes.push(`${page.title} · Section order · ${page.components.map(({ label }) => label).join(' / ')}`);
+    }
     for (const component of page.components) {
       const prior = priorComponents.get(component.id);
       if (!prior) {
-        changes.push(`${page.title}: add ${component.label}`);
+        changes.push(`${page.title} · Add ${component.label}`);
         continue;
       }
-      const beforeVisible = prior.enabled && prior.isVisible;
-      const afterVisible = component.enabled && component.isVisible;
+      const beforeVisible = prior.enabled && prior.isVisible && prior.content.hideSection !== true;
+      const afterVisible = component.enabled && component.isVisible && component.content.hideSection !== true;
       if (beforeVisible !== afterVisible) {
-        changes.push(`${page.title}: ${afterVisible ? 'show' : 'hide'} ${component.label}`);
+        changes.push(`${page.title} · ${afterVisible ? 'Show' : 'Hide'} ${component.label}`);
       }
-      if (JSON.stringify(prior.content) !== JSON.stringify(component.content)) {
-        changes.push(`${page.title}: update ${component.label} content`);
+      const publishedContent = { ...prior.content };
+      const editedContent = { ...component.content };
+      delete publishedContent.hideSection;
+      delete editedContent.hideSection;
+      if (publishedContent.ctaLabel !== editedContent.ctaLabel) {
+        delete publishedContent.showCtaButton;
+        delete editedContent.showCtaButton;
       }
-      const beforeIndex = priorPage?.components.findIndex((candidate) => candidate.id === component.id) ?? -1;
-      const afterIndex = page.components.findIndex((candidate) => candidate.id === component.id);
-      if (beforeIndex !== afterIndex) changes.push(`${page.title}: move ${component.label} to position ${afterIndex + 1}`);
+      if (JSON.stringify(publishedContent) !== JSON.stringify(editedContent)) {
+        const fields = definitions.find(({ id }) => id === component.definitionId)?.fields || [];
+        const changed = fields.filter(({ id }) => JSON.stringify(publishedContent[id]) !== JSON.stringify(editedContent[id]));
+        for (const field of changed) {
+          const detail = reviewFieldValue(component.content[field.id], prior.content[field.id]);
+          const key = JSON.stringify([component.id, component.label, field.id, detail]);
+          const change = fieldChanges.get(key) || { pageTitles: new Set(), detail: `${component.label} · ${field.label || fieldLabel(field.id)} · ${detail}` };
+          change.pageTitles.add(page.title);
+          fieldChanges.set(key, change);
+        }
+        if (!changed.length) changes.push(`${page.title} · ${component.label} content updated`);
+      }
     }
     for (const component of priorPage?.components || []) {
-      if (!nextIds.has(component.id)) changes.push(`${page.title}: remove ${component.label}`);
+      if (!nextIds.has(component.id)) changes.push(`${page.title} · Remove ${component.label}`);
     }
   }
+  for (const { pageTitles, detail } of fieldChanges.values()) changes.push(`${[...pageTitles].join(', ')} · ${detail}`);
   return [...new Set(changes)];
 }

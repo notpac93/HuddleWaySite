@@ -97,12 +97,11 @@ describe("component studio draft", () => {
         added,
       ],
     }];
-    expect(componentChangeSummary(before, after)).toEqual(expect.arrayContaining([
-      "Home: hide Values",
-      "Home: update Values content",
-      "Home: move Values to position 1",
-      "Home: add New section",
-      "Home: remove Story",
+    expect(componentChangeSummary(before, after, [definition])).toEqual(expect.arrayContaining([
+      "Home · Hide Values",
+      "Home · Values · Title · “Updated values”",
+      "Home · Add New section",
+      "Home · Remove Story",
     ]));
   });
 });

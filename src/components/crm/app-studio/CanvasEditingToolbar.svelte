@@ -1,12 +1,13 @@
 <script lang="ts">
   import type { CrmComponentStudioPage } from '../../../lib/api/BackendApi';
+  import StatusButton from '../ui/StatusButton.svelte';
   export let pages: CrmComponentStudioPage[];
   export let pageId: string;
   export let busy: boolean;
   export let dirty: boolean;
   export let canUndo: boolean;
   export let canRedo: boolean;
-  export let canPublish: boolean;
+  export let canReview: boolean;
   export let message = '';
   export let retryable = false;
   export let onRetry: () => void = () => {};
@@ -35,7 +36,7 @@
       <button type="button" disabled={!canManage || busy} on:click={onHistory}>Version history</button>
       <button type="button" disabled={!dirty || !canManage || busy} on:click={onDiscard}>Discard unpublished changes</button>
     </div></details>
-    {#if retryable}<button type="button" on:click={onRetry}>Retry</button>{:else}<button type="button" class="review" disabled={!canPublish} on:click={onReview}>Review</button>{/if}
+    {#if retryable}<button type="button" on:click={onRetry}>Retry</button>{:else}<StatusButton type="button" class="crm-ui-studio-publish" state={busy ? 'loading' : 'idle'} disabled={!canReview} idleText="Review changes" loadingText="Publishing…" on:click={onReview} />{/if}
     <button type="button" disabled={busy} on:click={onDone}>Done</button>
   </div>
   <p role="status">{message || (dirty ? 'Unpublished changes' : 'No unpublished changes')}</p>
@@ -54,6 +55,5 @@
   button:disabled { opacity: .45; }
   .mobile-page-undo { display: none !important; }
   @media (max-width: 767px) { .page-undo { display: none; } .mobile-page-undo { display: block !important; } button, select, summary { min-height: 44px; } }
-  .review { background: #155eef; color: white; border-color: #155eef; }
   p { margin: 4px 2px 0; color: #52657b; font-size: 11px; }
 </style>

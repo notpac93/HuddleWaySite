@@ -18,7 +18,7 @@ const reviewedControlCounts: Record<string, number> = {
   "CrmShell.svelte": 20,
   "DataTable.svelte": 13,
   "DocumentsManager.svelte": 14,
-  "EventScheduler.svelte": 21,
+  "EventScheduler.svelte": 22,
   "FinancialOperationsWorkspace.svelte": 18,
   "GlobalDashboard.svelte": 9,
   "GlobalSearch.svelte": 5,
@@ -35,22 +35,21 @@ const reviewedControlCounts: Record<string, number> = {
   "app-studio/AppStudioTools.svelte": 0,
   "app-studio/BrandingControls.svelte": 7,
   "app-studio/BrandingPanel.svelte": 1,
-  "app-studio/CanvasEditingToolbar.svelte": 11,
+  "app-studio/CanvasEditingToolbar.svelte": 10,
   "app-studio/ComponentEditor.svelte": 10,
   "app-studio/ComponentLayoutHistory.svelte": 3,
   "app-studio/ComponentLibrary.svelte": 3,
   "app-studio/ComponentOutline.svelte": 8,
   "app-studio/ComponentPlacement.svelte": 1,
-  "app-studio/ComponentPublishReview.svelte": 3,
   "app-studio/ComponentThumbnail.svelte": 0,
-  "app-studio/ComponentsStudio.svelte": 16,
+  "app-studio/ComponentsStudio.svelte": 15,
   "app-studio/GlassAppearanceControls.svelte": 4,
-  "app-studio/NavigationPanel.svelte": 10,
+  "app-studio/NavigationPanel.svelte": 13,
   "app-studio/SharedSectionEditor.svelte": 2,
   "app-studio/StructuredCollectionEditor.svelte": 7,
   "app-studio/VersionHistoryPanel.svelte": 2,
   "app/AppPreviewFrame.svelte": 1,
-  "app/AppPublishReview.svelte": 4,
+  "app/AppPublishReview.svelte": 3,
   "billing/BillingPackagesWorkspace.svelte": 21,
   "billing/EventPaymentTermsEditor.svelte": 5,
   "billing/FinancialAdministration.svelte": 30,
@@ -204,7 +203,7 @@ describe('exhaustive CRM control inventory', () => {
     );
 
     expect(actual).toEqual(reviewedControlCounts);
-    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(905);
+    expect(Object.values(actual).reduce((sum, count) => sum + count, 0)).toBe(903);
   });
 
   it('keeps every inventoried CRM component reachable from a production entry point', () => {

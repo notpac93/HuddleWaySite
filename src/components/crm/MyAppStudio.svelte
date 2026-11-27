@@ -89,6 +89,7 @@
     completeFiveTabSlots,
     configurationSignature,
     initialTabs,
+    isRetiredNavigationTab,
     portalNavigationTabs,
     validAppConfiguration,
     verifyPublishedNavigation,
@@ -230,20 +231,21 @@
   $: selectedOrganizationName = $tenantNamesStore[activeTenantId]
     || activeTenantId
     || 'the selected organization';
-  $: versionLabel = configMode === 'initialize'
-    ? 'Initial configuration'
-    : `Authoritative version ${configVersionToken.slice(0, 8)}…`;
   $: navigationDirty = Boolean(loadedConfiguration) &&
     visibleNavigationSignature(tabsConfig) !== visibleNavigationSignature(loadedConfiguration?.navigationTabs ?? []);
   $: previewRequired = allowNavigationEditing && Boolean(previewBaseUrl)
     && previewEnvironment !== 'dev' && (activeTab === 'Pages' || navigationDirty);
-  $: canPublish =
+  $: canReview =
     configLoadState === 'ready'
     && Boolean(configVersionToken)
     && configIsValid
     && (isDirty || publicationPending)
-    && (!previewRequired || layoutPreviewSynced)
     && submitState !== 'loading';
+  $: reviewBlocker = previewRequired && !layoutPreviewSynced
+    ? 'Wait for the app preview to catch up before publishing.' : '';
+  $: canPublish = canReview && !reviewBlocker;
+  $: reviewTabOrder = navigationDirty
+    ? tabsConfig.filter((tab) => tab.enabled && !isRetiredNavigationTab(tab)).map((tab) => tab.label.trim()) : [];
   $: currentAttemptSignature = JSON.stringify({
     tenantId: $tenantIdStore,
     configuration: currentConfigSignature,
@@ -610,11 +612,12 @@
   }
 
   function requestPublishReview() {
-    if (!canPublish || activeTenantId !== $tenantIdStore) return;
+    if (!canReview || activeTenantId !== $tenantIdStore) return;
     showPublishReview = true;
   }
 
   function confirmPublish() {
+    if (!canPublish) return;
     showPublishReview = false;
     void handlePublish();
   }
@@ -634,11 +637,9 @@
 {#if showPublishReview}
   <AppPublishReview
     organizationName={selectedOrganizationName}
-    previousNavigation={allowNavigationEditing ? loadedConfiguration?.navigationTabs : undefined}
-    {versionLabel}
     changes={reviewChanges}
-    configuration={currentConfiguration()}
-    busy={submitState === 'loading'}
+    tabOrder={reviewTabOrder}
+    blockedReason={reviewBlocker}
     onCancel={() => showPublishReview = false}
     onConfirm={confirmPublish}
   />
@@ -670,7 +671,7 @@
   {/if}
   </div>
   {#if componentsMounted}<div class="canvas-edit-tools" hidden={!editingComponents}>
-    <ComponentsStudio bind:this={canvasEditor} canvasOnly externalCanvas {editSessionId} canvasEditing={editingComponents} previewSynced={layoutPreviewSynced} active={active} previewActive={false} onSettings={openTools} onDone={() => $desktopDashboard ? selectStudioSection('Branding') : canvasEditing = false} onPageDraftChange={setPageDraft} tenantId={String($tenantIdStore || '')} configuration={previewConfiguration} configurationReady={configLoadState === 'ready'} previewOrigin={previewBaseUrl} {previewEnvironment} expectedSourceCommit={publicEnvironment.PUBLIC_APP_PREVIEW_COMMIT || ''} expectedReleaseId={publicEnvironment.PUBLIC_APP_PREVIEW_RELEASE_ID || ''} />
+    <ComponentsStudio bind:this={canvasEditor} canvasOnly externalCanvas {editSessionId} canvasEditing={editingComponents} previewSynced={layoutPreviewSynced} active={active} previewActive={false} organizationName={selectedOrganizationName} onSettings={openTools} onDone={() => $desktopDashboard ? selectStudioSection('Branding') : canvasEditing = false} onPageDraftChange={setPageDraft} tenantId={String($tenantIdStore || '')} configuration={previewConfiguration} configurationReady={configLoadState === 'ready'} previewOrigin={previewBaseUrl} {previewEnvironment} expectedSourceCommit={publicEnvironment.PUBLIC_APP_PREVIEW_COMMIT || ''} expectedReleaseId={publicEnvironment.PUBLIC_APP_PREVIEW_RELEASE_ID || ''} />
   </div>{/if}
   {#if active && !$desktopDashboard && !showTools && !canvasEditing}<div class="canvas-tools"><button type="button" aria-label="Edit" on:click={editOnCanvas}><Icon name="myApp" size={18} />Edit{#if isDirty}<span class="draft-dot" aria-label="Unpublished changes"></span>{/if}</button></div>{/if}
 </div>
@@ -691,7 +692,7 @@
             {:else if previewRequired && !layoutPreviewSynced}Updating preview…
             {:else}Ready for review.{/if}
           </span>
-          <StatusButton type="button" state={submitState} on:click={requestPublishReview} disabled={!canPublish} idleText={previewRequired ? 'Review changes' : 'Publish App'} loadingText="Publishing..." successText="Published" errorText="Retry Publish" class="crm-ui-studio-publish" />
+          <StatusButton type="button" state={submitState} on:click={requestPublishReview} disabled={!canReview} idleText="Review changes" loadingText="Publishing…" successText="Published" errorText="Review changes" class="crm-ui-studio-publish" />
         </div>
     </header>
 
