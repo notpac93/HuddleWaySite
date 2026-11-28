@@ -300,7 +300,7 @@
   <div class="crm-ui-modal-root" role="dialog" aria-modal="true" aria-labelledby="delete-team-title">
     <button type="button" class="crm-ui-backdrop" aria-label="Cancel team deletion" tabindex="-1" disabled={deleteState === 'loading'} on:click={cancelDelete}></button>
     <span class="crm-ui-modal-spacer" aria-hidden="true">&#8203;</span>
-    <div class="relative z-10 inline-block w-full max-w-md overflow-hidden rounded-lg bg-white text-left align-bottom shadow-xl sm:my-8 sm:align-middle" tabindex="-1" use:modalFocus={{ onEscape: cancelDelete }}>
+    <div class="relative z-10 inline-block w-full max-w-md overflow-hidden rounded-lg crm-modal-surface text-left align-bottom shadow-xl sm:my-8 sm:align-middle" tabindex="-1" use:modalFocus={{ onEscape: cancelDelete }}>
       <div class="px-6 pb-4 pt-5">
         <h3 id="delete-team-title" class="text-lg font-semibold text-gray-900">Delete {pendingDeleteTeam.name}?</h3>
         <p class="mt-2 text-sm text-gray-600">Permanent deletion is intended for teams created in error. The team page will be removed, linked events and messages will be archived, and seasons will be detached while their history remains.</p>

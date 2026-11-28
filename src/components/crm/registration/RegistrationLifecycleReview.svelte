@@ -76,7 +76,7 @@
 <div class="crm-ui-modal-root" role="dialog" aria-modal="true" aria-labelledby="registration-lifecycle-title">
   <button type="button" class="crm-ui-backdrop" aria-label={`Cancel ${actionLabel.toLowerCase()}`} tabindex="-1" disabled={state === 'loading'} on:click={onCancel}></button>
   <span class="crm-ui-modal-spacer" aria-hidden="true">&#8203;</span>
-  <div class="relative z-10 inline-block max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto rounded-lg bg-white text-left align-bottom shadow-xl sm:my-8 sm:align-middle" tabindex="-1" use:modalFocus={{ onEscape: onCancel }}>
+  <div class="relative z-10 inline-block max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto rounded-lg crm-modal-surface text-left align-bottom shadow-xl sm:my-8 sm:align-middle" tabindex="-1" use:modalFocus={{ onEscape: onCancel }}>
     <header class="border-b border-gray-200 p-6">
       <h2 id="registration-lifecycle-title" class="text-xl font-semibold text-gray-950">{actionLabel}: {form.name || form.title}</h2>
       <p class="mt-1 text-sm text-gray-600">Review the event impact and historical-data behavior before changing availability.</p>

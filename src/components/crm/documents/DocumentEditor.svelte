@@ -98,8 +98,8 @@
 
 <div class="crm-ui-modal-root" role="dialog" aria-modal="true" aria-labelledby="document-editor-title">
   <div class="flex min-h-full items-center justify-center p-4">
-    <button type="button" class="fixed inset-0 z-0 h-full w-full bg-slate-950/70" aria-label="Close document editor" disabled={stage === 'saving'} on:click={() => dispatch('close')}></button>
-    <div class="relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl" tabindex="-1" use:modalFocus={{ onEscape: () => stage !== 'saving' && dispatch('close'), initialFocusSelector: 'input' }}>
+    <button type="button" class="crm-ui-backdrop" aria-label="Close document editor" disabled={stage === 'saving'} on:click={() => dispatch('close')}></button>
+    <div class="relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl crm-modal-surface p-6 shadow-xl" tabindex="-1" use:modalFocus={{ onEscape: () => stage !== 'saving' && dispatch('close'), initialFocusSelector: 'input' }}>
       <h3 id="document-editor-title" class="text-lg font-semibold text-gray-900">{record ? 'Edit document' : 'Upload document'}</h3>
       <p class="mt-1 text-sm text-gray-600">Set the library metadata and audience, then review the complete change before it is saved.</p>
 

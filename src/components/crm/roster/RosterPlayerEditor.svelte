@@ -99,8 +99,8 @@
 
 <style>
   .editor{--roster-line:color-mix(in srgb,var(--crm-brand-primary,#003366) 14%,white);--roster-tint:color-mix(in srgb,var(--crm-brand-primary,#003366) 4%,white)}
-  .editor-backdrop{position:fixed;inset:0;z-index:60;display:flex;align-items:flex-end;justify-content:center;background:rgb(8 25 46 / .4);padding-top:env(safe-area-inset-top)}
-  .editor{width:100%;max-width:440px;max-height:100%;overflow:auto;border-radius:22px 22px 0 0;background:var(--crm-surface,#fff);color:var(--crm-text,#172033);padding:14px 18px max(18px,env(safe-area-inset-bottom));box-shadow:0 -8px 28px rgb(8 25 46 / .12)}
+  .editor-backdrop{position:fixed;inset:0;z-index:60;display:flex;align-items:flex-end;justify-content:center;background:var(--crm-modal-scrim,rgb(8 25 46 / .4));padding-top:env(safe-area-inset-top)}
+  .editor{width:100%;max-width:440px;max-height:100%;overflow:auto;border-radius:22px 22px 0 0;background:var(--crm-modal-surface,#fff);color:var(--crm-text,#172033);padding:14px 18px max(18px,env(safe-area-inset-bottom));box-shadow:0 -8px 28px rgb(8 25 46 / .12)}
   header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}h2{font-size:18px;font-weight:700;margin:0}.icon-button{display:grid;place-items:center;min-width:44px;min-height:44px;border:0;background:transparent}
   .editor-tabs,.assignment-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;padding:4px;background:var(--roster-tint);border-radius:10px;margin-bottom:16px}
   .assignment-actions{grid-template-columns:repeat(3,minmax(0,1fr));margin:12px 0}

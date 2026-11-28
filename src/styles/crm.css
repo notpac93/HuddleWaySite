@@ -1,7 +1,7 @@
 @import "tailwindcss" source(none);
 @config "../../tailwind.config.mjs";
 
-.crm-theme-default-host,
+.crm-theme-default-host:not(:where(.crm-ui-shell-root *)),
 .crm-auth-shell:not(.crm-workspace-backdrop),
 .crm-ui-shell-root {
   --crm-brand-primary: #003366;
@@ -25,6 +25,22 @@
   --crm-on-sidebar-muted: #C4CDDA;
   --crm-on-sidebar-active: #000000;
   --crm-sidebar-icon: #FFFFFF;
+}
+
+.crm-ui-shell-root {
+  --crm-modal-surface: color-mix(in srgb, var(--crm-brand-primary) 8%, white);
+  --crm-modal-scrim: color-mix(in srgb, var(--crm-workspace-background, #082554) 58%, transparent);
+}
+
+.crm-modal-scrim {
+  background-color: var(--crm-modal-scrim, rgb(3 15 40 / 52%));
+}
+
+.crm-modal-surface,
+:is(.crm-ui-modal-centered-panel, .crm-ui-modal-panel-lg, .crm-ui-shell-logout-panel, .crm-ui-modal-body,
+  .crm-ui-event-duplicate-panel, .crm-ui-message-modal-md),
+.crm-auth-card:is(.crm-message-dialog, .staff-access-dialog, .staff-invite-card) {
+  background-color: var(--crm-modal-surface, #fff);
 }
 
 .crm-auth-shell {
@@ -88,10 +104,16 @@
 .crm-auth-brand-mark {
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 1.7rem;
-  background: rgba(255, 255, 255, 0.14);
+  background: #fff;
   padding: 0.55rem;
   box-shadow: 0 18px 45px rgba(3, 15, 40, 0.28);
   backdrop-filter: blur(14px);
+}
+
+.crm-logo-badge {
+  background: #fff;
+  border-radius: .5rem;
+  padding: .125rem;
 }
 
 .crm-auth-card {
@@ -285,7 +307,7 @@
   .crm-ui-th-blue { @apply px-4 py-3 text-left text-xs font-bold text-[var(--crm-brand-link)] tracking-wider; }
   .crm-ui-label-caps { @apply block text-xs font-semibold uppercase tracking-wider text-gray-700 mb-1; }
   .crm-ui-checkbox { @apply mt-1 h-4 w-4 text-[var(--crm-brand-link)] focus:ring-[var(--crm-brand-focus)] border-gray-300 rounded; }
-  .crm-ui-backdrop { @apply fixed inset-0 z-0 h-full w-full bg-gray-500/75 transition-opacity; }
+  .crm-ui-backdrop { @apply fixed inset-0 z-0 h-full w-full transition-opacity; background-color: var(--crm-modal-scrim, rgb(3 15 40 / 52%)); }
   .crm-ui-input-indigo { @apply mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-focus)] sm:text-sm; }
   .crm-ui-modal-shell { @apply flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0; }
   .crm-ui-select-teal { @apply w-full text-sm border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-[var(--crm-brand-focus)] focus:border-[var(--crm-brand-border)]; }
@@ -453,7 +475,7 @@
   .crm-ui-event-edit-thumbnail { @apply h-20 w-24 shrink-0 overflow-hidden rounded-lg border border-gray-300 bg-slate-900; }
   .crm-ui-shell-mobile-drawer { @apply relative z-10 flex h-full w-[min(88vw,20rem)] flex-col bg-slate-900 text-gray-100 shadow-2xl; }
   .crm-ui-shell-root { @apply flex h-screen overflow-hidden bg-gray-50 font-sans; }
-  .crm-ui-shell-mobile-overlay { @apply fixed inset-0 z-0 h-full w-full bg-slate-950/70; }
+  .crm-ui-shell-mobile-overlay { @apply fixed inset-0 z-0 h-full w-full; background-color: var(--crm-modal-scrim, rgb(3 15 40 / 52%)); }
   .crm-ui-shell-mobile-header { @apply flex h-[73px] items-center gap-3 border-b px-5; border-color: color-mix(in srgb, var(--crm-on-sidebar) 18%, transparent); }
   .crm-ui-shell-mobile-signout { @apply w-full rounded-md border px-3 py-2 text-left text-sm font-medium; border-color: color-mix(in srgb, var(--crm-on-sidebar) 24%, transparent); color: var(--crm-on-sidebar); }
   .crm-ui-shell-mobile-signout:hover { background: var(--crm-brand-sidebar-hover); }

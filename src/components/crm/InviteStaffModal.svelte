@@ -159,7 +159,7 @@
 <style>
   .staff-invite-shell{display:flex;align-items:center;justify-content:center;min-height:100dvh;padding:16px}
   .staff-invite-card{text-align:left;display:block;width:100%;max-width:480px;margin:0;max-height:calc(100dvh - 32px);overflow-y:auto;border-radius:1.25rem}
-  .staff-invite-header{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.25rem;background:linear-gradient(120deg,#173c62,#08244b);border-bottom:2px solid var(--crm-brand-secondary);color:white}
+  .staff-invite-header{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.25rem;background:linear-gradient(120deg,var(--crm-workspace-shade,#173c62),var(--crm-workspace-background,#08244b));border-bottom:2px solid var(--crm-brand-secondary);color:white}
   .staff-invite-header h3{font-size:1.25rem;font-weight:750;line-height:1.3;margin:0;outline:none}
   .invite-close{display:grid;place-items:center;min-width:44px;min-height:44px;font-size:1.6rem;border:0;background:transparent;color:inherit;border-radius:.5rem}
   .staff-invite-body{display:flex;flex-direction:column;gap:1rem;padding:1.25rem}

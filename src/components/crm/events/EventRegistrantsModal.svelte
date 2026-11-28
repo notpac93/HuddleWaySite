@@ -28,7 +28,7 @@
 
     <span class="crm-ui-modal-spacer" aria-hidden="true">&#8203;</span>
 
-    <div class="relative z-10 inline-block align-bottom bg-white rounded-lg text-left overflow-y-auto shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full max-h-[calc(100vh-2rem)]" tabindex="-1" use:modalFocus={{ onEscape: onClose }}>
+    <div class="relative z-10 inline-block align-bottom crm-modal-surface rounded-lg text-left overflow-y-auto shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full max-h-[calc(100vh-2rem)]" tabindex="-1" use:modalFocus={{ onEscape: onClose }}>
       <div class="crm-ui-modal-body">
         <div class="flex justify-between items-start mb-4">
           <div>

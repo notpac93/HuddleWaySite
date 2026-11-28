@@ -81,13 +81,13 @@ describe('CRM interaction hardening source evidence', () => {
       );
       return !hasBackdrop
         || !componentSource.match(
-          /class="(?:crm-ui-modal-panel-lg|crm-ui-event-(?:create|duplicate|edit)-panel|crm-ui-shell-(?:mobile-drawer|logout-panel)|relative z-10 [^"]*bg-white)/,
+          /class="(?:crm-ui-modal-panel-lg|crm-ui-event-(?:create|duplicate|edit)-panel|crm-ui-shell-(?:mobile-drawer|logout-panel)|relative z-10 [^"]*(?:bg-white|crm-modal-surface))/,
         );
     });
 
     expect(failures).toEqual([]);
     expect(crmStyles).toMatch(
-      /\.crm-ui-backdrop\s*\{\s*@apply fixed inset-0 z-0 [^}]*bg-gray-500\/75/,
+      /\.crm-ui-backdrop\s*\{\s*@apply fixed inset-0 z-0 [^}]*background-color: var\(--crm-modal-scrim/,
     );
     expect(crmStyles).toMatch(
       /\.crm-ui-modal-root\s*\{\s*@apply fixed inset-0 z-\[100\] overflow-y-auto/,

@@ -8,12 +8,15 @@ export function toast(node: HTMLElement, options: { persistent?: boolean; dismis
     document.body.append(region);
   }
   const host = region;
+  // Notifications move outside the portal shell, so carry its surface color with them.
+  const surface = getComputedStyle(node).getPropertyValue('--crm-modal-surface').trim();
+  if (surface) node.style.setProperty('--crm-toast-surface', surface);
   const marker = document.createComment('notification');
   node.before(marker);
   host.append(node);
   node.dataset.crmToast = '';
   const style = document.createElement('style');
-  style.textContent = `[data-crm-toast]{position:relative!important;inset:auto!important;z-index:auto!important;width:100%!important;max-width:100%!important;box-sizing:border-box;margin:0!important;padding:14px 48px 14px 16px!important;border-radius:14px!important;box-shadow:0 8px 28px #071d3b26!important;pointer-events:auto;font-size:14px!important;line-height:1.45!important;background-color:#fff;color:#17314d;overflow-wrap:anywhere}[data-crm-toast] h3,[data-crm-toast] p{font-size:14px!important;line-height:1.45!important;margin-top:4px!important;margin-bottom:0!important}[data-crm-toast] h3{margin-top:0!important}[data-crm-toast] button{font-size:14px!important}[data-crm-toast] .toast-close{position:absolute;right:4px;top:4px;width:40px;height:40px;border:0;border-radius:8px;background:transparent;color:inherit;font-size:24px!important;cursor:pointer}[data-crm-toast][hidden]{display:none!important}`;
+  style.textContent = `[data-crm-toast]{position:relative!important;inset:auto!important;z-index:auto!important;width:100%!important;max-width:100%!important;box-sizing:border-box;margin:0!important;padding:14px 48px 14px 16px!important;border-radius:14px!important;box-shadow:0 8px 28px #071d3b26!important;pointer-events:auto;font-size:14px!important;line-height:1.45!important;background-color:var(--crm-toast-surface,#fff);color:#17314d;overflow-wrap:anywhere}[data-crm-toast] h3,[data-crm-toast] p{font-size:14px!important;line-height:1.45!important;margin-top:4px!important;margin-bottom:0!important}[data-crm-toast] h3{margin-top:0!important}[data-crm-toast] button{font-size:14px!important}[data-crm-toast] .toast-close{position:absolute;right:4px;top:4px;width:40px;height:40px;border:0;border-radius:8px;background:transparent;color:inherit;font-size:24px!important;cursor:pointer}[data-crm-toast][hidden]{display:none!important}`;
   host.append(style);
   let timer: ReturnType<typeof setTimeout>;
   let paused = false;

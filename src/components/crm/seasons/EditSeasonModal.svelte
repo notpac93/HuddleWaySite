@@ -168,7 +168,7 @@
     <button type="button" disabled={submitState === 'loading'} class="crm-ui-backdrop" aria-label="Cancel season editing" tabindex="-1" on:click={handleClose}></button>
     <span class="crm-ui-modal-spacer" aria-hidden="true">&#8203;</span>
 
-    <div class="relative z-10 inline-block align-bottom bg-white rounded-xl text-left overflow-y-auto shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-xl sm:w-full p-6 max-h-[calc(100vh-2rem)]" tabindex="-1" use:modalFocus={{ onEscape: handleClose }}>
+    <div class="relative z-10 inline-block align-bottom crm-modal-surface rounded-xl text-left overflow-y-auto shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-xl sm:w-full p-6 max-h-[calc(100vh-2rem)]" tabindex="-1" use:modalFocus={{ onEscape: handleClose }}>
       <div class="flex justify-between items-center pb-3 border-b border-gray-200">
         <h3 class="crm-ui-title" id="modal-title">Edit Season</h3>
         <button type="button" disabled={submitState === 'loading'} aria-label="Close season editor" on:click={handleClose} class="text-gray-400 hover:text-gray-600 p-1 rounded-md">

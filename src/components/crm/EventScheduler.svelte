@@ -831,7 +831,7 @@
   @media(max-width:540px) { .events-header { align-items:flex-start; flex-wrap:wrap; } .events-heading-actions { width:100%; justify-content:flex-start; } .events-start-scoring { flex:1; } }
   .events-tools { position:relative; }
   .events-tools-trigger { min-width:40px; min-height:40px; color:var(--crm-brand-link); border:1px solid #dce3ed; border-radius:8px; }
-  .events-tools-menu { position:absolute; top:calc(100% + 6px); right:0; min-width:160px; padding:6px; background:var(--crm-surface,#fff); border:1px solid #dce3ed; border-radius:10px; box-shadow:0 6px 18px #0002; z-index:20; }
+  .events-tools-menu { position:absolute; top:calc(100% + 6px); right:0; min-width:160px; padding:6px; background:var(--crm-modal-surface,#fff); border:1px solid #dce3ed; border-radius:10px; box-shadow:0 6px 18px #0002; z-index:20; }
   .events-tools-menu button { display:block; width:100%; min-height:44px; padding:10px 12px; text-align:left; font-size:14px; color:var(--crm-brand-link); }
   .event-view-tabs { display:flex; gap:16px; flex-wrap:wrap; }
   .event-view-tabs button { display:flex; align-items:center; gap:5px; min-height:44px; font-size:14px; color:var(--crm-muted,#64748b); border-bottom:2px solid transparent; }

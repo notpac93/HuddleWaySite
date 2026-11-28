@@ -486,7 +486,7 @@ async function openCrmTab(page: Page, tab: string, mobile: boolean) {
   }
 }
 
-test('the signed-in workspace paints the tenant palette and logos', async ({ page }, testInfo) => {
+test('tenant colors and white logo backgrounds carry through the score import', async ({ page }, testInfo) => {
   const suffix = `workspace-colors-${testInfo.project.name}`;
   const { email } = await seedVerifiedOwner(suffix);
   const palette = { primary: '#0B5C42', secondary: '#0F2747', tertiary: '#F4B41A' };
@@ -495,7 +495,15 @@ test('the signed-in workspace paints the tenant palette and logos', async ({ pag
     contentType: 'image/svg+xml',
     body: '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="20"><rect width="36" height="20" fill="green"/></svg>',
   }));
-  await mockAuthenticatedBackend(page, `e2e-tenant-${suffix}`, { ...palette, logoUrl });
+  const tenantId = `e2e-tenant-${suffix}`;
+  await mockAuthenticatedBackend(page, tenantId, { ...palette, logoUrl });
+  await page.route('**/admin/live-scores/import-final', (route) => {
+    const { title, names, scores } = route.request().postDataJSON();
+    return route.fulfill({ json: {
+      board: { id: 'fixture-result', tenantId, title, names, scores, display: 'bars', status: 'final',
+        revision: 0, started: true, importedFromCsv: true },
+    } });
+  });
   await signIn(page, email);
 
   await expect(page.locator('.crm-ui-shell-root')).toHaveAttribute('data-branding-state', 'ready');
@@ -508,6 +516,7 @@ test('the signed-in workspace paints the tenant palette and logos', async ({ pag
   await expect(dashboard.getByRole('heading', { name: 'Dashboard', exact: true })).toHaveCSS('color', 'rgb(255, 255, 255)');
   await expect(dashboard.locator('img.crm-auth-watermark')).toHaveAttribute('src', logoUrl);
 
+  const tenantGradient = await dashboard.evaluate(node => getComputedStyle(node).backgroundImage);
   await openCrmTab(page, 'Teams', Boolean(testInfo.project.use.isMobile));
   await page.getByRole('button', { name: 'Import CSV' }).click();
   const dialog = page.getByRole('dialog', { name: 'Import teams & scores' });
@@ -515,6 +524,35 @@ test('the signed-in workspace paints the tenant palette and logos', async ({ pag
   await expect(logo).toHaveAttribute('src', logoUrl);
   await expect(logo).toHaveJSProperty('naturalWidth', 36);
   await expect(dialog.locator('img.crm-auth-watermark')).toHaveAttribute('src', logoUrl);
+  await expect(dialog.locator('.crm-auth-brand-mark')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  const panel = dialog.locator('.import-panel');
+  await expect(panel).toHaveCSS('background-image', tenantGradient);
+
+  await dialog.getByLabel('Choose CSV file').setInputFiles({
+    name: 'scores.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from('Team Name,Score\nFixture Falcons,14\n'),
+  });
+  await expect(dialog.getByRole('textbox', { name: 'Scoring event title' })).toBeVisible();
+  await expect(panel).toHaveCSS('background-image', tenantGradient);
+  await dialog.getByRole('textbox', { name: 'Scoring event title' }).fill('Fixture challenge');
+  await dialog.getByRole('button', { name: 'Publish 1 score' }).click();
+  await dialog.getByRole('button', { name: 'Done' }).click();
+
+  const receipt = page.locator('[data-crm-toast]').filter({ hasText: 'Past scores imported' });
+  await expect(receipt).toBeVisible();
+  const modalSurface = await page.locator('.crm-ui-shell-root').evaluate(root => {
+    const sample = document.createElement('div');
+    sample.style.backgroundColor = 'var(--crm-modal-surface)';
+    root.append(sample);
+    const color = getComputedStyle(sample).backgroundColor;
+    sample.remove();
+    return color;
+  });
+  expect(modalSurface).not.toBe('rgba(0, 0, 0, 0)');
+  await expect(receipt).toHaveCSS('background-color', modalSurface);
+  await page.getByRole('button', { name: 'Create team' }).click();
+  await expect(page.locator('.team-editor')).toHaveCSS('background-color', modalSurface);
 });
 
 test('verified owner can use the authenticated CRM shell by keyboard and mobile navigation', async ({

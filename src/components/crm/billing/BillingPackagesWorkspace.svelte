@@ -252,8 +252,8 @@
 </section>
 
 {#if editorOpen}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3" role="presentation">
-    <div class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="package-editor-title">
+  <div class="fixed inset-0 z-50 flex items-center justify-center crm-modal-scrim p-3" role="presentation">
+    <div class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-xl crm-modal-surface shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="package-editor-title">
       <header class="border-b border-gray-200 p-5">
         <h2 id="package-editor-title" class="text-xl font-semibold text-gray-950">{editing ? 'Edit payment setup' : 'Add payment setup'}</h2>
         <p class="mt-1 text-sm text-gray-600">Only information families and program staff need is shown here.</p>

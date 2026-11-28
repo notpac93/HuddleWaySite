@@ -211,14 +211,14 @@
     <div class="flex min-h-full items-center justify-center p-4">
       <button
         type="button"
-        class="fixed inset-0 z-0 h-full w-full bg-slate-950/70"
+        class="crm-ui-backdrop"
         aria-label="Close delete document confirmation"
         tabindex="-1"
         disabled={deleteState === 'loading'}
         on:click={() => closeDeleteDialog()}
       ></button>
       <div
-        class="relative z-10 w-full max-w-md rounded-xl bg-white p-6 shadow-xl"
+        class="relative z-10 w-full max-w-md rounded-xl crm-modal-surface p-6 shadow-xl"
         tabindex="-1"
         use:modalFocus={{ onEscape: () => closeDeleteDialog(), initialFocusSelector: '[data-delete-cancel]' }}
       >

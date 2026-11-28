@@ -238,8 +238,8 @@
 
 <style>
   .team-editor-backdrop{position:fixed;inset:0;z-index:0;width:100%;height:100%;background:rgba(3,15,40,.7)}
-  .team-editor{position:relative;z-index:10;display:inline-block;vertical-align:middle;width:100%;max-width:480px;max-height:calc(100dvh - 32px);overflow-y:auto;text-align:left;border:1px solid var(--crm-brand-border);border-radius:1.25rem;background:white;box-shadow:0 28px 70px rgba(3,15,40,.32);margin:16px 0}
-  .team-editor-header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 24px;color:white;border-bottom:1px solid var(--crm-brand-secondary);background:linear-gradient(135deg,var(--crm-brand-sidebar),var(--crm-brand-primary))}
+  .team-editor{position:relative;z-index:10;display:inline-block;vertical-align:middle;width:100%;max-width:480px;max-height:calc(100dvh - 32px);overflow-y:auto;text-align:left;border:1px solid var(--crm-brand-border);border-radius:1.25rem;background:var(--crm-modal-surface,white);box-shadow:0 28px 70px rgba(3,15,40,.32);margin:16px 0}
+  .team-editor-header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 24px;color:white;border-bottom:1px solid var(--crm-brand-secondary);background:linear-gradient(135deg,var(--crm-workspace-shade,#173c62),var(--crm-workspace-background,#08244b))}
   .team-editor-heading{display:flex;align-items:center;gap:12px;min-width:0}
   .team-editor-heading h3{font-size:1.35rem;font-weight:700;line-height:1.3;margin:0;overflow-wrap:anywhere}
   .team-editor-mark{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.12);color:var(--crm-brand-secondary);flex-shrink:0}

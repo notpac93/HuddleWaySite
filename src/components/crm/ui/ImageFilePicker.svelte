@@ -16,6 +16,7 @@
   export let buttonLabel = 'Choose image';
 
   export let photo = false;
+  export let logo = false;
   export let previewUrl = '';
   let fileInput: HTMLInputElement;
   let selectedPreviewUrl = '';
@@ -64,7 +65,7 @@
     <p class="text-xs text-gray-500">PNG, JPG, GIF, or WebP · 10 MB maximum.</p>
   {:else if compact}
     <div class="flex min-w-0 items-center gap-4">
-      <div class="h-20 w-24 shrink-0 overflow-hidden rounded-lg border border-gray-300 bg-slate-900">
+      <div class="h-20 w-24 shrink-0 overflow-hidden rounded-lg border border-gray-300" class:bg-white={logo} class:bg-slate-900={!logo}>
         {#if previewUrl}
           <img
             src={previewUrl}
@@ -72,7 +73,7 @@
             width="640"
             height="288"
             decoding="async"
-            class="crm-ui-cover"
+            class={logo ? 'h-full w-full object-contain p-1' : 'crm-ui-cover'}
           />
         {:else}
           <div class="flex h-full w-full items-center justify-center px-2 text-center text-xs text-gray-400">No image</div>

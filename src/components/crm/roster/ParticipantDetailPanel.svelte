@@ -165,8 +165,8 @@
   }
 </script>
 
-<div class="fixed inset-0 z-50 flex justify-end bg-slate-950/40" role="presentation" on:click|self={onClose}>
-  <div class="h-full w-full max-w-xl overflow-y-auto bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="participant-title">
+<div class="fixed inset-0 z-50 flex justify-end crm-modal-scrim" role="presentation" on:click|self={onClose}>
+  <div class="h-full w-full max-w-xl overflow-y-auto crm-modal-surface shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="participant-title">
     <header class="sticky top-0 z-10 flex items-start justify-between border-b border-gray-200 bg-white px-5 py-4">
       <div><h2 id="participant-title" class="text-xl font-bold text-gray-950">{player.name}</h2><p class="text-sm text-gray-600">Participant details</p></div>
       <div class="flex gap-2"><button type="button" class="crm-ui-button-secondary" disabled={editorLoading} on:click={openEditor}>{editorLoading ? 'Loading…' : 'Edit'}</button><button type="button" class="rounded-md px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100" on:click={onClose}>Close</button></div>

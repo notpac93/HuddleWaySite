@@ -1275,7 +1275,7 @@
     <div class="flex min-h-full items-center justify-center p-4">
       <button
         type="button"
-        class="fixed inset-0 z-0 h-full w-full bg-slate-950/70"
+        class="crm-ui-backdrop"
         aria-label="Close delete confirmation"
         tabindex="-1"
         disabled={Boolean(recallingMessageId)}

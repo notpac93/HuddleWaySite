@@ -266,8 +266,8 @@
 {#if uploadOpen}
   <div class="crm-ui-modal-root" role="dialog" aria-modal="true" aria-labelledby="media-upload-title">
     <div class="flex min-h-full items-center justify-center p-4">
-      <button type="button" class="fixed inset-0 z-0 h-full w-full bg-slate-950/70" aria-label="Close upload image" disabled={uploadState === 'saving'} on:click={closeUpload}></button>
-      <div class="relative z-10 w-full max-w-lg rounded-xl bg-white p-6 shadow-xl" tabindex="-1" use:modalFocus={{ onEscape: closeUpload, initialFocusSelector: 'input' }}>
+      <button type="button" class="fixed inset-0 z-0 h-full w-full crm-modal-scrim" aria-label="Close upload image" disabled={uploadState === 'saving'} on:click={closeUpload}></button>
+      <div class="relative z-10 w-full max-w-lg rounded-xl crm-modal-surface p-6 shadow-xl" tabindex="-1" use:modalFocus={{ onEscape: closeUpload, initialFocusSelector: 'input' }}>
         <h3 id="media-upload-title" class="text-lg font-semibold">{uploadState === 'review' || uploadState === 'saving' || uploadState === 'error' ? 'Review image upload' : 'Upload image'}</h3>
         {#if uploadState === 'review' || uploadState === 'saving' || uploadState === 'error'}
           <div class="mt-4 rounded-md border border-gray-200 bg-gray-50 p-4 text-sm"><p><strong>File:</strong> {uploadFile?.name}</p><p><strong>Category:</strong> {uploadCategory}</p><p><strong>Purpose:</strong> {uploadPurpose}</p><p><strong>Alt text:</strong> {uploadAltText}</p></div>
@@ -287,9 +287,9 @@
 {/if}
 
 {#if selected}
-  <div class="fixed inset-0 z-50 flex justify-end bg-slate-950/40" role="dialog" aria-modal="true" aria-labelledby="media-detail-title">
+  <div class="fixed inset-0 z-50 flex justify-end crm-modal-scrim" role="dialog" aria-modal="true" aria-labelledby="media-detail-title">
     <button type="button" class="absolute inset-0" aria-label="Close media details" on:click={() => selected = null}></button>
-    <aside class="relative z-10 h-full w-full max-w-lg overflow-y-auto bg-white p-6 shadow-xl" tabindex="-1" use:modalFocus={{ onEscape: () => selected = null, initialFocusSelector: 'button' }}>
+    <aside class="relative z-10 h-full w-full max-w-lg overflow-y-auto crm-modal-surface p-6 shadow-xl" tabindex="-1" use:modalFocus={{ onEscape: () => selected = null, initialFocusSelector: 'button' }}>
       <div class="flex items-start justify-between"><div><h3 id="media-detail-title" class="text-xl font-semibold">Asset details</h3><p class="text-sm text-gray-500">Identity: {selected.id}</p></div><button type="button" class="rounded-md border px-3 py-2 text-sm" on:click={() => selected = null}>Close</button></div>
       {#if safeMediaUrl(selected.url)}<img class="mt-5 max-h-80 w-full rounded-lg bg-gray-100 object-contain" src={safeMediaUrl(selected.url)} alt={selected.altText || selected.name || 'Media name unavailable'} width="640" height="480" />{/if}
       <div class="mt-5 grid gap-4 sm:grid-cols-2">

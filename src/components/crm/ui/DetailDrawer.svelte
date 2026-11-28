@@ -8,9 +8,9 @@
 </script>
 
 <div class="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-labelledby="portal-drawer-title">
-  <button type="button" class="absolute inset-0 bg-slate-950/50" aria-label="Close details" tabindex="-1" on:click={onClose}></button>
+  <button type="button" class="absolute inset-0 crm-modal-scrim" aria-label="Close details" tabindex="-1" on:click={onClose}></button>
   <aside
-    class="portal-drawer-enter relative flex h-full w-full max-w-xl flex-col border-l border-gray-200 bg-white shadow-2xl"
+    class="portal-drawer-enter relative flex h-full w-full max-w-xl flex-col border-l border-gray-200 crm-modal-surface shadow-2xl"
     tabindex="-1"
     use:modalFocus={{ onEscape: onClose, initialFocusSelector: '[data-drawer-close]' }}
   >

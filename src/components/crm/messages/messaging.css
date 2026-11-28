@@ -225,7 +225,7 @@
 .crm-message-feedback.crm-ui-message-operation-ok { border:0; background:transparent; box-shadow:none; color:#dfe8f2; padding:0 4px; font-size:12px; margin:0; }
 
 /* Composing is a dedicated screen, with the recipient fixed before chatting. */
-.crm-fullscreen-message { position:fixed; inset:0; z-index:200; width:100%; max-width:none; height:100dvh; min-height:0; margin:0; border:0; border-radius:0; box-shadow:none; background:#fff; color:#18334f; display:flex; flex-direction:column; overflow:hidden; }
+.crm-fullscreen-message { position:fixed; inset:0; z-index:200; width:100%; max-width:none; height:100dvh; min-height:0; margin:0; border:0; border-radius:0; box-shadow:none; background:var(--crm-modal-surface,#fff); color:#18334f; display:flex; flex-direction:column; overflow:hidden; }
 .crm-fullscreen-heading { display:flex; align-items:center; gap:12px; padding:14px 20px; min-height:78px; flex-shrink:0; border-bottom:1px solid #e6eaf0; background:#fff; }
 .crm-fullscreen-heading h3 { font-size:16px; font-weight:700; }
 .crm-message-back-arrow { transform:rotate(180deg); }
@@ -276,11 +276,11 @@
 .crm-email-availability button { min-height:32px; }
 
 /* Announcement: an open writing canvas, with audience controls in one sheet. */
-.crm-announcement-note { background: #fff; color: #18334d; }
+.crm-announcement-note { background: var(--crm-modal-surface,#fff); color: #18334d; }
 .crm-note-heading { display:flex; align-items:center; gap:12px; padding:16px 24px; border-bottom:1px solid #e8ecf0; color:#748398; }
 .crm-note-options { margin-left:auto; position:relative; }
 .crm-note-options > button { display:flex; align-items:center; gap:8px; }
-.crm-note-options-panel { position:absolute; right:0; top:38px; z-index:2; width:220px; padding:18px; background:white; border:1px solid #dde3ea; border-radius:16px; box-shadow:0 12px 40px #00336618; }
+.crm-note-options-panel { position:absolute; right:0; top:38px; z-index:2; width:220px; padding:18px; background:var(--crm-modal-surface,white); border:1px solid #dde3ea; border-radius:16px; box-shadow:0 12px 40px #00336618; }
 .crm-note-options-panel label { display:grid; gap:8px; }
 .crm-note-options-panel select { padding:8px; border:1px solid #dde3ea; border-radius:8px; }
 .crm-note-options-panel button { display:flex; align-items:center; gap:8px; margin-top:18px; }
@@ -295,8 +295,8 @@
 .crm-note-audience > span { max-width:210px; overflow:hidden; text-overflow:ellipsis; }
 .crm-note-audience small { display:block; font-size:11px; color:#748398; }
 .crm-note-picker-overlay { position:fixed; inset:0; z-index:10; display:flex; align-items:center; justify-content:center; padding:24px; }
-.crm-note-picker-shade { position:absolute; inset:0; background:#09233d66; }
-.crm-note-picker { position:relative; display:flex; flex-direction:column; width:100%; max-width:520px; max-height:85dvh; padding:28px; background:#fff; border:1px solid #dce2e9; border-radius:26px; box-shadow:0 18px 80px #001b3430; }
+.crm-note-picker-shade { position:absolute; inset:0; background:var(--crm-modal-scrim,#09233d66); }
+.crm-note-picker { position:relative; display:flex; flex-direction:column; width:100%; max-width:520px; max-height:85dvh; padding:28px; background:var(--crm-modal-surface,#fff); border:1px solid #dce2e9; border-radius:26px; box-shadow:0 18px 80px #001b3430; }
 .crm-note-picker header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
 .crm-note-picker h4 { font-size:24px; font-weight:700; margin:0; }
 .crm-note-scopes { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; }

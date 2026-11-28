@@ -179,9 +179,9 @@
 </script>
 
 {#if selectedActivity}
-  <div class="fixed inset-0 z-50 flex justify-end bg-slate-950/40" role="dialog" aria-modal="true" aria-labelledby="activity-detail-title">
+  <div class="fixed inset-0 z-50 flex justify-end crm-modal-scrim" role="dialog" aria-modal="true" aria-labelledby="activity-detail-title">
     <button type="button" class="absolute inset-0" aria-label="Close activity details" on:click={() => selectedActivity = null}></button>
-    <aside class="relative z-10 h-full w-full max-w-xl overflow-y-auto bg-white p-6 shadow-xl" tabindex="-1" use:modalFocus={{ onEscape: () => selectedActivity = null, initialFocusSelector: 'button' }}>
+    <aside class="relative z-10 h-full w-full max-w-xl overflow-y-auto crm-modal-surface p-6 shadow-xl" tabindex="-1" use:modalFocus={{ onEscape: () => selectedActivity = null, initialFocusSelector: 'button' }}>
       <div class="flex justify-between gap-4"><div><h3 id="activity-detail-title" class="text-xl font-semibold">Audit record</h3><p class="text-sm text-gray-500">{selectedActivity.actionDescription}</p></div><button type="button" class="rounded-md border px-3 py-2 text-sm" on:click={() => selectedActivity = null}>Close</button></div>
       <dl class="mt-6 grid gap-4 text-sm sm:grid-cols-2"><div><dt class="text-gray-500">Actor</dt><dd>{selectedActivity.actorLabel} ({selectedActivity.actorRole}){#if selectedActivity.actorEmail && selectedActivity.actorEmail !== selectedActivity.actorLabel}<span class="block text-gray-600">{selectedActivity.actorEmail}</span>{/if}</dd></div><div><dt class="text-gray-500">Outcome</dt><dd>{selectedActivity.outcome}</dd></div><div><dt class="text-gray-500">Object</dt><dd>{activityObjectLabel(selectedActivity)}</dd></div><div><dt class="text-gray-500">Time</dt><dd>{formatTime(selectedActivity.timestamp)}</dd></div><div><dt class="text-gray-500">Source</dt><dd>{selectedActivity.source}</dd></div><div><dt class="text-gray-500">Correlation ID</dt><dd class="break-all">{selectedActivity.correlationId || 'Unavailable'}</dd></div></dl>
       <section class="mt-6"><h4 class="font-semibold">Reason</h4><p class="mt-1 text-sm">{selectedActivity.reason || 'No audit reason was recorded.'}</p></section>

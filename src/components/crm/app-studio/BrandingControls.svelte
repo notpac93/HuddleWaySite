@@ -29,6 +29,7 @@
         bind:validationMessage={logoValidationMessage}
         {disabled}
         compact={true}
+        logo={true}
         buttonLabel="Change logo"
       />
     </div>

@@ -95,8 +95,8 @@
       <!-- Background overlay -->
       <button type="button" class="crm-ui-backdrop" aria-label="Close global search" tabindex="-1" on:click={closeSearch}></button>
 
-      <div data-search-panel role="document" class="relative z-10 inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-top sm:max-w-2xl sm:w-full" tabindex="-1" use:modalFocus={{ onEscape: closeSearch, initialFocusSelector: '#global-search-input' }}>
-        <div class="bg-white">
+      <div data-search-panel role="document" class="relative z-10 inline-block align-bottom crm-modal-surface rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-top sm:max-w-2xl sm:w-full" tabindex="-1" use:modalFocus={{ onEscape: closeSearch, initialFocusSelector: '#global-search-input' }}>
+        <div>
           <h2 id="global-search-title" class="sr-only">Search HuddleWay records</h2>
           <div class="relative border-b border-gray-200">
             <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">

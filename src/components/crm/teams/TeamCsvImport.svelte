@@ -224,7 +224,7 @@
 <div class="crm-ui-modal-root crm-score-import" role="dialog" aria-modal="true" aria-labelledby="team-import-title">
   <div class="crm-ui-modal-shell import-shell">
     <button type="button" class="crm-ui-backdrop" aria-label="Close team import" tabindex="-1" disabled={applying || reading} on:click={close}></button>
-    <div class="import-panel crm-auth-shell" tabindex="-1" use:modalFocus={{ onEscape: close }}>
+    <div class="import-panel crm-auth-shell crm-workspace-backdrop" tabindex="-1" use:modalFocus={{ onEscape: close }}>
       <CrmLogo class="crm-auth-watermark" />
       <header>
         <div class="crm-auth-brand-mark"><CrmLogo /></div>

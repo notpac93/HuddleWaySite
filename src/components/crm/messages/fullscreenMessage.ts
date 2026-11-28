@@ -5,6 +5,7 @@ export function fullscreenMessage(node: HTMLElement) {
   const previousOverflow = document.body.style.overflow;
   let active = true;
   document.body.style.overflow = 'hidden';
-  void tick().then(() => { if (active) document.body.appendChild(node); });
+  const host = node.closest('.crm-ui-shell-root') ?? document.body;
+  void tick().then(() => { if (active) host.appendChild(node); });
   return { destroy() { active = false; node.remove(); document.body.style.overflow = previousOverflow; } };
 }

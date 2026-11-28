@@ -343,8 +343,8 @@
   }
 </script>
 
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="presentation">
-  <div class="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="roster-entry-title">
+<div class="fixed inset-0 z-50 flex items-center justify-center crm-modal-scrim p-4" role="presentation">
+  <div class="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-lg crm-modal-surface p-6 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="roster-entry-title">
     <div class="flex items-start justify-between gap-4">
       <div>
         <h2 id="roster-entry-title" class="text-xl font-semibold text-[var(--crm-brand-link)]">Add players to the program</h2>

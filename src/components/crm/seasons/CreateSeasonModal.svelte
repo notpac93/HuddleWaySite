@@ -212,7 +212,7 @@
     <button type="button" disabled={submitState === 'loading'} class="crm-ui-backdrop" aria-label="Cancel season creation" tabindex="-1" on:click={handleClose}></button>
     <span class="crm-ui-modal-spacer" aria-hidden="true">&#8203;</span>
 
-    <div class="relative z-10 inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full" tabindex="-1" use:modalFocus={{ onEscape: handleClose }}>
+    <div class="relative z-10 inline-block align-bottom crm-modal-surface rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full" tabindex="-1" use:modalFocus={{ onEscape: handleClose }}>
 
       <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4 max-h-[80vh] overflow-y-auto">
         <div class="sm:flex sm:items-start">

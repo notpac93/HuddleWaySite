@@ -1,4 +1,4 @@
-.schedule-create-screen { position:fixed; inset:0; z-index:200; height:100dvh; display:flex; flex-direction:column; overflow:hidden; background:#fff; color:#193149; text-align:left; }
+.schedule-create-screen { position:fixed; inset:0; z-index:200; height:100dvh; display:flex; flex-direction:column; overflow:hidden; background:var(--crm-modal-surface,#fff); color:#193149; text-align:left; }
 .schedule-create-header { display:flex; align-items:center; gap:12px; min-height:70px; padding:12px 24px; border-bottom:1px solid #e1e6ec; flex-shrink:0; }
 .schedule-create-header strong { font-size:16px; font-weight:600; }
 .schedule-create-header > button:last-child { margin-left:auto; }

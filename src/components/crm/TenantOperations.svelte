@@ -332,9 +332,9 @@
 </div>
 
 {#if selectedTenant}
-  <div class="fixed inset-0 z-50 flex justify-end bg-slate-950/40" role="presentation" on:click={() => selectedTenant = null}>
+  <div class="fixed inset-0 z-50 flex justify-end crm-modal-scrim" role="presentation" on:click={() => selectedTenant = null}>
     <aside
-      class="h-full w-full max-w-xl overflow-y-auto bg-white p-6 shadow-2xl"
+      class="h-full w-full max-w-xl overflow-y-auto crm-modal-surface p-6 shadow-2xl"
       role="dialog"
       aria-modal="true"
       aria-labelledby="tenant-detail-title"

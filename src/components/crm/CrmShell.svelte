@@ -422,7 +422,7 @@
             decoding="async"
             on:error={useDefaultLogo}
             alt=""
-            class="h-8 w-8 shrink-0 object-contain"
+            class="crm-logo-badge h-8 w-8 shrink-0 object-contain"
           />
           <h2 id="mobile-navigation-title" class="min-w-0 flex-1 truncate text-lg font-bold">{appName}</h2>
           <button
@@ -492,7 +492,7 @@
         fetchpriority="high"
         on:error={useDefaultLogo}
         alt="{appName} logo"
-        class="w-8 h-8 object-contain shrink-0"
+        class="crm-logo-badge w-8 h-8 object-contain shrink-0"
       />
       {#if isSidebarExpanded}
         <span class="min-w-0 flex-1 truncate text-xl font-bold tracking-tight">{appName}</span>
@@ -601,7 +601,7 @@
       </button>
       {#if isMobileViewport}
         <div class="flex min-w-0 flex-1 items-center gap-2.5">
-          <img crossorigin={logoCrossOrigin} src={$logo ?? undefined} style:visibility={$logo ? undefined : 'hidden'} alt="Program logo" on:error={useDefaultLogo} class="h-9 w-9 shrink-0 rounded-xl object-contain" />
+          <img crossorigin={logoCrossOrigin} src={$logo ?? undefined} style:visibility={$logo ? undefined : 'hidden'} alt="Program logo" on:error={useDefaultLogo} class="crm-logo-badge h-9 w-9 shrink-0 object-contain" />
           <span class="truncate text-sm font-semibold text-gray-950">{appName}</span>
         </div>
       {:else}
